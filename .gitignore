@@ -1,5 +1,6 @@
 # --- secrets / local env ---
 .env
+.env.auth
 .env.local
 .env.*.local
 # keep .env.example (committed)

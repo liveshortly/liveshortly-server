@@ -51,6 +51,11 @@ services:
       STORAGE_PATH: /app/data/sessions
       CORS_ORIGINS: ${CORS_ORIGINS:-https://server.liveshortly.com}
       DEFAULT_USER_HANDLE: ${DEFAULT_USER_HANDLE:-you}
+    # Google OAuth secrets/config live here (written from GitHub secrets by the
+    # deploy workflow). Optional so dev/local without auth still boots.
+    env_file:
+      - path: .env.auth
+        required: false
     volumes:
       - api_data:/app/data/sessions
     # bound to loopback — only the host nginx can reach it
