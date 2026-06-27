@@ -15,13 +15,9 @@ import (
 func (h *Handler) Stop(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
-	s, err := h.store.GetSession(r.Context(), id)
-	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "failed to load session")
-		return
-	}
-	if s == nil {
-		httpx.Error(w, http.StatusNotFound, "session not found")
+	// Only the owner (the CLI client) may stop a session.
+	s, _, ok := h.ownedSession(w, r, id)
+	if !ok {
 		return
 	}
 	if s.Status == "ended" {

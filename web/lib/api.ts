@@ -12,6 +12,8 @@ export type EventType =
 
 export type Actor = "agent" | "tool" | "viewer" | null;
 
+export type ShareRole = "viewer" | "commenter";
+
 export interface Session {
   id: string;
   title: string;
@@ -24,6 +26,17 @@ export interface Session {
   view_count: number;
   created_at: string; // RFC3339
   ended_at: string | null; // RFC3339 | null
+  /** Present on rows returned for scope=shared: the caller's grant role. */
+  shared_role?: ShareRole | null;
+}
+
+/** A sharing grant on a session (owner view). */
+export interface ShareGrant {
+  id: string;
+  grantee_email: string;
+  role: ShareRole;
+  grantee_user_id?: string | null;
+  created_at?: string;
 }
 
 export interface SessionEvent {
@@ -69,6 +82,16 @@ export function browserBase(): string {
   return process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 }
 
+/** Error that carries the HTTP status, so callers can branch on 403/404 etc. */
+export class ApiError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
 async function getJSON<T>(path: string, signal?: AbortSignal): Promise<T> {
   const res = await fetch(`${apiBase()}${path}`, {
     signal,
@@ -77,7 +100,7 @@ async function getJSON<T>(path: string, signal?: AbortSignal): Promise<T> {
     headers: { accept: "application/json" },
   });
   if (!res.ok) {
-    throw new Error(`API ${res.status} ${res.statusText} on ${path}`);
+    throw new ApiError(res.status, `API ${res.status} ${res.statusText} on ${path}`);
   }
   return (await res.json()) as T;
 }
@@ -87,6 +110,7 @@ export function stats(signal?: AbortSignal): Promise<Stats> {
 }
 
 export interface ListParams {
+  scope?: "mine" | "shared" | "all";
   status?: "live" | "ended" | "all";
   q?: string;
   limit?: number;
@@ -98,6 +122,7 @@ export function listSessions(
   signal?: AbortSignal,
 ): Promise<SessionList> {
   const qs = new URLSearchParams();
+  if (params.scope) qs.set("scope", params.scope);
   qs.set("status", params.status ?? "all");
   if (params.q) qs.set("q", params.q);
   if (params.limit != null) qs.set("limit", String(params.limit));
@@ -140,13 +165,76 @@ export async function postComment(
     },
   );
   if (!res.ok) {
-    throw new Error(`POST comment failed: ${res.status} ${res.statusText}`);
+    throw new ApiError(
+      res.status,
+      `POST comment failed: ${res.status} ${res.statusText}`,
+    );
+  }
+}
+
+/** List sharing grants on a session (owner only). */
+export function listShares(
+  id: string,
+  signal?: AbortSignal,
+): Promise<{ results: ShareGrant[] }> {
+  return getJSON<{ results: ShareGrant[] }>(
+    `/api/sessions/${encodeURIComponent(id)}/shares`,
+    signal,
+  );
+}
+
+/** Grant access to a session by email (owner only). */
+export async function createShare(
+  id: string,
+  email: string,
+  role: ShareRole,
+  signal?: AbortSignal,
+): Promise<ShareGrant> {
+  const res = await fetch(
+    `${browserBase()}/api/sessions/${encodeURIComponent(id)}/shares`,
+    {
+      method: "POST",
+      signal,
+      credentials: "include",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email, role }),
+    },
+  );
+  if (!res.ok) {
+    throw new ApiError(
+      res.status,
+      `Could not share: ${res.status} ${res.statusText}`,
+    );
+  }
+  return (await res.json()) as ShareGrant;
+}
+
+/** Revoke a sharing grant (owner only). */
+export async function deleteShare(
+  id: string,
+  shareId: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const res = await fetch(
+    `${browserBase()}/api/sessions/${encodeURIComponent(id)}/shares/${encodeURIComponent(shareId)}`,
+    {
+      method: "DELETE",
+      signal,
+      credentials: "include",
+    },
+  );
+  if (!res.ok && res.status !== 404) {
+    throw new ApiError(
+      res.status,
+      `Could not remove share: ${res.status} ${res.statusText}`,
+    );
   }
 }
 
 /** Authenticated user, as reported by GET /api/me. */
 export interface Me {
   authenticated: boolean;
+  id?: string;
   email?: string;
   name?: string;
   picture?: string;

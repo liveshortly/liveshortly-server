@@ -1,198 +1,308 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import TabNav, { type TabKey } from "@/components/TabNav";
-import LiveCard from "@/components/LiveCard";
 import SessionTable from "@/components/SessionTable";
+import ShareDialog from "@/components/ShareDialog";
 import { listSessions, type Session } from "@/lib/api";
 import { fmtInt } from "@/lib/utils";
 
-const LIVE_POLL_MS = 4000;
-const LIST_DEBOUNCE_MS = 300;
+const POLL_MS = 5000;
+const SEARCH_DEBOUNCE_MS = 300;
 
 function Dashboard() {
   const router = useRouter();
   const params = useSearchParams();
 
-  const initialTab: TabKey = params.get("tab") === "sessions" ? "sessions" : "live";
-  const [tab, setTab] = useState<TabKey>(initialTab);
   const [query, setQuery] = useState<string>(params.get("q") ?? "");
+  const [mine, setMine] = useState<Session[] | null>(null);
+  const [shared, setShared] = useState<Session[] | null>(null);
+  const [mineErr, setMineErr] = useState<string | null>(null);
+  const [sharedErr, setSharedErr] = useState<string | null>(null);
 
-  const [live, setLive] = useState<Session[] | null>(null);
-  const [all, setAll] = useState<Session[] | null>(null);
-  const [total, setTotal] = useState<number>(0);
-  const [err, setErr] = useState<string | null>(null);
+  // Which owned session has its share popover open.
+  const [shareFor, setShareFor] = useState<Session | null>(null);
 
-  // Reflect tab + query into the URL (shallow, no scroll).
+  // Reflect the search query into the URL (shallow).
   useEffect(() => {
     const qs = new URLSearchParams();
-    qs.set("tab", tab);
     if (query) qs.set("q", query);
-    router.replace(`/?${qs.toString()}`, { scroll: false });
-  }, [tab, query, router]);
+    const s = qs.toString();
+    router.replace(s ? `/?${s}` : "/", { scroll: false });
+  }, [query, router]);
 
-  // LIVE tab: poll status=live every ~4s.
+  // MY SESSIONS — scope=mine, debounced search, polled.
+  const mineReq = useRef(0);
   useEffect(() => {
-    if (tab !== "live") return;
     let alive = true;
-    const ctrl = new AbortController();
-    const tick = async () => {
+    let ctrl = new AbortController();
+    const run = async () => {
+      const my = ++mineReq.current;
+      ctrl = new AbortController();
       try {
-        const r = await listSessions({ status: "live", limit: 60 }, ctrl.signal);
-        if (alive) {
-          setLive(r.results);
-          setErr(null);
+        const r = await listSessions(
+          { scope: "mine", status: "all", q: query, limit: 100 },
+          ctrl.signal,
+        );
+        if (alive && my === mineReq.current) {
+          setMine(r.results);
+          setMineErr(null);
         }
       } catch (e) {
         if (alive && (e as Error).name !== "AbortError")
-          setErr("Could not reach the API.");
+          setMineErr("Could not load your sessions.");
       }
     };
-    tick();
-    const id = setInterval(tick, LIVE_POLL_MS);
+    const t = setTimeout(run, query ? SEARCH_DEBOUNCE_MS : 0);
+    const id = setInterval(run, POLL_MS);
+    return () => {
+      alive = false;
+      ctrl.abort();
+      clearTimeout(t);
+      clearInterval(id);
+    };
+  }, [query]);
+
+  // SHARED WITH ME — scope=shared, polled.
+  useEffect(() => {
+    let alive = true;
+    let ctrl = new AbortController();
+    const run = async () => {
+      ctrl = new AbortController();
+      try {
+        const r = await listSessions(
+          { scope: "shared", status: "all", limit: 100 },
+          ctrl.signal,
+        );
+        if (alive) {
+          setShared(r.results);
+          setSharedErr(null);
+        }
+      } catch (e) {
+        if (alive && (e as Error).name !== "AbortError")
+          setSharedErr("Could not load shared sessions.");
+      }
+    };
+    run();
+    const id = setInterval(run, POLL_MS);
     return () => {
       alive = false;
       ctrl.abort();
       clearInterval(id);
     };
-  }, [tab]);
-
-  // SESSIONS tab: fetch status=all with debounced search.
-  const reqRef = useRef(0);
-  useEffect(() => {
-    if (tab !== "sessions") return;
-    let alive = true;
-    const ctrl = new AbortController();
-    const my = ++reqRef.current;
-    const run = async () => {
-      try {
-        const r = await listSessions(
-          { status: "all", q: query, limit: 100 },
-          ctrl.signal,
-        );
-        if (alive && my === reqRef.current) {
-          setAll(r.results);
-          setTotal(r.total);
-          setErr(null);
-        }
-      } catch (e) {
-        if (alive && (e as Error).name !== "AbortError")
-          setErr("Could not reach the API.");
-      }
-    };
-    const t = setTimeout(run, query ? LIST_DEBOUNCE_MS : 0);
-    return () => {
-      alive = false;
-      ctrl.abort();
-      clearTimeout(t);
-    };
-  }, [tab, query]);
-
-  const liveCount = live?.length;
-  const onTab = useCallback((t: TabKey) => setTab(t), []);
+  }, []);
 
   return (
     <>
-      <TabNav
-        tab={tab}
-        onTab={onTab}
-        query={query}
-        onQuery={setQuery}
-        liveCount={liveCount}
-      />
+      <SearchBox query={query} onQuery={setQuery} />
 
-      {err && (
-        <div
-          className="label"
-          style={{
-            border: "1px solid var(--red)",
-            color: "var(--red)",
-            padding: "8px 12px",
-            marginBottom: 14,
-          }}
-        >
-          ⚠ {err}
-        </div>
-      )}
+      {/* MY SESSIONS */}
+      <Section
+        title="MY SESSIONS"
+        count={mine?.length}
+        hint={query ? `filter "${query}"` : undefined}
+      >
+        {mineErr ? (
+          <ErrorBar text={mineErr} />
+        ) : mine == null ? (
+          <Loading what="MY SESSIONS" />
+        ) : mine.length === 0 ? (
+          <Empty
+            title="NO SESSIONS YET"
+            sub={
+              query
+                ? `Nothing matched "${query}".`
+                : "Start a Claude Code session to capture one here."
+            }
+          />
+        ) : (
+          <SessionTable
+            sessions={mine}
+            action={(s) => (
+              <ShareAction
+                session={s}
+                open={shareFor?.id === s.id}
+                onToggle={() =>
+                  setShareFor((cur) => (cur?.id === s.id ? null : s))
+                }
+                onClose={() => setShareFor(null)}
+              />
+            )}
+          />
+        )}
+      </Section>
 
-      {tab === "live" ? (
-        <LiveView sessions={live} />
-      ) : (
-        <SessionsView sessions={all} total={total} query={query} />
-      )}
+      <div style={{ height: 28 }} />
+
+      {/* SHARED WITH ME */}
+      <Section title="SHARED WITH ME" count={shared?.length}>
+        {sharedErr ? (
+          <ErrorBar text={sharedErr} />
+        ) : shared == null ? (
+          <Loading what="SHARED SESSIONS" />
+        ) : shared.length === 0 ? (
+          <Empty
+            title="NOTHING SHARED"
+            sub="NO SESSIONS SHARED WITH YOU YET."
+          />
+        ) : (
+          <SessionTable sessions={shared} showAccess />
+        )}
+      </Section>
     </>
   );
 }
 
-function LiveView({ sessions }: { sessions: Session[] | null }) {
-  if (sessions == null) return <Loading what="LIVE FEED" />;
-  if (sessions.length === 0)
-    return (
-      <Empty
-        title="NO LIVE SESSIONS"
-        sub="Nothing is streaming right now. Start a Claude Code session to light this up."
-      />
-    );
+function ShareAction({
+  session,
+  open,
+  onToggle,
+  onClose,
+}: {
+  session: Session;
+  open: boolean;
+  onToggle: () => void;
+  onClose: () => void;
+}) {
   return (
-    <>
-      <SectionLabel>
-        LIVE FEED · {fmtInt(sessions.length)} streaming
-      </SectionLabel>
-      <div
+    <span style={{ position: "relative", display: "inline-block" }}>
+      <button
+        type="button"
+        onClick={onToggle}
+        className="label"
+        aria-haspopup="dialog"
+        aria-expanded={open}
         style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))",
-          gap: 12,
+          border: "1px solid var(--strong)",
+          background: open ? "var(--strong)" : "transparent",
+          color: open ? "var(--panel)" : "var(--ink)",
+          padding: "5px 10px",
+          fontSize: 10,
+          cursor: "pointer",
+          whiteSpace: "nowrap",
         }}
       >
-        {sessions.map((s) => (
-          <LiveCard key={s.id} session={s} />
-        ))}
-      </div>
-    </>
+        ⊕ SHARE
+      </button>
+      {open && (
+        <ShareDialog
+          sessionId={session.id}
+          title={session.title}
+          onClose={onClose}
+        />
+      )}
+    </span>
   );
 }
 
-function SessionsView({
-  sessions,
-  total,
+function SearchBox({
   query,
+  onQuery,
 }: {
-  sessions: Session[] | null;
-  total: number;
   query: string;
+  onQuery: (q: string) => void;
 }) {
-  if (sessions == null) return <Loading what="SESSION INDEX" />;
-  if (sessions.length === 0)
-    return (
-      <Empty
-        title="NO MATCHES"
-        sub={
-          query
-            ? `Nothing matched "${query}".`
-            : "No sessions have been recorded yet."
-        }
-      />
-    );
-  return (
-    <>
-      <SectionLabel>
-        SESSION INDEX · {fmtInt(sessions.length)} shown / {fmtInt(total)} total
-        {query ? ` · filter "${query}"` : ""}
-      </SectionLabel>
-      <SessionTable sessions={sessions} />
-    </>
-  );
-}
-
-function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className="label dashed-b"
-      style={{ paddingBottom: 8, marginBottom: 12 }}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        border: "1px solid var(--hairline)",
+        background: "var(--panel)",
+        padding: "0 10px",
+        marginBottom: 20,
+      }}
     >
+      <span className="label" aria-hidden>
+        /
+      </span>
+      <input
+        value={query}
+        onChange={(e) => onQuery(e.target.value)}
+        placeholder="SEARCH MY SESSIONS — TITLE OR TAG"
+        aria-label="Search my sessions"
+        spellCheck={false}
+        className="label"
+        style={{
+          border: "none",
+          outline: "none",
+          background: "transparent",
+          color: "var(--ink)",
+          padding: "11px 0",
+          width: "100%",
+          fontSize: 12,
+          letterSpacing: "0.06em",
+        }}
+      />
+      {query && (
+        <button
+          type="button"
+          onClick={() => onQuery("")}
+          aria-label="Clear search"
+          className="label"
+          style={{
+            border: "none",
+            background: "transparent",
+            cursor: "pointer",
+            color: "var(--faint)",
+            fontSize: 13,
+          }}
+        >
+          ✕
+        </button>
+      )}
+    </div>
+  );
+}
+
+function Section({
+  title,
+  count,
+  hint,
+  children,
+}: {
+  title: string;
+  count?: number;
+  hint?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section>
+      <div
+        className="label dashed-b"
+        style={{
+          paddingBottom: 8,
+          marginBottom: 12,
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+        }}
+      >
+        <span style={{ color: "var(--ink)" }}>{title}</span>
+        {count != null && (
+          <span className="tnum" style={{ color: "var(--muted)" }}>
+            · {fmtInt(count)}
+          </span>
+        )}
+        {hint && <span style={{ color: "var(--faint)" }}>· {hint}</span>}
+      </div>
       {children}
+    </section>
+  );
+}
+
+function ErrorBar({ text }: { text: string }) {
+  return (
+    <div
+      className="label"
+      style={{
+        border: "1px solid var(--red)",
+        color: "var(--red)",
+        padding: "8px 12px",
+      }}
+    >
+      ⚠ {text}
     </div>
   );
 }
@@ -220,16 +330,14 @@ function Empty({ title, sub }: { title: string; sub: string }) {
       style={{
         border: "1px dashed var(--hairline)",
         background: "var(--panel)",
-        padding: "36px 16px",
+        padding: "32px 16px",
         textAlign: "center",
       }}
     >
       <div className="label" style={{ fontSize: 13, color: "var(--ink)" }}>
         {title}
       </div>
-      <div
-        style={{ color: "var(--muted)", fontSize: 13, marginTop: 8 }}
-      >
+      <div style={{ color: "var(--muted)", fontSize: 13, marginTop: 8 }}>
         {sub}
       </div>
     </div>

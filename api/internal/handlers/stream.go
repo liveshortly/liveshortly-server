@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"liveshortly/internal/auth"
 	"liveshortly/internal/httpx"
 )
 
@@ -32,6 +33,12 @@ func (h *Handler) Stream(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	p, ok := auth.Principal(r.Context())
+	if !ok {
+		httpx.Error(w, http.StatusUnauthorized, "no principal")
+		return
+	}
+
 	s, err := h.store.GetSession(r.Context(), id)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "failed to load session")
@@ -39,6 +46,16 @@ func (h *Handler) Stream(w http.ResponseWriter, r *http.Request) {
 	}
 	if s == nil {
 		httpx.Error(w, http.StatusNotFound, "session not found")
+		return
+	}
+
+	allowed, err := h.canRead(r.Context(), s, p)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to authorize")
+		return
+	}
+	if !allowed {
+		httpx.Error(w, http.StatusForbidden, "forbidden")
 		return
 	}
 

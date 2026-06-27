@@ -65,11 +65,11 @@ func main() {
 	blob := storage.New(cfg.StoragePath)
 	h := handlers.New(st, b, blob)
 
-	// Web login layer (Google sign-in) sits on top of the CLI handle auth.
+	// Auth layer: Google web login + CLI device flow, both minting app tokens.
 	webSessions := websession.NewManager(cfg.SessionSecret, cfg.WebBaseURL)
-	googleAuth := handlers.NewGoogleAuth(cfg, webSessions)
+	googleAuth := handlers.NewGoogleAuth(cfg, webSessions, st, b)
 
-	r := router(cfg, st, h, googleAuth, webSessions)
+	r := router(cfg, h, googleAuth, webSessions)
 
 	srv := &http.Server{
 		Addr:              ":" + cfg.Port,
@@ -104,45 +104,50 @@ func main() {
 	}
 }
 
-// router builds the full HTTP router: CORS, /health, the root /auth login
-// endpoints, and the /api tree split into a web-gated group (Google cookie) and
-// a CLI group (X-LiveShortly-Handle header).
-func router(cfg config.Config, st *store.Store, h *handlers.Handler, ga *handlers.GoogleAuth, mgr *websession.Manager) http.Handler {
+// router builds the full HTTP router: CORS, /health, the root /auth + /device
+// endpoints, and the /api tree behind a single unified principal middleware.
+func router(cfg config.Config, h *handlers.Handler, ga *handlers.GoogleAuth, mgr *websession.Manager) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.Recoverer)
 	r.Use(corsMiddleware(cfg.CORSOrigins))
 
 	r.Get("/health", h.Health)
 
-	// Google sign-in lives at the root; nginx routes /auth/ to this API.
+	// Auth + device flow live at the root; nginx routes /auth/ and /device here.
 	r.Get("/auth/google/login", ga.Login)
 	r.Get("/auth/google/callback", ga.Callback)
 	r.Post("/auth/logout", ga.Logout)
+	r.Post("/auth/device/start", ga.DeviceStart)
+	r.Post("/auth/device/approve", ga.DeviceApprove)
+	r.Post("/auth/device/poll", ga.DevicePoll)
+	r.Post("/auth/token", ga.Token)
+	r.Delete("/auth/tokens/{id}", ga.RevokeToken)
+	r.Get("/device", ga.DevicePage)
 
 	r.Route("/api", func(r chi.Router) {
-		// /api/me is outside both gates: the web app reads its 401 to know it
-		// must show the login screen.
+		// /api/me resolves the principal itself and returns 401 cleanly so the
+		// web app can decide whether to show the login screen.
 		r.Get("/me", ga.Me)
 
-		// Web-gated group: viewing and commenting require a Google session.
+		// Everything else requires a resolved principal (bearer or cookie).
 		r.Group(func(r chi.Router) {
-			r.Use(auth.RequireWebSession(mgr))
+			r.Use(auth.Authn(mgr))
 
 			r.Get("/stats", h.Stats)
+
 			r.Get("/sessions", h.ListSessions)
-			r.Get("/sessions/{id}", h.GetSession)
-			r.Get("/sessions/{id}/stream", h.Stream)
-			r.Post("/sessions/{id}/comments", h.PostComment)
-		})
-
-		// CLI group: session ownership and writes stay handle-based.
-		r.Group(func(r chi.Router) {
-			r.Use(auth.Middleware(st, cfg.DefaultUserHandle))
-
 			r.Post("/sessions", h.CreateSession)
+			r.Get("/sessions/{id}", h.GetSession)
+			r.Patch("/sessions/{id}", h.PatchSession)
+			r.Get("/sessions/{id}/stream", h.Stream)
 			r.Post("/sessions/{id}/events", h.EmitEvent)
 			r.Post("/sessions/{id}/stop", h.Stop)
+			r.Post("/sessions/{id}/comments", h.PostComment)
 			r.Get("/sessions/{id}/comments/pending", h.PendingComments)
+
+			r.Post("/sessions/{id}/shares", h.CreateShare)
+			r.Get("/sessions/{id}/shares", h.ListShares)
+			r.Delete("/sessions/{id}/shares/{shareId}", h.DeleteShare)
 		})
 	})
 

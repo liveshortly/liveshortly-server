@@ -20,10 +20,12 @@ func New(rdb *redis.Client) *Bus {
 	return &Bus{rdb: rdb}
 }
 
-func seqKey(id string) string     { return fmt.Sprintf("session:%s:seq", id) }
-func bufferKey(id string) string  { return fmt.Sprintf("session:%s:buffer", id) }
-func chanKey(id string) string    { return fmt.Sprintf("session:%s:events", id) }
-func pendingKey(id string) string { return fmt.Sprintf("session:%s:pending", id) }
+func seqKey(id string) string      { return fmt.Sprintf("session:%s:seq", id) }
+func bufferKey(id string) string   { return fmt.Sprintf("session:%s:buffer", id) }
+func chanKey(id string) string     { return fmt.Sprintf("session:%s:events", id) }
+func pendingKey(id string) string  { return fmt.Sprintf("session:%s:pending", id) }
+func deviceKey(dc string) string   { return "device:" + dc }
+func userCodeKey(uc string) string { return "usercode:" + uc }
 
 // pendingTTL bounds how long an undrained viewer comment lingers in the queue.
 const pendingTTL = 2 * time.Hour
@@ -95,4 +97,50 @@ func (b *Bus) PendingDrain(ctx context.Context, sessionID string) ([]string, err
 		out = []string{}
 	}
 	return out, nil
+}
+
+// --- Device-flow OAuth (CLI login) ---------------------------------------
+
+// DeviceSet stores the device record JSON under device:{code} with a TTL.
+func (b *Bus) DeviceSet(ctx context.Context, deviceCode, value string, ttl time.Duration) error {
+	return b.rdb.Set(ctx, deviceKey(deviceCode), value, ttl).Err()
+}
+
+// DeviceUpdate overwrites the device record JSON while preserving its TTL.
+func (b *Bus) DeviceUpdate(ctx context.Context, deviceCode, value string) error {
+	return b.rdb.Set(ctx, deviceKey(deviceCode), value, redis.KeepTTL).Err()
+}
+
+// DeviceGet returns the device record JSON, or ok=false if missing/expired.
+func (b *Bus) DeviceGet(ctx context.Context, deviceCode string) (string, bool, error) {
+	v, err := b.rdb.Get(ctx, deviceKey(deviceCode)).Result()
+	if err == redis.Nil {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, err
+	}
+	return v, true, nil
+}
+
+// UserCodeSet maps the human user_code to its device_code with a TTL.
+func (b *Bus) UserCodeSet(ctx context.Context, userCode, deviceCode string, ttl time.Duration) error {
+	return b.rdb.Set(ctx, userCodeKey(userCode), deviceCode, ttl).Err()
+}
+
+// UserCodeGet resolves a user_code to its device_code, or ok=false if missing.
+func (b *Bus) UserCodeGet(ctx context.Context, userCode string) (string, bool, error) {
+	v, err := b.rdb.Get(ctx, userCodeKey(userCode)).Result()
+	if err == redis.Nil {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, err
+	}
+	return v, true, nil
+}
+
+// DeviceDelete removes both the device and user_code keys (consumes the flow).
+func (b *Bus) DeviceDelete(ctx context.Context, deviceCode, userCode string) error {
+	return b.rdb.Del(ctx, deviceKey(deviceCode), userCodeKey(userCode)).Err()
 }

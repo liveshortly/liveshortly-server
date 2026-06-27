@@ -1,9 +1,13 @@
-// Package websession manages the web login session: a signed JWT carried in the
-// `ls_session` cookie. It is independent of the CLI handle auth and stores the
-// Google identity entirely in the signed token (no DB rows).
+// Package websession mints and verifies the app's auth tokens and manages the
+// web session cookie. Both web (cookie, typ="web") and CLI (bearer, typ="access")
+// tokens share one HS256 JWT shape whose subject is the persistent users.id.
+// It also issues opaque refresh tokens (the hash is what the DB stores).
 package websession
 
 import (
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"net/http"
 	"strings"
@@ -13,32 +17,45 @@ import (
 )
 
 const (
-	// CookieName is the app session cookie.
+	// CookieName is the web session cookie.
 	CookieName = "ls_session"
-	// sessionTTL is how long a minted web session stays valid.
+
+	// TypeAccess is a short-lived bearer token (CLI); TypeWeb is the cookie token.
+	TypeAccess = "access"
+	TypeWeb    = "web"
+
+	accessTTL  = time.Hour
 	sessionTTL = 7 * 24 * time.Hour
+
+	refreshPrefix = "lsr_"
 )
 
-// WebUser is the Google identity carried in the session JWT.
-type WebUser struct {
-	Sub     string `json:"sub"`
-	Email   string `json:"email"`
-	Name    string `json:"name"`
-	Picture string `json:"picture"`
+// TokenUser is the identity encoded into a minted token.
+type TokenUser struct {
+	ID    string
+	Email string
+	Name  string
 }
 
-// claims is the JWT claim set: standard registered claims plus profile fields.
-type claims struct {
-	Email   string `json:"email,omitempty"`
-	Name    string `json:"name,omitempty"`
-	Picture string `json:"picture,omitempty"`
+// Claims is the principal decoded from a token.
+type Claims struct {
+	UserID string
+	Email  string
+	Name   string
+	Typ    string
+}
+
+// jwtClaims is the on-the-wire claim set: subject=users.id plus profile + typ.
+type jwtClaims struct {
+	Email string `json:"email,omitempty"`
+	Name  string `json:"name,omitempty"`
+	Typ   string `json:"typ"`
 	jwt.RegisteredClaims
 }
 
-// Manager mints and verifies session JWTs and manages the session cookie.
+// Manager mints/verifies tokens and manages the session cookie.
 type Manager struct {
-	secret []byte
-	// secureCookies marks cookies Secure when the web origin is https.
+	secret        []byte
 	secureCookies bool
 }
 
@@ -51,25 +68,34 @@ func NewManager(secret, webBaseURL string) *Manager {
 	}
 }
 
-// MintSessionJWT returns an HS256-signed token for u, expiring in ~7 days.
-func (m *Manager) MintSessionJWT(u WebUser) (string, error) {
+func (m *Manager) mint(u TokenUser, typ string, ttl time.Duration) (string, error) {
 	now := time.Now()
-	c := claims{
-		Email:   u.Email,
-		Name:    u.Name,
-		Picture: u.Picture,
+	c := jwtClaims{
+		Email: u.Email,
+		Name:  u.Name,
+		Typ:   typ,
 		RegisteredClaims: jwt.RegisteredClaims{
-			Subject:   u.Sub,
+			Subject:   u.ID,
 			IssuedAt:  jwt.NewNumericDate(now),
-			ExpiresAt: jwt.NewNumericDate(now.Add(sessionTTL)),
+			ExpiresAt: jwt.NewNumericDate(now.Add(ttl)),
 		},
 	}
 	return jwt.NewWithClaims(jwt.SigningMethodHS256, c).SignedString(m.secret)
 }
 
-// ParseSessionJWT verifies the token's signature and expiry and returns the user.
-func (m *Manager) ParseSessionJWT(token string) (WebUser, error) {
-	var c claims
+// MintAccess returns a ~1h bearer token (typ=access).
+func (m *Manager) MintAccess(u TokenUser) (string, error) { return m.mint(u, TypeAccess, accessTTL) }
+
+// MintWeb returns a ~7d cookie token (typ=web).
+func (m *Manager) MintWeb(u TokenUser) (string, error) { return m.mint(u, TypeWeb, sessionTTL) }
+
+// AccessTTLSeconds is the access token lifetime in seconds (for expires_in).
+func (m *Manager) AccessTTLSeconds() int { return int(accessTTL.Seconds()) }
+
+// Parse verifies the token signature and expiry. If expectTyp is non-empty it
+// must match the token's typ claim.
+func (m *Manager) Parse(token, expectTyp string) (Claims, error) {
+	var c jwtClaims
 	t, err := jwt.ParseWithClaims(token, &c, func(t *jwt.Token) (any, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, errors.New("unexpected signing method")
@@ -77,15 +103,18 @@ func (m *Manager) ParseSessionJWT(token string) (WebUser, error) {
 		return m.secret, nil
 	})
 	if err != nil {
-		return WebUser{}, err
+		return Claims{}, err
 	}
 	if !t.Valid {
-		return WebUser{}, errors.New("invalid session token")
+		return Claims{}, errors.New("invalid token")
 	}
-	return WebUser{Sub: c.Subject, Email: c.Email, Name: c.Name, Picture: c.Picture}, nil
+	if expectTyp != "" && c.Typ != expectTyp {
+		return Claims{}, errors.New("unexpected token type")
+	}
+	return Claims{UserID: c.Subject, Email: c.Email, Name: c.Name, Typ: c.Typ}, nil
 }
 
-// SetSessionCookie writes the signed JWT as the session cookie.
+// SetSessionCookie writes the web JWT as the session cookie.
 func (m *Manager) SetSessionCookie(w http.ResponseWriter, token string) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     CookieName,
@@ -111,18 +140,55 @@ func (m *Manager) ClearSessionCookie(w http.ResponseWriter) {
 	})
 }
 
-// WebUserFromRequest reads and verifies the session cookie, if present.
-func (m *Manager) WebUserFromRequest(r *http.Request) (WebUser, bool) {
+// WebUserFromRequest parses the ls_session cookie as a web token.
+func (m *Manager) WebUserFromRequest(r *http.Request) (Claims, bool) {
 	c, err := r.Cookie(CookieName)
 	if err != nil || c.Value == "" {
-		return WebUser{}, false
+		return Claims{}, false
 	}
-	u, err := m.ParseSessionJWT(c.Value)
+	cl, err := m.Parse(c.Value, TypeWeb)
 	if err != nil {
-		return WebUser{}, false
+		return Claims{}, false
 	}
-	return u, true
+	return cl, true
 }
 
-// Secure reports whether session/oauth cookies should carry the Secure flag.
+// FromRequest resolves a principal from a Bearer access token (preferred) or the
+// session cookie, returning false if neither is present and valid.
+func (m *Manager) FromRequest(r *http.Request) (Claims, bool) {
+	if tok := bearerToken(r); tok != "" {
+		if cl, err := m.Parse(tok, TypeAccess); err == nil {
+			return cl, true
+		}
+	}
+	return m.WebUserFromRequest(r)
+}
+
+// Secure reports whether cookies should carry the Secure flag.
 func (m *Manager) Secure() bool { return m.secureCookies }
+
+// GenerateRefreshToken returns a fresh opaque refresh token and its sha256 hash.
+// Only the hash is ever persisted.
+func GenerateRefreshToken() (raw, hash string, err error) {
+	b := make([]byte, 24)
+	if _, err = rand.Read(b); err != nil {
+		return "", "", err
+	}
+	raw = refreshPrefix + hex.EncodeToString(b)
+	return raw, HashRefreshToken(raw), nil
+}
+
+// HashRefreshToken returns the sha256 hex digest used to look a token up.
+func HashRefreshToken(raw string) string {
+	sum := sha256.Sum256([]byte(raw))
+	return hex.EncodeToString(sum[:])
+}
+
+func bearerToken(r *http.Request) string {
+	h := r.Header.Get("Authorization")
+	const prefix = "Bearer "
+	if len(h) > len(prefix) && strings.EqualFold(h[:len(prefix)], prefix) {
+		return strings.TrimSpace(h[len(prefix):])
+	}
+	return ""
+}

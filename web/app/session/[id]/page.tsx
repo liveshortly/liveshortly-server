@@ -5,6 +5,7 @@ import Link from "next/link";
 import Badge from "@/components/Badge";
 import EventStream from "@/components/EventStream";
 import {
+  ApiError,
   getSession,
   postComment,
   streamUrl,
@@ -25,6 +26,7 @@ export default function SessionViewer({
   const [meta, setMeta] = useState<SessionDetail | null>(null);
   const [events, setEvents] = useState<SessionEvent[]>([]);
   const [err, setErr] = useState<string | null>(null);
+  const [noAccess, setNoAccess] = useState(false);
   const [conn, setConn] = useState<Connection>("idle");
 
   const seen = useRef<Set<string>>(new Set());
@@ -58,8 +60,12 @@ export default function SessionViewer({
         addEvents(detail.events ?? []);
         setErr(null);
       } catch (e) {
-        if (alive && (e as Error).name !== "AbortError")
+        if (!alive || (e as Error).name === "AbortError") return;
+        if (e instanceof ApiError && e.status === 403) {
+          setNoAccess(true);
+        } else {
           setErr("Could not load this session.");
+        }
       }
     })();
     return () => {
@@ -117,6 +123,48 @@ export default function SessionViewer({
     () => Math.max(events.length, meta?.event_count ?? 0),
     [events.length, meta?.event_count],
   );
+
+  if (noAccess) {
+    return (
+      <div>
+        <Link
+          href="/"
+          className="label"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            color: "var(--muted)",
+            marginBottom: 14,
+          }}
+        >
+          ◂ BACK TO HUD
+        </Link>
+        <div
+          style={{
+            border: "1px solid var(--red)",
+            background: "var(--panel)",
+            padding: "36px 20px",
+            textAlign: "center",
+          }}
+        >
+          <div className="label" style={{ fontSize: 13, color: "var(--red)" }}>
+            ⊘ NO ACCESS
+          </div>
+          <div
+            style={{ color: "var(--muted)", fontSize: 13, marginTop: 10 }}
+          >
+            THIS SESSION ISN&apos;T SHARED WITH YOU.
+          </div>
+          <div className="label" style={{ marginTop: 16 }}>
+            <Link href="/" style={{ color: "var(--green)" }}>
+              ◂ RETURN TO YOUR SESSIONS
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -266,6 +314,7 @@ type SendState = "idle" | "sending" | "sent" | "error";
 function Composer({ id }: { id: string }) {
   const [text, setText] = useState("");
   const [state, setState] = useState<SendState>("idle");
+  const [errMsg, setErrMsg] = useState("COULD NOT SEND — TRY AGAIN");
   const sentTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -285,7 +334,12 @@ function Composer({ id }: { id: string }) {
       // Don't optimistically add — the SSE echo (deduped by id) will append it.
       if (sentTimer.current) clearTimeout(sentTimer.current);
       sentTimer.current = setTimeout(() => setState("idle"), 1600);
-    } catch {
+    } catch (e) {
+      setErrMsg(
+        e instanceof ApiError && e.status === 403
+          ? "READ-ONLY — YOU CAN'T COMMENT ON THIS SESSION"
+          : "COULD NOT SEND — TRY AGAIN",
+      );
       setState("error");
     }
   };
@@ -385,7 +439,7 @@ function Composer({ id }: { id: string }) {
           className="label"
           style={{ color: "var(--red)", marginTop: 6, paddingLeft: 2 }}
         >
-          ⚠ COULD NOT SEND — TRY AGAIN
+          ⚠ {errMsg}
         </div>
       )}
     </div>
