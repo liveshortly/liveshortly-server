@@ -26,6 +26,7 @@ import (
 	"liveshortly/internal/handlers"
 	"liveshortly/internal/storage"
 	"liveshortly/internal/store"
+	"liveshortly/internal/websession"
 )
 
 func main() {
@@ -64,7 +65,11 @@ func main() {
 	blob := storage.New(cfg.StoragePath)
 	h := handlers.New(st, b, blob)
 
-	r := router(cfg, st, h)
+	// Web login layer (Google sign-in) sits on top of the CLI handle auth.
+	webSessions := websession.NewManager(cfg.SessionSecret, cfg.WebBaseURL)
+	googleAuth := handlers.NewGoogleAuth(cfg, webSessions)
+
+	r := router(cfg, st, h, googleAuth, webSessions)
 
 	srv := &http.Server{
 		Addr:              ":" + cfg.Port,
@@ -99,31 +104,45 @@ func main() {
 	}
 }
 
-// router builds the full HTTP router: CORS, /health, and the authenticated /api tree.
-func router(cfg config.Config, st *store.Store, h *handlers.Handler) http.Handler {
+// router builds the full HTTP router: CORS, /health, the root /auth login
+// endpoints, and the /api tree split into a web-gated group (Google cookie) and
+// a CLI group (X-LiveShortly-Handle header).
+func router(cfg config.Config, st *store.Store, h *handlers.Handler, ga *handlers.GoogleAuth, mgr *websession.Manager) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.Recoverer)
 	r.Use(corsMiddleware(cfg.CORSOrigins))
 
 	r.Get("/health", h.Health)
 
+	// Google sign-in lives at the root; nginx routes /auth/ to this API.
+	r.Get("/auth/google/login", ga.Login)
+	r.Get("/auth/google/callback", ga.Callback)
+	r.Post("/auth/logout", ga.Logout)
+
 	r.Route("/api", func(r chi.Router) {
-		r.Use(auth.Middleware(st, cfg.DefaultUserHandle))
+		// /api/me is outside both gates: the web app reads its 401 to know it
+		// must show the login screen.
+		r.Get("/me", ga.Me)
 
-		r.Get("/stats", h.Stats)
+		// Web-gated group: viewing and commenting require a Google session.
+		r.Group(func(r chi.Router) {
+			r.Use(auth.RequireWebSession(mgr))
 
-		r.Route("/sessions", func(r chi.Router) {
-			r.Post("/", h.CreateSession)
-			r.Get("/", h.ListSessions)
+			r.Get("/stats", h.Stats)
+			r.Get("/sessions", h.ListSessions)
+			r.Get("/sessions/{id}", h.GetSession)
+			r.Get("/sessions/{id}/stream", h.Stream)
+			r.Post("/sessions/{id}/comments", h.PostComment)
+		})
 
-			r.Route("/{id}", func(r chi.Router) {
-				r.Get("/", h.GetSession)
-				r.Post("/events", h.EmitEvent)
-				r.Get("/stream", h.Stream)
-				r.Post("/stop", h.Stop)
-				r.Post("/comments", h.PostComment)
-				r.Get("/comments/pending", h.PendingComments)
-			})
+		// CLI group: session ownership and writes stay handle-based.
+		r.Group(func(r chi.Router) {
+			r.Use(auth.Middleware(st, cfg.DefaultUserHandle))
+
+			r.Post("/sessions", h.CreateSession)
+			r.Post("/sessions/{id}/events", h.EmitEvent)
+			r.Post("/sessions/{id}/stop", h.Stop)
+			r.Get("/sessions/{id}/comments/pending", h.PendingComments)
 		})
 	})
 

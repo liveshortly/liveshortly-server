@@ -73,6 +73,7 @@ async function getJSON<T>(path: string, signal?: AbortSignal): Promise<T> {
   const res = await fetch(`${apiBase()}${path}`, {
     signal,
     cache: "no-store",
+    credentials: "include",
     headers: { accept: "application/json" },
   });
   if (!res.ok) {
@@ -133,6 +134,7 @@ export async function postComment(
     {
       method: "POST",
       signal,
+      credentials: "include",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ message }),
     },
@@ -140,4 +142,44 @@ export async function postComment(
   if (!res.ok) {
     throw new Error(`POST comment failed: ${res.status} ${res.statusText}`);
   }
+}
+
+/** Authenticated user, as reported by GET /api/me. */
+export interface Me {
+  authenticated: boolean;
+  email?: string;
+  name?: string;
+  picture?: string;
+}
+
+/** Check the current session. A 401 is normal (logged out) → not authenticated. */
+export async function me(signal?: AbortSignal): Promise<Me> {
+  try {
+    const res = await fetch(`${apiBase()}/api/me`, {
+      signal,
+      cache: "no-store",
+      credentials: "include",
+      headers: { accept: "application/json" },
+    });
+    if (res.status === 401) return { authenticated: false };
+    if (!res.ok) return { authenticated: false };
+    const data = (await res.json()) as Me;
+    return data ?? { authenticated: false };
+  } catch (e) {
+    if ((e as Error).name === "AbortError") throw e;
+    return { authenticated: false };
+  }
+}
+
+/** Clear the session cookie. */
+export async function logout(): Promise<void> {
+  await fetch(`${browserBase()}/auth/logout`, {
+    method: "POST",
+    credentials: "include",
+  });
+}
+
+/** Full-page URL that begins the Google OAuth flow. */
+export function loginUrl(): string {
+  return `${browserBase()}/auth/google/login`;
 }

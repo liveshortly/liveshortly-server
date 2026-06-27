@@ -74,7 +74,7 @@ export default function SessionViewer({
   useEffect(() => {
     if (!meta || !isLive) return;
     setConn("connecting");
-    const es = new EventSource(streamUrl(id));
+    const es = new EventSource(streamUrl(id), { withCredentials: true });
 
     es.onopen = () => setConn("open");
 

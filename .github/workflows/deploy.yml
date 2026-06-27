@@ -42,10 +42,22 @@ jobs:
             --exclude 'node_modules' \
             --exclude '.next' \
             --exclude '.env' \
+            --exclude '.env.auth' \
             --exclude 'data/' \
             --exclude 'build.log' \
             -e "ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes" \
             ./ "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/"
+
+      - name: Write Google OAuth env on server (from secrets)
+        run: |
+          ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "cat > ${DEPLOY_PATH}/.env.auth && chmod 600 ${DEPLOY_PATH}/.env.auth" <<EOF
+          GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
+          SESSION_SECRET=${{ secrets.SESSION_SECRET }}
+          OAUTH_REDIRECT_URL=https://server.liveshortly.com/auth/google/callback
+          WEB_BASE_URL=https://server.liveshortly.com
+          EOF
 
       - name: Build & restart stack
         run: |
