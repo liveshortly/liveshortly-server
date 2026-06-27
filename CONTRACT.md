@@ -8,9 +8,11 @@ capture hooks. All three MUST conform to this.
 One entity: **Session** — a shared agent/coding session. It is `live` while
 running and `ended` once stopped. A session has an ordered **event** log.
 
-No auth yet, but ownership is real: every session has an `owner_id`. An auth
-middleware injects a default principal (the `you` user) today; turning on real
-auth later must not require schema changes.
+No auth yet, but ownership is real: every session has an `owner_id`. Capture
+hooks identify the coding principal via the `X-LiveShortly-Handle` request header
+(`user@hostname` derived on the CLI machine). Web clients without that header fall
+back to `DEFAULT_USER_HANDLE`. Turning on real auth later must not require schema
+changes.
 
 ## Data shapes (JSON)
 
@@ -19,7 +21,7 @@ auth later must not require schema changes.
 {
   "id": "uuid",
   "title": "string",
-  "owner_handle": "you",
+  "owner_handle": "alice@macbook-pro",
   "model": "claude-opus-4-8 | null",
   "framework": "claude-code | null",
   "status": "live | ended",
@@ -61,8 +63,10 @@ auth later must not require schema changes.
 
 - `q` search: case-insensitive match on `title` OR any tag.
 - `status` default `all`; `limit` default 30 (max 100); `offset` default 0.
-- All write endpoints pass through the auth middleware → default user.
+- All write endpoints pass through the auth middleware. CLI hooks send
+  `X-LiveShortly-Handle: <user@hostname>`; other clients use `DEFAULT_USER_HANDLE`.
 - CORS: allow origins from `CORS_ORIGINS` (default `*`), methods GET/POST/PATCH/DELETE/OPTIONS.
+  Allowed headers include `X-LiveShortly-Handle`.
 
 ### SSE: `GET /api/sessions/{id}/stream`
 Content-Type `text/event-stream`. Frames are `data: <json>\n\n`. Sequence:

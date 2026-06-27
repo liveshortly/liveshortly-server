@@ -5,11 +5,15 @@ never raise in a way that disrupts the Claude Code session, so all network and
 filesystem failures are swallowed (diagnostics go to stderr only).
 """
 
+import getpass
 import json
 import os
+import socket
 import sys
 import urllib.request
 import urllib.error
+
+HANDLE_HEADER = "X-LiveShortly-Handle"
 
 
 def log(*args):
@@ -50,6 +54,54 @@ def web_base():
     return os.environ.get("LIVESHORTLY_WEB_URL", "http://localhost:3000").rstrip("/")
 
 
+def _sanitize_handle(raw):
+    """Normalize a handle for the API users.handle column."""
+    raw = str(raw).strip().lower()
+    out = []
+    for ch in raw:
+        if ch.isalnum() or ch in "@._-":
+            out.append(ch)
+        else:
+            out.append("_")
+    return "".join(out) or "unknown"
+
+
+def cli_handle():
+    """Derive user@hostname from the local machine (the coding principal)."""
+    user = getpass.getuser()
+    host = socket.gethostname().split(".")[0]
+    return _sanitize_handle("{}@{}".format(user, host))
+
+
+def resolve_handle(claude_id=None):
+    """Return the handle for API requests in this Claude session.
+
+    Priority: LIVESHORTLY_HANDLE env override → stored mapping → cli_handle().
+    """
+    override = os.environ.get("LIVESHORTLY_HANDLE", "").strip()
+    if override:
+        return _sanitize_handle(override)
+    if claude_id:
+        try:
+            with open(_mapping_path(claude_id)) as f:
+                obj = json.load(f)
+            h = obj.get("handle")
+            if isinstance(h, str) and h.strip():
+                return _sanitize_handle(h)
+        except Exception:
+            pass
+    return cli_handle()
+
+
+def api_headers(claude_id=None):
+    """HTTP headers for LiveShortly API calls, including the principal handle."""
+    return {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        HANDLE_HEADER: resolve_handle(claude_id),
+    }
+
+
 def state_dir():
     """Directory holding Claude session_id -> LiveShortly session id mappings."""
     d = os.environ.get("LIVESHORTLY_STATE_DIR")
@@ -73,12 +125,17 @@ def _mapping_path(claude_id):
     return os.path.join(state_dir(), _safe_name(claude_id) + ".json")
 
 
-def save_mapping(claude_id, ls_id):
-    """Persist the mapping claude_id -> ls_id. Best effort."""
+def save_mapping(claude_id, ls_id, handle=None):
+    """Persist claude_id -> ls_id (+ handle) for later hooks in this session."""
     try:
         os.makedirs(state_dir(), exist_ok=True)
+        record = {
+            "claude_id": claude_id,
+            "ls_id": ls_id,
+            "handle": handle if handle else resolve_handle(claude_id),
+        }
         with open(_mapping_path(claude_id), "w") as f:
-            json.dump({"claude_id": claude_id, "ls_id": ls_id}, f)
+            json.dump(record, f)
         return True
     except Exception as exc:
         log("save_mapping failed:", exc)
@@ -103,7 +160,7 @@ def clear_mapping(claude_id):
         pass
 
 
-def post_json(path, body, timeout=3):
+def post_json(path, body, timeout=3, claude_id=None):
     """POST a JSON body to api_base()+path and return the parsed JSON response.
 
     Returns a dict on success, or None on any failure (never raises).
@@ -114,11 +171,12 @@ def post_json(path, body, timeout=3):
     except Exception as exc:
         log("post_json encode failed:", exc)
         return None
+    headers = api_headers(claude_id)
     req = urllib.request.Request(
         url,
         data=data,
         method="POST",
-        headers={"Content-Type": "application/json", "Accept": "application/json"},
+        headers=headers,
     )
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
@@ -131,15 +189,14 @@ def post_json(path, body, timeout=3):
         return None
 
 
-def get_json(path, timeout=5):
+def get_json(path, timeout=5, claude_id=None):
     """GET api_base()+path and return the parsed JSON response.
 
     Returns a dict on success, or None on any failure (never raises).
     """
     url = api_base() + path
-    req = urllib.request.Request(
-        url, method="GET", headers={"Accept": "application/json"}
-    )
+    headers = {"Accept": "application/json", HANDLE_HEADER: resolve_handle(claude_id)}
+    req = urllib.request.Request(url, method="GET", headers=headers)
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             raw = resp.read()
@@ -151,7 +208,7 @@ def get_json(path, timeout=5):
         return None
 
 
-def pending_comments(ls_id, timeout=5):
+def pending_comments(ls_id, timeout=5, claude_id=None):
     """Atomically drain pending viewer comments for a session.
 
     Returns a list of {username, message, ts} dicts, or [] on any failure.
@@ -159,7 +216,9 @@ def pending_comments(ls_id, timeout=5):
     if not ls_id:
         return []
     resp = get_json(
-        "/api/sessions/" + str(ls_id) + "/comments/pending", timeout=timeout
+        "/api/sessions/" + str(ls_id) + "/comments/pending",
+        timeout=timeout,
+        claude_id=claude_id,
     )
     if not isinstance(resp, dict):
         return []
@@ -210,7 +269,7 @@ def emit_hook_output(hook_event_name, additional_context):
         pass
 
 
-def emit(ls_id, event_type, payload, actor="agent"):
+def emit(ls_id, event_type, payload, actor="agent", claude_id=None):
     """Fire-and-forget: POST an event to a LiveShortly session.
 
     Swallows all errors so a hook can never break the session.
@@ -220,4 +279,6 @@ def emit(ls_id, event_type, payload, actor="agent"):
     body = {"event_type": event_type, "payload": payload if payload is not None else {}}
     if actor is not None:
         body["actor"] = actor
-    return post_json("/api/sessions/" + str(ls_id) + "/events", body)
+    return post_json(
+        "/api/sessions/" + str(ls_id) + "/events", body, claude_id=claude_id
+    )

@@ -38,10 +38,10 @@ def main():
 
     # 1) emit the developer's prompt event (fire-and-forget).
     prompt = event.get("prompt", "")
-    emit(ls_id, "prompt", {"content": prompt}, actor="agent")
+    emit(ls_id, "prompt", {"content": prompt}, actor="agent", claude_id=claude_id)
 
     # 2) drain and inject any pending viewer comments.
-    comments = pending_comments(ls_id)
+    comments = pending_comments(ls_id, claude_id=claude_id)
     context = format_comments_context(comments)
     emit_hook_output("UserPromptSubmit", context)
     return 0

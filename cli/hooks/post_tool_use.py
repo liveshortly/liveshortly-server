@@ -58,6 +58,7 @@ def main():
             "file_write",
             {"tool": tool_name, "file": best_effort_file_path(tool_input)},
             actor="tool",
+            claude_id=claude_id,
         )
     else:
         emit(
@@ -65,6 +66,7 @@ def main():
             "output",
             {"tool": tool_name, "content": stringify(tool_response)},
             actor="tool",
+            claude_id=claude_id,
         )
     return 0
 

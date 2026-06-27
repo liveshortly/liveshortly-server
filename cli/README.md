@@ -66,6 +66,12 @@ typed by web viewers back *into* the live Claude session.
 | `LIVESHORTLY_API_URL`  | `http://localhost:8000`     | Base URL of the LiveShortly REST API.            |
 | `LIVESHORTLY_WEB_URL`  | `http://localhost:3000`     | Base URL of the web app (for the shareable link).|
 | `LIVESHORTLY_STATE_DIR`| `~/.liveshortly/sessions`   | Where session-id mappings are stored.            |
+| `LIVESHORTLY_HANDLE`   | `user@hostname` (auto)      | Override the principal sent as `X-LiveShortly-Handle`. |
+
+Each API call from the hooks sends `X-LiveShortly-Handle` derived from
+`getpass.getuser()@socket.gethostname()` (stored in the session mapping so it
+stays stable for the whole Claude session). The API creates a `users` row on
+first sight and never updates an existing handle.
 
 ## Install
 
