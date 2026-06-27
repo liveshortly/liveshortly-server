@@ -1,0 +1,146 @@
+@import "tailwindcss";
+
+:root {
+  /* Surfaces */
+  --bg: #f3f1e9;
+  --panel: #faf9f4;
+  --hairline: #d9d6c9;
+  --strong: #1c1b17;
+
+  /* Text */
+  --ink: #1a1916;
+  --muted: #6c6a5e;
+  --faint: #9b998c;
+
+  /* Signals */
+  --green: #1f7a4d;
+  --red: #c0392b;
+  --amber: #b8860b;
+
+  --font-mono: "JetBrains Mono", "IBM Plex Mono", ui-monospace,
+    "SFMono-Regular", Menlo, monospace;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-panel: var(--panel);
+  --color-hairline: var(--hairline);
+  --color-strong: var(--strong);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-green: var(--green);
+  --color-red: var(--red);
+  --color-amber: var(--amber);
+  --font-mono: var(--font-mono);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-feature-settings: "tnum" 1, "calt" 0;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  line-height: 1.45;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Uppercase tracked micro-label */
+.label {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Pulsing live dot */
+@keyframes ls-pulse {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(0.78);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.live-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: var(--green);
+  animation: ls-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes ls-blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.blink {
+  animation: ls-blink 1s step-end infinite;
+}
+
+.dashed-b {
+  border-bottom: 1px dashed var(--hairline);
+}
+
+/* Thin custom scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--hairline) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--hairline);
+  border-radius: 0;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--faint);
+}
+
+::selection {
+  background: var(--amber);
+  color: var(--panel);
+}
