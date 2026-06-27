@@ -1,0 +1,63 @@
+name: Deploy to production
+
+# Auto-deploy to server.liveshortly.com on every push to main.
+# Uses a dedicated SSH deploy key (secret DEPLOY_SSH_KEY) + pinned host key
+# (secret DEPLOY_KNOWN_HOSTS). Rsyncs the repo to the box, then rebuilds the
+# docker stack. The prod .env on the box is preserved (excluded from rsync).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Never let two deploys race; let an in-flight one finish.
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+env:
+  DEPLOY_HOST: server.liveshortly.com
+  DEPLOY_USER: ubuntu
+  DEPLOY_PATH: /home/ubuntu/LiveShortly
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "${{ secrets.DEPLOY_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Rsync code to server
+        run: |
+          rsync -az --delete \
+            --exclude '.git' \
+            --exclude 'node_modules' \
+            --exclude '.next' \
+            --exclude '.env' \
+            --exclude 'data/' \
+            --exclude 'build.log' \
+            -e "ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes" \
+            ./ "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/"
+
+      - name: Build & restart stack
+        run: |
+          ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "cd ${DEPLOY_PATH} && docker compose -f docker-compose.prod.yml up -d --build --remove-orphans && docker image prune -f"
+
+      - name: Health check (public HTTPS)
+        run: |
+          for i in $(seq 1 10); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' https://${DEPLOY_HOST}/health || true)
+            echo "attempt $i: /health -> ${code}"
+            [ "$code" = "200" ] && echo "✅ deploy healthy" && exit 0
+            sleep 5
+          done
+          echo "❌ health check failed"; exit 1
