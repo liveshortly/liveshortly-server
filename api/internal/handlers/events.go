@@ -33,8 +33,13 @@ func (h *Handler) EmitEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Emit is only allowed on existing, live sessions.
-	if !h.requireLive(w, r, id) {
+	// Only the owner (the CLI capture client) may emit, and only while live.
+	s, _, ok := h.ownedSession(w, r, id)
+	if !ok {
+		return
+	}
+	if s.Status != "live" {
+		httpx.Error(w, http.StatusConflict, "session is not live")
 		return
 	}
 
@@ -45,21 +50,6 @@ func (h *Handler) EmitEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	httpx.JSON(w, http.StatusCreated, ev)
-}
-
-// requireLive verifies the session exists and is live, writing a 404 and
-// returning false otherwise. Mirrors how emit treats a non-live session.
-func (h *Handler) requireLive(w http.ResponseWriter, r *http.Request, id string) bool {
-	s, err := h.store.GetSession(r.Context(), id)
-	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "failed to load session")
-		return false
-	}
-	if s == nil || s.Status != "live" {
-		httpx.Error(w, http.StatusNotFound, "live session not found")
-		return false
-	}
-	return true
 }
 
 // emit runs the shared emit pipeline for a live session: allocate seq via Redis

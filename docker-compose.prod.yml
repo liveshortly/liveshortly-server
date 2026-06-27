@@ -18,6 +18,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./api/infra/postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./api/infra/postgres/002-auth.sql:/docker-entrypoint-initdb.d/02-auth.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-liveshortly} -d ${POSTGRES_DB:-liveshortly}"]
       interval: 5s

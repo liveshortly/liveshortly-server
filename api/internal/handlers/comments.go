@@ -48,15 +48,41 @@ func (h *Handler) PostComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Comments are only accepted on existing, live sessions (same rule as emit).
-	if !h.requireLive(w, r, id) {
+	s, err := h.store.GetSession(r.Context(), id)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to load session")
 		return
+	}
+	if s == nil {
+		httpx.Error(w, http.StatusNotFound, "session not found")
+		return
+	}
+
+	// Authorize: owner, a commenter grant, or a link/public session that allows it.
+	allowed, err := h.canComment(r.Context(), s, p)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to authorize")
+		return
+	}
+	if !allowed {
+		httpx.Error(w, http.StatusForbidden, "forbidden")
+		return
+	}
+	// Comments only make sense (and only inject) while the session is live.
+	if s.Status != "live" {
+		httpx.Error(w, http.StatusConflict, "session is not live")
+		return
+	}
+
+	username := p.Name
+	if username == "" {
+		username = p.Email
 	}
 
 	// Emit as a normal event through the shared pipeline.
 	payload, err := json.Marshal(map[string]string{
 		"message":  req.Message,
-		"username": p.Handle,
+		"username": username,
 	})
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "failed to encode comment")
@@ -71,7 +97,7 @@ func (h *Handler) PostComment(w http.ResponseWriter, r *http.Request) {
 
 	// Additionally queue it for the capture hook to inject into the session.
 	queued, err := json.Marshal(pendingComment{
-		Username: p.Handle,
+		Username: username,
 		Message:  req.Message,
 		TS:       ev.TS.UTC().Format(time.RFC3339),
 	})
@@ -85,11 +111,16 @@ func (h *Handler) PostComment(w http.ResponseWriter, r *http.Request) {
 }
 
 // PendingComments atomically drains the pending viewer comments for a session.
-// It is polled by the capture hook on every prompt, so it must be cheap and
-// never error hard — on any failure it returns an empty list.
+// It is polled by the capture client (owner only) on every prompt, so it must
+// be cheap and never error hard — on any failure it returns an empty list.
 // GET /api/sessions/{id}/comments/pending.
 func (h *Handler) PendingComments(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
+
+	// Only the owner (the capture client) may drain the injection queue.
+	if _, _, ok := h.ownedSession(w, r, id); !ok {
+		return
+	}
 
 	raw, err := h.bus.PendingDrain(r.Context(), id)
 	if err != nil {

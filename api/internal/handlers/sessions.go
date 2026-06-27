@@ -45,10 +45,23 @@ func (h *Handler) CreateSession(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// ListSessions returns a filtered, paginated page of sessions.
-// GET /api/sessions?status=&q=&limit=&offset=.
+// ListSessions returns a filtered, paginated page of sessions the caller can
+// see. GET /api/sessions?scope=mine|shared|all&status=&q=&limit=&offset=.
 func (h *Handler) ListSessions(w http.ResponseWriter, r *http.Request) {
+	p, ok := auth.Principal(r.Context())
+	if !ok {
+		httpx.Error(w, http.StatusUnauthorized, "no principal")
+		return
+	}
+
 	q := r.URL.Query()
+
+	scope := q.Get("scope")
+	switch scope {
+	case "mine", "shared", "all":
+	default:
+		scope = "all"
+	}
 
 	status := q.Get("status")
 	if status == "" {
@@ -58,7 +71,7 @@ func (h *Handler) ListSessions(w http.ResponseWriter, r *http.Request) {
 	limit := clampInt(q.Get("limit"), 30, 1, 100)
 	offset := clampInt(q.Get("offset"), 0, 0, 1<<31-1)
 
-	results, total, err := h.store.ListSessions(r.Context(), status, q.Get("q"), limit, offset)
+	results, total, err := h.store.ListSessions(r.Context(), scope, p.ID, p.Email, status, q.Get("q"), limit, offset)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "failed to list sessions")
 		return
@@ -71,9 +84,15 @@ func (h *Handler) ListSessions(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetSession returns one session with its event log and bumps view_count.
-// GET /api/sessions/{id}.
+// Requires read authorization (owner, share, or link/public). GET /api/sessions/{id}.
 func (h *Handler) GetSession(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
+
+	p, ok := auth.Principal(r.Context())
+	if !ok {
+		httpx.Error(w, http.StatusUnauthorized, "no principal")
+		return
+	}
 
 	s, err := h.store.GetSession(r.Context(), id)
 	if err != nil {
@@ -82,6 +101,16 @@ func (h *Handler) GetSession(w http.ResponseWriter, r *http.Request) {
 	}
 	if s == nil {
 		httpx.Error(w, http.StatusNotFound, "session not found")
+		return
+	}
+
+	allowed, err := h.canRead(r.Context(), s, p)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to authorize")
+		return
+	}
+	if !allowed {
+		httpx.Error(w, http.StatusForbidden, "forbidden")
 		return
 	}
 
@@ -95,6 +124,51 @@ func (h *Handler) GetSession(w http.ResponseWriter, r *http.Request) {
 	go func() { _ = h.store.IncViewCount(detach(r), id) }()
 
 	httpx.JSON(w, http.StatusOK, sessionWithEvents{Session: *s, Events: events})
+}
+
+type patchSessionReq struct {
+	Visibility *string `json:"visibility"`
+	LinkRole   *string `json:"link_role"`
+}
+
+// PatchSession updates a session's sharing visibility/link_role (owner only).
+// PATCH /api/sessions/{id}.
+func (h *Handler) PatchSession(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+
+	_, _, ok := h.ownedSession(w, r, id)
+	if !ok {
+		return
+	}
+
+	var req patchSessionReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+	if req.Visibility != nil && !validVisibility(*req.Visibility) {
+		httpx.Error(w, http.StatusBadRequest, "invalid visibility")
+		return
+	}
+	if req.LinkRole != nil && !validRole(*req.LinkRole) {
+		httpx.Error(w, http.StatusBadRequest, "invalid link_role")
+		return
+	}
+
+	updated, err := h.store.UpdateSessionVisibility(r.Context(), id, req.Visibility, req.LinkRole)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to update session")
+		return
+	}
+	httpx.JSON(w, http.StatusOK, updated)
+}
+
+func validVisibility(v string) bool {
+	return v == "private" || v == "link" || v == "public"
+}
+
+func validRole(v string) bool {
+	return v == "viewer" || v == "commenter"
 }
 
 // clampInt parses s as an int, falling back to def, then clamps to [min,max].

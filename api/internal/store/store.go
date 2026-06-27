@@ -24,25 +24,33 @@ func New(pool *pgxpool.Pool) *Store {
 	return &Store{pool: pool}
 }
 
-// User is the resolved principal identity.
+// User is a persistent identity (Google web user or CLI principal).
 type User struct {
-	ID     string `json:"id"`
-	Handle string `json:"handle"`
+	ID        string `json:"id"`
+	Handle    string `json:"handle"`
+	Email     string `json:"email"`
+	Name      string `json:"name"`
+	AvatarURL string `json:"avatar_url"`
 }
 
-// Session matches the JSON shape in CONTRACT.md.
+// Session matches the JSON shape in CONTRACT.md/AUTH.md.
 type Session struct {
 	ID          string     `json:"id"`
 	Title       string     `json:"title"`
 	OwnerHandle string     `json:"owner_handle"`
+	OwnerID     string     `json:"owner_id"`
 	Model       *string    `json:"model"`
 	Framework   *string    `json:"framework"`
 	Status      string     `json:"status"`
 	Tags        []string   `json:"tags"`
+	Visibility  string     `json:"visibility"`
+	LinkRole    string     `json:"link_role"`
 	EventCount  int        `json:"event_count"`
 	ViewCount   int        `json:"view_count"`
 	CreatedAt   time.Time  `json:"created_at"`
 	EndedAt     *time.Time `json:"ended_at"`
+	// SharedRole is set only on list rows that the caller reaches via a share.
+	SharedRole *string `json:"shared_role,omitempty"`
 }
 
 // Event matches the JSON shape in CONTRACT.md.
@@ -64,18 +72,43 @@ type Stats struct {
 	TotalEvents   int `json:"total_events"`
 }
 
-// sessionCols is the canonical session projection, joined to users for the
-// owner handle. Column order must match scanSession.
-const sessionCols = `
-	s.id, s.title, u.handle, s.model, s.framework, s.status, s.tags,
-	s.event_count, s.view_count, s.created_at, s.ended_at
-	FROM sessions s JOIN users u ON u.id = s.owner_id`
+// sessionSelectExpr is the canonical session column projection (no FROM). The
+// owner handle prefers the display name, then email, then the legacy handle.
+// Column order must match scanSession.
+const sessionSelectExpr = `s.id, s.title,
+	COALESCE(NULLIF(u.name, ''), NULLIF(u.email, ''), u.handle) AS owner_handle,
+	s.owner_id, s.model, s.framework, s.status, s.tags, s.visibility, s.link_role,
+	s.event_count, s.view_count, s.created_at, s.ended_at`
+
+const sessionFrom = ` FROM sessions s JOIN users u ON u.id = s.owner_id`
+
+// sharedRoleExpr resolves the caller's best share role for a session row.
+// It references $1 (user id) and $2 (email).
+const sharedRoleExpr = `(SELECT sh.role FROM session_shares sh
+	WHERE sh.session_id = s.id
+	  AND (sh.grantee_user_id = $1 OR lower(sh.grantee_email) = lower($2))
+	ORDER BY CASE sh.role WHEN 'commenter' THEN 0 ELSE 1 END LIMIT 1)`
 
 func scanSession(row pgx.Row) (Session, error) {
 	var s Session
 	err := row.Scan(
-		&s.ID, &s.Title, &s.OwnerHandle, &s.Model, &s.Framework, &s.Status,
-		&s.Tags, &s.EventCount, &s.ViewCount, &s.CreatedAt, &s.EndedAt,
+		&s.ID, &s.Title, &s.OwnerHandle, &s.OwnerID, &s.Model, &s.Framework,
+		&s.Status, &s.Tags, &s.Visibility, &s.LinkRole,
+		&s.EventCount, &s.ViewCount, &s.CreatedAt, &s.EndedAt,
+	)
+	if s.Tags == nil {
+		s.Tags = []string{}
+	}
+	return s, err
+}
+
+// scanSessionShared scans the same columns plus the trailing shared_role.
+func scanSessionShared(row pgx.Row) (Session, error) {
+	var s Session
+	err := row.Scan(
+		&s.ID, &s.Title, &s.OwnerHandle, &s.OwnerID, &s.Model, &s.Framework,
+		&s.Status, &s.Tags, &s.Visibility, &s.LinkRole,
+		&s.EventCount, &s.ViewCount, &s.CreatedAt, &s.EndedAt, &s.SharedRole,
 	)
 	if s.Tags == nil {
 		s.Tags = []string{}
@@ -127,7 +160,7 @@ func (st *Store) CreateSession(ctx context.Context, ownerID, title string, model
 
 // GetSession returns the session with id, or (nil, nil) if it does not exist.
 func (st *Store) GetSession(ctx context.Context, id string) (*Session, error) {
-	q := `SELECT ` + sessionCols + ` WHERE s.id = $1`
+	q := `SELECT ` + sessionSelectExpr + sessionFrom + ` WHERE s.id = $1`
 	s, err := scanSession(st.pool.QueryRow(ctx, q, id))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
@@ -138,37 +171,50 @@ func (st *Store) GetSession(ctx context.Context, id string) (*Session, error) {
 	return &s, nil
 }
 
-// ListSessions returns a page of sessions plus the total count for the filter.
-// status may be "live", "ended", or "all" (any other value = all). q is a
-// case-insensitive match on title or any tag.
-func (st *Store) ListSessions(ctx context.Context, status, q string, limit, offset int) ([]Session, int, error) {
-	var where []string
-	var args []any
-	i := 1
+// sharedExists is the "I have a grant on this session" predicate ($1=uid, $2=email).
+const sharedExists = `EXISTS (SELECT 1 FROM session_shares sh
+	WHERE sh.session_id = s.id
+	  AND (sh.grantee_user_id = $1 OR lower(sh.grantee_email) = lower($2)))`
+
+// ListSessions returns a page of sessions visible to the caller plus the total.
+// scope: "mine" (owned), "shared" (granted), or "all" (the union, default).
+// status may be "live"/"ended" (else all); q matches title or any tag.
+func (st *Store) ListSessions(ctx context.Context, scope, userID, email, status, q string, limit, offset int) ([]Session, int, error) {
+	// $1 and $2 are always the caller (used by scope predicate and shared_role).
+	args := []any{userID, email}
+	next := 3
+
+	var conds []string
+	switch scope {
+	case "mine":
+		conds = append(conds, "s.owner_id = $1")
+	case "shared":
+		conds = append(conds, sharedExists)
+	default: // "all"
+		conds = append(conds, "(s.owner_id = $1 OR "+sharedExists+")")
+	}
 
 	if status == "live" || status == "ended" {
-		where = append(where, fmt.Sprintf("s.status = $%d", i))
+		conds = append(conds, fmt.Sprintf("s.status = $%d", next))
 		args = append(args, status)
-		i++
+		next++
 	}
 	if q != "" {
-		where = append(where, fmt.Sprintf(
-			"(s.title ILIKE '%%'||$%d||'%%' OR EXISTS (SELECT 1 FROM unnest(s.tags) t WHERE t ILIKE '%%'||$%d||'%%'))", i, i))
+		conds = append(conds, fmt.Sprintf(
+			"(s.title ILIKE '%%'||$%d||'%%' OR EXISTS (SELECT 1 FROM unnest(s.tags) t WHERE t ILIKE '%%'||$%d||'%%'))", next, next))
 		args = append(args, q)
-		i++
+		next++
 	}
-	whereSQL := ""
-	if len(where) > 0 {
-		whereSQL = " WHERE " + strings.Join(where, " AND ")
-	}
+	whereSQL := " WHERE " + strings.Join(conds, " AND ")
 
 	var total int
-	if err := st.pool.QueryRow(ctx, "SELECT count(*) FROM sessions s"+whereSQL, args...).Scan(&total); err != nil {
+	if err := st.pool.QueryRow(ctx, "SELECT count(*)"+sessionFrom+whereSQL, args...).Scan(&total); err != nil {
 		return nil, 0, err
 	}
 
-	listQ := "SELECT " + sessionCols + whereSQL +
-		fmt.Sprintf(" ORDER BY s.created_at DESC LIMIT $%d OFFSET $%d", i, i+1)
+	listQ := "SELECT " + sessionSelectExpr + ", " + sharedRoleExpr + " AS shared_role" +
+		sessionFrom + whereSQL +
+		fmt.Sprintf(" ORDER BY s.created_at DESC LIMIT $%d OFFSET $%d", next, next+1)
 	args = append(args, limit, offset)
 
 	rows, err := st.pool.Query(ctx, listQ, args...)
@@ -179,7 +225,7 @@ func (st *Store) ListSessions(ctx context.Context, status, q string, limit, offs
 
 	out := []Session{}
 	for rows.Next() {
-		s, err := scanSession(rows)
+		s, err := scanSessionShared(rows)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -257,16 +303,18 @@ func (st *Store) StopSession(ctx context.Context, id, storageKey string) (*Sessi
 	return st.GetSession(ctx, id)
 }
 
-// Stats returns the aggregate dashboard counts.
-func (st *Store) Stats(ctx context.Context) (Stats, error) {
+// Stats returns the aggregate dashboard counts over the caller's own + shared
+// sessions ($1=user id, $2=email).
+func (st *Store) Stats(ctx context.Context, userID, email string) (Stats, error) {
 	const q = `
 		SELECT
 			count(*),
-			count(*) FILTER (WHERE status = 'live'),
-			count(*) FILTER (WHERE status = 'ended'),
-			COALESCE(sum(event_count), 0)
-		FROM sessions`
+			count(*) FILTER (WHERE s.status = 'live'),
+			count(*) FILTER (WHERE s.status = 'ended'),
+			COALESCE(sum(s.event_count), 0)
+		FROM sessions s
+		WHERE s.owner_id = $1 OR ` + sharedExists
 	var s Stats
-	err := st.pool.QueryRow(ctx, q).Scan(&s.TotalSessions, &s.LiveNow, &s.Ended, &s.TotalEvents)
+	err := st.pool.QueryRow(ctx, q, userID, email).Scan(&s.TotalSessions, &s.LiveNow, &s.Ended, &s.TotalEvents)
 	return s, err
 }

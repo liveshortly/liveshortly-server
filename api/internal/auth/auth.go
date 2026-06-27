@@ -1,19 +1,18 @@
-// Package auth resolves the request principal. Capture hooks send
-// X-LiveShortly-Handle (user@hostname); web clients fall back to the default user.
-// Bearer token validation can slot in later without schema changes.
+// Package auth resolves the request principal from an app token. Every /api
+// request must carry either a Bearer access JWT (CLI) or the ls_session cookie
+// (web); both resolve to the same persistent users.id.
 package auth
 
 import (
 	"context"
 	"net/http"
-	"strings"
 
 	"liveshortly/internal/httpx"
-	"liveshortly/internal/store"
 	"liveshortly/internal/websession"
 )
 
-// HandleHeader is sent by CLI capture hooks to identify the coding principal.
+// HandleHeader is still read off CLI requests but is now only an optional
+// display label — ownership comes from the authenticated user id, not this.
 const HandleHeader = "X-LiveShortly-Handle"
 
 type ctxKey struct{}
@@ -21,85 +20,34 @@ type ctxKey struct{}
 // Identity is the authenticated principal attached to a request.
 type Identity struct {
 	ID     string
-	Handle string
+	Email  string
+	Name   string
+	Handle string // display label: name, falling back to email
 }
 
-// Middleware resolves the principal for every request and stashes it in the
-// context. It lazily creates the user row if needed.
-func Middleware(st *store.Store, defaultHandle string) func(http.Handler) http.Handler {
+// Authn resolves the principal for every /api request: Bearer access token or
+// ls_session cookie. Missing/invalid → 401.
+func Authn(mgr *websession.Manager) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// We read the bearer token but deliberately ignore its value for now.
-			//
-			// TODO(auth): when real auth is switched on, hash the presented
-			// token and look it up in api_tokens (token_hash), check revoked_at,
-			// and resolve the owning user instead of falling back to the default
-			// user. The Identity shape and context plumbing stay the same.
-			_ = bearerToken(r)
-
-			handle := resolveHandle(r, defaultHandle)
-			u, err := st.GetOrCreateUser(r.Context(), handle)
-			if err != nil {
-				httpx.Error(w, http.StatusInternalServerError, "failed to resolve principal")
-				return
-			}
-
-			ctx := context.WithValue(r.Context(), ctxKey{}, Identity{ID: u.ID, Handle: u.Handle})
-			next.ServeHTTP(w, r.WithContext(ctx))
-		})
-	}
-}
-
-// resolveHandle picks the principal handle from the capture header or default.
-func resolveHandle(r *http.Request, defaultHandle string) string {
-	h := strings.TrimSpace(r.Header.Get(HandleHeader))
-	if h != "" {
-		if len(h) > 128 {
-			h = h[:128]
-		}
-		return h
-	}
-	return defaultHandle
-}
-
-// RequireWebSession gates web routes behind a valid Google `ls_session` cookie.
-// On success it stashes an Identity with no DB id (web users are not persisted)
-// and Handle set to the user's display name (or email if the name is empty), so
-// existing handlers that read Principal attribute the request to the Google user.
-func RequireWebSession(mgr *websession.Manager) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			u, ok := mgr.WebUserFromRequest(r)
+			c, ok := mgr.FromRequest(r)
 			if !ok {
 				httpx.JSON(w, http.StatusUnauthorized, map[string]any{"authenticated": false})
 				return
 			}
-			handle := u.Name
+			handle := c.Name
 			if handle == "" {
-				handle = u.Email
+				handle = c.Email
 			}
-			ctx := context.WithValue(r.Context(), ctxKey{}, Identity{ID: "", Handle: handle})
+			id := Identity{ID: c.UserID, Email: c.Email, Name: c.Name, Handle: handle}
+			ctx := context.WithValue(r.Context(), ctxKey{}, id)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
 }
 
-// Principal returns the identity resolved by Middleware for this request.
+// Principal returns the identity resolved by Authn for this request.
 func Principal(ctx context.Context) (Identity, bool) {
 	p, ok := ctx.Value(ctxKey{}).(Identity)
 	return p, ok
-}
-
-// bearerToken extracts the token from an "Authorization: Bearer <token>" header,
-// or "" if absent. Currently informational only.
-func bearerToken(r *http.Request) string {
-	h := r.Header.Get("Authorization")
-	if h == "" {
-		return ""
-	}
-	const prefix = "Bearer "
-	if len(h) > len(prefix) && strings.EqualFold(h[:len(prefix)], prefix) {
-		return strings.TrimSpace(h[len(prefix):])
-	}
-	return ""
 }
