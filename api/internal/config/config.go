@@ -14,6 +14,13 @@ type Config struct {
 	StoragePath       string
 	CORSOrigins       []string
 	DefaultUserHandle string
+
+	// Google sign-in (web authN). All optional; empty disables login wiring.
+	GoogleClientID     string
+	GoogleClientSecret string
+	OAuthRedirectURL   string
+	SessionSecret      string
+	WebBaseURL         string
 }
 
 // Load reads configuration from the environment, applying defaults from the
@@ -27,6 +34,12 @@ func Load() Config {
 		StoragePath:       env("STORAGE_PATH", "/app/data/sessions"),
 		CORSOrigins:       splitCSV(env("CORS_ORIGINS", "*")),
 		DefaultUserHandle: env("DEFAULT_USER_HANDLE", "you"),
+
+		GoogleClientID:     env("GOOGLE_CLIENT_ID", ""),
+		GoogleClientSecret: env("GOOGLE_CLIENT_SECRET", ""),
+		OAuthRedirectURL:   env("OAUTH_REDIRECT_URL", ""),
+		SessionSecret:      env("SESSION_SECRET", ""),
+		WebBaseURL:         env("WEB_BASE_URL", ""),
 	}
 }
 

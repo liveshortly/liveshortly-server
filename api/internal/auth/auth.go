@@ -10,6 +10,7 @@ import (
 
 	"liveshortly/internal/httpx"
 	"liveshortly/internal/store"
+	"liveshortly/internal/websession"
 )
 
 // HandleHeader is sent by CLI capture hooks to identify the coding principal.
@@ -59,6 +60,28 @@ func resolveHandle(r *http.Request, defaultHandle string) string {
 		return h
 	}
 	return defaultHandle
+}
+
+// RequireWebSession gates web routes behind a valid Google `ls_session` cookie.
+// On success it stashes an Identity with no DB id (web users are not persisted)
+// and Handle set to the user's display name (or email if the name is empty), so
+// existing handlers that read Principal attribute the request to the Google user.
+func RequireWebSession(mgr *websession.Manager) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			u, ok := mgr.WebUserFromRequest(r)
+			if !ok {
+				httpx.JSON(w, http.StatusUnauthorized, map[string]any{"authenticated": false})
+				return
+			}
+			handle := u.Name
+			if handle == "" {
+				handle = u.Email
+			}
+			ctx := context.WithValue(r.Context(), ctxKey{}, Identity{ID: "", Handle: handle})
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
 }
 
 // Principal returns the identity resolved by Middleware for this request.
