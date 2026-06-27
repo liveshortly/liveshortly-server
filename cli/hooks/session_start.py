@@ -10,6 +10,7 @@ from _common import (  # noqa: E402
     read_event,
     post_json,
     save_mapping,
+    resolve_handle,
     web_base,
     log,
 )
@@ -32,14 +33,15 @@ def main():
         "framework": "claude-code",
     }
 
-    resp = post_json("/api/sessions", body)
+    handle = resolve_handle(claude_id)
+    resp = post_json("/api/sessions", body, claude_id=claude_id)
     if not resp or not resp.get("id"):
         log("session_start: could not create session (API unreachable?)")
         return 0
 
     ls_id = resp["id"]
     if claude_id:
-        save_mapping(claude_id, ls_id)
+        save_mapping(claude_id, ls_id, handle=handle)
 
     url = web_base() + "/session/" + str(ls_id)
     log("LiveShortly session live:", url)

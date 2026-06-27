@@ -1,6 +1,6 @@
-// Package auth resolves the request principal. Today it always maps to the
-// default user; the Bearer token is read but ignored. The seam is built so
-// real token validation can be added later with no schema or signature change.
+// Package auth resolves the request principal. Capture hooks send
+// X-LiveShortly-Handle (user@hostname); web clients fall back to the default user.
+// Bearer token validation can slot in later without schema changes.
 package auth
 
 import (
@@ -12,6 +12,9 @@ import (
 	"liveshortly/internal/store"
 )
 
+// HandleHeader is sent by CLI capture hooks to identify the coding principal.
+const HandleHeader = "X-LiveShortly-Handle"
+
 type ctxKey struct{}
 
 // Identity is the authenticated principal attached to a request.
@@ -21,7 +24,7 @@ type Identity struct {
 }
 
 // Middleware resolves the principal for every request and stashes it in the
-// context. It lazily creates the default user row if needed.
+// context. It lazily creates the user row if needed.
 func Middleware(st *store.Store, defaultHandle string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -33,7 +36,8 @@ func Middleware(st *store.Store, defaultHandle string) func(http.Handler) http.H
 			// user. The Identity shape and context plumbing stay the same.
 			_ = bearerToken(r)
 
-			u, err := st.GetOrCreateUser(r.Context(), defaultHandle)
+			handle := resolveHandle(r, defaultHandle)
+			u, err := st.GetOrCreateUser(r.Context(), handle)
 			if err != nil {
 				httpx.Error(w, http.StatusInternalServerError, "failed to resolve principal")
 				return
@@ -43,6 +47,18 @@ func Middleware(st *store.Store, defaultHandle string) func(http.Handler) http.H
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
+}
+
+// resolveHandle picks the principal handle from the capture header or default.
+func resolveHandle(r *http.Request, defaultHandle string) string {
+	h := strings.TrimSpace(r.Header.Get(HandleHeader))
+	if h != "" {
+		if len(h) > 128 {
+			h = h[:128]
+		}
+		return h
+	}
+	return defaultHandle
 }
 
 // Principal returns the identity resolved by Middleware for this request.

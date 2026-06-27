@@ -83,16 +83,19 @@ func scanSession(row pgx.Row) (Session, error) {
 	return s, err
 }
 
-// GetOrCreateUser returns the user row for handle, creating it if absent. The
-// ON CONFLICT clause makes this safe under concurrency and always RETURNs.
+// GetOrCreateUser returns the user row for handle, creating it if absent.
+// Existing rows are never updated.
 func (st *Store) GetOrCreateUser(ctx context.Context, handle string) (User, error) {
-	const q = `
+	const ins = `
 		INSERT INTO users (handle, display_name)
 		VALUES ($1, $1)
-		ON CONFLICT (handle) DO UPDATE SET handle = EXCLUDED.handle
-		RETURNING id, handle`
+		ON CONFLICT (handle) DO NOTHING`
+	if _, err := st.pool.Exec(ctx, ins, handle); err != nil {
+		return User{}, err
+	}
+	const sel = `SELECT id, handle FROM users WHERE handle = $1`
 	var u User
-	err := st.pool.QueryRow(ctx, q, handle).Scan(&u.ID, &u.Handle)
+	err := st.pool.QueryRow(ctx, sel, handle).Scan(&u.ID, &u.Handle)
 	return u, err
 }
 

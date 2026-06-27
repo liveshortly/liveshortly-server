@@ -23,7 +23,7 @@ def main():
         log("session_end: no session mapping; nothing to stop")
         return 0
 
-    post_json("/api/sessions/" + str(ls_id) + "/stop", {})
+    post_json("/api/sessions/" + str(ls_id) + "/stop", {}, claude_id=claude_id)
     if claude_id:
         clear_mapping(claude_id)
     log("session_end: stopped session", ls_id)
