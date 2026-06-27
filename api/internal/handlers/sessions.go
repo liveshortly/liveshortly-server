@@ -120,10 +120,21 @@ func (h *Handler) GetSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Effective comment permission for this caller (owner / commenter grant /
+	// link_role=commenter). Best-effort: on error, fall back to read-only.
+	canComment, err := h.canComment(r.Context(), s, p)
+	if err != nil {
+		canComment = false
+	}
+
 	// view_count bump is best-effort and must not block the response.
 	go func() { _ = h.store.IncViewCount(detach(r), id) }()
 
-	httpx.JSON(w, http.StatusOK, sessionWithEvents{Session: *s, Events: events})
+	httpx.JSON(w, http.StatusOK, sessionWithEvents{
+		Session:    *s,
+		CanComment: canComment,
+		Events:     events,
+	})
 }
 
 type patchSessionReq struct {
