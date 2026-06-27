@@ -85,3 +85,10 @@ export function summarizePayload(payload: Record<string, unknown>): string {
     return String(payload);
   }
 }
+
+/** Truncate a string to `max` chars (collapsing whitespace), adding an ellipsis. */
+export function truncate(s: string, max = 80): string {
+  const flat = s.replace(/\s+/g, " ").trim();
+  if (flat.length <= max) return flat;
+  return flat.slice(0, max - 1).trimEnd() + "…";
+}

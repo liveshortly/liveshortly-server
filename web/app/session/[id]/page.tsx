@@ -238,7 +238,11 @@ export default function SessionViewer({
         <span style={{ color: "var(--muted)" }}>{streamLabel(conn, isLive)}</span>
       </div>
 
-      <EventStream events={events} live={isLive} />
+      <EventStream
+        events={events}
+        live={isLive}
+        ownerHandle={meta?.owner_handle ?? null}
+      />
 
       {/* Composer — only while the session is live. */}
       {isLive && <Composer id={id} />}
