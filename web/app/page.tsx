@@ -164,9 +164,11 @@ function ShareAction({
   onToggle: () => void;
   onClose: () => void;
 }) {
+  const btnRef = useRef<HTMLButtonElement>(null);
   return (
-    <span style={{ position: "relative", display: "inline-block" }}>
+    <span style={{ display: "inline-block" }}>
       <button
+        ref={btnRef}
         type="button"
         onClick={onToggle}
         className="label"
@@ -188,6 +190,7 @@ function ShareAction({
         <ShareDialog
           sessionId={session.id}
           title={session.title}
+          anchorEl={btnRef.current}
           onClose={onClose}
         />
       )}
