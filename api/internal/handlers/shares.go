@@ -65,7 +65,7 @@ func (h *Handler) ListShares(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusInternalServerError, "failed to list shares")
 		return
 	}
-	httpx.JSON(w, http.StatusOK, map[string]any{"shares": shares})
+	httpx.JSON(w, http.StatusOK, map[string]any{"results": shares})
 }
 
 // DeleteShare removes a grant (owner only). DELETE /api/sessions/{id}/shares/{shareId}.
