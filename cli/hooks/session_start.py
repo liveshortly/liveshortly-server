@@ -1,0 +1,54 @@
+#!/usr/bin/env python3
+"""SessionStart hook: create a LiveShortly session and save the mapping."""
+
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from _common import (  # noqa: E402
+    read_event,
+    post_json,
+    save_mapping,
+    web_base,
+    log,
+)
+
+
+def main():
+    event = read_event()
+    claude_id = event.get("session_id")
+    cwd = event.get("cwd") or os.getcwd()
+    source = event.get("source") or "startup"
+
+    base = os.path.basename(os.path.normpath(cwd)) if cwd else "session"
+    if not base or base in (".", "/"):
+        base = "session"
+    title = "{} ({})".format(base, source)
+
+    body = {
+        "title": title,
+        "model": "claude",
+        "framework": "claude-code",
+    }
+
+    resp = post_json("/api/sessions", body)
+    if not resp or not resp.get("id"):
+        log("session_start: could not create session (API unreachable?)")
+        return 0
+
+    ls_id = resp["id"]
+    if claude_id:
+        save_mapping(claude_id, ls_id)
+
+    url = web_base() + "/session/" + str(ls_id)
+    log("LiveShortly session live:", url)
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except Exception as exc:  # never break the session
+        log("session_start error:", exc)
+        sys.exit(0)
