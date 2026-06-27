@@ -14,6 +14,9 @@ export type Actor = "agent" | "tool" | "viewer" | null;
 
 export type ShareRole = "viewer" | "commenter";
 
+/** Link-sharing reach: private (owner+grants), link (anyone signed in with URL). */
+export type Visibility = "private" | "link" | "public";
+
 export interface Session {
   id: string;
   title: string;
@@ -26,8 +29,17 @@ export interface Session {
   view_count: number;
   created_at: string; // RFC3339
   ended_at: string | null; // RFC3339 | null
+  /** Reach of the shareable link. */
+  visibility?: Visibility;
+  /** Role granted to anyone opening the link (viewer | commenter). */
+  link_role?: ShareRole;
   /** Present on rows returned for scope=shared: the caller's grant role. */
   shared_role?: ShareRole | null;
+}
+
+/** True when the session's link is open to anyone signed in (not just owner/grants). */
+export function isPublicLink(s: Pick<Session, "visibility">): boolean {
+  return s.visibility === "link" || s.visibility === "public";
 }
 
 /** A sharing grant on a session (owner view). */
@@ -62,6 +74,8 @@ export interface SessionList {
 }
 
 export interface SessionDetail extends Session {
+  /** Whether the calling viewer may post comments back to the session. */
+  can_comment?: boolean;
   events: SessionEvent[];
 }
 
@@ -229,6 +243,48 @@ export async function deleteShare(
       `Could not remove share: ${res.status} ${res.statusText}`,
     );
   }
+}
+
+/** Patch a session's link sharing (owner only). PATCH /api/sessions/{id}. */
+export async function patchSession(
+  id: string,
+  body: { visibility?: Visibility; link_role?: ShareRole },
+  signal?: AbortSignal,
+): Promise<Session> {
+  const res = await fetch(
+    `${browserBase()}/api/sessions/${encodeURIComponent(id)}`,
+    {
+      method: "PATCH",
+      signal,
+      credentials: "include",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    },
+  );
+  if (!res.ok) {
+    throw new ApiError(
+      res.status,
+      `Could not update sharing: ${res.status} ${res.statusText}`,
+    );
+  }
+  return (await res.json()) as Session;
+}
+
+/** Open the session's link to anyone signed in (view-only). */
+export function enablePublicLink(id: string, signal?: AbortSignal) {
+  return patchSession(id, { visibility: "link", link_role: "viewer" }, signal);
+}
+
+/** Close the link back to owner + explicit grants only. */
+export function disablePublicLink(id: string, signal?: AbortSignal) {
+  return patchSession(id, { visibility: "private" }, signal);
+}
+
+/** Absolute, shareable URL for a session's viewer page. */
+export function sessionViewUrl(id: string): string {
+  const path = `/session/${encodeURIComponent(id)}`;
+  if (typeof window !== "undefined") return `${window.location.origin}${path}`;
+  return path;
 }
 
 /** Authenticated user, as reported by GET /api/me. */
