@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   createShare,
   deleteShare,
@@ -9,17 +10,29 @@ import {
   type ShareRole,
 } from "@/lib/api";
 
+const DIALOG_WIDTH = 340;
+const MARGIN = 12; // min gap from viewport edges
+const GAP = 6; // gap between anchor and dialog
+
+type Pos = { top: number; left: number; placement: "below" | "above" };
+
 /**
  * Owner-only sharing popover for a session: add a grant by email + role,
  * and list/revoke existing grants. Closes on outside click / Esc.
+ *
+ * Rendered in a portal with fixed positioning anchored to `anchorEl` so it
+ * escapes the session table's `overflow` clip and never gets cut off by it.
+ * Flips above the anchor when there isn't room below.
  */
 export default function ShareDialog({
   sessionId,
   title,
+  anchorEl,
   onClose,
 }: {
   sessionId: string;
   title?: string;
+  anchorEl: HTMLElement | null;
   onClose: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -28,11 +41,52 @@ export default function ShareDialog({
   const [grants, setGrants] = useState<ShareGrant[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [pos, setPos] = useState<Pos | null>(null);
+  const [mounted, setMounted] = useState(false);
 
-  // Outside-click + Esc to close.
+  useEffect(() => setMounted(true), []);
+
+  // Position the dialog against the anchor; keep it in the viewport and flip
+  // above when there's not enough room below. Recompute on scroll / resize.
+  useLayoutEffect(() => {
+    if (!anchorEl) return;
+    const place = () => {
+      const a = anchorEl.getBoundingClientRect();
+      const h = ref.current?.offsetHeight ?? 0;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+
+      const left = Math.max(
+        MARGIN,
+        Math.min(a.right - DIALOG_WIDTH, vw - DIALOG_WIDTH - MARGIN),
+      );
+
+      const roomBelow = vh - a.bottom - GAP;
+      const roomAbove = a.top - GAP;
+      const below = roomBelow >= h || roomBelow >= roomAbove;
+      const top = below
+        ? Math.min(a.bottom + GAP, vh - h - MARGIN)
+        : Math.max(MARGIN, a.top - GAP - h);
+
+      setPos({ top, left, placement: below ? "below" : "above" });
+    };
+    place();
+    window.addEventListener("scroll", place, true);
+    window.addEventListener("resize", place);
+    return () => {
+      window.removeEventListener("scroll", place, true);
+      window.removeEventListener("resize", place);
+    };
+  }, [anchorEl, grants, err]);
+
+  // Outside-click + Esc to close. The anchor (SHARE button) is excluded so its
+  // own click toggles instead of double-firing a close.
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+      const t = e.target as Node;
+      if (ref.current?.contains(t)) return;
+      if (anchorEl?.contains(t)) return;
+      onClose();
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -43,7 +97,7 @@ export default function ShareDialog({
       document.removeEventListener("mousedown", onDown);
       document.removeEventListener("keydown", onKey);
     };
-  }, [onClose]);
+  }, [onClose, anchorEl]);
 
   // Load existing grants.
   useEffect(() => {
@@ -107,23 +161,28 @@ export default function ShareDialog({
     }
   };
 
-  return (
+  if (!mounted) return null;
+
+  return createPortal(
     <div
       ref={ref}
       role="dialog"
       aria-label="Share session"
       style={{
-        position: "absolute",
-        right: 0,
-        top: "calc(100% + 6px)",
+        position: "fixed",
+        top: pos?.top ?? -9999,
+        left: pos?.left ?? -9999,
         zIndex: 50,
-        width: 320,
+        width: DIALOG_WIDTH,
+        maxHeight: `calc(100vh - ${MARGIN * 2}px)`,
+        overflowY: "auto",
         border: "1px solid var(--strong)",
         background: "var(--panel)",
         padding: 12,
         textAlign: "left",
         cursor: "default",
         boxShadow: "3px 3px 0 var(--hairline)",
+        visibility: pos ? "visible" : "hidden",
       }}
     >
       <div
@@ -302,6 +361,7 @@ export default function ShareDialog({
           ))
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
