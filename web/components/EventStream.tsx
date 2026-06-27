@@ -2,7 +2,11 @@
 
 import { useEffect, useRef } from "react";
 import type { SessionEvent } from "@/lib/api";
-import { summarizePayload, utcTime } from "@/lib/utils";
+import { summarizePayload, localTime } from "@/lib/utils";
+
+// Internal stream-boundary markers carry no content (just a timestamp) and
+// should never show in the log. Some capture hooks emit these.
+const HIDDEN_EVENT_TYPES = new Set(["stream_start", "stream_end"]);
 
 /** Color + glyph per event_type. */
 function markerFor(type: string): { color: string; glyph: string } {
@@ -26,12 +30,13 @@ function markerFor(type: string): { color: string; glyph: string } {
 
 /** Terminal-style event log. Auto-scrolls to bottom when new events arrive. */
 export default function EventStream({
-  events,
+  events: rawEvents,
   live,
 }: {
   events: SessionEvent[];
   live?: boolean;
 }) {
+  const events = rawEvents.filter((e) => !HIDDEN_EVENT_TYPES.has(e.event_type));
   const endRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickRef = useRef(true);
@@ -114,7 +119,7 @@ export default function EventStream({
                   >
                     <span>✉ VIEWER @{handle}</span>
                     <span style={{ color: "var(--faint)" }} title={e.ts}>
-                      {utcTime(e.ts)}
+                      {localTime(e.ts)}
                     </span>
                   </div>
                   <div
@@ -151,7 +156,7 @@ export default function EventStream({
                 style={{ color: "var(--faint)", fontSize: 11 }}
                 title={e.ts}
               >
-                {utcTime(e.ts)}
+                {localTime(e.ts)}
               </span>
               <span
                 aria-hidden
