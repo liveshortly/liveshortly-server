@@ -51,6 +51,14 @@ export function utcTime(iso: string | null | undefined): string {
   return utcClock(d);
 }
 
+/** Time of day, HH:MM:SS, in the viewer's LOCAL timezone, from an ISO timestamp. */
+export function localTime(iso: string | null | undefined): string {
+  if (!iso) return "--:--:--";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "--:--:--";
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
 /** Best-effort one-line summary of an arbitrary event payload. */
 export function summarizePayload(payload: Record<string, unknown>): string {
   if (!payload || typeof payload !== "object") return "";
