@@ -6,10 +6,21 @@ import type { Session } from "@/lib/api";
 import { fmtInt, shortId, timeAgo } from "@/lib/utils";
 
 /**
- * Monospace table of all sessions.
+ * Monospace table of sessions.
  * Columns: ID(short) · TITLE · OWNER · MODEL · EVENTS · STATUS · OPENED
+ * Optionally a per-row ACCESS badge (shared_role) and a right-side action slot.
  */
-export default function SessionTable({ sessions }: { sessions: Session[] }) {
+export default function SessionTable({
+  sessions,
+  showAccess = false,
+  action,
+}: {
+  sessions: Session[];
+  /** Show a `🔗 shared · <role>` column from each row's shared_role. */
+  showAccess?: boolean;
+  /** Optional right-side slot per row (e.g. a SHARE button for owned rows). */
+  action?: (session: Session) => React.ReactNode;
+}) {
   const router = useRouter();
 
   return (
@@ -37,6 +48,8 @@ export default function SessionTable({ sessions }: { sessions: Session[] }) {
             <Th align="right">Events</Th>
             <Th>Status</Th>
             <Th align="right">Opened</Th>
+            {showAccess && <Th>Access</Th>}
+            {action && <Th align="right">{""}</Th>}
           </tr>
         </thead>
         <tbody>
@@ -69,11 +82,41 @@ export default function SessionTable({ sessions }: { sessions: Session[] }) {
               <Td mono muted align="right">
                 {timeAgo(s.created_at)}
               </Td>
+              {showAccess && (
+                <Td>
+                  {s.shared_role ? <SharedBadge role={s.shared_role} /> : "—"}
+                </Td>
+              )}
+              {action && (
+                <Td align="right" onClick={(e) => e.stopPropagation()}>
+                  {action(s)}
+                </Td>
+              )}
             </tr>
           ))}
         </tbody>
       </table>
     </div>
+  );
+}
+
+function SharedBadge({ role }: { role: string }) {
+  return (
+    <span
+      className="label"
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 5,
+        fontSize: 10,
+        color: "var(--amber)",
+        border: "1px solid var(--hairline)",
+        padding: "2px 7px",
+        whiteSpace: "nowrap",
+      }}
+    >
+      🔗 SHARED · {role}
+    </span>
   );
 }
 
@@ -108,6 +151,7 @@ function Td({
   clip,
   align = "left",
   title,
+  onClick,
 }: {
   children: React.ReactNode;
   mono?: boolean;
@@ -117,11 +161,13 @@ function Td({
   clip?: boolean;
   align?: "left" | "right";
   title?: string;
+  onClick?: (e: React.MouseEvent<HTMLTableCellElement>) => void;
 }) {
   return (
     <td
       className={mono ? "tnum" : undefined}
       title={title}
+      onClick={onClick}
       style={{
         padding: "9px 12px",
         textAlign: align,
