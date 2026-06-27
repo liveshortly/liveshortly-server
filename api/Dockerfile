@@ -1,5 +1,6 @@
 # ---- build stage ----
-FROM golang:1.22-alpine AS build
+# go.mod requires Go >= 1.25.8 (pulled in by the oauth2/idtoken deps).
+FROM golang:1.26-alpine AS build
 WORKDIR /src
 
 # Cache deps first.
