@@ -181,40 +181,8 @@ export default function HudHeader({ user }: { user?: Me | null }) {
               paddingLeft: 14,
             }}
           >
-            {user.picture ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={user.picture}
-                alt=""
-                width={28}
-                height={28}
-                referrerPolicy="no-referrer"
-                style={{
-                  width: 28,
-                  height: 28,
-                  objectFit: "cover",
-                  border: "1px solid var(--hairline)",
-                }}
-              />
-            ) : (
-              <span
-                aria-hidden
-                style={{
-                  width: 28,
-                  height: 28,
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  border: "1px solid var(--hairline)",
-                  background: "var(--bg)",
-                  fontSize: 13,
-                  fontWeight: 700,
-                }}
-              >
-                {(user.name ?? user.email ?? "?").charAt(0).toUpperCase()}
-              </span>
-            )}
-            <div style={{ minWidth: 0, maxWidth: 160 }}>
+            <span aria-hidden style={{ color: "var(--green)", fontSize: 12 }}>●</span>
+            <div style={{ minWidth: 0, maxWidth: 200 }}>
               <div
                 style={{
                   fontSize: 12,
