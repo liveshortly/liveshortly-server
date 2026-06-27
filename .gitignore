@@ -1,0 +1,30 @@
+# --- secrets / local env ---
+.env
+.env.local
+.env.*.local
+# keep .env.example (committed)
+
+# --- node / next (web) ---
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+npm-debug.log*
+
+# --- go (api) ---
+# compiled binaries (the docker build produces these; not committed)
+/api/server
+/api/cmd/server/server
+*.exe
+*.test
+*.out
+
+# --- runtime data ---
+data/
+*.log
+
+# --- os / editor ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
