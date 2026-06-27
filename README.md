@@ -22,10 +22,13 @@ A lean, self-hosted monorepo that turns any **Claude Code** session into a live,
 
 </div>
 
-<!--
-  HERO IMAGE: drop a beautified architecture render here once generated.
-  ![LiveShortly architecture](docs/architecture.png)
--->
+<div align="center">
+
+![LiveShortly architecture](docs/architecture.png)
+
+<sub>Capture on your machine → fan out through the docker-compose stack → watch & talk back from the browser.</sub>
+
+</div>
 
 ---
 
