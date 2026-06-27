@@ -19,7 +19,7 @@ def main():
 
     tool_name = event.get("tool_name", "")
     tool_input = event.get("tool_input", {})
-    emit(ls_id, "tool_call", {"tool": tool_name, "input": tool_input}, actor="agent")
+    emit(ls_id, "tool_call", {"tool": tool_name, "input": tool_input}, actor="agent", claude_id=claude_id)
     return 0
 
 

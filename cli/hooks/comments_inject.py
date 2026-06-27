@@ -33,7 +33,7 @@ def main():
         emit_hook_output("PreToolUse", "")
         return 0
 
-    comments = pending_comments(ls_id)
+    comments = pending_comments(ls_id, claude_id=claude_id)
     context = format_comments_context(comments)
     emit_hook_output("PreToolUse", context)
     return 0
