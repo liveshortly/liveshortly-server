@@ -4,7 +4,8 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import SessionTable from "@/components/SessionTable";
 import ShareDialog from "@/components/ShareDialog";
-import { listSessions, type Session } from "@/lib/api";
+import PublicLinkDialog from "@/components/PublicLinkDialog";
+import { isPublicLink, listSessions, type Session } from "@/lib/api";
 import { fmtInt } from "@/lib/utils";
 
 const POLL_MS = 5000;
@@ -20,8 +21,15 @@ function Dashboard() {
   const [mineErr, setMineErr] = useState<string | null>(null);
   const [sharedErr, setSharedErr] = useState<string | null>(null);
 
-  // Which owned session has its share popover open.
+  // Which owned session has its invite / public-link popover open (at most one).
   const [shareFor, setShareFor] = useState<Session | null>(null);
+  const [publicFor, setPublicFor] = useState<Session | null>(null);
+
+  // Merge an updated session (e.g. after toggling its link) into MY SESSIONS.
+  const updateMine = (u: Session) =>
+    setMine((cur) =>
+      cur ? cur.map((s) => (s.id === u.id ? { ...s, ...u } : s)) : cur,
+    );
 
   // Reflect the search query into the URL (shallow).
   useEffect(() => {
@@ -119,14 +127,33 @@ function Dashboard() {
           <SessionTable
             sessions={mine}
             action={(s) => (
-              <ShareAction
-                session={s}
-                open={shareFor?.id === s.id}
-                onToggle={() =>
-                  setShareFor((cur) => (cur?.id === s.id ? null : s))
-                }
-                onClose={() => setShareFor(null)}
-              />
+              <span
+                style={{
+                  display: "inline-flex",
+                  gap: 8,
+                  justifyContent: "flex-end",
+                }}
+              >
+                <PublicShareAction
+                  session={s}
+                  open={publicFor?.id === s.id}
+                  onToggle={() => {
+                    setShareFor(null);
+                    setPublicFor((cur) => (cur?.id === s.id ? null : s));
+                  }}
+                  onClose={() => setPublicFor(null)}
+                  onChanged={updateMine}
+                />
+                <ShareAction
+                  session={s}
+                  open={shareFor?.id === s.id}
+                  onToggle={() => {
+                    setPublicFor(null);
+                    setShareFor((cur) => (cur?.id === s.id ? null : s));
+                  }}
+                  onClose={() => setShareFor(null)}
+                />
+              </span>
             )}
           />
         )}
@@ -192,6 +219,59 @@ function ShareAction({
           title={session.title}
           anchorEl={btnRef.current}
           onClose={onClose}
+        />
+      )}
+    </span>
+  );
+}
+
+function PublicShareAction({
+  session,
+  open,
+  onToggle,
+  onClose,
+  onChanged,
+}: {
+  session: Session;
+  open: boolean;
+  onToggle: () => void;
+  onClose: () => void;
+  onChanged: (s: Session) => void;
+}) {
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const active = isPublicLink(session);
+  // Active (link is live) → green accent; open → filled; otherwise plain.
+  const accent = active ? "var(--green)" : "var(--strong)";
+  return (
+    <span style={{ display: "inline-block" }}>
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={onToggle}
+        className="label"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        title={active ? "Link is live — view-only" : "Share with anyone via link"}
+        style={{
+          border: `1px solid ${accent}`,
+          background: open ? accent : "transparent",
+          color: open ? "var(--panel)" : active ? "var(--green)" : "var(--ink)",
+          padding: "5px 10px",
+          fontSize: 10,
+          cursor: "pointer",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {active ? "● PUBLIC" : "⊕ SHARE TO ALL"}
+      </button>
+      {open && (
+        <PublicLinkDialog
+          sessionId={session.id}
+          title={session.title}
+          isPublic={active}
+          anchorEl={btnRef.current}
+          onClose={onClose}
+          onChanged={onChanged}
         />
       )}
     </span>

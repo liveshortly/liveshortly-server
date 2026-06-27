@@ -28,10 +28,12 @@ type sessionWithURL struct {
 	URL string `json:"url"`
 }
 
-// sessionWithEvents flattens a Session and adds its event log.
+// sessionWithEvents flattens a Session and adds its event log plus the caller's
+// effective comment permission (so the web viewer can render read-only).
 type sessionWithEvents struct {
 	store.Session
-	Events []store.Event `json:"events"`
+	CanComment bool          `json:"can_comment"`
+	Events     []store.Event `json:"events"`
 }
 
 // detach returns a copy of the request's context that is no longer tied to the

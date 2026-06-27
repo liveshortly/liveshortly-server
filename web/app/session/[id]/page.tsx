@@ -292,8 +292,26 @@ export default function SessionViewer({
         ownerHandle={meta?.owner_handle ?? null}
       />
 
-      {/* Composer — only while the session is live. */}
-      {isLive && <Composer id={id} />}
+      {/* Composer — only while live AND the viewer is allowed to comment.
+          Read-only viewers (e.g. opened via a public link) get a quiet note. */}
+      {isLive &&
+        (meta?.can_comment !== false ? (
+          <Composer id={id} />
+        ) : (
+          <div
+            className="label"
+            style={{
+              marginTop: 10,
+              border: "1px dashed var(--hairline)",
+              background: "var(--panel)",
+              color: "var(--muted)",
+              padding: "11px 12px",
+              textAlign: "center",
+            }}
+          >
+            ◦ VIEW ONLY · READ-ONLY ACCESS
+          </div>
+        ))}
 
       <div
         className="label tnum"
