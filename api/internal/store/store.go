@@ -187,7 +187,11 @@ func (st *Store) ListSessions(ctx context.Context, scope, userID, email, status,
 	var conds []string
 	switch scope {
 	case "mine":
-		conds = append(conds, "s.owner_id = $1")
+		// Reference $2 (email) harmlessly so the COUNT query — which omits the
+		// shared_role SELECT, the only other $2 user — still binds both args.
+		// Without it, count supplies 2 params for a 1-placeholder statement and
+		// Postgres rejects the bind. (Always true: x = x for any value.)
+		conds = append(conds, "s.owner_id = $1 AND COALESCE($2,'') = COALESCE($2,'')")
 	case "shared":
 		conds = append(conds, sharedExists)
 	default: // "all"
