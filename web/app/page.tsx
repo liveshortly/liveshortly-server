@@ -16,6 +16,9 @@ function Dashboard() {
   const params = useSearchParams();
 
   const [query, setQuery] = useState<string>(params.get("q") ?? "");
+  const statusParam = params.get("status");
+  const status: "all" | "live" | "ended" =
+    statusParam === "live" || statusParam === "ended" ? statusParam : "all";
   const [mine, setMine] = useState<Session[] | null>(null);
   const [shared, setShared] = useState<Session[] | null>(null);
   const [mineErr, setMineErr] = useState<string | null>(null);
@@ -31,15 +34,16 @@ function Dashboard() {
       cur ? cur.map((s) => (s.id === u.id ? { ...s, ...u } : s)) : cur,
     );
 
-  // Reflect the search query into the URL (shallow).
+  // Reflect the search query into the URL (shallow), preserving the status filter.
   useEffect(() => {
     const qs = new URLSearchParams();
     if (query) qs.set("q", query);
+    if (status !== "all") qs.set("status", status);
     const s = qs.toString();
     router.replace(s ? `/?${s}` : "/", { scroll: false });
-  }, [query, router]);
+  }, [query, status, router]);
 
-  // MY SESSIONS — scope=mine, debounced search, polled.
+  // MY SESSIONS — scope=mine, debounced search, polled, filtered by status.
   const mineReq = useRef(0);
   useEffect(() => {
     let alive = true;
@@ -49,7 +53,7 @@ function Dashboard() {
       ctrl = new AbortController();
       try {
         const r = await listSessions(
-          { scope: "mine", status: "all", q: query, limit: 100 },
+          { scope: "mine", status, q: query, limit: 100 },
           ctrl.signal,
         );
         if (alive && my === mineReq.current) {
@@ -69,7 +73,7 @@ function Dashboard() {
       clearTimeout(t);
       clearInterval(id);
     };
-  }, [query]);
+  }, [query, status]);
 
   // SHARED WITH ME — scope=shared, polled.
   useEffect(() => {
@@ -108,7 +112,18 @@ function Dashboard() {
       <Section
         title="MY SESSIONS"
         count={mine?.length}
-        hint={query ? `filter "${query}"` : undefined}
+        hint={
+          status !== "all"
+            ? `${status} only`
+            : query
+              ? `filter "${query}"`
+              : undefined
+        }
+        onClearFilter={
+          status !== "all"
+            ? () => router.replace(query ? `/?q=${encodeURIComponent(query)}` : "/", { scroll: false })
+            : undefined
+        }
       >
         {mineErr ? (
           <ErrorBar text={mineErr} />
@@ -343,11 +358,13 @@ function Section({
   title,
   count,
   hint,
+  onClearFilter,
   children,
 }: {
   title: string;
   count?: number;
   hint?: string;
+  onClearFilter?: () => void;
   children: React.ReactNode;
 }) {
   return (
@@ -369,6 +386,22 @@ function Section({
           </span>
         )}
         {hint && <span style={{ color: "var(--faint)" }}>· {hint}</span>}
+        {onClearFilter && (
+          <button
+            type="button"
+            onClick={onClearFilter}
+            className="label"
+            style={{
+              border: "none",
+              background: "transparent",
+              cursor: "pointer",
+              color: "var(--red)",
+              padding: 0,
+            }}
+          >
+            ✕ CLEAR
+          </button>
+        )}
       </div>
       {children}
     </section>

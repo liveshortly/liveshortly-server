@@ -1,16 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { utcClock } from "@/lib/utils";
+import { localClock, tzAbbrev } from "@/lib/utils";
 
-/** Live UTC clock — ticks every second. Renders HH:MM:SS UTC. */
+/** Live clock in the viewer's LOCAL timezone — ticks every second. */
 export default function Clock() {
   // Start null to avoid SSR/CSR hydration mismatch, then fill on mount.
   const [now, setNow] = useState<string | null>(null);
+  const [tz, setTz] = useState<string>("");
 
   useEffect(() => {
-    setNow(utcClock());
-    const id = setInterval(() => setNow(utcClock()), 1000);
+    const tick = () => setNow(localClock());
+    tick();
+    setTz(tzAbbrev());
+    const id = setInterval(tick, 1000);
     return () => clearInterval(id);
   }, []);
 
@@ -18,7 +21,7 @@ export default function Clock() {
     <span className="tnum" suppressHydrationWarning>
       {now ?? "--:--:--"}
       <span className="label" style={{ marginLeft: 6 }}>
-        UTC
+        {tz || "LOCAL"}
       </span>
     </span>
   );

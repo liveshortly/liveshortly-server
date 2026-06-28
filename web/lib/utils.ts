@@ -43,6 +43,27 @@ export function utcClock(d: Date = new Date()): string {
   )}`;
 }
 
+/** HH:MM:SS clock string in the viewer's LOCAL timezone. */
+export function localClock(d: Date = new Date()): string {
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+/** Short local timezone abbreviation (e.g. "PST", "IST"); falls back to "LOCAL". */
+export function tzAbbrev(d: Date = new Date()): string {
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZoneName: "short",
+    }).formatToParts(d);
+    const tz = parts.find((p) => p.type === "timeZoneName")?.value;
+    if (tz && !/^GMT/i.test(tz)) return tz.toUpperCase();
+    // GMT±H form — keep it compact.
+    if (tz) return tz.replace(/\s+/g, "").toUpperCase();
+  } catch {
+    // ignore
+  }
+  return "LOCAL";
+}
+
 /** Absolute UTC time of day, HH:MM:SS, from an ISO timestamp. */
 export function utcTime(iso: string | null | undefined): string {
   if (!iso) return "--:--:--";

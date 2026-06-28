@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Clock from "@/components/Clock";
 import Panel from "@/components/Panel";
+import ThemeToggle from "@/components/ThemeToggle";
 import {
   stats as fetchStats,
   logout as apiLogout,
@@ -85,23 +86,13 @@ export default function HudHeader({ user }: { user?: Me | null }) {
             style={{
               display: "flex",
               alignItems: "center",
-              gap: 8,
+              gap: 9,
               fontSize: 18,
               fontWeight: 700,
               letterSpacing: "-0.02em",
             }}
           >
-            <span
-              aria-hidden
-              style={{
-                border: "1px solid var(--strong)",
-                padding: "1px 6px",
-                fontSize: 13,
-                fontWeight: 700,
-              }}
-            >
-              LS
-            </span>
+            <BrandMark />
             LiveShortly
             <span className="blink" style={{ color: "var(--muted)" }}>
               _
@@ -150,7 +141,7 @@ export default function HudHeader({ user }: { user?: Me | null }) {
           </div>
         </div>
 
-        {/* Stat panels */}
+        {/* Stat panels — clicking filters the session list by status. */}
         <div
           style={{
             display: "grid",
@@ -159,28 +150,38 @@ export default function HudHeader({ user }: { user?: Me | null }) {
             flex: "1 1 320px",
           }}
         >
-          <Panel
+          <StatTile
+            href="/?status=all"
             label="Total Sessions"
             value={data ? fmtInt(data.total_sessions) : "··"}
           />
-          <Panel
+          <StatTile
+            href="/?status=live"
             label="Live Now"
             value={data ? fmtInt(data.live_now) : "··"}
             accent={liveNow > 0 ? "green" : "ink"}
           />
         </div>
 
-        {/* User + sign-out */}
-        {user?.authenticated && (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              borderLeft: "1px solid var(--hairline)",
-              paddingLeft: 14,
-            }}
-          >
+        {/* Theme + user + sign-out */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            borderLeft: "1px solid var(--hairline)",
+            paddingLeft: 14,
+          }}
+        >
+          <ThemeToggle />
+          {user?.authenticated && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+              }}
+            >
             <span aria-hidden style={{ color: "var(--green)", fontSize: 12 }}>●</span>
             <div style={{ minWidth: 0, maxWidth: 200 }}>
               <div
@@ -212,10 +213,56 @@ export default function HudHeader({ user }: { user?: Me | null }) {
               >
                 {signingOut ? "SIGNING OUT…" : "↩ SIGN OUT"}
               </button>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </header>
+  );
+}
+
+/** The green LiveShortly brand mark (matches the favicon). */
+function BrandMark() {
+  return (
+    <svg
+      width="22"
+      height="22"
+      viewBox="0 0 32 32"
+      aria-hidden
+      style={{ display: "block", flexShrink: 0 }}
+    >
+      <rect width="32" height="32" rx="6" fill="var(--green)" />
+      <rect x="7" y="8.5" width="6.5" height="15" rx="1.5" fill="var(--panel)" />
+      <rect
+        x="16.5"
+        y="8.5"
+        width="8.5"
+        height="15"
+        rx="1.5"
+        fill="var(--green)"
+        stroke="var(--panel)"
+        strokeWidth="2"
+      />
+    </svg>
+  );
+}
+
+/** A clickable HUD stat tile that links to a filtered session view. */
+function StatTile({
+  href,
+  label,
+  value,
+  accent,
+}: {
+  href: string;
+  label: string;
+  value: React.ReactNode;
+  accent?: "green" | "ink";
+}) {
+  return (
+    <Link href={href} className="stat-tile" style={{ display: "block" }}>
+      <Panel label={label} value={value} accent={accent} />
+    </Link>
   );
 }

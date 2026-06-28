@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log"
 	"net/http"
@@ -61,9 +62,19 @@ func main() {
 	}
 
 	st := store.New(pool)
+	// Apply additive, idempotent migrations (the entrypoint init scripts only run
+	// on first volume creation, so post-launch columns are added here).
+	if err := st.Migrate(ctx); err != nil {
+		log.Fatalf("migrate: %v", err)
+	}
+
 	b := bus.New(rdb)
 	blob := storage.New(cfg.StoragePath)
 	h := handlers.New(st, b, blob)
+
+	// Reap idle live sessions: end any with no activity for idleTimeout so the CLI
+	// going away (without a clean stop) doesn't leave a session "live" forever.
+	go reapIdleSessions(ctx, st, b)
 
 	// Auth layer: Google web login + CLI device flow, both minting app tokens.
 	webSessions := websession.NewManager(cfg.SessionSecret, cfg.WebBaseURL)
@@ -101,6 +112,43 @@ func main() {
 	defer cancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		log.Printf("graceful shutdown failed: %v", err)
+	}
+}
+
+const (
+	// idleTimeout is how long a live session may go without any new event before
+	// the reaper ends it. The CLI resets this implicitly by emitting events.
+	idleTimeout = 2 * time.Hour
+	// reapInterval is how often the reaper scans for idle sessions.
+	reapInterval = 10 * time.Minute
+)
+
+// reapIdleSessions periodically ends live sessions that have been idle past
+// idleTimeout, notifying subscribers and dropping each replay buffer — mirroring
+// what an explicit stop does (minus the blob archive).
+func reapIdleSessions(ctx context.Context, st *store.Store, b *bus.Bus) {
+	ticker := time.NewTicker(reapInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			ids, err := st.EndIdleSessions(ctx, idleTimeout)
+			if err != nil {
+				log.Printf("reaper: %v", err)
+				continue
+			}
+			for _, id := range ids {
+				if ctrl, err := json.Marshal(map[string]string{"type": "session_ended", "session_id": id}); err == nil {
+					_ = b.Publish(ctx, id, ctrl)
+				}
+				_ = b.BufferDelete(ctx, id)
+			}
+			if len(ids) > 0 {
+				log.Printf("reaper: ended %d idle session(s)", len(ids))
+			}
+		}
 	}
 }
 
@@ -142,6 +190,7 @@ func router(cfg config.Config, h *handlers.Handler, ga *handlers.GoogleAuth, mgr
 			r.Get("/sessions/{id}/stream", h.Stream)
 			r.Post("/sessions/{id}/events", h.EmitEvent)
 			r.Post("/sessions/{id}/stop", h.Stop)
+			r.Post("/sessions/{id}/usage", h.ReportUsage)
 			r.Post("/sessions/{id}/comments", h.PostComment)
 			r.Get("/sessions/{id}/comments/pending", h.PendingComments)
 

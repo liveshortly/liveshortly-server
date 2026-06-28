@@ -4,11 +4,13 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 
 	"liveshortly/internal/auth"
 	"liveshortly/internal/httpx"
+	"liveshortly/internal/store"
 )
 
 type createSessionReq struct {
@@ -16,6 +18,8 @@ type createSessionReq struct {
 	Model     *string  `json:"model"`
 	Framework *string  `json:"framework"`
 	Tags      []string `json:"tags"`
+	GitRemote *string  `json:"git_remote"`
+	GitBranch *string  `json:"git_branch"`
 }
 
 // CreateSession creates a new live session owned by the principal.
@@ -33,7 +37,21 @@ func (h *Handler) CreateSession(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewDecoder(r.Body).Decode(&req)
 	}
 
-	s, err := h.store.CreateSession(r.Context(), p.ID, req.Title, req.Model, req.Framework, req.Tags)
+	// The capture client reports the machine principal (user@hostname) via the
+	// handle header; it is display-only — ownership is the authenticated user.
+	var clientHandle *string
+	if hdr := strings.TrimSpace(r.Header.Get(auth.HandleHeader)); hdr != "" {
+		clientHandle = &hdr
+	}
+
+	s, err := h.store.CreateSession(r.Context(), p.ID, store.NewSessionInput{
+		Model:        req.Model,
+		Framework:    req.Framework,
+		Tags:         req.Tags,
+		ClientHandle: clientHandle,
+		GitRemote:    normStr(req.GitRemote),
+		GitBranch:    normStr(req.GitBranch),
+	})
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "failed to create session")
 		return
@@ -43,6 +61,18 @@ func (h *Handler) CreateSession(w http.ResponseWriter, r *http.Request) {
 		Session: s,
 		URL:     "/session/" + s.ID,
 	})
+}
+
+// normStr trims a pointer string, returning nil for empty/whitespace values.
+func normStr(p *string) *string {
+	if p == nil {
+		return nil
+	}
+	v := strings.TrimSpace(*p)
+	if v == "" {
+		return nil
+	}
+	return &v
 }
 
 // ListSessions returns a filtered, paginated page of sessions the caller can
@@ -133,6 +163,7 @@ func (h *Handler) GetSession(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, sessionWithEvents{
 		Session:    *s,
 		CanComment: canComment,
+		IsOwner:    s.OwnerID == p.ID,
 		Events:     events,
 	})
 }
@@ -140,14 +171,15 @@ func (h *Handler) GetSession(w http.ResponseWriter, r *http.Request) {
 type patchSessionReq struct {
 	Visibility *string `json:"visibility"`
 	LinkRole   *string `json:"link_role"`
+	Title      *string `json:"title"`
 }
 
-// PatchSession updates a session's sharing visibility/link_role (owner only).
+// PatchSession updates a session's title and/or sharing visibility (owner only).
 // PATCH /api/sessions/{id}.
 func (h *Handler) PatchSession(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
-	_, _, ok := h.ownedSession(w, r, id)
+	s, _, ok := h.ownedSession(w, r, id)
 	if !ok {
 		return
 	}
@@ -166,9 +198,60 @@ func (h *Handler) PatchSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	updated, err := h.store.UpdateSessionVisibility(r.Context(), id, req.Visibility, req.LinkRole)
+	// Rename, if a title was supplied.
+	if req.Title != nil {
+		title := strings.TrimSpace(*req.Title)
+		if title == "" || len(title) > 200 {
+			httpx.Error(w, http.StatusBadRequest, "title must be 1–200 characters")
+			return
+		}
+		if _, err := h.store.RenameSession(r.Context(), id, title); err != nil {
+			httpx.Error(w, http.StatusInternalServerError, "failed to rename session")
+			return
+		}
+	}
+
+	updated := s
+	if req.Visibility != nil || req.LinkRole != nil {
+		u, err := h.store.UpdateSessionVisibility(r.Context(), id, req.Visibility, req.LinkRole)
+		if err != nil {
+			httpx.Error(w, http.StatusInternalServerError, "failed to update session")
+			return
+		}
+		updated = u
+	} else if req.Title != nil {
+		u, err := h.store.GetSession(r.Context(), id)
+		if err == nil && u != nil {
+			updated = u
+		}
+	}
+	httpx.JSON(w, http.StatusOK, updated)
+}
+
+type usageReq struct {
+	InputTokens  int64 `json:"input_tokens"`
+	OutputTokens int64 `json:"output_tokens"`
+}
+
+// ReportUsage accumulates model token usage onto a session (owner only).
+// POST /api/sessions/{id}/usage.
+func (h *Handler) ReportUsage(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if _, _, ok := h.ownedSession(w, r, id); !ok {
+		return
+	}
+	var req usageReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+	if req.InputTokens < 0 || req.OutputTokens < 0 {
+		httpx.Error(w, http.StatusBadRequest, "token counts must be non-negative")
+		return
+	}
+	updated, err := h.store.AddUsage(r.Context(), id, req.InputTokens, req.OutputTokens)
 	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "failed to update session")
+		httpx.Error(w, http.StatusInternalServerError, "failed to record usage")
 		return
 	}
 	httpx.JSON(w, http.StatusOK, updated)

@@ -33,6 +33,17 @@ export interface Session {
   visibility?: Visibility;
   /** Role granted to anyone opening the link (viewer | commenter). */
   link_role?: ShareRole;
+  /** Machine principal that captured the session (e.g. user@hostname). */
+  client_handle?: string | null;
+  /** Git remote URL of the captured working directory, if any. */
+  git_remote?: string | null;
+  /** Git branch of the captured working directory, if any. */
+  git_branch?: string | null;
+  /** Cumulative model token usage reported by the capture client. */
+  input_tokens?: number;
+  output_tokens?: number;
+  /** Number of explicit share grants (visible to the owner). */
+  share_count?: number;
   /** Present on rows returned for scope=shared: the caller's grant role. */
   shared_role?: ShareRole | null;
 }
@@ -76,6 +87,8 @@ export interface SessionList {
 export interface SessionDetail extends Session {
   /** Whether the calling viewer may post comments back to the session. */
   can_comment?: boolean;
+  /** Whether the calling viewer owns this session (can rename / end it). */
+  is_owner?: boolean;
   events: SessionEvent[];
 }
 
@@ -248,7 +261,7 @@ export async function deleteShare(
 /** Patch a session's link sharing (owner only). PATCH /api/sessions/{id}. */
 export async function patchSession(
   id: string,
-  body: { visibility?: Visibility; link_role?: ShareRole },
+  body: { visibility?: Visibility; link_role?: ShareRole; title?: string },
   signal?: AbortSignal,
 ): Promise<Session> {
   const res = await fetch(
@@ -265,6 +278,29 @@ export async function patchSession(
     throw new ApiError(
       res.status,
       `Could not update sharing: ${res.status} ${res.statusText}`,
+    );
+  }
+  return (await res.json()) as Session;
+}
+
+/** Rename a session (owner only). */
+export function renameSession(id: string, title: string, signal?: AbortSignal) {
+  return patchSession(id, { title }, signal);
+}
+
+/** End a live session (owner only). POST /api/sessions/{id}/stop. */
+export async function stopSession(
+  id: string,
+  signal?: AbortSignal,
+): Promise<Session> {
+  const res = await fetch(
+    `${browserBase()}/api/sessions/${encodeURIComponent(id)}/stop`,
+    { method: "POST", signal, credentials: "include" },
+  );
+  if (!res.ok) {
+    throw new ApiError(
+      res.status,
+      `Could not end session: ${res.status} ${res.statusText}`,
     );
   }
   return (await res.json()) as Session;

@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
-:root {
+:root,
+:root[data-theme="light"] {
   /* Surfaces */
   --bg: #f3f1e9;
   --panel: #faf9f4;
@@ -17,8 +18,59 @@
   --red: #c0392b;
   --amber: #b8860b;
 
+  --shadow: rgba(28, 27, 23, 0.16);
+
+  color-scheme: light;
+
   --font-mono: "JetBrains Mono", "IBM Plex Mono", ui-monospace,
     "SFMono-Regular", Menlo, monospace;
+}
+
+/* Night mode — a warm, low-glare terminal palette. The semantic roles invert
+   so existing components (e.g. strong-fill buttons with panel-coloured text)
+   keep working: --strong becomes light, --ink/--panel/--bg go dark. */
+:root[data-theme="dark"] {
+  --bg: #16150f;
+  --panel: #1e1d16;
+  --hairline: #34322a;
+  --strong: #ece8da;
+
+  --ink: #ece8da;
+  --muted: #a4a08f;
+  --faint: #767365;
+
+  --green: #4cae7a;
+  --red: #e06a5a;
+  --amber: #d6a94a;
+
+  --shadow: rgba(0, 0, 0, 0.5);
+
+  color-scheme: dark;
+}
+
+/* Honor the OS preference until the user makes an explicit choice. The
+   ThemeProvider sets data-theme on <html>; this block only applies when no
+   data-theme attribute is present (system mode / first paint). */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --bg: #16150f;
+    --panel: #1e1d16;
+    --hairline: #34322a;
+    --strong: #ece8da;
+    --ink: #ece8da;
+    --muted: #a4a08f;
+    --faint: #767365;
+    --green: #4cae7a;
+    --red: #e06a5a;
+    --amber: #d6a94a;
+    --shadow: rgba(0, 0, 0, 0.5);
+    color-scheme: dark;
+  }
+}
+
+:root {
+  --theme-transition: background-color 200ms ease, border-color 200ms ease,
+    color 200ms ease;
 }
 
 @theme inline {
@@ -53,6 +105,7 @@ body {
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   line-height: 1.45;
+  transition: var(--theme-transition);
 }
 
 a {
@@ -114,6 +167,19 @@ a {
 
 .dashed-b {
   border-bottom: 1px dashed var(--hairline);
+}
+
+/* Clickable HUD stat tiles — lift the border on hover. */
+.stat-tile > div {
+  transition: border-color 120ms, box-shadow 120ms, transform 120ms;
+}
+.stat-tile:hover > div {
+  border-color: var(--strong);
+  box-shadow: 2px 2px 0 var(--shadow);
+}
+.stat-tile:active > div {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 var(--shadow);
 }
 
 /* Thin custom scrollbar */

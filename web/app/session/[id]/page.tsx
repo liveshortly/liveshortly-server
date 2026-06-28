@@ -7,7 +7,10 @@ import EventStream from "@/components/EventStream";
 import {
   ApiError,
   getSession,
+  isPublicLink,
   postComment,
+  renameSession,
+  stopSession,
   streamUrl,
   type SessionDetail,
   type SessionEvent,
@@ -214,23 +217,77 @@ export default function SessionViewer({
             flexWrap: "wrap",
           }}
         >
-          <div style={{ minWidth: 0 }}>
+          <div style={{ minWidth: 0, flex: "1 1 auto" }}>
             <div className="label" style={{ color: "var(--faint)" }}>
               SESSION {shortId(id)}
             </div>
-            <h1
-              style={{
-                fontSize: 19,
-                fontWeight: 700,
-                margin: "4px 0 0",
-                letterSpacing: "-0.01em",
-                wordBreak: "break-word",
-              }}
-            >
-              {meta?.title ?? (err ? "—" : "loading…")}
-            </h1>
+            <TitleBlock
+              meta={meta}
+              loadingLabel={err ? "—" : "loading…"}
+              onRenamed={(title) =>
+                setMeta((m) => (m ? { ...m, title } : m))
+              }
+            />
           </div>
-          {meta && <Badge status={meta.status} size="md" />}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              flexWrap: "wrap",
+              justifyContent: "flex-end",
+            }}
+          >
+            {meta && isPublicLink(meta) && (
+              <span
+                className="label"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 5,
+                  color: "var(--green)",
+                  border: "1px solid var(--green)",
+                  padding: "3px 8px",
+                  whiteSpace: "nowrap",
+                }}
+                title="Anyone with the link can view this session"
+              >
+                ● PUBLIC
+              </span>
+            )}
+            {meta && !isPublicLink(meta) && (meta.share_count ?? 0) > 0 && (
+              <span
+                className="label"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 5,
+                  color: "var(--amber)",
+                  border: "1px solid var(--hairline)",
+                  padding: "3px 8px",
+                  whiteSpace: "nowrap",
+                }}
+                title={`Shared with ${meta.share_count} ${
+                  meta.share_count === 1 ? "person" : "people"
+                }`}
+              >
+                ⊞ SHARED · {meta.share_count}
+              </span>
+            )}
+            {meta && <Badge status={meta.status} size="md" />}
+            {meta?.is_owner && meta.status === "live" && (
+              <EndButton
+                id={id}
+                onEnded={() =>
+                  setMeta((m) =>
+                    m
+                      ? { ...m, status: "ended", ended_at: new Date().toISOString() }
+                      : m,
+                  )
+                }
+              />
+            )}
+          </div>
         </div>
 
         <div
@@ -246,7 +303,14 @@ export default function SessionViewer({
             gap: 10,
           }}
         >
-          <MetaCell label="Owner" value={meta ? `@${meta.owner_handle}` : "—"} />
+          <MetaCell
+            label={meta?.client_handle ? "Captured by" : "Owner"}
+            value={
+              meta
+                ? (meta.client_handle ?? `@${meta.owner_handle}`)
+                : "—"
+            }
+          />
           <MetaCell label="Model" value={meta?.model ?? "—"} />
           <MetaCell label="Framework" value={meta?.framework ?? "—"} />
           <MetaCell label="Events" value={fmtInt(eventTotal)} mono />
@@ -262,6 +326,18 @@ export default function SessionViewer({
             }
             mono
           />
+          {meta && (meta.input_tokens ?? 0) + (meta.output_tokens ?? 0) > 0 && (
+            <MetaCell
+              label="Tokens (in / out)"
+              value={`${fmtInt(meta.input_tokens ?? 0)} / ${fmtInt(
+                meta.output_tokens ?? 0,
+              )}`}
+              mono
+            />
+          )}
+          {meta?.git_remote && (
+            <GitCell remote={meta.git_remote} branch={meta.git_branch} />
+          )}
         </div>
 
         {meta?.tags && meta.tags.length > 0 && (
@@ -504,6 +580,265 @@ function MetaCell({
         title={value}
       >
         {value}
+      </div>
+    </div>
+  );
+}
+
+/** Session title with an owner-only inline rename affordance. */
+function TitleBlock({
+  meta,
+  loadingLabel,
+  onRenamed,
+}: {
+  meta: SessionDetail | null;
+  loadingLabel: string;
+  onRenamed: (title: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const begin = () => {
+    if (!meta) return;
+    setDraft(meta.title);
+    setErr(false);
+    setEditing(true);
+    setTimeout(() => inputRef.current?.select(), 0);
+  };
+
+  const save = async () => {
+    if (!meta) return;
+    const title = draft.trim();
+    if (!title || title === meta.title) {
+      setEditing(false);
+      return;
+    }
+    setSaving(true);
+    setErr(false);
+    try {
+      await renameSession(meta.id, title);
+      onRenamed(title);
+      setEditing(false);
+    } catch {
+      setErr(true);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (editing && meta) {
+    return (
+      <div style={{ marginTop: 4 }}>
+        <div style={{ display: "flex", gap: 6, alignItems: "stretch" }}>
+          <input
+            ref={inputRef}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                save();
+              } else if (e.key === "Escape") {
+                setEditing(false);
+              }
+            }}
+            disabled={saving}
+            maxLength={200}
+            aria-label="Session name"
+            spellCheck={false}
+            style={{
+              flex: 1,
+              minWidth: 0,
+              fontSize: 18,
+              fontWeight: 700,
+              border: "1px solid var(--strong)",
+              background: "var(--bg)",
+              color: "var(--ink)",
+              padding: "4px 8px",
+              outline: "none",
+            }}
+          />
+          <button
+            type="button"
+            onClick={save}
+            disabled={saving}
+            className="label"
+            style={{
+              border: "1px solid var(--strong)",
+              background: "var(--strong)",
+              color: "var(--panel)",
+              padding: "0 12px",
+              cursor: saving ? "default" : "pointer",
+            }}
+          >
+            {saving ? "…" : "SAVE"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setEditing(false)}
+            disabled={saving}
+            className="label"
+            style={{
+              border: "1px solid var(--hairline)",
+              background: "transparent",
+              color: "var(--muted)",
+              padding: "0 10px",
+              cursor: "pointer",
+            }}
+          >
+            ✕
+          </button>
+        </div>
+        {err && (
+          <div className="label" style={{ color: "var(--red)", marginTop: 4 }}>
+            ⚠ COULD NOT RENAME — TRY AGAIN
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "baseline",
+        gap: 8,
+        marginTop: 4,
+      }}
+    >
+      <h1
+        style={{
+          fontSize: 19,
+          fontWeight: 700,
+          margin: 0,
+          letterSpacing: "-0.01em",
+          wordBreak: "break-word",
+        }}
+      >
+        {meta?.title ?? loadingLabel}
+      </h1>
+      {meta?.is_owner && (
+        <button
+          type="button"
+          onClick={begin}
+          aria-label="Rename session"
+          title="Rename session"
+          className="label"
+          style={{
+            border: "none",
+            background: "transparent",
+            cursor: "pointer",
+            color: "var(--faint)",
+            fontSize: 13,
+            padding: 0,
+          }}
+        >
+          ✎
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** Owner-only END control with a two-click confirm (no blocking dialog). */
+function EndButton({ id, onEnded }: { id: string; onEnded: () => void }) {
+  const [armed, setArmed] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(false);
+
+  const end = async () => {
+    setBusy(true);
+    setErr(false);
+    try {
+      await stopSession(id);
+      onEnded();
+    } catch {
+      setErr(true);
+      setArmed(false);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={() => (armed ? end() : setArmed(true))}
+      onBlur={() => setArmed(false)}
+      disabled={busy}
+      className="label"
+      title="End this session (the CLI keeps running)"
+      style={{
+        border: `1px solid var(--red)`,
+        background: armed ? "var(--red)" : "transparent",
+        color: armed ? "var(--panel)" : "var(--red)",
+        padding: "3px 9px",
+        cursor: busy ? "default" : "pointer",
+        whiteSpace: "nowrap",
+      }}
+    >
+      {busy
+        ? "ENDING…"
+        : err
+          ? "⚠ RETRY END"
+          : armed
+            ? "CONFIRM END?"
+            : "⊘ END SESSION"}
+    </button>
+  );
+}
+
+/** Convert a git remote (ssh or https) to a browsable web URL, or null. */
+function gitWebUrl(remote: string): string | null {
+  let r = remote.trim().replace(/\.git$/, "");
+  // git@host:org/repo  →  https://host/org/repo
+  const ssh = r.match(/^git@([^:]+):(.+)$/);
+  if (ssh) r = `https://${ssh[1]}/${ssh[2]}`;
+  else if (r.startsWith("ssh://")) r = "https://" + r.slice("ssh://".length).replace(/^git@/, "");
+  if (!/^https?:\/\//.test(r)) return null;
+  return r;
+}
+
+/** A meta cell that links out to the session's git remote. */
+function GitCell({
+  remote,
+  branch,
+}: {
+  remote: string;
+  branch?: string | null;
+}) {
+  const url = gitWebUrl(remote);
+  const label = remote.replace(/^.*[/:]([^/]+\/[^/]+?)(?:\.git)?$/, "$1");
+  const text = branch ? `${label} @ ${branch}` : label;
+  return (
+    <div style={{ minWidth: 0 }}>
+      <div className="label">Git</div>
+      <div
+        style={{
+          fontSize: 14,
+          marginTop: 2,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+        }}
+        title={remote}
+      >
+        {url ? (
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ color: "var(--green)", textDecoration: "underline" }}
+          >
+            ↗ {text}
+          </a>
+        ) : (
+          text
+        )}
       </div>
     </div>
   );

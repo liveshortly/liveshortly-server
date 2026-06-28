@@ -33,6 +33,7 @@ type sessionWithURL struct {
 type sessionWithEvents struct {
 	store.Session
 	CanComment bool          `json:"can_comment"`
+	IsOwner    bool          `json:"is_owner"`
 	Events     []store.Event `json:"events"`
 }
 

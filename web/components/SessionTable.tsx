@@ -69,7 +69,9 @@ export default function SessionTable({
               <Td strong title={s.title} clip>
                 {s.title || "untitled session"}
               </Td>
-              <Td muted>@{s.owner_handle}</Td>
+              <Td muted title={s.client_handle ?? undefined}>
+                {s.client_handle ?? `@${s.owner_handle}`}
+              </Td>
               <Td muted clip title={s.model ?? ""}>
                 {s.model ?? "—"}
               </Td>

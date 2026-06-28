@@ -49,6 +49,15 @@ type Session struct {
 	ViewCount   int        `json:"view_count"`
 	CreatedAt   time.Time  `json:"created_at"`
 	EndedAt     *time.Time `json:"ended_at"`
+	// ClientHandle is the machine principal that captured the session
+	// (e.g. user@hostname), if the CLI reported one. Display-only.
+	ClientHandle *string `json:"client_handle"`
+	GitRemote    *string `json:"git_remote"`
+	GitBranch    *string `json:"git_branch"`
+	InputTokens  int64   `json:"input_tokens"`
+	OutputTokens int64   `json:"output_tokens"`
+	// ShareCount is how many explicit grants this session has (owner views).
+	ShareCount int `json:"share_count"`
 	// SharedRole is set only on list rows that the caller reaches via a share.
 	SharedRole *string `json:"shared_role,omitempty"`
 }
@@ -78,7 +87,9 @@ type Stats struct {
 const sessionSelectExpr = `s.id, s.title,
 	COALESCE(NULLIF(u.name, ''), NULLIF(u.email, ''), u.handle) AS owner_handle,
 	s.owner_id, s.model, s.framework, s.status, s.tags, s.visibility, s.link_role,
-	s.event_count, s.view_count, s.created_at, s.ended_at`
+	s.event_count, s.view_count, s.created_at, s.ended_at,
+	s.client_handle, s.git_remote, s.git_branch, s.input_tokens, s.output_tokens,
+	(SELECT count(*) FROM session_shares ssc WHERE ssc.session_id = s.id) AS share_count`
 
 const sessionFrom = ` FROM sessions s JOIN users u ON u.id = s.owner_id`
 
@@ -95,6 +106,8 @@ func scanSession(row pgx.Row) (Session, error) {
 		&s.ID, &s.Title, &s.OwnerHandle, &s.OwnerID, &s.Model, &s.Framework,
 		&s.Status, &s.Tags, &s.Visibility, &s.LinkRole,
 		&s.EventCount, &s.ViewCount, &s.CreatedAt, &s.EndedAt,
+		&s.ClientHandle, &s.GitRemote, &s.GitBranch, &s.InputTokens, &s.OutputTokens,
+		&s.ShareCount,
 	)
 	if s.Tags == nil {
 		s.Tags = []string{}
@@ -108,7 +121,9 @@ func scanSessionShared(row pgx.Row) (Session, error) {
 	err := row.Scan(
 		&s.ID, &s.Title, &s.OwnerHandle, &s.OwnerID, &s.Model, &s.Framework,
 		&s.Status, &s.Tags, &s.Visibility, &s.LinkRole,
-		&s.EventCount, &s.ViewCount, &s.CreatedAt, &s.EndedAt, &s.SharedRole,
+		&s.EventCount, &s.ViewCount, &s.CreatedAt, &s.EndedAt,
+		&s.ClientHandle, &s.GitRemote, &s.GitBranch, &s.InputTokens, &s.OutputTokens,
+		&s.ShareCount, &s.SharedRole,
 	)
 	if s.Tags == nil {
 		s.Tags = []string{}
@@ -132,20 +147,37 @@ func (st *Store) GetOrCreateUser(ctx context.Context, handle string) (User, erro
 	return u, err
 }
 
+// NewSessionInput carries the optional capture-client metadata for a new session.
+type NewSessionInput struct {
+	Model        *string
+	Framework    *string
+	Tags         []string
+	ClientHandle *string // user@hostname reported by the CLI
+	GitRemote    *string
+	GitBranch    *string
+}
+
 // CreateSession inserts a new live session owned by ownerID and returns it.
-func (st *Store) CreateSession(ctx context.Context, ownerID, title string, model, framework *string, tags []string) (Session, error) {
-	if title == "" {
-		title = "Untitled session"
-	}
+// Every session gets a friendly generated name (e.g. "luminous-otter-4821") so
+// the list reads nicely regardless of the capture client's directory; the owner
+// can rename it afterwards (which sets custom_title).
+func (st *Store) CreateSession(ctx context.Context, ownerID string, in NewSessionInput) (Session, error) {
+	title := GenerateSessionName()
+	custom := false
+	tags := in.Tags
 	if tags == nil {
 		tags = []string{}
 	}
 	const ins = `
-		INSERT INTO sessions (owner_id, title, model, framework, tags, status)
-		VALUES ($1, $2, $3, $4, $5, 'live')
+		INSERT INTO sessions (owner_id, title, custom_title, model, framework, tags,
+			client_handle, git_remote, git_branch, status)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'live')
 		RETURNING id`
 	var id string
-	if err := st.pool.QueryRow(ctx, ins, ownerID, title, model, framework, tags).Scan(&id); err != nil {
+	if err := st.pool.QueryRow(ctx, ins,
+		ownerID, title, custom, in.Model, in.Framework, tags,
+		in.ClientHandle, in.GitRemote, in.GitBranch,
+	).Scan(&id); err != nil {
 		return Session{}, err
 	}
 	s, err := st.GetSession(ctx, id)
@@ -305,6 +337,58 @@ func (st *Store) StopSession(ctx context.Context, id, storageKey string) (*Sessi
 		return nil, err
 	}
 	return st.GetSession(ctx, id)
+}
+
+// RenameSession sets a session's title and marks it as user-named so the
+// auto-generated name is never reapplied. Returns the updated row.
+func (st *Store) RenameSession(ctx context.Context, id, title string) (*Session, error) {
+	const q = `UPDATE sessions SET title = $2, custom_title = true WHERE id = $1`
+	if _, err := st.pool.Exec(ctx, q, id, title); err != nil {
+		return nil, err
+	}
+	return st.GetSession(ctx, id)
+}
+
+// AddUsage accumulates reported input/output token usage onto a session.
+func (st *Store) AddUsage(ctx context.Context, id string, inputTokens, outputTokens int64) (*Session, error) {
+	const q = `UPDATE sessions
+		SET input_tokens = input_tokens + $2, output_tokens = output_tokens + $3
+		WHERE id = $1`
+	if _, err := st.pool.Exec(ctx, q, id, inputTokens, outputTokens); err != nil {
+		return nil, err
+	}
+	return st.GetSession(ctx, id)
+}
+
+// EndIdleSessions marks live sessions ended when their most recent activity
+// (latest event, else created_at) is older than idle. It returns the ids it
+// ended so the caller can notify subscribers and drop their replay buffers.
+func (st *Store) EndIdleSessions(ctx context.Context, idle time.Duration) ([]string, error) {
+	cutoff := time.Now().Add(-idle)
+	const q = `
+		UPDATE sessions s
+		SET status = 'ended', ended_at = now()
+		WHERE s.status = 'live'
+		  AND COALESCE(
+		        (SELECT max(e.ts) FROM session_events e WHERE e.session_id = s.id),
+		        s.created_at
+		      ) < $1
+		RETURNING s.id`
+	rows, err := st.pool.Query(ctx, q, cutoff)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
 }
 
 // Stats returns the aggregate dashboard counts over the caller's own + shared
