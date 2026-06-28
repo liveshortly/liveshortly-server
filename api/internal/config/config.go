@@ -18,15 +18,19 @@ type Config struct {
 	// Google sign-in (web authN). All optional; empty disables login wiring.
 	GoogleClientID     string
 	GoogleClientSecret string
-	OAuthRedirectURL   string
-	SessionSecret      string
-	WebBaseURL         string
+	// OAuthAllowedHosts is the set of hostnames that may start and receive the
+	// Google OAuth callback. Comma-separated via OAUTH_ALLOWED_HOSTS; defaults
+	// to the host portion of WEB_BASE_URL. Add every domain the app is served on.
+	OAuthAllowedHosts []string
+	SessionSecret     string
+	WebBaseURL        string
 }
 
 // Load reads configuration from the environment, applying defaults from the
 // contract. Required values (DATABASE_URL, REDIS_URL) have sensible local
 // defaults so the binary can boot in development.
 func Load() Config {
+	webBaseURL := env("WEB_BASE_URL", "")
 	return Config{
 		Port:              env("PORT", "8000"),
 		DatabaseURL:       env("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/liveshortly?sslmode=disable"),
@@ -37,10 +41,28 @@ func Load() Config {
 
 		GoogleClientID:     env("GOOGLE_CLIENT_ID", ""),
 		GoogleClientSecret: env("GOOGLE_CLIENT_SECRET", ""),
-		OAuthRedirectURL:   env("OAUTH_REDIRECT_URL", ""),
+		OAuthAllowedHosts:  oauthAllowedHosts(env("OAUTH_ALLOWED_HOSTS", ""), webBaseURL),
 		SessionSecret:      env("SESSION_SECRET", ""),
-		WebBaseURL:         env("WEB_BASE_URL", ""),
+		WebBaseURL:         webBaseURL,
 	}
+}
+
+// oauthAllowedHosts returns the parsed allowed-host list. If the env var is
+// empty, the host is extracted from webBaseURL so there is always at least one
+// allowed host when Google auth is configured.
+func oauthAllowedHosts(raw, webBaseURL string) []string {
+	if raw != "" {
+		return splitCSV(raw)
+	}
+	// Extract host (no scheme, no path) from the base URL.
+	s := strings.TrimPrefix(strings.TrimPrefix(webBaseURL, "https://"), "http://")
+	if i := strings.Index(s, "/"); i != -1 {
+		s = s[:i]
+	}
+	if s != "" {
+		return []string{s}
+	}
+	return nil
 }
 
 func env(key, def string) string {
