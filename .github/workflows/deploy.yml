@@ -16,7 +16,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  DEPLOY_HOST: server.liveshortly.com
+  DEPLOY_HOST: 32.236.46.221
   DEPLOY_USER: ubuntu
   DEPLOY_PATH: /home/ubuntu/LiveShortly
   # Keepalives so the long, silent Go compile doesn't let an idle middlebox drop
