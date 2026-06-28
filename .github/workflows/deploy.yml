@@ -19,6 +19,9 @@ env:
   DEPLOY_HOST: server.liveshortly.com
   DEPLOY_USER: ubuntu
   DEPLOY_PATH: /home/ubuntu/LiveShortly
+  # Keepalives so the long, silent Go compile doesn't let an idle middlebox drop
+  # the SSH connection (a quiet build can exceed NAT/idle timeouts → broken pipe).
+  SSH_OPTS: -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o ServerAliveInterval=20 -o ServerAliveCountMax=30 -o BatchMode=yes
 
 jobs:
   deploy:
@@ -45,12 +48,12 @@ jobs:
             --exclude '.env.auth' \
             --exclude 'data/' \
             --exclude 'build.log' \
-            -e "ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes" \
+            -e "ssh ${SSH_OPTS}" \
             ./ "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/"
 
       - name: Write Google OAuth env on server (from secrets)
         run: |
-          ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes "${DEPLOY_USER}@${DEPLOY_HOST}" \
+          ssh ${SSH_OPTS} "${DEPLOY_USER}@${DEPLOY_HOST}" \
             "cat > ${DEPLOY_PATH}/.env.auth && chmod 600 ${DEPLOY_PATH}/.env.auth" <<EOF
           GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
@@ -61,14 +64,19 @@ jobs:
 
       - name: Build & restart stack
         run: |
-          ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes "${DEPLOY_USER}@${DEPLOY_HOST}" \
-            "cd ${DEPLOY_PATH} && docker compose -f docker-compose.prod.yml up -d --build --remove-orphans && docker image prune -f"
+          # Pipe the remote build script over SSH (avoids fragile inline
+          # heredocs); it detaches the build and reports its exit code back.
+          ssh ${SSH_OPTS} "${DEPLOY_USER}@${DEPLOY_HOST}" 'bash -s' < deploy/remote-build.sh
 
-      - name: Health check (public HTTPS)
+      - name: Health check (origin, over SSH)
         run: |
-          for i in $(seq 1 10); do
-            code=$(curl -s -o /dev/null -w '%{http_code}' https://${DEPLOY_HOST}/health || true)
-            echo "attempt $i: /health -> ${code}"
+          # Check the origin directly on the box — the public HTTPS path can be
+          # unreachable from GitHub runners (Cloudflare), which is unrelated to
+          # whether the deploy is healthy.
+          for i in $(seq 1 12); do
+            code=$(ssh ${SSH_OPTS} "${DEPLOY_USER}@${DEPLOY_HOST}" \
+              "curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/health" || true)
+            echo "attempt $i: origin /health -> ${code}"
             [ "$code" = "200" ] && echo "✅ deploy healthy" && exit 0
             sleep 5
           done
