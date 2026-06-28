@@ -92,7 +92,9 @@ export interface SessionDetail extends Session {
   events: SessionEvent[];
 }
 
-/** Base URL — internal on the server, public in the browser. */
+/** Base URL — internal on the server, relative (same-origin) in the browser.
+ *  Using relative URLs in the browser means auth + API calls stay on whichever
+ *  domain the user is on (liveshortly.com or server.liveshortly.com). */
 export function apiBase(): string {
   if (typeof window === "undefined") {
     return (
@@ -101,12 +103,12 @@ export function apiBase(): string {
       "http://localhost:8000"
     );
   }
-  return process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+  return "";
 }
 
-/** Browser-only base — used for EventSource which can't read server env. */
+/** Browser-only base — empty string so all calls are same-origin. */
 export function browserBase(): string {
-  return process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+  return "";
 }
 
 /** Error that carries the HTTP status, so callers can branch on 403/404 etc. */
