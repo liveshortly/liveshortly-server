@@ -163,12 +163,13 @@ export default function HudHeader({ user }: { user?: Me | null }) {
           />
         </div>
 
-        {/* Theme + user + sign-out */}
+        {/* Theme stacked above user + sign-out for a leaner column. */}
         <div
           style={{
             display: "flex",
-            alignItems: "center",
-            gap: 10,
+            flexDirection: "column",
+            alignItems: "flex-end",
+            gap: 8,
             borderLeft: "1px solid var(--hairline)",
             paddingLeft: 14,
           }}
