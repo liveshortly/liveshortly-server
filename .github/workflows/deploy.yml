@@ -55,9 +55,14 @@ jobs:
           GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
           SESSION_SECRET=${{ secrets.SESSION_SECRET }}
-          OAUTH_REDIRECT_URL=https://server.liveshortly.com/auth/google/callback
+          OAUTH_ALLOWED_HOSTS=server.liveshortly.com,liveshortly.com
           WEB_BASE_URL=https://server.liveshortly.com
           EOF
+
+      - name: Stop stack
+        run: |
+          ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "cd ${DEPLOY_PATH} && docker compose -f docker-compose.prod.yml down"
 
       - name: Build & restart stack
         run: |
