@@ -24,6 +24,9 @@ const (
 	oauthStateCookie = "oauth_state"
 	// oauthNextCookie remembers where to land after login (e.g. the device page).
 	oauthNextCookie = "oauth_next"
+	// oauthOriginCookie carries the scheme+host that started the login flow so
+	// Callback can build the redirect_uri that matches the one sent to Google.
+	oauthOriginCookie = "oauth_origin"
 )
 
 // GoogleAuth implements Google sign-in, the CLI device flow, token refresh, and
@@ -46,9 +49,10 @@ func NewGoogleAuth(cfg config.Config, mgr *websession.Manager, st *store.Store, 
 		oauth: &oauth2.Config{
 			ClientID:     cfg.GoogleClientID,
 			ClientSecret: cfg.GoogleClientSecret,
-			RedirectURL:  cfg.OAuthRedirectURL,
-			Scopes:       []string{"openid", "email", "profile"},
-			Endpoint:     google.Endpoint,
+			// RedirectURL is left empty; each request computes it dynamically from
+			// its Host header so both liveshortly.com and server.liveshortly.com work.
+			Scopes:   []string{"openid", "email", "profile"},
+			Endpoint: google.Endpoint,
 		},
 	}
 }
@@ -68,7 +72,16 @@ func (g *GoogleAuth) Login(w http.ResponseWriter, r *http.Request) {
 		g.setShortCookie(w, oauthNextCookie, next)
 	}
 
-	http.Redirect(w, r, g.oauth.AuthCodeURL(state), http.StatusFound)
+	// Derive the redirect URI from the incoming Host so that both
+	// liveshortly.com and server.liveshortly.com each receive the callback on
+	// their own domain. Store the origin in a short-lived cookie so Callback
+	// can reconstruct the same redirect_uri for the token exchange.
+	base := g.requestBase(r)
+	g.setShortCookie(w, oauthOriginCookie, base)
+	redirectURL := base + "/auth/google/callback"
+
+	authURL := g.oauth.AuthCodeURL(state, oauth2.SetAuthURLParam("redirect_uri", redirectURL))
+	http.Redirect(w, r, authURL, http.StatusFound)
 }
 
 // Callback completes OAuth: validate state, exchange the code, verify the ID
@@ -91,7 +104,17 @@ func (g *GoogleAuth) Callback(w http.ResponseWriter, r *http.Request) {
 		g.clearCookie(w, oauthNextCookie)
 	}
 
-	token, err := g.oauth.Exchange(ctx, r.URL.Query().Get("code"))
+	// Recover the origin that Login stashed so we can pass the identical
+	// redirect_uri to Exchange (Google validates it matches the one from AuthCodeURL).
+	base := strings.TrimRight(g.cfg.WebBaseURL, "/")
+	if c, err := r.Cookie(oauthOriginCookie); err == nil && c.Value != "" {
+		base = c.Value
+	}
+	g.clearCookie(w, oauthOriginCookie)
+	redirectURL := base + "/auth/google/callback"
+
+	token, err := g.oauth.Exchange(ctx, r.URL.Query().Get("code"),
+		oauth2.SetAuthURLParam("redirect_uri", redirectURL))
 	if err != nil {
 		g.fail(w, r)
 		return
@@ -127,9 +150,9 @@ func (g *GoogleAuth) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 	g.mgr.SetSessionCookie(w, jwtStr)
 
-	dest := g.cfg.WebBaseURL
+	dest := base
 	if next != "" {
-		dest = g.cfg.WebBaseURL + next
+		dest = base + next
 	}
 	http.Redirect(w, r, dest, http.StatusFound)
 }
@@ -240,11 +263,29 @@ func (g *GoogleAuth) RevokeToken(w http.ResponseWriter, r *http.Request) {
 // --- helpers ----------------------------------------------------------------
 
 func (g *GoogleAuth) fail(w http.ResponseWriter, r *http.Request) {
-	http.Redirect(w, r, g.cfg.WebBaseURL+"?auth_error=1", http.StatusFound)
+	http.Redirect(w, r, g.requestBase(r)+"?auth_error=1", http.StatusFound)
 }
 
 func (g *GoogleAuth) failState(w http.ResponseWriter, r *http.Request) {
-	http.Redirect(w, r, g.cfg.WebBaseURL+"?auth_error=state", http.StatusFound)
+	http.Redirect(w, r, g.requestBase(r)+"?auth_error=state", http.StatusFound)
+}
+
+// requestBase returns "scheme://host" for the current request, using the
+// X-Forwarded-Proto header for the scheme (Cloudflare sets this). The host
+// must appear in cfg.OAuthAllowedHosts; anything else falls back to
+// cfg.WebBaseURL so we never redirect to an unrecognised origin.
+func (g *GoogleAuth) requestBase(r *http.Request) string {
+	host := r.Host
+	for _, allowed := range g.cfg.OAuthAllowedHosts {
+		if strings.EqualFold(allowed, host) {
+			scheme := r.Header.Get("X-Forwarded-Proto")
+			if scheme == "" {
+				scheme = "https"
+			}
+			return scheme + "://" + host
+		}
+	}
+	return strings.TrimRight(g.cfg.WebBaseURL, "/")
 }
 
 func (g *GoogleAuth) setShortCookie(w http.ResponseWriter, name, value string) {
