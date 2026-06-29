@@ -127,6 +127,92 @@ export default function SessionViewer({
     [events.length, meta?.event_count],
   );
 
+  // The active "Claude is waiting for input" request, if any: the most recent
+  // input_requested event NOT yet superseded by further activity.
+  const inputRequest = useMemo(() => {
+    for (let i = events.length - 1; i >= 0; i--) {
+      const t = events[i].event_type;
+      if (t === "input_requested") return events[i];
+      // Any real activity after the request means Claude moved on.
+      if (
+        [
+          "prompt",
+          "response",
+          "stream_end",
+          "pre_tool",
+          "tool_call",
+          "post_tool",
+          "file_write",
+          "output",
+          "viewer_comment",
+        ].includes(t)
+      ) {
+        return null;
+      }
+    }
+    return null;
+  }, [events]);
+  const inputPending = isLive && !!inputRequest;
+
+  // Notify the viewer (browser notification + soft chime) when input is newly
+  // requested — so anyone watching knows it's their turn to answer.
+  const notifiedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (typeof window !== "undefined" && "Notification" in window) {
+      if (Notification.permission === "default") {
+        Notification.requestPermission().catch(() => {});
+      }
+    }
+  }, []);
+  useEffect(() => {
+    if (!inputPending || !inputRequest) return;
+    if (notifiedFor.current === inputRequest.id) return;
+    notifiedFor.current = inputRequest.id;
+
+    const msg =
+      (inputRequest.payload?.message as string) ||
+      "Claude is waiting for input";
+    try {
+      if (
+        "Notification" in window &&
+        Notification.permission === "granted" &&
+        document.visibilityState !== "visible"
+      ) {
+        const n = new Notification("⌐ Input requested — LiveShortly", {
+          body: `${meta?.title ?? "Session"}: ${msg}`,
+          tag: `ls-input-${id}`,
+        });
+        n.onclick = () => {
+          window.focus();
+          n.close();
+        };
+      }
+    } catch {
+      // notifications are best-effort
+    }
+    // Soft chime via WebAudio (no asset needed).
+    try {
+      const AC =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext })
+          .webkitAudioContext;
+      const ctx = new AC();
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.connect(g);
+      g.connect(ctx.destination);
+      o.frequency.value = 880;
+      g.gain.setValueAtTime(0.0001, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.05, ctx.currentTime + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
+      o.start();
+      o.stop(ctx.currentTime + 0.36);
+      o.onended = () => ctx.close().catch(() => {});
+    } catch {
+      // audio is best-effort (autoplay policies, etc.)
+    }
+  }, [inputPending, inputRequest, id, meta?.title]);
+
   if (noAccess) {
     return (
       <div>
@@ -368,11 +454,48 @@ export default function SessionViewer({
         ownerHandle={meta?.owner_handle ?? null}
       />
 
+      {/* Input-requested banner — Claude is waiting; any viewer who can comment
+          may answer, and their message drives the session. */}
+      {inputPending && (
+        <div
+          className="label"
+          role="status"
+          style={{
+            marginTop: 10,
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            border: "1px solid var(--amber)",
+            background: "color-mix(in srgb, var(--amber) 12%, var(--panel))",
+            color: "var(--amber)",
+            padding: "10px 12px",
+          }}
+        >
+          <span className="live-dot" style={{ background: "var(--amber)" }} />
+          <span style={{ fontWeight: 700 }}>⌐ INPUT REQUESTED</span>
+          <span
+            style={{
+              color: "var(--ink)",
+              textTransform: "none",
+              letterSpacing: 0,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              minWidth: 0,
+            }}
+            title={(inputRequest?.payload?.message as string) ?? ""}
+          >
+            {(inputRequest?.payload?.message as string) ||
+              "Claude is waiting — send a message to steer the session."}
+          </span>
+        </div>
+      )}
+
       {/* Composer — only while live AND the viewer is allowed to comment.
           Read-only viewers (e.g. opened via a public link) get a quiet note. */}
       {isLive &&
         (meta?.can_comment !== false ? (
-          <Composer id={id} />
+          <Composer id={id} emphasize={inputPending} />
         ) : (
           <div
             className="label"
@@ -404,18 +527,26 @@ export default function SessionViewer({
 
 type SendState = "idle" | "sending" | "sent" | "error";
 
-/** Pinned composer to message the live session. Echoes back over SSE. */
-function Composer({ id }: { id: string }) {
+/** Pinned composer to message the live session. Echoes back over SSE.
+ *  When `emphasize` is set (Claude is waiting for input) it highlights amber
+ *  and focuses the input so any viewer can answer immediately. */
+function Composer({ id, emphasize = false }: { id: string; emphasize?: boolean }) {
   const [text, setText] = useState("");
   const [state, setState] = useState<SendState>("idle");
   const [errMsg, setErrMsg] = useState("COULD NOT SEND — TRY AGAIN");
   const sentTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     return () => {
       if (sentTimer.current) clearTimeout(sentTimer.current);
     };
   }, []);
+
+  // Focus the box when input is freshly requested.
+  useEffect(() => {
+    if (emphasize) inputRef.current?.focus();
+  }, [emphasize]);
 
   const submit = async () => {
     const message = text.trim();
@@ -451,7 +582,9 @@ function Composer({ id }: { id: string }) {
       ? "var(--green)"
       : state === "error"
         ? "var(--red)"
-        : "var(--strong)";
+        : emphasize
+          ? "var(--amber)"
+          : "var(--strong)";
 
   return (
     <div style={{ marginTop: 10 }}>
@@ -478,6 +611,7 @@ function Composer({ id }: { id: string }) {
           ⌐
         </span>
         <input
+          ref={inputRef}
           value={text}
           onChange={(e) => {
             setText(e.target.value);
@@ -485,7 +619,11 @@ function Composer({ id }: { id: string }) {
           }}
           onKeyDown={onKeyDown}
           disabled={sending}
-          placeholder="MESSAGE THE SESSION  /  ⌐ SENT TO CLI"
+          placeholder={
+            emphasize
+              ? "CLAUDE IS WAITING — TYPE YOUR INPUT  /  ⌐ SENT TO CLI"
+              : "MESSAGE THE SESSION  /  ⌐ SENT TO CLI"
+          }
           aria-label="Message the session"
           spellCheck={false}
           className="label"
