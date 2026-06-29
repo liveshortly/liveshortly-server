@@ -170,6 +170,37 @@ a {
   border-bottom: 1px dashed var(--hairline);
 }
 
+/* Main content column. */
+.app-main {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 20px 16px 56px;
+}
+
+/* Horizontal-scroll containers (e.g. the session table) flick smoothly on touch. */
+.scroll-x {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Columns/elements hidden on small screens to keep tables readable. */
+@media (max-width: 640px) {
+  .app-main {
+    padding: 14px 12px 48px;
+  }
+  .hide-sm {
+    display: none !important;
+  }
+  /* With secondary columns hidden, let the table fit the viewport (no scroll). */
+  .session-table {
+    min-width: 0 !important;
+  }
+  /* Tighten the uppercase tracked labels a touch on phones. */
+  .label {
+    letter-spacing: 0.08em;
+  }
+}
+
 /* Clickable HUD stat tiles — lift the border on hover. */
 .stat-tile > div {
   transition: border-color 120ms, box-shadow 120ms, transform 120ms;

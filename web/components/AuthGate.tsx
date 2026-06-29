@@ -66,15 +66,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   return (
     <>
       <HudHeader user={user} />
-      <main
-        style={{
-          maxWidth: 1180,
-          margin: "0 auto",
-          padding: "20px 16px 56px",
-        }}
-      >
-        {children}
-      </main>
+      <main className="app-main">{children}</main>
     </>
   );
 }

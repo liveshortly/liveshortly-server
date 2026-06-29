@@ -25,30 +25,33 @@ export default function SessionTable({
 
   return (
     <div
+      className="scroll-x"
       style={{
         border: "1px solid var(--hairline)",
         background: "var(--panel)",
-        overflowX: "auto",
       }}
     >
       <table
+        className="session-table"
         style={{
           width: "100%",
           borderCollapse: "collapse",
           fontSize: 13,
-          minWidth: 760,
+          minWidth: 720,
         }}
       >
         <thead>
           <tr style={{ borderBottom: "1px solid var(--strong)" }}>
-            <Th>ID</Th>
+            <Th hideSm>ID</Th>
             <Th>Title</Th>
-            <Th>Owner</Th>
-            <Th>Model</Th>
+            <Th hideSm>Owner</Th>
+            <Th hideSm>Model</Th>
             <Th align="right">Events</Th>
             <Th>Status</Th>
-            <Th align="right">Opened</Th>
-            {showAccess && <Th>Access</Th>}
+            <Th align="right" hideSm>
+              Opened
+            </Th>
+            {showAccess && <Th hideSm>Access</Th>}
             {action && <Th align="right">{""}</Th>}
           </tr>
         </thead>
@@ -63,16 +66,16 @@ export default function SessionTable({
                 cursor: "pointer",
               }}
             >
-              <Td mono faint>
+              <Td mono faint hideSm>
                 {shortId(s.id)}
               </Td>
               <Td strong title={s.title} clip>
                 {s.title || "untitled session"}
               </Td>
-              <Td muted title={s.client_handle ?? undefined}>
+              <Td muted hideSm title={s.client_handle ?? undefined}>
                 {s.client_handle ?? `@${s.owner_handle}`}
               </Td>
-              <Td muted clip title={s.model ?? ""}>
+              <Td muted clip hideSm title={s.model ?? ""}>
                 {s.model ?? "—"}
               </Td>
               <Td mono align="right">
@@ -81,11 +84,11 @@ export default function SessionTable({
               <Td>
                 <Badge status={s.status} />
               </Td>
-              <Td mono muted align="right">
+              <Td mono muted align="right" hideSm>
                 {timeAgo(s.created_at)}
               </Td>
               {showAccess && (
-                <Td>
+                <Td hideSm>
                   {s.shared_role ? <SharedBadge role={s.shared_role} /> : "—"}
                 </Td>
               )}
@@ -125,13 +128,15 @@ function SharedBadge({ role }: { role: string }) {
 function Th({
   children,
   align = "left",
+  hideSm,
 }: {
   children: React.ReactNode;
   align?: "left" | "right";
+  hideSm?: boolean;
 }) {
   return (
     <th
-      className="label"
+      className={hideSm ? "label hide-sm" : "label"}
       style={{
         textAlign: align,
         padding: "9px 12px",
@@ -154,6 +159,7 @@ function Td({
   align = "left",
   title,
   onClick,
+  hideSm,
 }: {
   children: React.ReactNode;
   mono?: boolean;
@@ -164,10 +170,12 @@ function Td({
   align?: "left" | "right";
   title?: string;
   onClick?: (e: React.MouseEvent<HTMLTableCellElement>) => void;
+  hideSm?: boolean;
 }) {
+  const cls = [mono ? "tnum" : "", hideSm ? "hide-sm" : ""].filter(Boolean).join(" ");
   return (
     <td
-      className={mono ? "tnum" : undefined}
+      className={cls || undefined}
       title={title}
       onClick={onClick}
       style={{
