@@ -36,6 +36,10 @@ jobs:
           printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           printf '%s\n' "${{ secrets.DEPLOY_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          # Also pin the current host's key at deploy time so the pipeline
+          # self-heals when the server IP changes (the pinned secret can lag the
+          # actual EC2 host). Appends — the secret's keys still apply if valid.
+          ssh-keyscan -T 10 -t rsa,ed25519 "${DEPLOY_HOST}" >> ~/.ssh/known_hosts 2>/dev/null || true
           chmod 644 ~/.ssh/known_hosts
 
       - name: Rsync code to server
