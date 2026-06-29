@@ -30,20 +30,21 @@
    so existing components (e.g. strong-fill buttons with panel-coloured text)
    keep working: --strong becomes light, --ink/--panel/--bg go dark. */
 :root[data-theme="dark"] {
-  --bg: #16150f;
-  --panel: #1e1d16;
-  --hairline: #34322a;
-  --strong: #ece8da;
+  /* Cool graphite gray — lighter than near-black for better readability */
+  --bg: #1e2123;
+  --panel: #282c2f;
+  --hairline: #3d4247;
+  --strong: #edeff1;
 
-  --ink: #ece8da;
-  --muted: #a4a08f;
-  --faint: #767365;
+  --ink: #e9ebed;
+  --muted: #a6abb1;
+  --faint: #797f86;
 
-  --green: #4cae7a;
-  --red: #e06a5a;
-  --amber: #d6a94a;
+  --green: #54b885;
+  --red: #e7705f;
+  --amber: #d9ad52;
 
-  --shadow: rgba(0, 0, 0, 0.5);
+  --shadow: rgba(0, 0, 0, 0.45);
 
   color-scheme: dark;
 }
@@ -53,17 +54,17 @@
    data-theme attribute is present (system mode / first paint). */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
-    --bg: #16150f;
-    --panel: #1e1d16;
-    --hairline: #34322a;
-    --strong: #ece8da;
-    --ink: #ece8da;
-    --muted: #a4a08f;
-    --faint: #767365;
-    --green: #4cae7a;
-    --red: #e06a5a;
-    --amber: #d6a94a;
-    --shadow: rgba(0, 0, 0, 0.5);
+    --bg: #1e2123;
+    --panel: #282c2f;
+    --hairline: #3d4247;
+    --strong: #edeff1;
+    --ink: #e9ebed;
+    --muted: #a6abb1;
+    --faint: #797f86;
+    --green: #54b885;
+    --red: #e7705f;
+    --amber: #d9ad52;
+    --shadow: rgba(0, 0, 0, 0.45);
     color-scheme: dark;
   }
 }
