@@ -183,6 +183,8 @@ func router(cfg config.Config, h *handlers.Handler, ga *handlers.GoogleAuth, mgr
 
 			r.Get("/stats", h.Stats)
 
+			r.Get("/feed", h.Feed)
+
 			r.Get("/sessions", h.ListSessions)
 			r.Post("/sessions", h.CreateSession)
 			r.Get("/sessions/{id}", h.GetSession)
@@ -195,6 +197,9 @@ func router(cfg config.Config, h *handlers.Handler, ga *handlers.GoogleAuth, mgr
 			r.Get("/sessions/{id}/comments/pending", h.PendingComments)
 			r.Post("/sessions/{id}/decision", h.PostDecision)
 			r.Get("/sessions/{id}/decision", h.GetDecision)
+			r.Post("/sessions/{id}/typing", h.Typing)
+			r.Post("/sessions/{id}/publish", h.Publish)
+			r.Post("/sessions/{id}/unpublish", h.Unpublish)
 
 			r.Post("/sessions/{id}/shares", h.CreateShare)
 			r.Get("/sessions/{id}/shares", h.ListShares)

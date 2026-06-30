@@ -56,6 +56,10 @@ type Session struct {
 	GitBranch    *string `json:"git_branch"`
 	InputTokens  int64   `json:"input_tokens"`
 	OutputTokens int64   `json:"output_tokens"`
+	// PublishedAt is set when the session is published to the public feed.
+	PublishedAt *time.Time `json:"published_at"`
+	// Hero is a short precomputed preview snippet shown on the feed tile.
+	Hero *string `json:"hero,omitempty"`
 	// ShareCount is how many explicit grants this session has (owner views).
 	ShareCount int `json:"share_count"`
 	// SharedRole is set only on list rows that the caller reaches via a share.
@@ -89,6 +93,7 @@ const sessionSelectExpr = `s.id, s.title,
 	s.owner_id, s.model, s.framework, s.status, s.tags, s.visibility, s.link_role,
 	s.event_count, s.view_count, s.created_at, s.ended_at,
 	s.client_handle, s.git_remote, s.git_branch, s.input_tokens, s.output_tokens,
+	s.published_at, s.hero,
 	(SELECT count(*) FROM session_shares ssc WHERE ssc.session_id = s.id) AS share_count`
 
 const sessionFrom = ` FROM sessions s JOIN users u ON u.id = s.owner_id`
@@ -107,6 +112,7 @@ func scanSession(row pgx.Row) (Session, error) {
 		&s.Status, &s.Tags, &s.Visibility, &s.LinkRole,
 		&s.EventCount, &s.ViewCount, &s.CreatedAt, &s.EndedAt,
 		&s.ClientHandle, &s.GitRemote, &s.GitBranch, &s.InputTokens, &s.OutputTokens,
+		&s.PublishedAt, &s.Hero,
 		&s.ShareCount,
 	)
 	if s.Tags == nil {
@@ -123,6 +129,7 @@ func scanSessionShared(row pgx.Row) (Session, error) {
 		&s.Status, &s.Tags, &s.Visibility, &s.LinkRole,
 		&s.EventCount, &s.ViewCount, &s.CreatedAt, &s.EndedAt,
 		&s.ClientHandle, &s.GitRemote, &s.GitBranch, &s.InputTokens, &s.OutputTokens,
+		&s.PublishedAt, &s.Hero,
 		&s.ShareCount, &s.SharedRole,
 	)
 	if s.Tags == nil {
@@ -369,6 +376,136 @@ func (st *Store) AddUsage(ctx context.Context, id string, inputTokens, outputTok
 		return nil, err
 	}
 	return st.GetSession(ctx, id)
+}
+
+// heroForSession picks a short preview snippet for the feed tile: the opening
+// prompt, else a notable file edit, else the session title. Best-effort.
+func (st *Store) heroForSession(ctx context.Context, id, title string) string {
+	const q = `SELECT event_type, payload FROM session_events
+		WHERE session_id = $1 AND event_type IN ('prompt','file_write')
+		ORDER BY seq ASC LIMIT 30`
+	rows, err := st.pool.Query(ctx, q, id)
+	if err == nil {
+		defer rows.Close()
+		var firstFile string
+		for rows.Next() {
+			var et string
+			var payload []byte
+			if err := rows.Scan(&et, &payload); err != nil {
+				continue
+			}
+			var p map[string]any
+			_ = json.Unmarshal(payload, &p)
+			if et == "prompt" {
+				if c, ok := p["content"].(string); ok && strings.TrimSpace(c) != "" {
+					return clipHero(c)
+				}
+			}
+			if et == "file_write" && firstFile == "" {
+				if f, ok := p["file"].(string); ok && f != "" {
+					firstFile = f
+				}
+			}
+		}
+		if firstFile != "" {
+			return "Edited " + firstFile
+		}
+	}
+	return title
+}
+
+// clipHero trims a hero snippet to a tile-friendly length on a word boundary.
+func clipHero(s string) string {
+	s = strings.Join(strings.Fields(s), " ") // collapse whitespace/newlines
+	const max = 220
+	if len(s) <= max {
+		return s
+	}
+	cut := s[:max]
+	if i := strings.LastIndex(cut, " "); i > max-40 {
+		cut = cut[:i]
+	}
+	return cut + "…"
+}
+
+// PublishSession publishes a session to the public feed: it becomes publicly
+// readable, gets a precomputed hero snippet, and a full-text search vector.
+func (st *Store) PublishSession(ctx context.Context, id string) (*Session, error) {
+	s, err := st.GetSession(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if s == nil {
+		return nil, nil
+	}
+	hero := st.heroForSession(ctx, id, s.Title)
+	const q = `UPDATE sessions
+		SET published_at = COALESCE(published_at, now()),
+		    visibility = 'public',
+		    hero = $2,
+		    search_vector =
+		        setweight(to_tsvector('english', coalesce($3,'')), 'A') ||
+		        setweight(to_tsvector('english', coalesce($2,'')), 'B') ||
+		        setweight(to_tsvector('english', coalesce(array_to_string(tags,' '),'')), 'C')
+		WHERE id = $1`
+	if _, err := st.pool.Exec(ctx, q, id, hero, s.Title); err != nil {
+		return nil, err
+	}
+	return st.GetSession(ctx, id)
+}
+
+// UnpublishSession removes a session from the feed and makes it private again.
+func (st *Store) UnpublishSession(ctx context.Context, id string) (*Session, error) {
+	const q = `UPDATE sessions
+		SET published_at = NULL, visibility = 'private', search_vector = NULL
+		WHERE id = $1`
+	if _, err := st.pool.Exec(ctx, q, id); err != nil {
+		return nil, err
+	}
+	return st.GetSession(ctx, id)
+}
+
+// FeedBrowse returns a page of published sessions newest-first, using keyset
+// pagination on (published_at, id). Pass a nil cursor for the first page.
+func (st *Store) FeedBrowse(ctx context.Context, beforePublished *time.Time, beforeID string, limit int) ([]Session, error) {
+	args := []any{}
+	where := "WHERE s.published_at IS NOT NULL"
+	if beforePublished != nil {
+		where += " AND (s.published_at, s.id) < ($1, $2)"
+		args = append(args, *beforePublished, beforeID)
+	}
+	q := "SELECT " + sessionSelectExpr + sessionFrom + " " + where +
+		fmt.Sprintf(" ORDER BY s.published_at DESC, s.id DESC LIMIT $%d", len(args)+1)
+	args = append(args, limit)
+	return st.scanFeed(ctx, q, args...)
+}
+
+// FeedSearch returns published sessions ranked by full-text relevance to q.
+func (st *Store) FeedSearch(ctx context.Context, q string, offset, limit int) ([]Session, error) {
+	const sql = "SELECT " + sessionSelectExpr + sessionFrom +
+		" WHERE s.published_at IS NOT NULL" +
+		" AND s.search_vector @@ websearch_to_tsquery('english', $1)" +
+		" ORDER BY ts_rank(s.search_vector, websearch_to_tsquery('english', $1)) DESC," +
+		" s.published_at DESC, s.id DESC LIMIT $2 OFFSET $3"
+	return st.scanFeed(ctx, sql, q, limit, offset)
+}
+
+// scanFeed runs a feed query and scans the standard session projection.
+func (st *Store) scanFeed(ctx context.Context, query string, args ...any) ([]Session, error) {
+	rows, err := st.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []Session{}
+	for rows.Next() {
+		s, err := scanSession(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, s)
+	}
+	return out, rows.Err()
 }
 
 // EndIdleSessions marks live sessions ended when their most recent activity

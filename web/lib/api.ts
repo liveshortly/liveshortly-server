@@ -46,11 +46,20 @@ export interface Session {
   share_count?: number;
   /** Present on rows returned for scope=shared: the caller's grant role. */
   shared_role?: ShareRole | null;
+  /** Set (RFC3339) when the session is published to the public feed. */
+  published_at?: string | null;
+  /** Precomputed preview snippet shown on the feed tile. */
+  hero?: string | null;
 }
 
 /** True when the session's link is open to anyone signed in (not just owner/grants). */
 export function isPublicLink(s: Pick<Session, "visibility">): boolean {
   return s.visibility === "link" || s.visibility === "public";
+}
+
+/** True when the session is published to the discoverable feed. */
+export function isPublished(s: Pick<Session, "published_at">): boolean {
+  return !!s.published_at;
 }
 
 /** A sharing grant on a session (owner view). */
@@ -341,6 +350,62 @@ export function enablePublicLink(id: string, signal?: AbortSignal) {
 /** Close the link back to owner + explicit grants only. */
 export function disablePublicLink(id: string, signal?: AbortSignal) {
   return patchSession(id, { visibility: "private" }, signal);
+}
+
+/** Publish a session to the public, discoverable feed (owner only). */
+export async function publishSession(
+  id: string,
+  signal?: AbortSignal,
+): Promise<Session> {
+  return postAction(`/api/sessions/${encodeURIComponent(id)}/publish`, signal);
+}
+
+/** Remove a session from the feed and make it private again (owner only). */
+export async function unpublishSession(
+  id: string,
+  signal?: AbortSignal,
+): Promise<Session> {
+  return postAction(`/api/sessions/${encodeURIComponent(id)}/unpublish`, signal);
+}
+
+async function postAction(path: string, signal?: AbortSignal): Promise<Session> {
+  const res = await fetch(`${browserBase()}${path}`, {
+    method: "POST",
+    signal,
+    credentials: "include",
+  });
+  if (!res.ok) {
+    throw new ApiError(res.status, `POST ${path} failed: ${res.status}`);
+  }
+  return (await res.json()) as Session;
+}
+
+/** A page of the public feed: published sessions + an opaque next-page cursor. */
+export interface FeedPage {
+  results: Session[];
+  next_cursor: string;
+}
+
+/** Fetch a page of the public feed. `q` searches; `cursor` pages. */
+export function getFeed(
+  params: { q?: string; cursor?: string; limit?: number } = {},
+  signal?: AbortSignal,
+): Promise<FeedPage> {
+  const qs = new URLSearchParams();
+  if (params.q) qs.set("q", params.q);
+  if (params.cursor) qs.set("cursor", params.cursor);
+  if (params.limit != null) qs.set("limit", String(params.limit));
+  const query = qs.toString();
+  return getJSON<FeedPage>(`/api/feed${query ? `?${query}` : ""}`, signal);
+}
+
+/** Best-effort "I'm typing" presence ping for a live session (fire-and-forget). */
+export function postTyping(id: string, signal?: AbortSignal): void {
+  void fetch(`${browserBase()}/api/sessions/${encodeURIComponent(id)}/typing`, {
+    method: "POST",
+    signal,
+    credentials: "include",
+  }).catch(() => {});
 }
 
 /** Absolute, shareable URL for a session's viewer page. */

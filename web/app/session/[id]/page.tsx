@@ -4,12 +4,14 @@ import { use, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Badge from "@/components/Badge";
 import EventStream from "@/components/EventStream";
+import PublishAction from "@/components/PublishAction";
+import TypingIndicator from "@/components/TypingIndicator";
 import {
   ApiError,
   getSession,
-  isPublicLink,
+  isPublished,
   postComment,
-  postDecision,
+  postTyping,
   renameSession,
   stopSession,
   streamUrl,
@@ -32,6 +34,11 @@ export default function SessionViewer({
   const [err, setErr] = useState<string | null>(null);
   const [noAccess, setNoAccess] = useState(false);
   const [conn, setConn] = useState<Connection>("idle");
+  // Ephemeral "viewer is typing" presence (from SSE typing frames).
+  const [viewerTyping, setViewerTyping] = useState<{
+    who: string;
+    until: number;
+  } | null>(null);
 
   const seen = useRef<Set<string>>(new Set());
 
@@ -106,6 +113,14 @@ export default function SessionViewer({
           return;
         }
         if (t === "connected") return;
+        if (t === "typing") {
+          const d = data as { who?: string; until?: number };
+          setViewerTyping({
+            who: d.who || "viewer",
+            until: d.until ?? Date.now() + 4000,
+          });
+          return;
+        }
       }
       // Otherwise it's an Event payload.
       addEvents([data as SessionEvent]);
@@ -155,6 +170,29 @@ export default function SessionViewer({
     return null;
   }, [events]);
   const inputPending = isLive && !!inputRequest;
+
+  // Expire the viewer-typing indicator when its window lapses.
+  useEffect(() => {
+    if (!viewerTyping) return;
+    const ms = viewerTyping.until - Date.now();
+    if (ms <= 0) {
+      setViewerTyping(null);
+      return;
+    }
+    const t = setTimeout(() => setViewerTyping(null), ms);
+    return () => clearTimeout(t);
+  }, [viewerTyping]);
+  const viewerIsTyping = !!viewerTyping && viewerTyping.until > Date.now();
+
+  // "Claude is working" is inferred from live stream state: the last event is
+  // active work and the turn hasn't ended / isn't waiting on input.
+  const claudeTyping = useMemo(() => {
+    if (!isLive || inputPending || events.length === 0) return false;
+    const t = events[events.length - 1].event_type;
+    return ["prompt", "pre_tool", "tool_call", "file_write", "output"].includes(
+      t,
+    );
+  }, [isLive, inputPending, events]);
 
   // Notify the viewer (browser notification + soft chime) when input is newly
   // requested — so anyone watching knows it's their turn to answer.
@@ -258,7 +296,15 @@ export default function SessionViewer({
   }
 
   return (
-    <div>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        // Fill the viewport below the global header so the event log can grow
+        // to occupy the space instead of leaving a gap under short sessions.
+        minHeight: "calc(100dvh - 188px)",
+      }}
+    >
       <Link
         href="/"
         className="label"
@@ -326,7 +372,7 @@ export default function SessionViewer({
               justifyContent: "flex-end",
             }}
           >
-            {meta && isPublicLink(meta) && (
+            {meta && isPublished(meta) && (
               <span
                 className="label"
                 style={{
@@ -338,12 +384,12 @@ export default function SessionViewer({
                   padding: "3px 8px",
                   whiteSpace: "nowrap",
                 }}
-                title="Anyone with the link can view this session"
+                title="Published to the public feed"
               >
-                ● PUBLIC
+                ▣ PUBLISHED
               </span>
             )}
-            {meta && !isPublicLink(meta) && (meta.share_count ?? 0) > 0 && (
+            {meta && (meta.share_count ?? 0) > 0 && (
               <span
                 className="label"
                 style={{
@@ -363,6 +409,13 @@ export default function SessionViewer({
               </span>
             )}
             {meta && <Badge status={meta.status} size="md" />}
+            {/* Publish / Unpublish — owner only, beside the status badge. */}
+            {meta?.is_owner && (
+              <PublishAction
+                session={meta}
+                onChanged={(u) => setMeta((m) => (m ? { ...m, ...u } : m))}
+              />
+            )}
             {meta?.is_owner && meta.status === "live" && (
               <EndButton
                 id={id}
@@ -450,18 +503,49 @@ export default function SessionViewer({
         <span style={{ color: "var(--muted)" }}>{streamLabel(conn, isLive)}</span>
       </div>
 
-      <EventStream
-        events={events}
-        live={isLive}
-        ownerHandle={meta?.owner_handle ?? null}
-      />
+      {/* The event log is the "chat window": it grows to fill all remaining
+          height and scrolls internally, so short sessions never leave wasted
+          space and the composer stays pinned just below it. */}
+      <div
+        style={{
+          flex: 1,
+          minHeight: 240,
+          overflowY: "auto",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        <EventStream
+          events={events}
+          live={isLive}
+          ownerHandle={meta?.owner_handle ?? null}
+        />
+        {(claudeTyping || viewerIsTyping) && (
+          <div
+            style={{
+              display: "flex",
+              gap: 8,
+              flexWrap: "wrap",
+              padding: "10px 2px 2px",
+            }}
+          >
+            {claudeTyping && (
+              <TypingIndicator label="CLAUDE IS WORKING" tone="green" />
+            )}
+            {viewerIsTyping && viewerTyping && (
+              <TypingIndicator
+                label={`@${viewerTyping.who} IS TYPING`}
+                tone="amber"
+              />
+            )}
+          </div>
+        )}
+      </div>
 
-      {/* Input-requested banner — Claude is waiting; any viewer who can comment
-          may answer, and their message drives the session. Permission prompts
-          additionally get one-tap Yes/No quick replies. */}
+      {/* Input-requested banner — surfaces that the CLI is waiting for input so
+          a viewer can send a message (non-blocking; Claude never stalls on it). */}
       {inputPending && (
         <InputRequestBanner
-          id={id}
           message={(inputRequest?.payload?.message as string) || ""}
           kind={(inputRequest?.payload?.kind as string) || "input"}
           canReply={isLive && meta?.can_comment !== false}
@@ -504,52 +588,19 @@ export default function SessionViewer({
 
 type SendState = "idle" | "sending" | "sent" | "error";
 
-/** Banner shown while Claude waits for input. Renders the request message and,
- *  for permission prompts, one-tap quick replies that any commenter can use to
- *  answer without typing. Replies post as ordinary messages (queued + injected
- *  into the CLI on the next prompt/tool boundary). */
+/** Banner shown while the CLI is waiting for input. Purely informational — it
+ *  surfaces the request so a watching viewer can type a reply in the composer
+ *  below. It does NOT block the CLI: Claude is answered in the terminal (or by a
+ *  viewer message injected on the next turn), never by the web stalling it. */
 function InputRequestBanner({
-  id,
   message,
   kind,
   canReply,
 }: {
-  id: string;
   message: string;
   kind: string;
   canReply: boolean;
 }) {
-  const [sent, setSent] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  // Permission prompts post a real allow/deny decision that the CLI's
-  // PreToolUse hook is waiting on — one tap actually answers the prompt. A plain
-  // input wait has nothing to decide, so "continue" is just a steering message.
-  const replies =
-    kind === "permission"
-      ? [
-          { label: "✓ YES, ALLOW", value: "allow", decision: "allow" as const },
-          { label: "✕ NO, DENY", value: "deny", decision: "deny" as const },
-        ]
-      : [{ label: "▸ CONTINUE", value: "continue", decision: null }];
-
-  const quickSend = async (r: {
-    value: string;
-    decision: "allow" | "deny" | null;
-  }) => {
-    if (busy) return;
-    setBusy(true);
-    try {
-      if (r.decision) await postDecision(id, r.decision);
-      else await postComment(id, r.value);
-      setSent(r.value);
-    } catch {
-      // best-effort; the composer below remains available
-    } finally {
-      setBusy(false);
-    }
-  };
-
   return (
     <div
       role="status"
@@ -560,7 +611,7 @@ function InputRequestBanner({
         padding: "10px 12px",
         display: "flex",
         flexDirection: "column",
-        gap: 8,
+        gap: 6,
       }}
     >
       <div
@@ -588,44 +639,20 @@ function InputRequestBanner({
           }}
           title={message}
         >
-          {message || "Claude is waiting — send a message to steer the session."}
+          {message || "Claude is waiting for input in the CLI."}
         </span>
       </div>
-
       {canReply && (
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {replies.map((r) => (
-            <button
-              key={r.value}
-              type="button"
-              onClick={() => quickSend(r)}
-              disabled={busy}
-              className="label"
-              style={{
-                border: "1px solid var(--amber)",
-                background: sent === r.value ? "var(--amber)" : "transparent",
-                color: sent === r.value ? "var(--panel)" : "var(--ink)",
-                padding: "6px 14px",
-                cursor: busy ? "default" : "pointer",
-                fontSize: 11,
-                fontWeight: 700,
-              }}
-            >
-              {sent === r.value ? "✓ SENT" : r.label}
-            </button>
-          ))}
-          <span
-            className="label"
-            style={{
-              alignSelf: "center",
-              color: "var(--muted)",
-              textTransform: "none",
-              letterSpacing: 0,
-            }}
-          >
-            or type a full reply below
-          </span>
-        </div>
+        <span
+          className="label"
+          style={{
+            color: "var(--muted)",
+            textTransform: "none",
+            letterSpacing: 0,
+          }}
+        >
+          Type a reply below — it reaches the session on its next turn.
+        </span>
       )}
     </div>
   );
@@ -640,6 +667,15 @@ function Composer({ id, emphasize = false }: { id: string; emphasize?: boolean }
   const [errMsg, setErrMsg] = useState("COULD NOT SEND — TRY AGAIN");
   const sentTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Throttle "is typing" presence pings so we send at most one every ~2.5s.
+  const lastTypingPing = useRef(0);
+
+  const pingTyping = () => {
+    const now = Date.now();
+    if (now - lastTypingPing.current < 2500) return;
+    lastTypingPing.current = now;
+    postTyping(id);
+  };
 
   useEffect(() => {
     return () => {
@@ -719,6 +755,7 @@ function Composer({ id, emphasize = false }: { id: string; emphasize?: boolean }
           value={text}
           onChange={(e) => {
             setText(e.target.value);
+            if (e.target.value.trim()) pingTyping();
             if (state === "error" || state === "sent") setState("idle");
           }}
           onKeyDown={onKeyDown}

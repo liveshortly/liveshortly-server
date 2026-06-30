@@ -26,6 +26,19 @@ var migrations = []string{
 
 	// Speeds up the idle-session reaper's scan over live sessions.
 	`CREATE INDEX IF NOT EXISTS sessions_status_idx ON sessions (status)`,
+
+	// --- Feed (publish to the public, discoverable feed) ---
+	// When set, the session is published to the feed (and publicly readable).
+	`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS published_at TIMESTAMPTZ`,
+	// A short, precomputed preview snippet shown on the feed tile (so the feed
+	// never has to scan the event log on read).
+	`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS hero TEXT`,
+	// Full-text search vector over title + hero + tags, maintained at publish.
+	`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS search_vector tsvector`,
+	// Keyset-pagination + recency scan over the published feed.
+	`CREATE INDEX IF NOT EXISTS sessions_feed_idx ON sessions (published_at DESC, id DESC) WHERE published_at IS NOT NULL`,
+	// Relevance search over published sessions.
+	`CREATE INDEX IF NOT EXISTS sessions_search_idx ON sessions USING GIN (search_vector)`,
 }
 
 // Migrate applies the additive, idempotent migrations above. It runs before the

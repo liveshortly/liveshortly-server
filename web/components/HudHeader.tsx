@@ -139,6 +139,10 @@ export default function HudHeader({ user }: { user?: Me | null }) {
               </>
             )}
           </div>
+          <nav style={{ marginTop: 8, display: "flex", gap: 16 }}>
+            <NavLink href="/" label="HUD" />
+            <NavLink href="/feed" label="FEED" />
+          </nav>
         </div>
 
         {/* Stat panels — clicking filters the session list by status. */}
@@ -220,6 +224,24 @@ export default function HudHeader({ user }: { user?: Me | null }) {
         </div>
       </div>
     </header>
+  );
+}
+
+/** A compact top-nav link in the HUD header. */
+function NavLink({ href, label }: { href: string; label: string }) {
+  return (
+    <Link
+      href={href}
+      className="label"
+      style={{
+        color: "var(--muted)",
+        borderBottom: "1px solid transparent",
+        paddingBottom: 1,
+        letterSpacing: "0.1em",
+      }}
+    >
+      {label}
+    </Link>
   );
 }
 

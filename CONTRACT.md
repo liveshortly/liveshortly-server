@@ -53,6 +53,10 @@ changes.
 | GET  | `/health` | — | `{"ok":true,"ts":"RFC3339"}` |
 | POST | `/api/sessions` | `{"title"?,"model"?,"framework"?,"tags"?:[]}` | `201 {...Session,"url":"/session/{id}"}` |
 | GET  | `/api/sessions?status=live\|ended\|all&q=&limit=&offset=` | — | `200 {"results":[Session],"total":int}` |
+| GET  | `/api/feed?q=&cursor=&limit=` | — | `200 {"results":[Session],"next_cursor":string}` (signed-in; published only) |
+| POST | `/api/sessions/{id}/publish` | — | `200 Session` (owner; lists in feed + public) |
+| POST | `/api/sessions/{id}/unpublish` | — | `200 Session` (owner; removes from feed + private) |
+| POST | `/api/sessions/{id}/typing` | — | `204` (ephemeral "viewer is typing" presence, live only) |
 | GET  | `/api/sessions/{id}` | — | `200 {...Session,"events":[Event]}` (view_count++) |
 | PATCH | `/api/sessions/{id}` | `{"title"?,"visibility"?,"link_role"?,"model"?}` | `200 Session` (owner only) |
 | POST | `/api/sessions/{id}/events` | `{"event_type":string,"payload":object,"actor"?:string}` | `201 Event` |
@@ -107,30 +111,36 @@ A viewer watching a LIVE session can send a message back into the running CLI se
   on stdout, prefixed with an instruction to address the viewer.
 
 ## Input/permission requests → web (Notification hook)
-When the CLI blocks for the developer — a tool permission prompt or an idle input
+When the CLI waits for the developer — a tool permission prompt or an idle input
 wait — Claude Code fires the `Notification` hook. The capture client emits
 `event_type:"input_requested", payload:{message,kind,ts}` where `kind ∈ {permission,input}`.
-The web viewer renders an amber banner with the message and, while the session is
-live and the viewer may comment, one-tap quick replies. The banner clears as soon
-as any later activity event supersedes the request.
+The web viewer renders an amber banner with the message; a watching viewer can type
+a reply in the composer, which is injected on the session's next turn.
 
-### Web-driven permission decisions (the actual yes/no)
-A viewer message can't press "1. Yes" on a blocked CLI prompt, so the *decision*
-must be made in `PreToolUse` (before the prompt). When the capture client is about
-to run a gated tool (Edit/Write/MultiEdit/Bash) AND at least one viewer is watching
-(`GET …/decision` → `watchers>0`), it emits `input_requested` (kind=permission) and
-polls `GET …/decision` for up to `LIVESHORTLY_PERMISSION_WAIT` seconds (default 30).
-- The web banner's **Yes/No** buttons `POST …/decision {allow|deny}` → also emits a
-  `viewer_decision` event (`payload:{decision,username}`) for the feed.
-- On `allow`/`deny` the hook returns
-  `{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow|deny","permissionDecisionReason":...}}`,
-  so the tool runs or is blocked without a local prompt.
-- If nobody is watching, or nobody answers in time, the hook returns nothing and
-  Claude Code's normal local prompt is shown — so solo local coding is unaffected
-  (zero added latency when no web tab is open).
-- `LIVESHORTLY_WEB_PERMISSIONS=0` disables web-driven approval entirely.
-For a plain `input` wait (no permission), the banner's Continue/free-text posts an
-ordinary comment (steering), injected on the next prompt/tool boundary.
+This is **non-blocking by design**: the CLI is never stalled waiting on the web —
+the developer answers the prompt in the terminal as usual, and the banner clears as
+soon as any later activity event supersedes the request. (The `POST/GET
+…/decision` endpoints and the `viewer_decision` event remain in the API but are not
+used by the default hooks.)
+
+## Feed (publish)
+Publishing lists a session in the public, discoverable feed and makes it readable by
+any signed-in user (it replaces the old "share to all" unlisted link).
+- `POST …/publish` sets `published_at=now()`, `visibility='public'`, precomputes a
+  `hero` snippet (opening prompt → notable edit → title) and a `search_vector`
+  (`tsvector`: title^A + hero^B + tags^C). `POST …/unpublish` reverses it.
+- `GET /api/feed` (any signed-in user) returns published sessions. Browsing pages by
+  keyset cursor on `(published_at, id)`; `?q=` switches to `ts_rank` relevance
+  (offset cursor). `next_cursor` is an opaque base64 token; empty = end of feed.
+- Feed tiles are synthesized from Session fields + `hero` (no image); `published_at`
+  and `hero` are part of the Session shape.
+
+## Typing presence (ephemeral)
+`POST …/typing` (commenter, live only) publishes a control frame
+`{"type":"typing","who","actor":"viewer","until":<unix-ms>}` to the session channel
+ONLY — never persisted or buffered, so it is absent from replay. SSE clients show an
+"@who is typing" indicator until `until`. "Claude is working" is derived client-side
+from live stream state (last event is active work, turn not ended).
 
 ## Model reporting
 A fresh session is created without a model (no assistant turn exists yet). The
