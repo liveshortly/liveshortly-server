@@ -9,6 +9,7 @@ import {
   getSession,
   isPublicLink,
   postComment,
+  postDecision,
   renameSession,
   stopSession,
   streamUrl,
@@ -145,6 +146,7 @@ export default function SessionViewer({
           "file_write",
           "output",
           "viewer_comment",
+          "viewer_decision",
         ].includes(t)
       ) {
         return null;
@@ -520,22 +522,27 @@ function InputRequestBanner({
   const [sent, setSent] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  // Quick replies tuned to the kind of wait. Permission prompts are yes/no;
-  // a plain input wait still offers a fast "continue".
+  // Permission prompts post a real allow/deny decision that the CLI's
+  // PreToolUse hook is waiting on — one tap actually answers the prompt. A plain
+  // input wait has nothing to decide, so "continue" is just a steering message.
   const replies =
     kind === "permission"
       ? [
-          { label: "✓ YES, ALLOW", value: "yes" },
-          { label: "✕ NO, DENY", value: "no" },
+          { label: "✓ YES, ALLOW", value: "allow", decision: "allow" as const },
+          { label: "✕ NO, DENY", value: "deny", decision: "deny" as const },
         ]
-      : [{ label: "▸ CONTINUE", value: "continue" }];
+      : [{ label: "▸ CONTINUE", value: "continue", decision: null }];
 
-  const quickSend = async (value: string) => {
+  const quickSend = async (r: {
+    value: string;
+    decision: "allow" | "deny" | null;
+  }) => {
     if (busy) return;
     setBusy(true);
     try {
-      await postComment(id, value);
-      setSent(value);
+      if (r.decision) await postDecision(id, r.decision);
+      else await postComment(id, r.value);
+      setSent(r.value);
     } catch {
       // best-effort; the composer below remains available
     } finally {
@@ -591,7 +598,7 @@ function InputRequestBanner({
             <button
               key={r.value}
               type="button"
-              onClick={() => quickSend(r.value)}
+              onClick={() => quickSend(r)}
               disabled={busy}
               className="label"
               style={{

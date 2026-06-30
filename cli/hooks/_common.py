@@ -248,6 +248,29 @@ def pending_comments(ls_id, timeout=5, claude_id=None):
     return comments if isinstance(comments, list) else []
 
 
+def get_decision(ls_id, timeout=5, claude_id=None):
+    """Pop the next queued viewer allow/deny + the live watcher count.
+
+    Returns (decision|None, watcher_count). Lets viewers answer a permission
+    prompt from the web (consumed by the PreToolUse hook).
+    """
+    if not ls_id:
+        return None, 0
+    resp = get_json(
+        "/api/sessions/" + str(ls_id) + "/decision", timeout=timeout, claude_id=claude_id
+    )
+    if not isinstance(resp, dict):
+        return None, 0
+    decision = resp.get("decision")
+    if decision not in ("allow", "deny"):
+        decision = None
+    try:
+        watchers = int(resp.get("watchers") or 0)
+    except (TypeError, ValueError):
+        watchers = 0
+    return decision, watchers
+
+
 def format_comments_context(comments):
     """Build the additionalContext string for injecting viewer comments.
 

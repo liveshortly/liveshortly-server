@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -15,6 +17,21 @@ import (
 // heartbeatInterval is how often a `: ping` comment is sent to keep the
 // connection (and any intermediary proxies) alive.
 const heartbeatInterval = 15 * time.Second
+
+// watcherTTL is how long a live SSE connection counts as "watching" before it
+// must refresh (on each heartbeat). Comfortably more than two heartbeats so a
+// brief hiccup doesn't drop presence, short enough that a dead tab clears fast.
+const watcherTTL = 40 * time.Second
+
+// newWatcherToken returns a random per-connection presence token.
+func newWatcherToken() string {
+	var b [8]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		// Fall back to a time-based token; uniqueness matters, not secrecy.
+		return fmt.Sprintf("w-%d", time.Now().UnixNano())
+	}
+	return hex.EncodeToString(b[:])
+}
 
 // peek pulls the discriminator fields out of a frame without fully decoding it.
 type peek struct {
@@ -107,6 +124,13 @@ func (h *Handler) Stream(w http.ResponseWriter, r *http.Request) {
 	defer sub.Close()
 	ch := sub.Channel()
 
+	// Mark this connection as a live watcher so the capture hook knows whether
+	// anyone is around to drive permission decisions from the web. Best-effort:
+	// presence is a convenience, never a hard dependency.
+	watcher := newWatcherToken()
+	_ = h.bus.WatcherTouch(ctx, id, watcher, watcherTTL)
+	defer func() { _ = h.bus.WatcherDrop(detach(r), id, watcher) }()
+
 	// 2) replay the buffer in seq order.
 	buffered, err := h.bus.BufferAll(ctx, id)
 	if err == nil {
@@ -157,6 +181,8 @@ func (h *Handler) Stream(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			flusher.Flush()
+			// Refresh watcher presence so it doesn't lapse mid-session.
+			_ = h.bus.WatcherTouch(ctx, id, watcher, watcherTTL)
 		}
 	}
 }

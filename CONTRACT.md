@@ -40,7 +40,7 @@ changes.
   "session_id": "uuid",
   "seq": 1,
   "actor": "agent | tool | viewer | null",
-  "event_type": "prompt | response | tool_call | pre_tool | file_write | output | stream_end | viewer_comment | input_requested",
+  "event_type": "prompt | response | tool_call | pre_tool | file_write | output | stream_end | viewer_comment | input_requested | viewer_decision",
   "payload": { "any": "json" },
   "ts": "RFC3339"
 }
@@ -60,6 +60,8 @@ changes.
 | POST | `/api/sessions/{id}/stop` | — | `200 {...Session}` (status=ended) |
 | POST | `/api/sessions/{id}/comments` | `{"message":string}` | `201 Event` (viewer→session, live only) |
 | GET  | `/api/sessions/{id}/comments/pending` | — | `200 {"comments":[{"username","message","ts"}]}` (drains once) |
+| POST | `/api/sessions/{id}/decision` | `{"decision":"allow"\|"deny"}` | `201 Event` (viewer answers a permission prompt, live only) |
+| GET  | `/api/sessions/{id}/decision` | — | `200 {"decision":"allow"\|"deny"\|null,"watchers":int}` (owner; pops once) |
 | GET  | `/api/stats` | — | `200 {"total_sessions":int,"live_now":int,"ended":int,"total_events":int}` |
 
 - `q` search: case-insensitive match on `title` OR any tag.
@@ -82,6 +84,10 @@ Dedupe by event `id` so a buffered event isn't sent twice.
 - `session:{id}:seq` — `INCR` to allocate the next event seq atomically.
 - `session:{id}:buffer` — `RPUSH` each event JSON; `LRANGE 0 -1` to replay.
 - `session:{id}:events` — pub/sub channel; `PUBLISH` each event JSON; SSE handlers `SUBSCRIBE`.
+- `session:{id}:watchers` — ZSET of live SSE connections (member=conn token,
+  score=expiry ns); refreshed every heartbeat, pruned on read. `ZCARD` after
+  prune = live watcher count. TTL ~40s so a dead tab clears quickly.
+- `session:{id}:decision` — viewer allow/deny queue (`RPUSH`/`LPOP`, TTL ~2m).
 On stop: archive the buffer to storage as `sessions/{id}/raw.json`, persist events to
 `session_events`, set `status='ended'`, `ended_at=now()`, publish a `session_ended`
 control message, and delete the buffer key.
@@ -105,11 +111,26 @@ When the CLI blocks for the developer — a tool permission prompt or an idle in
 wait — Claude Code fires the `Notification` hook. The capture client emits
 `event_type:"input_requested", payload:{message,kind,ts}` where `kind ∈ {permission,input}`.
 The web viewer renders an amber banner with the message and, while the session is
-live and the viewer may comment, one-tap quick replies (Yes/No for `permission`,
-Continue for `input`). Any reply posts as an ordinary comment (queued on `pending`
-and injected on the next prompt/tool boundary). The banner clears as soon as any
-later activity event (`prompt`/`response`/`pre_tool`/`tool_call`/…/`viewer_comment`)
-supersedes the request.
+live and the viewer may comment, one-tap quick replies. The banner clears as soon
+as any later activity event supersedes the request.
+
+### Web-driven permission decisions (the actual yes/no)
+A viewer message can't press "1. Yes" on a blocked CLI prompt, so the *decision*
+must be made in `PreToolUse` (before the prompt). When the capture client is about
+to run a gated tool (Edit/Write/MultiEdit/Bash) AND at least one viewer is watching
+(`GET …/decision` → `watchers>0`), it emits `input_requested` (kind=permission) and
+polls `GET …/decision` for up to `LIVESHORTLY_PERMISSION_WAIT` seconds (default 30).
+- The web banner's **Yes/No** buttons `POST …/decision {allow|deny}` → also emits a
+  `viewer_decision` event (`payload:{decision,username}`) for the feed.
+- On `allow`/`deny` the hook returns
+  `{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow|deny","permissionDecisionReason":...}}`,
+  so the tool runs or is blocked without a local prompt.
+- If nobody is watching, or nobody answers in time, the hook returns nothing and
+  Claude Code's normal local prompt is shown — so solo local coding is unaffected
+  (zero added latency when no web tab is open).
+- `LIVESHORTLY_WEB_PERMISSIONS=0` disables web-driven approval entirely.
+For a plain `input` wait (no permission), the banner's Continue/free-text posts an
+ordinary comment (steering), injected on the next prompt/tool boundary.
 
 ## Model reporting
 A fresh session is created without a model (no assistant turn exists yet). The

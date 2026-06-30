@@ -193,6 +193,8 @@ func router(cfg config.Config, h *handlers.Handler, ga *handlers.GoogleAuth, mgr
 			r.Post("/sessions/{id}/usage", h.ReportUsage)
 			r.Post("/sessions/{id}/comments", h.PostComment)
 			r.Get("/sessions/{id}/comments/pending", h.PendingComments)
+			r.Post("/sessions/{id}/decision", h.PostDecision)
+			r.Get("/sessions/{id}/decision", h.GetDecision)
 
 			r.Post("/sessions/{id}/shares", h.CreateShare)
 			r.Get("/sessions/{id}/shares", h.ListShares)

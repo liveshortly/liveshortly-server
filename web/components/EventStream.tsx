@@ -30,6 +30,8 @@ function markerFor(type: string): { color: string; glyph: string } {
       return { color: "var(--amber)", glyph: "✉" };
     case "input_requested":
       return { color: "var(--amber)", glyph: "⌐" };
+    case "viewer_decision":
+      return { color: "var(--green)", glyph: "⏎" };
     default:
       return { color: "var(--faint)", glyph: "•" };
   }
@@ -74,6 +76,12 @@ function systemLine(e: SessionEvent): string {
       const kind = str("kind") === "permission" ? "permission" : "input";
       const msg = str("message");
       return `awaiting ${kind}${msg ? ` — ${truncate(msg, 90)}` : ""}`;
+    }
+    case "viewer_decision": {
+      const who = str("username") ?? "viewer";
+      return str("decision") === "deny"
+        ? `${who} denied the request`
+        : `${who} allowed the request`;
     }
     default:
       return truncate(summarizePayload(p), 100);

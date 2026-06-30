@@ -24,6 +24,8 @@ func seqKey(id string) string      { return fmt.Sprintf("session:%s:seq", id) }
 func bufferKey(id string) string   { return fmt.Sprintf("session:%s:buffer", id) }
 func chanKey(id string) string     { return fmt.Sprintf("session:%s:events", id) }
 func pendingKey(id string) string  { return fmt.Sprintf("session:%s:pending", id) }
+func watchersKey(id string) string { return fmt.Sprintf("session:%s:watchers", id) }
+func decisionKey(id string) string { return fmt.Sprintf("session:%s:decision", id) }
 func deviceKey(dc string) string   { return "device:" + dc }
 func userCodeKey(uc string) string { return "usercode:" + uc }
 
@@ -99,6 +101,69 @@ func (b *Bus) PendingDrain(ctx context.Context, sessionID string) ([]string, err
 		out = []string{}
 	}
 	return out, nil
+}
+
+// --- Live viewer presence (watchers) -------------------------------------
+
+// WatcherTouch records that a watcher (one SSE connection, identified by token)
+// is alive right now. Presence is a ZSET scored by expiry time so stale entries
+// (from a crashed tab that never closed cleanly) self-heal. Call on connect and
+// again on each heartbeat to refresh.
+func (b *Bus) WatcherTouch(ctx context.Context, sessionID, token string, ttl time.Duration) error {
+	key := watchersKey(sessionID)
+	expiry := float64(time.Now().Add(ttl).UnixNano())
+	if err := b.rdb.ZAdd(ctx, key, redis.Z{Score: expiry, Member: token}).Err(); err != nil {
+		return err
+	}
+	// Bound the key's own lifetime well past a single TTL window.
+	return b.rdb.Expire(ctx, key, ttl+time.Hour).Err()
+}
+
+// WatcherDrop removes a watcher token on clean disconnect.
+func (b *Bus) WatcherDrop(ctx context.Context, sessionID, token string) error {
+	return b.rdb.ZRem(ctx, watchersKey(sessionID), token).Err()
+}
+
+// WatcherCount prunes expired watchers, then returns how many are live.
+func (b *Bus) WatcherCount(ctx context.Context, sessionID string) (int, error) {
+	key := watchersKey(sessionID)
+	now := float64(time.Now().UnixNano())
+	// Drop everyone whose refresh window has lapsed.
+	if err := b.rdb.ZRemRangeByScore(ctx, key, "0", fmt.Sprintf("%f", now)).Err(); err != nil {
+		return 0, err
+	}
+	n, err := b.rdb.ZCard(ctx, key).Result()
+	if err != nil {
+		return 0, err
+	}
+	return int(n), nil
+}
+
+// --- Viewer permission decisions -----------------------------------------
+
+// decisionTTL bounds how long an unconsumed allow/deny lingers. Short, because a
+// decision is only meaningful while the PreToolUse hook is actively waiting.
+const decisionTTL = 2 * time.Minute
+
+// DecisionPush queues a viewer's allow/deny answer for the waiting hook.
+func (b *Bus) DecisionPush(ctx context.Context, sessionID, decision string) error {
+	key := decisionKey(sessionID)
+	if err := b.rdb.RPush(ctx, key, decision).Err(); err != nil {
+		return err
+	}
+	return b.rdb.Expire(ctx, key, decisionTTL).Err()
+}
+
+// DecisionPop returns the oldest queued decision (FIFO), or ok=false if none.
+func (b *Bus) DecisionPop(ctx context.Context, sessionID string) (string, bool, error) {
+	v, err := b.rdb.LPop(ctx, decisionKey(sessionID)).Result()
+	if err == redis.Nil {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, err
+	}
+	return v, true, nil
 }
 
 // --- Device-flow OAuth (CLI login) ---------------------------------------

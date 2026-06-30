@@ -201,6 +201,31 @@ export async function postComment(
   }
 }
 
+/** Answer a live permission request (allow/deny). Drives the CLI's PreToolUse
+ *  decision while the capture hook is waiting on it. */
+export async function postDecision(
+  id: string,
+  decision: "allow" | "deny",
+  signal?: AbortSignal,
+): Promise<void> {
+  const res = await fetch(
+    `${browserBase()}/api/sessions/${encodeURIComponent(id)}/decision`,
+    {
+      method: "POST",
+      signal,
+      credentials: "include",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ decision }),
+    },
+  );
+  if (!res.ok) {
+    throw new ApiError(
+      res.status,
+      `POST decision failed: ${res.status} ${res.statusText}`,
+    );
+  }
+}
+
 /** List sharing grants on a session (owner only). */
 export function listShares(
   id: string,
