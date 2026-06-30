@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>LiveShortly — New UI Design Files</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #16150f; --panel: #1e1d16; --hairline: #34322a;
+  --strong: #ece8da; --ink: #ece8da; --muted: #a4a08f; --faint: #767365;
+  --green: #4cae7a; --amber: #d6a94a;
+  --font: 'JetBrains Mono', ui-monospace, monospace;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: var(--font); background: var(--bg); color: var(--ink);
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  -webkit-font-smoothing: antialiased;
+}
+.container { max-width: 680px; width: 100%; padding: 48px 32px; }
+.brand { display: flex; align-items: center; gap: 10px; margin-bottom: 40px; }
+.mark {
+  width: 32px; height: 32px; background: var(--green); border-radius: 6px;
+  position: relative; flex-shrink: 0;
+}
+.mark::before {
+  content: ''; position: absolute;
+  left: 7px; top: 8px; width: 6px; height: 14px;
+  background: var(--panel); border-radius: 1px;
+}
+.mark::after {
+  content: ''; position: absolute;
+  left: 16px; top: 8px; width: 8px; height: 14px;
+  border: 2px solid var(--panel); background: var(--green); border-radius: 1px;
+}
+.brand-name { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
+.brand-cursor { color: var(--faint); }
+@keyframes blink { 0%,49%{opacity:1}50%,100%{opacity:0} }
+.brand-cursor { animation: blink 1s step-end infinite; }
+
+.heading { font-size: 11px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--faint); margin-bottom: 20px; font-weight: 600; }
+.cards { display: flex; flex-direction: column; gap: 12px; }
+.card {
+  display: block; background: var(--panel); border: 1px solid var(--hairline);
+  padding: 20px 24px; text-decoration: none; color: inherit;
+  transition: border-color 150ms, transform 120ms;
+}
+.card:hover { border-color: var(--strong); transform: translateX(3px); }
+.card-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.card-num { font-size: 10px; color: var(--faint); font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; }
+.card-arrow { font-size: 14px; color: var(--muted); }
+.card-title { font-size: 15px; font-weight: 700; color: var(--ink); margin-top: 6px; }
+.card-desc { font-size: 11px; color: var(--muted); margin-top: 4px; line-height: 1.5; }
+.card-tags { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+.tag {
+  font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--faint); border: 1px solid var(--hairline); padding: 2px 7px;
+}
+.divider { height: 1px; background: var(--hairline); margin: 32px 0; }
+.note {
+  font-size: 10px; color: var(--faint); text-transform: uppercase;
+  letter-spacing: 0.1em; line-height: 1.8;
+}
+.note strong { color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="brand">
+    <div class="mark"></div>
+    <span class="brand-name">LiveShortly<span class="brand-cursor">_</span></span>
+  </div>
+
+  <div class="heading">New UI/UX Design Files — Offline Mockups</div>
+  <div class="cards">
+
+    <a href="landing.html" class="card">
+      <div class="card-row">
+        <span class="card-num">Screen 00</span>
+        <span class="card-arrow">▶</span>
+      </div>
+      <div class="card-title">Landing Page — Public Home Feed</div>
+      <div class="card-desc">YouTube/Twitch-style public landing page. Scrolling live activity ticker, hero featured stream with code preview, LIVE NOW grid, Trending Today, Recently Ended, category browse, CTA banner. No login required.</div>
+      <div class="card-tags">
+        <span class="tag">1280px</span>
+        <span class="tag">Dark</span>
+        <span class="tag">Public</span>
+        <span class="tag">Feed Layout</span>
+        <span class="tag">Hero Stream</span>
+      </div>
+    </a>
+
+    <a href="dashboard.html" class="card">
+      <div class="card-row">
+        <span class="card-num">Screen 01</span>
+        <span class="card-arrow">▶</span>
+      </div>
+      <div class="card-title">Dashboard — Home</div>
+      <div class="card-desc">YouTube/Twitch-style session browser. Sidebar navigation, LIVE NOW card grid with terminal code previews, Recent Sessions 4-column grid, Shared With Me section. Full dark theme.</div>
+      <div class="card-tags">
+        <span class="tag">1440px</span>
+        <span class="tag">Dark</span>
+        <span class="tag">Card Grid</span>
+        <span class="tag">Sidebar Nav</span>
+        <span class="tag">Live Preview</span>
+      </div>
+    </a>
+
+    <a href="session-video.html" class="card">
+      <div class="card-row">
+        <span class="card-num">Screen 04</span>
+        <span class="card-arrow">▶</span>
+      </div>
+      <div class="card-title">Session Video — YouTube-Style Replay Player</div>
+      <div class="card-desc">Ended sessions as watchable video. Split-pane player (prompts | live code), event activity heatmap, scrubber with chapter markers and event-type legend, speed control (0.5×–4×), view modes (Split/Code/Events/Diff), autoplay playlist, and full YouTube-style comments with session-injected viewer Q&amp;A.</div>
+      <div class="card-tags">
+        <span class="tag">Video Player</span>
+        <span class="tag">Heatmap</span>
+        <span class="tag">Chapters</span>
+        <span class="tag">Split Pane</span>
+        <span class="tag">Playlist</span>
+      </div>
+    </a>
+
+    <a href="session-report.html" class="card">
+      <div class="card-row">
+        <span class="card-num">Screen 03</span>
+        <span class="card-arrow">▶</span>
+      </div>
+      <div class="card-title">Session Report — Dev Story (Post-Session)</div>
+      <div class="card-desc">When a live session ends, the event stream transforms into a publishable "Dev Story" — auto-chaptered narrative, AI summary, file changelog, syntax-highlighted code blocks, viewer Q&amp;A callouts, session stats epilogue, TOC sidebar, and share/publish CTAs.</div>
+      <div class="card-tags">
+        <span class="tag">Blog Format</span>
+        <span class="tag">AI Summary</span>
+        <span class="tag">Chapters</span>
+        <span class="tag">Code Blocks</span>
+        <span class="tag">Publishable</span>
+      </div>
+    </a>
+
+    <a href="ux-tree.html" class="card">
+      <div class="card-row">
+        <span class="card-num">Doc 01</span>
+        <span class="card-arrow">▶</span>
+      </div>
+      <div class="card-title">UX Tree & User Journey Map</div>
+      <div class="card-desc">Full screen inventory, 5 user journey flows (Discover/Watch, Shared Link, Start Streaming, Returning Dev, Live Comment Loop), access control matrix, navigation map from each screen, and session state machine.</div>
+      <div class="card-tags">
+        <span class="tag">5 Journeys</span>
+        <span class="tag">Access Matrix</span>
+        <span class="tag">State Machine</span>
+        <span class="tag">Nav Map</span>
+      </div>
+    </a>
+
+    <a href="session-viewer.html" class="card">
+      <div class="card-row">
+        <span class="card-num">Screen 02</span>
+        <span class="card-arrow">▶</span>
+      </div>
+      <div class="card-title">Session Viewer — Stream Page</div>
+      <div class="card-desc">Twitch-style split layout. Left: live event stream with chat bubbles (prompt/response/viewer), system event rows, meta strip. Right: viewer chat sidebar with live comment composer.</div>
+      <div class="card-tags">
+        <span class="tag">1440px</span>
+        <span class="tag">Dark</span>
+        <span class="tag">Live Stream</span>
+        <span class="tag">Chat Panel</span>
+        <span class="tag">Event Log</span>
+      </div>
+    </a>
+
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="note">
+    <strong>Design Direction:</strong> Terminal HUD aesthetic (JetBrains Mono, UPPERCASE labels, hairline borders) elevated with a streaming platform layout. Inspired by Twitch and YouTube — card grids, sidebar filters, live thumbnails with code previews, split stream + chat layout.<br><br>
+    <strong>Colors:</strong> Dark theme — bg <span style="color:var(--ink)">#16150f</span>, panel <span style="color:var(--ink)">#1e1d16</span>, green <span style="color:var(--green)">#4cae7a</span>, amber <span style="color:var(--amber)">#d6a94a</span>, red <span style="color:#e06a5a">#e06a5a</span><br><br>
+    <strong>Note:</strong> Offline HTML mockups — no server needed. Open any file directly in a browser. JetBrains Mono loads from Google Fonts if online; falls back to system monospace offline.
+  </div>
+
+</div>
+</body>
+</html>

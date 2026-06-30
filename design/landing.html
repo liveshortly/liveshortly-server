@@ -1,0 +1,1353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LiveShortly — Watch Developers Code Live with AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+
+/* ═══════════════════════════════════════════════════════════
+   TOKENS
+═══════════════════════════════════════════════════════════ */
+:root {
+  --bg:       #16150f;
+  --panel:    #1e1d16;
+  --panel2:   #252419;
+  --panel3:   #2c2b22;
+  --hairline: #34322a;
+  --strong:   #ece8da;
+  --ink:      #ece8da;
+  --muted:    #a4a08f;
+  --faint:    #767365;
+  --green:    #4cae7a;
+  --green-dim:#2a6648;
+  --red:      #e06a5a;
+  --amber:    #d6a94a;
+  --amber-dim:#7a5e1e;
+  --font:     'JetBrains Mono', 'IBM Plex Mono', ui-monospace, monospace;
+  --nav-h:    60px;
+  --max-w:    1280px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RESET + BASE
+═══════════════════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  line-height: 1.5;
+  overflow-x: hidden;
+}
+a { color: inherit; text-decoration: none; }
+button { font-family: var(--font); cursor: pointer; }
+img { display: block; }
+
+/* ═══════════════════════════════════════════════════════════
+   ANIMATIONS
+═══════════════════════════════════════════════════════════ */
+@keyframes pulse {
+  0%,100% { opacity:1; transform:scale(1); }
+  50%      { opacity:.28; transform:scale(.7); }
+}
+@keyframes blink {
+  0%,49% { opacity:1; } 50%,100% { opacity:0; }
+}
+@keyframes scan {
+  0%   { transform: translateY(-100%); opacity:.06; }
+  100% { transform: translateY(100vh); opacity:.04; }
+}
+@keyframes fadeUp {
+  from { opacity:0; transform:translateY(16px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+.live-dot {
+  display: inline-block; width: 8px; height: 8px;
+  border-radius: 50%; background: var(--green);
+  animation: pulse 1.2s ease-in-out infinite;
+  flex-shrink: 0;
+}
+.live-dot-sm {
+  display: inline-block; width: 6px; height: 6px;
+  border-radius: 50%; background: var(--green);
+  animation: pulse 1.2s ease-in-out infinite;
+  flex-shrink: 0;
+}
+.blink { animation: blink 1s step-end infinite; }
+
+/* ═══════════════════════════════════════════════════════════
+   UTILITY
+═══════════════════════════════════════════════════════════ */
+.label {
+  text-transform: uppercase; letter-spacing: .12em;
+  font-size: 10px; color: var(--muted); font-weight: 600;
+}
+.tnum { font-variant-numeric: tabular-nums; }
+.container { max-width: var(--max-w); margin: 0 auto; padding: 0 28px; }
+.section-gap { margin-top: 64px; }
+
+/* ═══════════════════════════════════════════════════════════
+   NAVBAR
+═══════════════════════════════════════════════════════════ */
+.navbar {
+  position: sticky; top: 0; z-index: 200;
+  height: var(--nav-h);
+  background: rgba(22,21,15,.92);
+  backdrop-filter: blur(12px) saturate(1.4);
+  -webkit-backdrop-filter: blur(12px) saturate(1.4);
+  border-bottom: 1px solid var(--hairline);
+}
+.navbar-inner {
+  max-width: var(--max-w); margin: 0 auto; padding: 0 28px;
+  height: 100%; display: flex; align-items: center; gap: 16px;
+}
+.nav-brand {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 17px; font-weight: 700; letter-spacing: -.02em;
+  flex-shrink: 0; margin-right: 8px;
+}
+.brand-mark {
+  width: 28px; height: 28px;
+  background: var(--green); border-radius: 5px;
+  position: relative; flex-shrink: 0;
+}
+.brand-mark::before {
+  content: ''; position: absolute;
+  left: 6px; top: 7px; width: 6px; height: 14px;
+  background: var(--panel); border-radius: 1px;
+}
+.brand-mark::after {
+  content: ''; position: absolute;
+  left: 15px; top: 7px; width: 8px; height: 14px;
+  border: 2px solid var(--panel); background: var(--green); border-radius: 1px;
+}
+.nav-links {
+  display: flex; align-items: center; gap: 2px;
+}
+.nav-link {
+  font-size: 11px; text-transform: uppercase; letter-spacing: .1em;
+  color: var(--muted); font-weight: 600; padding: 6px 12px;
+  border-radius: 2px; transition: color 120ms, background 120ms;
+}
+.nav-link:hover { color: var(--ink); background: var(--panel); }
+.nav-link.active { color: var(--ink); }
+
+/* live pill in nav */
+.nav-live-pill {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 10px; text-transform: uppercase; letter-spacing: .12em;
+  font-weight: 700; color: var(--green);
+  border: 1px solid var(--green);
+  background: rgba(76,174,122,.08);
+  padding: 5px 12px; border-radius: 2px;
+}
+
+.nav-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.nav-search {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--panel); border: 1px solid var(--hairline);
+  padding: 0 12px; height: 34px; width: 220px;
+  transition: border-color 150ms, width 200ms;
+}
+.nav-search:focus-within { border-color: var(--strong); width: 280px; }
+.nav-search input {
+  flex: 1; background: transparent; border: none; outline: none;
+  color: var(--ink); font-family: var(--font);
+  font-size: 11px; letter-spacing: .06em; text-transform: uppercase;
+}
+.nav-search input::placeholder { color: var(--faint); }
+.btn-ghost {
+  font-size: 11px; text-transform: uppercase; letter-spacing: .1em;
+  font-weight: 600; border: 1px solid var(--hairline);
+  background: transparent; color: var(--muted);
+  padding: 7px 16px; transition: all 120ms;
+}
+.btn-ghost:hover { border-color: var(--strong); color: var(--ink); }
+.btn-primary {
+  font-size: 11px; text-transform: uppercase; letter-spacing: .1em;
+  font-weight: 700; border: 1px solid var(--green);
+  background: var(--green); color: var(--bg);
+  padding: 7px 18px; transition: all 120ms;
+  display: flex; align-items: center; gap: 6px;
+}
+.btn-primary:hover { background: #5dc98c; border-color: #5dc98c; }
+
+/* ═══════════════════════════════════════════════════════════
+   HERO — FEATURED LIVE SESSION
+═══════════════════════════════════════════════════════════ */
+.hero {
+  position: relative;
+  min-height: 520px;
+  display: flex; align-items: flex-end;
+  overflow: hidden;
+  border-bottom: 1px solid var(--hairline);
+}
+/* scanline overlay */
+.hero::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0px,
+    transparent 3px,
+    rgba(0,0,0,.04) 3px,
+    rgba(0,0,0,.04) 4px
+  );
+  pointer-events: none; z-index: 2;
+}
+/* moving scan */
+.hero::after {
+  content: '';
+  position: absolute; left: 0; right: 0; height: 80px;
+  background: linear-gradient(to bottom, transparent, rgba(76,174,122,.04), transparent);
+  animation: scan 6s linear infinite;
+  z-index: 3; pointer-events: none;
+}
+
+.hero-code-bg {
+  position: absolute; inset: 0;
+  background: var(--bg);
+  font-size: 13px; line-height: 2;
+  padding: 32px 48px;
+  overflow: hidden;
+  user-select: none;
+  opacity: .55;
+}
+.hero-code-bg::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(135deg,
+    rgba(22,21,15,.1) 0%,
+    rgba(22,21,15,.4) 50%,
+    rgba(22,21,15,.95) 100%
+  );
+}
+
+.hero-overlay {
+  position: absolute; inset: 0;
+  background: linear-gradient(
+    to right,
+    rgba(22,21,15,.0) 0%,
+    rgba(22,21,15,.0) 45%,
+    rgba(22,21,15,.6) 65%,
+    rgba(22,21,15,1) 100%
+  );
+  z-index: 4;
+}
+.hero-overlay-b {
+  position: absolute; inset: 0;
+  background: linear-gradient(
+    to top,
+    rgba(22,21,15,1) 0%,
+    rgba(22,21,15,.8) 20%,
+    transparent 55%
+  );
+  z-index: 4;
+}
+
+.hero-content {
+  position: relative; z-index: 5;
+  padding: 0 0 52px;
+  width: 100%;
+}
+.hero-inner {
+  max-width: var(--max-w); margin: 0 auto; padding: 0 28px;
+  display: flex; align-items: flex-end;
+  justify-content: space-between; gap: 32px;
+}
+.hero-info { max-width: 520px; animation: fadeUp .6s ease both; }
+.hero-eyebrow {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 16px;
+}
+.hero-badge-live {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .14em; color: var(--bg);
+  background: var(--green); padding: 4px 12px;
+}
+.hero-session-id {
+  font-size: 10px; text-transform: uppercase; letter-spacing: .12em;
+  color: var(--faint);
+}
+.hero-title {
+  font-size: 28px; font-weight: 700; line-height: 1.2;
+  letter-spacing: -.02em; color: var(--ink);
+  margin-bottom: 14px;
+}
+.hero-meta {
+  display: flex; align-items: center; gap: 10px;
+  flex-wrap: wrap; margin-bottom: 20px;
+}
+.hero-owner { font-size: 13px; color: var(--green); font-weight: 600; }
+.hero-sep { color: var(--hairline); }
+.hero-model { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+.hero-events { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.hero-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 24px; }
+.hero-tag {
+  font-size: 10px; text-transform: uppercase; letter-spacing: .08em;
+  color: var(--muted); border: 1px solid var(--hairline); padding: 3px 9px;
+}
+.hero-actions { display: flex; align-items: center; gap: 10px; }
+.btn-hero-primary {
+  font-size: 12px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .12em; border: none;
+  background: var(--green); color: var(--bg);
+  padding: 12px 28px; display: flex; align-items: center; gap: 8px;
+  transition: background 150ms;
+}
+.btn-hero-primary:hover { background: #5dc98c; }
+.btn-hero-secondary {
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .1em; background: transparent;
+  border: 1px solid var(--hairline); color: var(--muted);
+  padding: 12px 20px; transition: all 150ms;
+}
+.btn-hero-secondary:hover { border-color: var(--strong); color: var(--ink); }
+
+/* hero stats (right side) */
+.hero-stats {
+  display: flex; flex-direction: column; gap: 12px;
+  flex-shrink: 0; animation: fadeUp .6s .1s ease both; opacity: 0;
+  animation-fill-mode: forwards;
+}
+.hero-stat {
+  background: rgba(30,29,22,.8);
+  border: 1px solid var(--hairline);
+  backdrop-filter: blur(8px);
+  padding: 12px 20px; min-width: 160px;
+}
+.hero-stat-val {
+  font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums;
+  line-height: 1; margin-bottom: 4px;
+}
+.hero-stat-val.green { color: var(--green); }
+.hero-stat-lbl { font-size: 9px; text-transform: uppercase; letter-spacing: .12em; color: var(--faint); }
+
+/* ═══════════════════════════════════════════════════════════
+   SECTION HEADING
+═══════════════════════════════════════════════════════════ */
+.sec-head {
+  display: flex; align-items: center; gap: 10px;
+  padding-bottom: 14px;
+  border-bottom: 1px dashed var(--hairline);
+  margin-bottom: 20px;
+}
+.sec-title {
+  font-size: 12px; text-transform: uppercase;
+  letter-spacing: .14em; font-weight: 700; color: var(--ink);
+}
+.sec-count {
+  font-size: 11px; color: var(--faint); font-variant-numeric: tabular-nums;
+}
+.sec-link {
+  margin-left: auto; font-size: 10px; text-transform: uppercase;
+  letter-spacing: .1em; color: var(--muted);
+  border-bottom: 1px solid var(--hairline); padding-bottom: 1px;
+  transition: color 120ms, border-color 120ms;
+}
+.sec-link:hover { color: var(--ink); border-color: var(--strong); }
+
+/* ═══════════════════════════════════════════════════════════
+   LIVE NOW GRID (3 columns)
+═══════════════════════════════════════════════════════════ */
+.live-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.stream-card {
+  background: var(--panel);
+  border: 1px solid var(--hairline);
+  display: flex; flex-direction: column;
+  cursor: pointer;
+  transition: border-color 150ms, transform 150ms, box-shadow 150ms;
+}
+.stream-card:hover {
+  border-color: var(--strong);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(0,0,0,.5);
+}
+
+/* terminal preview */
+.card-preview {
+  height: 160px; background: var(--bg);
+  border-bottom: 1px solid var(--hairline);
+  padding: 14px 16px; overflow: hidden; position: relative;
+  font-size: 11px; line-height: 1.75;
+}
+.card-preview-lines { display: flex; flex-direction: column; }
+.pline { display: flex; gap: 10px; white-space: nowrap; }
+.ln   { color: var(--faint); min-width: 18px; text-align: right; user-select: none; font-size: 10px; }
+.kw   { color: var(--amber); }
+.fn   { color: var(--green); }
+.str  { color: var(--red); }
+.cm   { color: var(--faint); font-style: italic; }
+.tx   { color: var(--muted); }
+.op   { color: var(--ink); }
+.pfade {
+  position: absolute; bottom: 0; left: 0; right: 0; height: 56px;
+  background: linear-gradient(to bottom, transparent, var(--bg));
+}
+.badge-live {
+  position: absolute; top: 10px; left: 10px;
+  display: inline-flex; align-items: center; gap: 5px;
+  background: var(--green); color: var(--bg);
+  font-size: 9px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .12em; padding: 3px 8px;
+}
+.badge-ended {
+  position: absolute; top: 10px; left: 10px;
+  font-size: 9px; text-transform: uppercase; letter-spacing: .1em;
+  color: var(--faint); border: 1px solid var(--hairline);
+  background: rgba(22,21,15,.7); padding: 2px 7px;
+}
+.badge-events {
+  position: absolute; top: 10px; right: 10px;
+  font-size: 9px; color: var(--muted);
+  background: rgba(22,21,15,.7); border: 1px solid var(--hairline);
+  padding: 2px 7px; text-transform: uppercase; letter-spacing: .08em;
+  font-variant-numeric: tabular-nums;
+}
+.badge-viewers {
+  position: absolute; bottom: 18px; right: 10px;
+  font-size: 9px; color: var(--muted);
+  background: rgba(22,21,15,.8);
+  padding: 2px 7px; text-transform: uppercase;
+  letter-spacing: .08em; display: flex; align-items: center; gap: 5px;
+}
+
+/* card body */
+.card-body {
+  padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 6px;
+  flex: 1;
+}
+.card-title {
+  font-size: 13px; font-weight: 600; color: var(--ink);
+  line-height: 1.35; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.card-meta {
+  display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
+}
+.card-owner { font-size: 11px; color: var(--green); font-weight: 500; }
+.card-sep   { color: var(--hairline); }
+.card-model { font-size: 10px; color: var(--faint); text-transform: uppercase; letter-spacing: .07em; }
+
+/* card footer */
+.card-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 9px 14px; border-top: 1px solid var(--hairline);
+  gap: 8px;
+}
+.card-tags-row { display: flex; gap: 5px; flex-wrap: wrap; }
+.card-tag {
+  font-size: 9px; text-transform: uppercase; letter-spacing: .08em;
+  color: var(--faint); border: 1px solid var(--hairline); padding: 2px 6px;
+}
+.btn-watch {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .1em; border: 1px solid var(--green);
+  background: rgba(76,174,122,.1); color: var(--green);
+  padding: 5px 14px; white-space: nowrap; flex-shrink: 0;
+  transition: all 120ms;
+}
+.btn-watch:hover { background: var(--green); color: var(--bg); }
+
+/* ═══════════════════════════════════════════════════════════
+   TRENDING — horizontal scroll row
+═══════════════════════════════════════════════════════════ */
+.trending-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+.trend-card {
+  background: var(--panel); border: 1px solid var(--hairline);
+  display: flex; flex-direction: column;
+  cursor: pointer;
+  transition: border-color 140ms, transform 140ms;
+}
+.trend-card:hover { border-color: var(--strong); transform: translateY(-1px); }
+.trend-preview {
+  height: 100px; background: var(--bg);
+  border-bottom: 1px solid var(--hairline);
+  padding: 10px 12px; overflow: hidden; position: relative;
+  font-size: 10px; line-height: 1.7;
+}
+.trend-preview .pfade { height: 36px; }
+.trend-body { padding: 10px 12px; flex: 1; display: flex; flex-direction: column; gap: 4px; }
+.trend-title {
+  font-size: 12px; font-weight: 600; color: var(--ink);
+  line-height: 1.3; display: -webkit-box;
+  -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.trend-foot {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: auto;
+}
+.trend-owner { font-size: 10px; color: var(--muted); }
+.trend-time  { font-size: 9px;  color: var(--faint); font-variant-numeric: tabular-nums; }
+.trend-stat  {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 9px; color: var(--faint);
+  text-transform: uppercase; letter-spacing: .08em;
+  padding: 6px 12px; border-top: 1px solid var(--hairline);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CATEGORIES / BROWSE
+═══════════════════════════════════════════════════════════ */
+.categories-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 10px;
+}
+.cat-card {
+  background: var(--panel); border: 1px solid var(--hairline);
+  padding: 16px 14px;
+  cursor: pointer;
+  transition: border-color 140ms, background 140ms;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.cat-card:hover { border-color: var(--strong); background: var(--panel2); }
+.cat-icon { font-size: 18px; line-height: 1; }
+.cat-name {
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .1em; color: var(--ink);
+}
+.cat-count { font-size: 10px; color: var(--faint); font-variant-numeric: tabular-nums; }
+
+/* ═══════════════════════════════════════════════════════════
+   CTA BANNER
+═══════════════════════════════════════════════════════════ */
+.cta-banner {
+  margin-top: 72px;
+  background: var(--panel);
+  border-top: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--hairline);
+  padding: 64px 0;
+  position: relative; overflow: hidden;
+}
+/* subtle grid pattern */
+.cta-banner::before {
+  content: '';
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(var(--hairline) 1px, transparent 1px),
+    linear-gradient(90deg, var(--hairline) 1px, transparent 1px);
+  background-size: 48px 48px;
+  opacity: .35;
+}
+/* green glow */
+.cta-banner::after {
+  content: '';
+  position: absolute;
+  top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 600px; height: 300px;
+  background: radial-gradient(ellipse, rgba(76,174,122,.08) 0%, transparent 70%);
+  pointer-events: none;
+}
+.cta-inner {
+  position: relative; z-index: 1;
+  max-width: var(--max-w); margin: 0 auto; padding: 0 28px;
+  display: flex; align-items: center;
+  justify-content: space-between; gap: 40px; flex-wrap: wrap;
+}
+.cta-text {}
+.cta-eyebrow {
+  font-size: 10px; text-transform: uppercase; letter-spacing: .16em;
+  color: var(--green); font-weight: 600; margin-bottom: 12px;
+  display: flex; align-items: center; gap: 8px;
+}
+.cta-heading {
+  font-size: 30px; font-weight: 700; letter-spacing: -.02em;
+  color: var(--ink); line-height: 1.2; max-width: 500px;
+}
+.cta-sub {
+  font-size: 13px; color: var(--muted); margin-top: 12px;
+  max-width: 460px; line-height: 1.6;
+}
+.cta-actions { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+.btn-cta {
+  font-size: 12px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .12em; border: none;
+  background: var(--green); color: var(--bg);
+  padding: 14px 32px; display: flex; align-items: center; gap: 8px;
+  transition: background 150ms; white-space: nowrap;
+}
+.btn-cta:hover { background: #5dc98c; }
+.btn-cta-ghost {
+  font-size: 12px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .12em; background: transparent;
+  border: 1px solid var(--hairline); color: var(--muted);
+  padding: 14px 24px; transition: all 150ms; white-space: nowrap;
+}
+.btn-cta-ghost:hover { border-color: var(--strong); color: var(--ink); }
+
+/* steps */
+.cta-steps { display: flex; align-items: flex-start; gap: 0; margin-top: 28px; }
+.cta-step {
+  display: flex; flex-direction: column; gap: 4px;
+  flex: 1; padding-right: 24px;
+}
+.cta-step-num { font-size: 24px; font-weight: 700; color: var(--green); opacity: .5; line-height: 1; }
+.cta-step-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--ink); }
+.cta-step-desc { font-size: 11px; color: var(--muted); line-height: 1.5; }
+.step-arrow { color: var(--hairline); font-size: 16px; padding-top: 8px; }
+
+/* ═══════════════════════════════════════════════════════════
+   CODE TICKER
+═══════════════════════════════════════════════════════════ */
+.ticker-wrap {
+  background: var(--panel2); border-bottom: 1px solid var(--hairline);
+  overflow: hidden; height: 34px; display: flex; align-items: center;
+}
+@keyframes tickerScroll {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.ticker-track {
+  display: flex; align-items: center; gap: 0;
+  animation: tickerScroll 60s linear infinite;
+  white-space: nowrap;
+  will-change: transform;
+}
+.ticker-item {
+  display: inline-flex; align-items: center; gap: 10px;
+  font-size: 10px; text-transform: uppercase; letter-spacing: .1em;
+  color: var(--faint); padding: 0 24px;
+  border-right: 1px solid var(--hairline);
+}
+.ticker-item .dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+.ticker-item .dot.live { background: var(--green); animation: pulse 1.2s ease-in-out infinite; }
+.ticker-item .dot.idle { background: var(--hairline); }
+
+/* ═══════════════════════════════════════════════════════════
+   FOOTER
+═══════════════════════════════════════════════════════════ */
+.footer {
+  background: var(--panel);
+  border-top: 1px solid var(--hairline);
+  padding: 40px 0;
+  margin-top: 72px;
+}
+.footer-inner {
+  max-width: var(--max-w); margin: 0 auto; padding: 0 28px;
+  display: flex; align-items: flex-start;
+  justify-content: space-between; gap: 40px; flex-wrap: wrap;
+}
+.footer-brand { display: flex; align-items: center; gap: 10px; }
+.footer-desc {
+  font-size: 11px; color: var(--muted); margin-top: 10px;
+  max-width: 220px; line-height: 1.6;
+}
+.footer-col {}
+.footer-col-title {
+  font-size: 9px; text-transform: uppercase; letter-spacing: .14em;
+  color: var(--faint); font-weight: 600; margin-bottom: 12px;
+}
+.footer-links { display: flex; flex-direction: column; gap: 8px; }
+.footer-link {
+  font-size: 11px; color: var(--muted); transition: color 120ms;
+}
+.footer-link:hover { color: var(--ink); }
+.footer-bottom {
+  max-width: var(--max-w); margin: 28px auto 0; padding: 20px 28px 0;
+  border-top: 1px solid var(--hairline);
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap;
+}
+.footer-copy { font-size: 10px; color: var(--faint); text-transform: uppercase; letter-spacing: .1em; }
+.footer-status {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: var(--green);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SCROLLBAR
+═══════════════════════════════════════════════════════════ */
+* { scrollbar-width: thin; scrollbar-color: var(--hairline) transparent; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--hairline); }
+::-webkit-scrollbar-thumb:hover { background: var(--faint); }
+
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════
+     TICKER — scrolling live activity
+═══════════════════════════════════════════════════════════ -->
+<div class="ticker-wrap">
+  <div class="ticker-track">
+    <!-- repeat twice for infinite loop illusion -->
+    <span class="ticker-item"><span class="dot live"></span>@mukulmalviya2 is live · Build auth middleware</span>
+    <span class="ticker-item"><span class="dot live"></span>@devuser_99 is live · Fix React hydration</span>
+    <span class="ticker-item"><span class="dot idle"></span>@alice_codes · Optimize Postgres queries · 1.2k events</span>
+    <span class="ticker-item"><span class="dot idle"></span>@sarah_dev · Deploy Docker + nginx · ended 2h ago</span>
+    <span class="ticker-item"><span class="dot idle"></span>@johndoe · CORS middleware setup · ended 4h ago</span>
+    <span class="ticker-item"><span class="dot live"></span>14 viewers watching right now</span>
+    <span class="ticker-item"><span class="dot idle"></span>@rust_fan · Async tokio server · ended 6h ago</span>
+    <span class="ticker-item"><span class="dot idle"></span>@ts_wizard · Next.js App Router refactor · 847 events</span>
+    <!-- dupe -->
+    <span class="ticker-item"><span class="dot live"></span>@mukulmalviya2 is live · Build auth middleware</span>
+    <span class="ticker-item"><span class="dot live"></span>@devuser_99 is live · Fix React hydration</span>
+    <span class="ticker-item"><span class="dot idle"></span>@alice_codes · Optimize Postgres queries · 1.2k events</span>
+    <span class="ticker-item"><span class="dot idle"></span>@sarah_dev · Deploy Docker + nginx · ended 2h ago</span>
+    <span class="ticker-item"><span class="dot idle"></span>@johndoe · CORS middleware setup · ended 4h ago</span>
+    <span class="ticker-item"><span class="dot live"></span>14 viewers watching right now</span>
+    <span class="ticker-item"><span class="dot idle"></span>@rust_fan · Async tokio server · ended 6h ago</span>
+    <span class="ticker-item"><span class="dot idle"></span>@ts_wizard · Next.js App Router refactor · 847 events</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     NAVBAR
+═══════════════════════════════════════════════════════════ -->
+<nav class="navbar">
+  <div class="navbar-inner">
+    <a href="#" class="nav-brand">
+      <div class="brand-mark"></div>
+      LiveShortly<span class="blink" style="color:var(--faint)">_</span>
+    </a>
+
+    <div style="width:1px;height:28px;background:var(--hairline);flex-shrink:0"></div>
+
+    <nav class="nav-links">
+      <a href="#" class="nav-link active">Home</a>
+      <a href="#live" class="nav-link">Live</a>
+      <a href="#trending" class="nav-link">Trending</a>
+      <a href="#categories" class="nav-link">Browse</a>
+    </nav>
+
+    <div class="nav-live-pill">
+      <span class="live-dot-sm"></span>
+      2 Live Now
+    </div>
+
+    <div class="nav-right">
+      <div class="nav-search">
+        <span style="color:var(--faint);font-size:12px">/</span>
+        <input type="text" placeholder="Search sessions…">
+      </div>
+      <button class="btn-ghost">Sign In</button>
+      <button class="btn-primary">
+        <span>▶</span> Start Streaming
+      </button>
+    </div>
+  </div>
+</nav>
+
+<!-- ═══════════════════════════════════════════════════════
+     HERO — FEATURED LIVE SESSION
+═══════════════════════════════════════════════════════════ -->
+<section class="hero">
+
+  <!-- background code -->
+  <div class="hero-code-bg" aria-hidden="true">
+    <div style="display:flex;flex-direction:column;gap:0">
+      <div class="pline"><span class="ln">1</span><span class="cm">// api/internal/auth/authn.go — JWT + cookie middleware</span></div>
+      <div class="pline"><span class="ln">2</span><span class="kw">package</span><span class="tx"> auth</span></div>
+      <div class="pline"><span class="ln">3</span></div>
+      <div class="pline"><span class="ln">4</span><span class="kw">import</span><span class="tx"> (</span></div>
+      <div class="pline"><span class="ln">5</span><span class="tx">  </span><span class="str">"context"</span></div>
+      <div class="pline"><span class="ln">6</span><span class="tx">  </span><span class="str">"errors"</span></div>
+      <div class="pline"><span class="ln">7</span><span class="tx">  </span><span class="str">"net/http"</span></div>
+      <div class="pline"><span class="ln">8</span><span class="tx">  ws </span><span class="str">"github.com/liveshortly/api/internal/websession"</span></div>
+      <div class="pline"><span class="ln">9</span><span class="tx">)</span></div>
+      <div class="pline"><span class="ln">10</span></div>
+      <div class="pline"><span class="ln">11</span><span class="kw">type</span><span class="tx"> Identity </span><span class="kw">struct</span><span class="tx"> {</span></div>
+      <div class="pline"><span class="ln">12</span><span class="tx">  UserID    </span><span class="fn">string</span></div>
+      <div class="pline"><span class="ln">13</span><span class="tx">  Email     </span><span class="fn">string</span></div>
+      <div class="pline"><span class="ln">14</span><span class="tx">  Handle    </span><span class="fn">string</span></div>
+      <div class="pline"><span class="ln">15</span><span class="tx">  TokenType </span><span class="fn">string</span><span class="tx"> </span><span class="cm">// "web" | "access"</span></div>
+      <div class="pline"><span class="ln">16</span><span class="tx">}</span></div>
+      <div class="pline"><span class="ln">17</span></div>
+      <div class="pline"><span class="ln">18</span><span class="kw">var</span><span class="tx"> identityKey = </span><span class="fn">contextKey</span><span class="tx">(</span><span class="str">"identity"</span><span class="tx">)</span></div>
+      <div class="pline"><span class="ln">19</span></div>
+      <div class="pline"><span class="ln">20</span><span class="cm">// Authn resolves a principal from Bearer token or ls_session cookie.</span></div>
+      <div class="pline"><span class="ln">21</span><span class="cm">// Returns 401 if neither is present or valid.</span></div>
+      <div class="pline"><span class="ln">22</span><span class="kw">func</span><span class="fn"> Authn</span><span class="tx">(next http.Handler) http.Handler {</span></div>
+      <div class="pline"><span class="ln">23</span><span class="tx">  </span><span class="kw">return</span><span class="tx"> http.</span><span class="fn">HandlerFunc</span><span class="tx">(</span><span class="kw">func</span><span class="tx">(w http.ResponseWriter, r *http.Request) {</span></div>
+      <div class="pline"><span class="ln">24</span><span class="tx">    token, err := </span><span class="fn">extractToken</span><span class="tx">(r)</span></div>
+      <div class="pline"><span class="ln">25</span><span class="tx">    </span><span class="kw">if</span><span class="tx"> err != </span><span class="kw">nil</span><span class="tx"> || token == </span><span class="str">""</span><span class="tx"> {</span></div>
+      <div class="pline"><span class="ln">26</span><span class="tx">      http.</span><span class="fn">Error</span><span class="tx">(w, </span><span class="str">"unauthorized"</span><span class="tx">, http.StatusUnauthorized)</span></div>
+      <div class="pline"><span class="ln">27</span><span class="tx">      </span><span class="kw">return</span></div>
+      <div class="pline"><span class="ln">28</span><span class="tx">    }</span></div>
+      <div class="pline"><span class="ln">29</span><span class="tx">    claims, err := ws.</span><span class="fn">Verify</span><span class="tx">(token)</span></div>
+      <div class="pline"><span class="ln">30</span><span class="tx">    </span><span class="kw">if</span><span class="tx"> </span><span class="fn">errors.Is</span><span class="tx">(err, ws.ErrExpired) {</span></div>
+      <div class="pline"><span class="ln">31</span><span class="tx">      http.</span><span class="fn">Error</span><span class="tx">(w, </span><span class="str">"token expired"</span><span class="tx">, http.StatusUnauthorized)</span></div>
+      <div class="pline"><span class="ln">32</span><span class="tx">      </span><span class="kw">return</span></div>
+      <div class="pline"><span class="ln">33</span><span class="tx">    }</span></div>
+    </div>
+  </div>
+
+  <div class="hero-overlay"></div>
+  <div class="hero-overlay-b"></div>
+
+  <div class="hero-content">
+    <div class="hero-inner">
+      <div class="hero-info">
+        <div class="hero-eyebrow">
+          <span class="hero-badge-live"><span class="live-dot-sm" style="background:var(--bg)"></span>LIVE NOW</span>
+          <span class="hero-session-id">SESSION A3F9 · FEATURED</span>
+        </div>
+        <h1 class="hero-title">Build auth middleware —<br>JWT + refresh token flow</h1>
+        <div class="hero-meta">
+          <span class="hero-owner">@mukulmalviya2</span>
+          <span class="hero-sep">·</span>
+          <span class="hero-model">claude-sonnet-4-6</span>
+          <span class="hero-sep">·</span>
+          <span class="hero-events tnum">247 events</span>
+        </div>
+        <div class="hero-tags">
+          <span class="hero-tag">#auth</span>
+          <span class="hero-tag">#jwt</span>
+          <span class="hero-tag">#go</span>
+          <span class="hero-tag">#redis</span>
+          <span class="hero-tag">#api</span>
+        </div>
+        <div class="hero-actions">
+          <a href="session-viewer.html">
+            <button class="btn-hero-primary"><span>▶</span> Watch Live</button>
+          </a>
+          <button class="btn-hero-secondary">⊕ Share Session</button>
+        </div>
+      </div>
+
+      <div class="hero-stats">
+        <div class="hero-stat">
+          <div class="hero-stat-val green tnum">14</div>
+          <div class="hero-stat-lbl">Viewers watching</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hero-stat-val tnum">247</div>
+          <div class="hero-stat-lbl">Events streamed</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hero-stat-val tnum" style="font-size:16px">32m</div>
+          <div class="hero-stat-lbl">Session duration</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════
+     LIVE NOW
+═══════════════════════════════════════════════════════════ -->
+<div class="container section-gap" id="live">
+  <div class="sec-head">
+    <span class="live-dot"></span>
+    <span class="sec-title">Live Now</span>
+    <span class="sec-count tnum">· 2 streaming</span>
+    <a href="#" class="sec-link">View all →</a>
+  </div>
+
+  <div class="live-grid">
+
+    <!-- Stream 1 -->
+    <div class="stream-card">
+      <div class="card-preview">
+        <span class="badge-live"><span class="live-dot-sm" style="background:var(--bg)"></span>LIVE</span>
+        <span class="badge-events">⚙ 247 EVT</span>
+        <span class="badge-viewers">👁 14</span>
+        <div class="card-preview-lines" style="margin-top:4px">
+          <div class="pline"><span class="ln">22</span><span class="kw">func</span><span class="fn"> Authn</span><span class="tx">(next http.Handler) http.Handler {</span></div>
+          <div class="pline"><span class="ln">23</span><span class="tx">  </span><span class="kw">return</span><span class="tx"> http.</span><span class="fn">HandlerFunc</span><span class="tx">(</span><span class="kw">func</span><span class="tx">(w, r) {</span></div>
+          <div class="pline"><span class="ln">24</span><span class="tx">    token, err := </span><span class="fn">extractToken</span><span class="tx">(r)</span></div>
+          <div class="pline"><span class="ln">25</span><span class="tx">    </span><span class="kw">if</span><span class="tx"> err != </span><span class="kw">nil</span><span class="tx"> {</span></div>
+          <div class="pline"><span class="ln">26</span><span class="tx">      http.</span><span class="fn">Error</span><span class="tx">(w, </span><span class="str">"401"</span><span class="tx">, 401)</span></div>
+          <div class="pline"><span class="ln">27</span><span class="tx">    }</span></div>
+          <div class="pline"><span class="ln">28</span><span class="tx">    claims, _ := ws.</span><span class="fn">Verify</span><span class="tx">(token)</span></div>
+        </div>
+        <div class="pfade"></div>
+      </div>
+      <div class="card-body">
+        <div class="card-title">Build auth middleware — JWT + refresh token flow</div>
+        <div class="card-meta">
+          <span class="card-owner">@mukulmalviya2</span>
+          <span class="card-sep">·</span>
+          <span class="card-model">sonnet-4-6</span>
+        </div>
+      </div>
+      <div class="card-footer">
+        <div class="card-tags-row">
+          <span class="card-tag">#go</span>
+          <span class="card-tag">#auth</span>
+          <span class="card-tag">#redis</span>
+        </div>
+        <a href="session-viewer.html"><button class="btn-watch">▶ Watch</button></a>
+      </div>
+    </div>
+
+    <!-- Stream 2 -->
+    <div class="stream-card">
+      <div class="card-preview">
+        <span class="badge-live"><span class="live-dot-sm" style="background:var(--bg)"></span>LIVE</span>
+        <span class="badge-events">⚙ 89 EVT</span>
+        <span class="badge-viewers">👁 6</span>
+        <div class="card-preview-lines" style="margin-top:4px">
+          <div class="pline"><span class="ln">4</span><span class="kw">function</span><span class="fn"> ClientOnly</span><span class="tx">({ children }) {</span></div>
+          <div class="pline"><span class="ln">5</span><span class="tx">  </span><span class="kw">const</span><span class="tx"> [mounted, </span><span class="fn">setMounted</span><span class="tx">] =</span></div>
+          <div class="pline"><span class="ln">6</span><span class="tx">    </span><span class="fn">useState</span><span class="tx">(</span><span class="kw">false</span><span class="tx">)</span></div>
+          <div class="pline"><span class="ln">7</span><span class="tx">  </span><span class="fn">useEffect</span><span class="tx">(() => </span><span class="fn">setMounted</span><span class="tx">(</span><span class="kw">true</span><span class="tx">), [])</span></div>
+          <div class="pline"><span class="ln">8</span><span class="tx">  </span><span class="kw">if</span><span class="tx"> (!mounted) </span><span class="kw">return</span><span class="tx"> </span><span class="kw">null</span></div>
+          <div class="pline"><span class="ln">9</span><span class="tx">  </span><span class="kw">return</span><span class="tx"> &lt;&gt;{children}&lt;/&gt;</span></div>
+        </div>
+        <div class="pfade"></div>
+      </div>
+      <div class="card-body">
+        <div class="card-title">Fix React hydration mismatch in Next.js 15 App Router</div>
+        <div class="card-meta">
+          <span class="card-owner">@devuser_99</span>
+          <span class="card-sep">·</span>
+          <span class="card-model">opus-4-8</span>
+        </div>
+      </div>
+      <div class="card-footer">
+        <div class="card-tags-row">
+          <span class="card-tag">#react</span>
+          <span class="card-tag">#nextjs</span>
+          <span class="card-tag">#ts</span>
+        </div>
+        <button class="btn-watch">▶ Watch</button>
+      </div>
+    </div>
+
+    <!-- Coming up card - styled differently -->
+    <div class="stream-card" style="border-style:dashed;opacity:.55">
+      <div class="card-preview" style="display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px">
+        <div style="font-size:28px;color:var(--faint)">◌</div>
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:var(--faint);text-align:center">
+          No more live sessions<br>right now
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="card-title" style="color:var(--faint)">Start streaming your session</div>
+        <div class="card-meta">
+          <span style="font-size:11px;color:var(--faint)">Install the CLI hook and go live</span>
+        </div>
+      </div>
+      <div class="card-footer">
+        <button class="btn-watch" style="border-color:var(--hairline);color:var(--faint);background:transparent;width:100%">
+          ▶ Get Started →
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     TRENDING TODAY
+═══════════════════════════════════════════════════════════ -->
+<div class="container section-gap" id="trending">
+  <div class="sec-head">
+    <span style="font-size:13px">◈</span>
+    <span class="sec-title">Trending Today</span>
+    <span class="sec-count tnum">· most events in the last 24h</span>
+    <a href="#" class="sec-link">View all →</a>
+  </div>
+
+  <div class="trending-row">
+
+    <div class="trend-card">
+      <div class="trend-preview">
+        <span class="badge-ended">ENDED</span>
+        <div class="card-preview-lines" style="margin-top:20px">
+          <div class="pline"><span class="kw">SELECT</span><span class="tx"> s.*, </span><span class="fn">COUNT</span><span class="tx">(e.id) events</span></div>
+          <div class="pline"><span class="kw">FROM</span><span class="fn"> sessions</span><span class="tx"> s</span></div>
+          <div class="pline"><span class="kw">JOIN</span><span class="fn"> session_events</span><span class="tx"> e</span></div>
+          <div class="pline"><span class="kw">ON</span><span class="tx"> e.session_id = s.id</span></div>
+          <div class="pline"><span class="kw">WHERE</span><span class="tx"> s.status = </span><span class="str">'live'</span></div>
+        </div>
+        <div class="pfade"></div>
+      </div>
+      <div class="trend-body">
+        <div class="trend-title">Optimize session queries — composite indexes, EXPLAIN ANALYZE</div>
+        <div class="trend-foot">
+          <span class="trend-owner">@alice_codes</span>
+          <span class="trend-time">3h ago</span>
+        </div>
+      </div>
+      <div class="trend-stat">
+        <span>⚙ 1,247 events</span>
+        <span style="margin-left:auto">👁 31 views</span>
+      </div>
+    </div>
+
+    <div class="trend-card">
+      <div class="trend-preview">
+        <span class="badge-ended">ENDED</span>
+        <div class="card-preview-lines" style="margin-top:20px">
+          <div class="pline"><span class="kw">async function</span><span class="fn"> migrate</span><span class="tx">() {</span></div>
+          <div class="pline"><span class="tx">  </span><span class="kw">await</span><span class="tx"> db.</span><span class="fn">runMigration</span><span class="tx">(</span><span class="str">'002'</span><span class="tx">)</span></div>
+          <div class="pline"><span class="cm">  // add auth tables</span></div>
+          <div class="pline"><span class="tx">  console.</span><span class="fn">log</span><span class="tx">(</span><span class="str">'done'</span><span class="tx">)</span></div>
+        </div>
+        <div class="pfade"></div>
+      </div>
+      <div class="trend-body">
+        <div class="trend-title">Postgres migration 002 — auth tables, sharing model, indexes</div>
+        <div class="trend-foot">
+          <span class="trend-owner">@mukulmalviya2</span>
+          <span class="trend-time">8h ago</span>
+        </div>
+      </div>
+      <div class="trend-stat">
+        <span>⚙ 892 events</span>
+        <span style="margin-left:auto">👁 22 views</span>
+      </div>
+    </div>
+
+    <div class="trend-card">
+      <div class="trend-preview">
+        <span class="badge-ended">ENDED</span>
+        <div class="card-preview-lines" style="margin-top:20px">
+          <div class="pline"><span class="cm">// SSE stream handler</span></div>
+          <div class="pline"><span class="fn">w.Header</span><span class="tx">().</span><span class="fn">Set</span><span class="tx">(</span></div>
+          <div class="pline"><span class="str">  "Content-Type"</span><span class="tx">,</span></div>
+          <div class="pline"><span class="str">  "text/event-stream"</span><span class="tx">)</span></div>
+        </div>
+        <div class="pfade"></div>
+      </div>
+      <div class="trend-body">
+        <div class="trend-title">SSE streaming — Redis pub/sub fan-out, heartbeats, replay buffer</div>
+        <div class="trend-foot">
+          <span class="trend-owner">@mukulmalviya2</span>
+          <span class="trend-time">1d ago</span>
+        </div>
+      </div>
+      <div class="trend-stat">
+        <span>⚙ 743 events</span>
+        <span style="margin-left:auto">👁 18 views</span>
+      </div>
+    </div>
+
+    <div class="trend-card">
+      <div class="trend-preview">
+        <span class="badge-ended">ENDED</span>
+        <div class="card-preview-lines" style="margin-top:20px">
+          <div class="pline"><span class="kw">use</span><span class="tx"> tokio::net::</span><span class="fn">TcpListener</span><span class="tx">;</span></div>
+          <div class="pline"><span class="kw">use</span><span class="tx"> axum::{Router, </span><span class="fn">routing</span><span class="tx">::get};</span></div>
+          <div class="pline"><span class="kw">async fn</span><span class="fn"> main</span><span class="tx">() {</span></div>
+          <div class="pline"><span class="tx">  </span><span class="kw">let</span><span class="tx"> app = Router::new()</span></div>
+        </div>
+        <div class="pfade"></div>
+      </div>
+      <div class="trend-body">
+        <div class="trend-title">Rust + Axum async server — tokio, routing, middleware stack</div>
+        <div class="trend-foot">
+          <span class="trend-owner">@rust_fan</span>
+          <span class="trend-time">1d ago</span>
+        </div>
+      </div>
+      <div class="trend-stat">
+        <span>⚙ 611 events</span>
+        <span style="margin-left:auto">👁 29 views</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     RECENT — full feed row
+═══════════════════════════════════════════════════════════ -->
+<div class="container section-gap">
+  <div class="sec-head">
+    <span style="font-size:11px;color:var(--faint)">▸</span>
+    <span class="sec-title">Recently Ended</span>
+    <span class="sec-count tnum">· 48 sessions this week</span>
+    <a href="#" class="sec-link">Browse all →</a>
+  </div>
+
+  <div class="trending-row">
+
+    <div class="trend-card">
+      <div class="trend-preview">
+        <span class="badge-ended">ENDED</span>
+        <div class="card-preview-lines" style="margin-top:20px">
+          <div class="pline"><span class="kw">const</span><span class="tx"> [theme, </span><span class="fn">setTheme</span><span class="tx">] =</span></div>
+          <div class="pline"><span class="fn">  useState</span><span class="tx">(</span><span class="str">'dark'</span><span class="tx">)</span></div>
+          <div class="pline"><span class="fn">useEffect</span><span class="tx">(() => {</span></div>
+          <div class="pline"><span class="tx">  document.body.</span><span class="fn">setAttribute</span></div>
+        </div>
+        <div class="pfade"></div>
+      </div>
+      <div class="trend-body">
+        <div class="trend-title">Dark/light theme toggle with system preference detection</div>
+        <div class="trend-foot">
+          <span class="trend-owner">@mukulmalviya2</span>
+          <span class="trend-time">4h ago</span>
+        </div>
+      </div>
+      <div class="trend-stat">
+        <span>⚙ 421 events</span>
+        <span style="margin-left:auto">👁 9 views</span>
+      </div>
+    </div>
+
+    <div class="trend-card">
+      <div class="trend-preview">
+        <span class="badge-ended">ENDED</span>
+        <div class="card-preview-lines" style="margin-top:20px">
+          <div class="pline"><span class="kw">docker</span><span class="fn"> compose</span><span class="tx"> up</span></div>
+          <div class="pline"><span class="tx">  --build --detach</span></div>
+          <div class="pline"><span class="cm"># nginx reverse proxy</span></div>
+          <div class="pline"><span class="cm"># Cloudflare TLS term.</span></div>
+        </div>
+        <div class="pfade"></div>
+      </div>
+      <div class="trend-body">
+        <div class="trend-title">Production deploy — Docker Compose, nginx, Cloudflare TLS</div>
+        <div class="trend-foot">
+          <span class="trend-owner">@sarah_dev</span>
+          <span class="trend-time">6h ago</span>
+        </div>
+      </div>
+      <div class="trend-stat">
+        <span>⚙ 389 events</span>
+        <span style="margin-left:auto">👁 17 views</span>
+      </div>
+    </div>
+
+    <div class="trend-card">
+      <div class="trend-preview">
+        <span class="badge-ended">ENDED</span>
+        <div class="card-preview-lines" style="margin-top:20px">
+          <div class="pline"><span class="kw">function</span><span class="fn"> App</span><span class="tx">() {</span></div>
+          <div class="pline"><span class="tx">  </span><span class="kw">return</span><span class="tx"> &lt;</span><span class="fn">Router</span><span class="tx">&gt;</span></div>
+          <div class="pline"><span class="tx">    &lt;</span><span class="fn">Route</span><span class="tx"> path=</span><span class="str">"/"</span><span class="tx"> /&gt;</span></div>
+          <div class="pline"><span class="tx">    &lt;</span><span class="fn">Route</span><span class="tx"> path=</span><span class="str">"/session/:id"</span><span class="tx"> /&gt;</span></div>
+        </div>
+        <div class="pfade"></div>
+      </div>
+      <div class="trend-body">
+        <div class="trend-title">Next.js App Router migration from Pages Router</div>
+        <div class="trend-foot">
+          <span class="trend-owner">@ts_wizard</span>
+          <span class="trend-time">10h ago</span>
+        </div>
+      </div>
+      <div class="trend-stat">
+        <span>⚙ 847 events</span>
+        <span style="margin-left:auto">👁 25 views</span>
+      </div>
+    </div>
+
+    <div class="trend-card">
+      <div class="trend-preview">
+        <span class="badge-ended">ENDED</span>
+        <div class="card-preview-lines" style="margin-top:20px">
+          <div class="pline"><span class="kw">func</span><span class="fn"> GoogleCallback</span><span class="tx">(</span></div>
+          <div class="pline"><span class="tx">  w http.ResponseWriter,</span></div>
+          <div class="pline"><span class="tx">  r *http.Request) {</span></div>
+          <div class="pline"><span class="tx">  code := r.URL.Query().</span><span class="fn">Get</span><span class="tx">(</span><span class="str">"code"</span><span class="tx">)</span></div>
+        </div>
+        <div class="pfade"></div>
+      </div>
+      <div class="trend-body">
+        <div class="trend-title">Google OAuth callback + ls_session cookie setup</div>
+        <div class="trend-foot">
+          <span class="trend-owner">@johndoe</span>
+          <span class="trend-time">12h ago</span>
+        </div>
+      </div>
+      <div class="trend-stat">
+        <span>⚙ 312 events</span>
+        <span style="margin-left:auto">👁 11 views</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     CATEGORIES
+═══════════════════════════════════════════════════════════ -->
+<div class="container section-gap" id="categories">
+  <div class="sec-head">
+    <span style="font-size:11px;color:var(--faint)">⊞</span>
+    <span class="sec-title">Browse by Category</span>
+    <a href="#" class="sec-link">All categories →</a>
+  </div>
+
+  <div class="categories-grid">
+    <div class="cat-card">
+      <div class="cat-icon">🦀</div>
+      <div class="cat-name">Rust</div>
+      <div class="cat-count">4 sessions</div>
+    </div>
+    <div class="cat-card">
+      <div class="cat-icon">🐹</div>
+      <div class="cat-name">Go</div>
+      <div class="cat-count">12 sessions</div>
+    </div>
+    <div class="cat-card">
+      <div class="cat-icon">⚡</div>
+      <div class="cat-name">TypeScript</div>
+      <div class="cat-count">18 sessions</div>
+    </div>
+    <div class="cat-card">
+      <div class="cat-icon">🐍</div>
+      <div class="cat-name">Python</div>
+      <div class="cat-count">9 sessions</div>
+    </div>
+    <div class="cat-card">
+      <div class="cat-icon">⚛️</div>
+      <div class="cat-name">React</div>
+      <div class="cat-count">14 sessions</div>
+    </div>
+    <div class="cat-card">
+      <div class="cat-icon">🗄️</div>
+      <div class="cat-name">Database</div>
+      <div class="cat-count">7 sessions</div>
+    </div>
+    <div class="cat-card">
+      <div class="cat-icon">🐳</div>
+      <div class="cat-name">DevOps</div>
+      <div class="cat-count">6 sessions</div>
+    </div>
+    <div class="cat-card">
+      <div class="cat-icon">🔐</div>
+      <div class="cat-name">Auth / Security</div>
+      <div class="cat-count">8 sessions</div>
+    </div>
+    <div class="cat-card">
+      <div class="cat-icon">🤖</div>
+      <div class="cat-name">AI / ML</div>
+      <div class="cat-count">5 sessions</div>
+    </div>
+    <div class="cat-card">
+      <div class="cat-icon">🧪</div>
+      <div class="cat-name">Testing</div>
+      <div class="cat-count">3 sessions</div>
+    </div>
+    <div class="cat-card">
+      <div class="cat-icon">📡</div>
+      <div class="cat-name">APIs</div>
+      <div class="cat-count">11 sessions</div>
+    </div>
+    <div class="cat-card">
+      <div class="cat-icon">🎨</div>
+      <div class="cat-name">Frontend</div>
+      <div class="cat-count">16 sessions</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     CTA BANNER
+═══════════════════════════════════════════════════════════ -->
+<div class="cta-banner">
+  <div class="cta-inner">
+    <div class="cta-text">
+      <div class="cta-eyebrow">
+        <span class="live-dot-sm"></span>
+        For developers
+      </div>
+      <h2 class="cta-heading">Turn your Claude Code sessions into live streams</h2>
+      <p class="cta-sub">
+        Install the CLI hook in under a minute. Every session you run with Claude Code is automatically captured and streamed — your viewers can watch, comment, and chat in real time.
+      </p>
+
+      <div class="cta-steps">
+        <div class="cta-step">
+          <div class="cta-step-num">01</div>
+          <div class="cta-step-title">Install hooks</div>
+          <div class="cta-step-desc">Copy 5 Python files into your Claude config</div>
+        </div>
+        <div class="step-arrow">→</div>
+        <div class="cta-step">
+          <div class="cta-step-num">02</div>
+          <div class="cta-step-title">Run Claude</div>
+          <div class="cta-step-desc">Start any Claude Code session as normal</div>
+        </div>
+        <div class="step-arrow">→</div>
+        <div class="cta-step">
+          <div class="cta-step-num">03</div>
+          <div class="cta-step-title">Go live</div>
+          <div class="cta-step-desc">Share the link. Viewers see everything live</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="cta-actions">
+      <button class="btn-cta">▶ Start Streaming Free</button>
+      <button class="btn-cta-ghost">Read the Docs →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     FOOTER
+═══════════════════════════════════════════════════════════ -->
+<footer class="footer">
+  <div class="footer-inner">
+    <div>
+      <div class="footer-brand">
+        <div class="brand-mark" style="width:22px;height:22px"></div>
+        <span style="font-size:14px;font-weight:700;letter-spacing:-.02em">LiveShortly</span>
+      </div>
+      <p class="footer-desc">Live-streamed, replayable, shareable Claude Code sessions for developers.</p>
+    </div>
+
+    <div class="footer-col">
+      <div class="footer-col-title">Product</div>
+      <div class="footer-links">
+        <a href="#" class="footer-link">Home</a>
+        <a href="#" class="footer-link">Browse Live</a>
+        <a href="#" class="footer-link">Trending</a>
+        <a href="#" class="footer-link">Categories</a>
+      </div>
+    </div>
+
+    <div class="footer-col">
+      <div class="footer-col-title">Developers</div>
+      <div class="footer-links">
+        <a href="#" class="footer-link">CLI Setup</a>
+        <a href="#" class="footer-link">API Docs</a>
+        <a href="#" class="footer-link">Architecture</a>
+        <a href="#" class="footer-link">GitHub</a>
+      </div>
+    </div>
+
+    <div class="footer-col">
+      <div class="footer-col-title">Account</div>
+      <div class="footer-links">
+        <a href="dashboard.html" class="footer-link">Dashboard</a>
+        <a href="#" class="footer-link">Sign In</a>
+        <a href="#" class="footer-link">Start Streaming</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-bottom">
+    <span class="footer-copy">© 2026 LiveShortly · Made with Claude Code</span>
+    <div class="footer-status">
+      <span class="live-dot-sm"></span>
+      All systems operational
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

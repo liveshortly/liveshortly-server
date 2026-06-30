@@ -1,0 +1,1152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Build auth middleware — JWT + refresh token flow · LiveShortly Replay</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+
+/* ═══════ TOKENS ═══════ */
+:root {
+  --bg:       #16150f;
+  --panel:    #1e1d16;
+  --panel2:   #252419;
+  --panel3:   #2c2b22;
+  --player:   #0a0908;
+  --hairline: #34322a;
+  --strong:   #ece8da;
+  --ink:      #ece8da;
+  --muted:    #a4a08f;
+  --faint:    #767365;
+  --green:    #4cae7a;
+  --green-bg: rgba(76,174,122,.08);
+  --red:      #e06a5a;
+  --amber:    #d6a94a;
+  --amber-bg: rgba(214,169,74,.08);
+  --blue:     #5b9bd5;
+  --font:     'JetBrains Mono','IBM Plex Mono',ui-monospace,monospace;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{font-family:var(--font);background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;}
+a{color:inherit;text-decoration:none;}
+button,select{font-family:var(--font);cursor:pointer;}
+*{scrollbar-width:thin;scrollbar-color:var(--hairline) transparent;}
+::-webkit-scrollbar{width:5px;height:4px;}
+::-webkit-scrollbar-thumb{background:var(--hairline);}
+
+/* ═══════ ANIMATIONS ═══════ */
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.25;transform:scale(.65)}}
+@keyframes blink{0%,49%{opacity:1}50%,100%{opacity:0}}
+@keyframes typeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@keyframes scanline{0%{transform:translateY(-100%);opacity:.04}100%{transform:translateY(600px);opacity:.02}}
+@keyframes cursorBlink{0%,49%{border-right-color:var(--green)}50%,100%{border-right-color:transparent}}
+
+.live-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 1.2s ease-in-out infinite;flex-shrink:0}
+
+/* ═══════ TOPBAR ═══════ */
+.topbar{
+  position:sticky;top:0;z-index:300;
+  background:rgba(22,21,15,.95);backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--hairline);
+  height:50px;display:flex;align-items:center;gap:0;padding:0 20px;
+}
+.brand{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700;letter-spacing:-.02em;padding-right:20px;border-right:1px solid var(--hairline);}
+.mark{width:20px;height:20px;background:var(--green);border-radius:3px;position:relative;flex-shrink:0;}
+.mark::before{content:'';position:absolute;left:4px;top:4px;width:4px;height:11px;background:var(--panel);border-radius:1px;}
+.mark::after{content:'';position:absolute;left:11px;top:4px;width:5px;height:11px;border:2px solid var(--panel);background:var(--green);border-radius:1px;}
+.tb-search{
+  flex:1;max-width:420px;margin:0 20px;
+  display:flex;align-items:center;gap:8px;
+  background:var(--panel2);border:1px solid var(--hairline);
+  padding:0 12px;height:32px;transition:border-color 150ms;
+}
+.tb-search:focus-within{border-color:var(--muted);}
+.tb-search input{flex:1;background:none;border:none;outline:none;color:var(--ink);font-family:var(--font);font-size:11px;letter-spacing:.05em;}
+.tb-search input::placeholder{color:var(--faint);}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:8px;}
+.tb-btn{
+  font-size:10px;text-transform:uppercase;letter-spacing:.1em;font-weight:600;
+  border:1px solid var(--hairline);background:transparent;color:var(--muted);
+  padding:5px 14px;transition:all 120ms;
+}
+.tb-btn:hover{border-color:var(--strong);color:var(--ink);}
+.tb-btn.green{border-color:var(--green);background:var(--green);color:var(--bg);font-weight:700;}
+.tb-btn.green:hover{background:#5dc98c;}
+
+/* ═══════ PAGE LAYOUT ═══════ */
+.page{display:flex;gap:24px;padding:20px 20px 80px;max-width:1440px;margin:0 auto;}
+.main{flex:1;min-width:0;}
+.sidebar{width:340px;flex-shrink:0;}
+
+/* ═══════ PLAYER CONTAINER ═══════ */
+.player-container{
+  background:var(--player);
+  position:relative;
+  border:1px solid var(--hairline);
+  overflow:hidden;
+}
+
+/* 16:9 aspect ratio wrapper */
+.player-aspect{position:relative;padding-bottom:56.25%;height:0;overflow:hidden;}
+.player-inner{position:absolute;inset:0;display:flex;}
+
+/* scanline effect over player */
+.player-scanlines{
+  position:absolute;inset:0;z-index:4;pointer-events:none;
+  background:repeating-linear-gradient(
+    to bottom,
+    transparent 0,transparent 3px,
+    rgba(0,0,0,.04) 3px,rgba(0,0,0,.04) 4px
+  );
+}
+.player-scan-beam{
+  position:absolute;left:0;right:0;height:60px;z-index:5;pointer-events:none;
+  background:linear-gradient(to bottom,transparent,rgba(76,174,122,.03),transparent);
+  animation:scanline 7s linear infinite;
+}
+
+/* ── SPLIT VIEW inside player ── */
+.pane-left{
+  width:42%;border-right:1px solid rgba(52,50,42,.6);
+  display:flex;flex-direction:column;
+  background:var(--player);
+}
+.pane-right{flex:1;display:flex;flex-direction:column;background:rgba(8,7,5,1);}
+
+.pane-header{
+  display:flex;align-items:center;gap:10px;
+  padding:8px 14px;border-bottom:1px solid rgba(52,50,42,.6);
+  background:rgba(30,29,22,.6);flex-shrink:0;
+}
+.pane-title{font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--faint);}
+.pane-badge{
+  font-size:8px;text-transform:uppercase;letter-spacing:.1em;font-weight:700;
+  padding:1px 6px;margin-left:auto;
+}
+.pane-badge.prompt{color:var(--amber);border:1px solid var(--amber);}
+.pane-badge.code{color:var(--green);border:1px solid var(--green);}
+
+/* ── PROMPT PANE ── */
+.prompt-pane-body{
+  flex:1;padding:16px;overflow:hidden;
+  display:flex;flex-direction:column;gap:12px;
+}
+.dev-bubble{
+  background:rgba(214,169,74,.1);border:1px solid rgba(214,169,74,.3);
+  padding:10px 14px;border-radius:0 4px 4px 4px;max-width:90%;
+  animation:typeIn .4s ease both;
+}
+.dev-label{font-size:8px;text-transform:uppercase;letter-spacing:.1em;color:var(--amber);margin-bottom:6px;font-weight:700;}
+.dev-text{font-size:11px;color:var(--ink);line-height:1.6;}
+.claude-bubble{
+  background:rgba(76,174,122,.08);border:1px solid rgba(76,174,122,.25);
+  padding:10px 14px;border-radius:4px 0 4px 4px;max-width:92%;align-self:flex-end;
+  animation:typeIn .4s .15s ease both;opacity:0;animation-fill-mode:forwards;
+}
+.claude-label{font-size:8px;text-transform:uppercase;letter-spacing:.1em;color:var(--green);margin-bottom:6px;font-weight:700;}
+.claude-text{font-size:11px;color:var(--muted);line-height:1.6;}
+.claude-cursor{
+  display:inline-block;width:8px;height:12px;
+  border-right:2px solid var(--green);
+  animation:cursorBlink .9s step-end infinite;
+  vertical-align:text-bottom;margin-left:2px;
+}
+.sys-event-row{
+  display:flex;align-items:center;gap:8px;
+  font-size:10px;color:var(--faint);
+  animation:typeIn .3s .3s ease both;opacity:0;animation-fill-mode:forwards;
+}
+.sys-event-line{flex:1;height:1px;background:rgba(52,50,42,.6);}
+.sys-event-pill{
+  font-size:8px;text-transform:uppercase;letter-spacing:.08em;
+  background:rgba(52,50,42,.8);padding:2px 8px;
+  color:var(--faint);white-space:nowrap;
+}
+.sys-event-pill.write{color:var(--green);}
+.sys-event-pill.run{color:var(--amber);}
+
+/* ── CODE PANE ── */
+.code-pane-body{
+  flex:1;padding:12px 14px;overflow:hidden;
+  font-size:11px;line-height:1.7;
+}
+.kw{color:var(--amber);}
+.fn{color:var(--green);}
+.str{color:var(--red);}
+.cm{color:var(--faint);font-style:italic;}
+.tx{color:var(--muted);}
+.ln{color:rgba(118,115,101,.5);min-width:20px;display:inline-block;text-align:right;margin-right:14px;user-select:none;font-size:9px;}
+.code-line{display:block;}
+.code-line.hl{background:rgba(76,174,122,.07);border-left:2px solid var(--green);padding-left:8px;margin-left:-8px;}
+.code-line.new{background:rgba(76,174,122,.04);}
+.code-line.new .ln{color:var(--green);}
+
+/* chapter overlay in player */
+.chapter-overlay{
+  position:absolute;top:14px;left:14px;z-index:6;
+  display:flex;flex-direction:column;gap:4px;
+}
+.chapter-pill{
+  display:inline-flex;align-items:center;gap:8px;
+  background:rgba(22,21,15,.85);border:1px solid var(--hairline);
+  backdrop-filter:blur(6px);padding:5px 10px;
+  font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);
+}
+.chapter-pill .num{color:var(--green);font-weight:700;}
+
+/* timestamp overlay */
+.ts-overlay{
+  position:absolute;top:14px;right:14px;z-index:6;
+  background:rgba(22,21,15,.85);border:1px solid var(--hairline);
+  padding:5px 10px;font-size:11px;font-weight:600;
+  font-variant-numeric:tabular-nums;color:var(--ink);
+  display:flex;align-items:center;gap:8px;
+}
+
+/* paused overlay */
+.paused-overlay{
+  position:absolute;inset:0;z-index:10;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(22,21,15,.35);
+  cursor:pointer;transition:background 150ms;
+}
+.paused-overlay:hover{background:rgba(22,21,15,.2);}
+.play-btn-big{
+  width:72px;height:72px;
+  background:rgba(22,21,15,.8);border:2px solid rgba(236,232,218,.6);
+  border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:26px;padding-left:4px;
+  backdrop-filter:blur(4px);
+  transition:border-color 150ms,transform 150ms;
+}
+.paused-overlay:hover .play-btn-big{border-color:var(--ink);transform:scale(1.06);}
+
+/* ── EVENT HEATMAP ── */
+.heatmap{
+  height:24px;background:var(--player);
+  border-top:1px solid var(--hairline);
+  position:relative;overflow:hidden;
+  display:flex;align-items:flex-end;
+  padding:0 2px 0;gap:1px;
+}
+.heatmap-label{
+  position:absolute;left:8px;top:4px;
+  font-size:7px;text-transform:uppercase;letter-spacing:.1em;color:var(--faint);
+}
+.hm-bar{
+  flex:1;background:rgba(76,174,122,.18);border-radius:0;
+  min-height:2px;
+}
+/* chapter marker lines on heatmap */
+.heatmap-ch{
+  position:absolute;top:0;bottom:0;width:1px;background:var(--amber);opacity:.6;
+}
+
+/* ── CONTROLS BAR ── */
+.controls{
+  background:rgba(10,9,8,.98);
+  border-top:1px solid var(--hairline);
+  padding:0;
+}
+/* scrubber row */
+.scrubber-row{
+  position:relative;padding:10px 14px 4px;
+}
+.scrubber-track{
+  height:4px;background:var(--panel3);border-radius:0;
+  position:relative;cursor:pointer;
+}
+.scrubber-fill{
+  height:100%;background:var(--green);width:53.6%; /* ~25:10 of 47:23 */
+  position:relative;
+}
+.scrubber-fill::after{
+  content:'';
+  position:absolute;right:-5px;top:-4px;
+  width:12px;height:12px;border-radius:50%;
+  background:var(--green);
+}
+/* chapter dots on scrubber */
+.scrubber-track .ch-dot{
+  position:absolute;top:-3px;
+  width:2px;height:10px;border-radius:1px;background:var(--amber);
+  cursor:pointer;
+}
+.ch-dot-tooltip{
+  position:absolute;bottom:18px;left:50%;transform:translateX(-50%);
+  background:rgba(22,21,15,.95);border:1px solid var(--hairline);
+  font-size:8px;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--muted);white-space:nowrap;padding:3px 8px;
+  display:none;
+}
+.scrubber-track .ch-dot:hover .ch-dot-tooltip{display:block;}
+
+/* time range */
+.scrubber-time{
+  display:flex;justify-content:space-between;align-items:center;
+  margin-top:6px;font-size:9px;color:var(--faint);font-variant-numeric:tabular-nums;
+}
+
+/* controls row */
+.ctrl-row{
+  display:flex;align-items:center;gap:0;
+  padding:6px 10px 8px;
+}
+.ctrl-btn{
+  background:transparent;border:none;color:var(--muted);
+  padding:6px 10px;font-size:13px;
+  transition:color 120ms;display:flex;align-items:center;gap:5px;
+}
+.ctrl-btn:hover{color:var(--ink);}
+.ctrl-btn.play{font-size:16px;color:var(--ink);}
+.ctrl-btn .skip-label{font-size:8px;letter-spacing:.06em;}
+.ctrl-sep{width:1px;height:20px;background:var(--hairline);margin:0 6px;}
+
+/* speed badge */
+.speed-select{
+  background:var(--panel2);border:1px solid var(--hairline);
+  color:var(--muted);font-family:var(--font);font-size:10px;
+  padding:3px 8px;letter-spacing:.06em;
+}
+
+/* view mode toggle */
+.view-toggle{display:flex;gap:0;border:1px solid var(--hairline);}
+.vt-btn{
+  font-size:9px;text-transform:uppercase;letter-spacing:.08em;font-weight:600;
+  padding:4px 10px;background:transparent;border:none;color:var(--faint);
+  border-right:1px solid var(--hairline);transition:all 120ms;
+}
+.vt-btn:last-child{border-right:none;}
+.vt-btn.active{background:var(--panel2);color:var(--ink);}
+.vt-btn:hover:not(.active){color:var(--muted);background:rgba(52,50,42,.3);}
+
+/* chapters panel */
+.chapters-btn{
+  display:flex;align-items:center;gap:6px;
+  font-size:9px;text-transform:uppercase;letter-spacing:.1em;
+  background:transparent;border:1px solid var(--hairline);
+  color:var(--muted);padding:4px 10px;transition:all 120ms;
+}
+.chapters-btn:hover{border-color:var(--strong);color:var(--ink);}
+
+.ctrl-right{margin-left:auto;display:flex;align-items:center;gap:8px;}
+.vol-slider{
+  width:64px;height:3px;
+  -webkit-appearance:none;appearance:none;
+  background:linear-gradient(to right, var(--green) 70%, var(--panel3) 70%);
+  border-radius:0;cursor:pointer;
+}
+
+/* ── EVENT TYPE LEGEND on controls ── */
+.event-legend{
+  display:flex;align-items:center;gap:10px;
+  padding:4px 14px 8px;border-top:1px solid rgba(52,50,42,.4);
+}
+.el-item{display:flex;align-items:center;gap:5px;font-size:8px;text-transform:uppercase;letter-spacing:.07em;color:var(--faint);}
+.el-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+
+/* ═══════ VIDEO METADATA ═══════ */
+.video-meta{padding:14px 0 0;}
+.vm-title{font-size:18px;font-weight:700;letter-spacing:-.015em;color:var(--ink);line-height:1.25;margin-bottom:12px;}
+.vm-stats-row{
+  display:flex;align-items:center;gap:0;
+  padding-bottom:12px;border-bottom:1px solid var(--hairline);
+  margin-bottom:12px;
+}
+.vm-views{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;}
+.vm-date{font-size:12px;color:var(--faint);margin-left:12px;}
+.vm-tags{display:flex;gap:6px;margin-left:auto;}
+.vm-tag{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);border:1px solid var(--hairline);padding:3px 8px;}
+
+/* action buttons */
+.action-row{
+  display:flex;align-items:center;gap:8px;
+  padding-bottom:14px;border-bottom:1px solid var(--hairline);
+  margin-bottom:16px;flex-wrap:wrap;
+}
+.act-btn{
+  display:flex;align-items:center;gap:6px;
+  font-size:10px;text-transform:uppercase;letter-spacing:.1em;font-weight:600;
+  background:var(--panel2);border:1px solid var(--hairline);
+  color:var(--muted);padding:8px 14px;transition:all 120ms;
+}
+.act-btn:hover{border-color:var(--strong);color:var(--ink);}
+.act-btn.like{border-color:var(--green);color:var(--green);}
+.act-btn.like:hover{background:var(--green-bg);}
+.act-btn-icon{font-size:12px;}
+.act-count{color:var(--faint);font-size:9px;margin-left:2px;}
+.act-sep{width:1px;height:28px;background:var(--hairline);margin:0 4px;}
+
+/* channel card */
+.channel-card{
+  display:flex;align-items:flex-start;gap:14px;
+  padding-bottom:16px;border-bottom:1px solid var(--hairline);
+  margin-bottom:20px;
+}
+.channel-avatar{
+  width:42px;height:42px;background:var(--panel3);
+  border:1px solid var(--hairline);flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-size:16px;
+}
+.channel-info{flex:1;}
+.channel-name{font-size:14px;font-weight:700;color:var(--green);margin-bottom:2px;}
+.channel-sub{font-size:11px;color:var(--faint);}
+.channel-right{margin-left:auto;display:flex;gap:8px;align-items:center;flex-shrink:0;}
+
+/* description box */
+.desc-box{
+  background:var(--panel);border:1px solid var(--hairline);
+  padding:14px 16px;margin-bottom:20px;cursor:pointer;
+}
+.desc-head{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.desc-session{font-size:11px;font-weight:700;color:var(--ink);}
+.desc-stats{display:flex;gap:12px;font-size:11px;color:var(--muted);margin-bottom:12px;font-variant-numeric:tabular-nums;}
+.desc-body{font-size:12px;color:var(--muted);line-height:1.7;}
+.desc-timestamps{margin-top:12px;display:flex;flex-direction:column;gap:4px;}
+.desc-ts{
+  display:flex;align-items:center;gap:10px;
+  font-size:11px;cursor:pointer;
+  padding:3px 0;transition:color 120ms;
+}
+.desc-ts:hover{color:var(--ink);}
+.desc-ts-time{color:var(--green);font-weight:600;font-variant-numeric:tabular-nums;min-width:40px;flex-shrink:0;}
+.desc-ts-label{color:var(--muted);}
+.desc-more{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:8px;font-weight:600;}
+
+/* ═══════ COMMENTS ═══════ */
+.comments-section{}
+.comments-head{
+  display:flex;align-items:center;gap:12px;
+  margin-bottom:16px;
+}
+.comments-count{font-size:12px;font-weight:700;color:var(--ink);}
+.comments-sort{
+  font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);
+  margin-left:auto;background:transparent;border:1px solid var(--hairline);
+  padding:4px 10px;transition:all 120ms;
+}
+.comments-sort:hover{border-color:var(--strong);color:var(--ink);}
+
+.comment-compose{
+  display:flex;align-items:flex-start;gap:12px;margin-bottom:20px;
+}
+.comment-avatar{
+  width:32px;height:32px;background:var(--panel2);border:1px solid var(--hairline);
+  flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:12px;
+}
+.comment-input-wrap{flex:1;}
+.comment-input{
+  width:100%;background:transparent;border:none;border-bottom:1px solid var(--hairline);
+  outline:none;color:var(--ink);font-family:var(--font);font-size:12px;
+  padding:6px 0;transition:border-color 150ms;
+}
+.comment-input::placeholder{color:var(--faint);}
+.comment-input:focus{border-bottom-color:var(--strong);}
+
+/* comment item */
+.comment{display:flex;gap:12px;margin-bottom:20px;}
+.comment-ava{
+  width:32px;height:32px;background:var(--panel2);border:1px solid var(--hairline);
+  flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;
+}
+.comment-body{flex:1;}
+.comment-meta{
+  display:flex;align-items:center;gap:8px;margin-bottom:5px;
+}
+.comment-author{font-size:11px;font-weight:700;color:var(--ink);}
+.comment-badge{
+  font-size:8px;text-transform:uppercase;letter-spacing:.08em;font-weight:700;
+  padding:1px 5px;border:1px solid;
+}
+.comment-badge.session{color:var(--amber);border-color:var(--amber);}
+.comment-badge.owner{color:var(--green);border-color:var(--green);}
+.comment-ts{font-size:10px;color:var(--faint);}
+.comment-ts-link{
+  font-size:10px;color:var(--green);font-weight:600;font-variant-numeric:tabular-nums;
+  background:rgba(76,174,122,.08);padding:1px 6px;cursor:pointer;
+}
+.comment-text{font-size:12px;color:var(--muted);line-height:1.65;}
+.comment-actions{
+  display:flex;align-items:center;gap:0;margin-top:6px;
+}
+.ca-btn{
+  font-size:9px;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--faint);background:transparent;border:none;padding:4px 8px;
+  transition:color 120ms;
+}
+.ca-btn:hover{color:var(--ink);}
+.ca-btn.like{color:var(--green);}
+
+/* injected badge */
+.injected-badge{
+  display:inline-flex;align-items:center;gap:5px;
+  font-size:8px;text-transform:uppercase;letter-spacing:.1em;font-weight:700;
+  color:var(--green);border:1px solid var(--green);
+  padding:1px 6px;margin-top:4px;background:var(--green-bg);
+}
+
+/* owner reply */
+.owner-reply{
+  background:var(--green-bg);border-left:2px solid var(--green);
+  padding:8px 12px;margin-top:8px;font-size:11px;color:var(--muted);line-height:1.6;
+}
+.or-head{font-size:8px;text-transform:uppercase;letter-spacing:.1em;font-weight:700;color:var(--green);margin-bottom:4px;}
+
+/* ═══════ SIDEBAR ═══════ */
+.sidebar-head{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:12px;
+}
+.sh-label{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--faint);font-weight:600;}
+.autoplay-row{display:flex;align-items:center;gap:8px;}
+.ap-label{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);}
+.ap-toggle{
+  width:28px;height:14px;background:var(--green);border-radius:7px;
+  position:relative;cursor:pointer;flex-shrink:0;transition:background 150ms;
+}
+.ap-toggle::after{
+  content:'';position:absolute;top:2px;left:14px;width:10px;height:10px;
+  border-radius:50%;background:var(--bg);transition:left 150ms;
+}
+
+/* session playlist item */
+.playlist-item{
+  display:flex;gap:10px;cursor:pointer;padding:8px 0;
+  border-bottom:1px solid var(--hairline);
+  transition:background 120ms;
+}
+.playlist-item:last-child{border-bottom:none;}
+.playlist-item:hover .pi-thumb{border-color:var(--strong);}
+.pi-thumb{
+  width:120px;flex-shrink:0;
+  background:var(--player);border:1px solid var(--hairline);
+  position:relative;aspect-ratio:16/9;overflow:hidden;
+  transition:border-color 120ms;
+}
+.pi-thumb-code{
+  padding:6px 8px;font-size:8px;line-height:1.7;
+  color:var(--faint);overflow:hidden;height:100%;
+}
+.pi-thumb .pi-duration{
+  position:absolute;bottom:4px;right:4px;
+  font-size:8px;background:rgba(22,21,15,.85);
+  padding:1px 4px;color:var(--muted);font-variant-numeric:tabular-nums;
+}
+.pi-thumb .pi-status{
+  position:absolute;top:4px;left:4px;
+  font-size:7px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;
+  padding:1px 5px;
+}
+.pi-status.live{background:var(--green);color:var(--bg);}
+.pi-status.ended{background:rgba(22,21,15,.7);border:1px solid var(--hairline);color:var(--faint);}
+.pi-meta{flex:1;min-width:0;}
+.pi-title{font-size:11px;font-weight:600;color:var(--ink);line-height:1.35;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+  margin-bottom:5px;}
+.pi-owner{font-size:10px;color:var(--muted);}
+.pi-stats{font-size:9px;color:var(--faint);margin-top:3px;font-variant-numeric:tabular-nums;}
+
+/* currently playing indicator */
+.playing-now{
+  display:flex;align-items:center;gap:8px;
+  padding:6px 10px;background:var(--green-bg);border:1px solid var(--green);
+  margin-bottom:16px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--green);font-weight:600;
+}
+
+/* ═══════ UTIL ═══════ */
+.mt8{margin-top:8px;}
+.mt12{margin-top:12px;}
+.mt16{margin-top:16px;}
+.mt20{margin-top:20px;}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<nav class="topbar">
+  <div class="brand">
+    <div class="mark"></div>
+    LiveShortly
+  </div>
+
+  <div class="tb-search">
+    <span style="color:var(--faint);font-size:11px">/</span>
+    <input placeholder="Search sessions, topics, developers…">
+  </div>
+
+  <div class="tb-right">
+    <button class="tb-btn">Sign In</button>
+    <button class="tb-btn green">▶ Start Streaming</button>
+  </div>
+</nav>
+
+
+<div class="page">
+
+<!-- ══════════════════════ MAIN ══════════════════════ -->
+<div class="main">
+
+  <!-- ── PLAYER ── -->
+  <div class="player-container">
+    <div class="player-aspect">
+      <div class="player-inner">
+
+        <!-- scanlines -->
+        <div class="player-scanlines"></div>
+        <div class="player-scan-beam"></div>
+
+        <!-- chapter overlay -->
+        <div class="chapter-overlay">
+          <div class="chapter-pill">
+            <span class="num">CH 03</span>
+            Google OAuth Callback
+          </div>
+        </div>
+
+        <!-- timestamp overlay -->
+        <div class="ts-overlay">
+          <span style="font-size:8px;text-transform:uppercase;letter-spacing:.1em;color:var(--faint)">REPLAY</span>
+          25:10 / 47:23
+        </div>
+
+        <!-- ── PROMPT PANE ── -->
+        <div class="pane-left">
+          <div class="pane-header">
+            <span class="pane-title">Developer Prompts</span>
+            <span class="pane-badge prompt">A3F9</span>
+          </div>
+          <div class="prompt-pane-body">
+
+            <div class="dev-bubble">
+              <div class="dev-label">@mukulmalviya2 · 25:10</div>
+              <div class="dev-text">Wire up the Google OAuth callback — needs to upsert the user and set the ls_session cookie.</div>
+            </div>
+
+            <div class="sys-event-row">
+              <div class="sys-event-line"></div>
+              <span class="sys-event-pill write">✏ Writing authweb.go</span>
+              <div class="sys-event-line"></div>
+            </div>
+
+            <div class="claude-bubble">
+              <div class="claude-label">Claude · Response</div>
+              <div class="claude-text">We'll exchange the Google code, verify the ID token, upsert the user row, then issue a 24h web JWT and set it as an HttpOnly ls_session cookie.<span class="claude-cursor"></span></div>
+            </div>
+
+            <div style="margin-top:4px;">
+              <div class="sys-event-row">
+                <div class="sys-event-line"></div>
+                <span class="sys-event-pill run">⚡ go build ./...</span>
+                <div class="sys-event-line"></div>
+              </div>
+            </div>
+
+            <!-- viewer comment in pane -->
+            <div style="margin-top:8px;background:rgba(214,169,74,.06);border:1px solid rgba(214,169,74,.2);border-left:2px solid var(--amber);padding:8px 10px;animation:typeIn .4s .5s ease both;opacity:0;animation-fill-mode:forwards;">
+              <div style="font-size:8px;text-transform:uppercase;letter-spacing:.1em;color:var(--amber);font-weight:700;margin-bottom:4px;">💬 Viewer · @alice_codes</div>
+              <div style="font-size:10px;color:var(--muted);line-height:1.5;">Does the CLI auto-refresh on token expiry or does the user re-run ls login?</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── CODE PANE ── -->
+        <div class="pane-right">
+          <div class="pane-header">
+            <span class="pane-title">api/internal/handlers/authweb.go</span>
+            <span class="pane-badge code">WRITING</span>
+          </div>
+          <div class="code-pane-body">
+<code><span class="code-line"><span class="ln">44</span><span class="cm">// GoogleCallback handles the OAuth return from Google.</span></span>
+<span class="code-line"><span class="ln">45</span><span class="cm">// Upserts the user and sets the ls_session HttpOnly cookie.</span></span>
+<span class="code-line"><span class="ln">46</span><span class="kw">func</span><span class="tx"> (h *Handler) </span><span class="fn">GoogleCallback</span><span class="tx">(</span></span>
+<span class="code-line"><span class="ln">47</span><span class="tx">  w http.ResponseWriter,</span></span>
+<span class="code-line"><span class="ln">48</span><span class="tx">  r *http.Request) {</span></span>
+<span class="code-line"><span class="ln">49</span><span class="tx">  </span><span class="kw">if</span><span class="tx"> err := </span><span class="fn">verifyState</span><span class="tx">(r); err != </span><span class="kw">nil</span><span class="tx"> {</span></span>
+<span class="code-line"><span class="ln">50</span><span class="tx">    http.</span><span class="fn">Error</span><span class="tx">(w, </span><span class="str">"bad state"</span><span class="tx">, 400)</span></span>
+<span class="code-line"><span class="ln">51</span><span class="tx">    </span><span class="kw">return</span></span>
+<span class="code-line"><span class="ln">52</span><span class="tx">  }</span></span>
+<span class="code-line hl"><span class="ln">53</span><span class="tx">  tok, err := h.oauth.</span><span class="fn">Exchange</span><span class="tx">(</span></span>
+<span class="code-line hl"><span class="ln">54</span><span class="tx">    r.Context(),</span></span>
+<span class="code-line hl"><span class="ln">55</span><span class="tx">    r.URL.Query().</span><span class="fn">Get</span><span class="tx">(</span><span class="str">"code"</span><span class="tx">))</span></span>
+<span class="code-line"><span class="ln">56</span><span class="tx">  user, err := h.store.</span><span class="fn">UpsertUser</span><span class="tx">(</span></span>
+<span class="code-line"><span class="ln">57</span><span class="tx">    r.Context(), sub, email, handle, avatar)</span></span>
+<span class="code-line new"><span class="ln">58</span><span class="tx">  jwt, _ := ws.</span><span class="fn">Issue</span><span class="tx">(user.ID, </span><span class="str">"web"</span><span class="tx">, 24*time.Hour)</span></span>
+<span class="code-line new"><span class="ln">59</span><span class="tx">  http.</span><span class="fn">SetCookie</span><span class="tx">(w, &http.Cookie{</span></span>
+<span class="code-line new"><span class="ln">60</span><span class="tx">    Name:     </span><span class="str">"ls_session"</span><span class="tx">,</span></span>
+<span class="code-line new"><span class="ln">61</span><span class="tx">    Value:    jwt,</span></span>
+<span class="code-line new"><span class="ln">62</span><span class="tx">    HttpOnly: </span><span class="kw">true</span><span class="tx">,</span></span>
+<span class="code-line new"><span class="ln">63</span><span class="tx">    SameSite: http.SameSiteLaxMode,</span></span>
+<span class="code-line new"><span class="ln">64</span><span class="tx">  })</span></span>
+<span class="code-line"><span class="ln">65</span><span class="tx">  http.</span><span class="fn">Redirect</span><span class="tx">(w, r, </span><span class="str">"/"</span><span class="tx">, 302)</span></span>
+<span class="code-line"><span class="ln">66</span><span class="tx">}</span></span></code>
+          </div>
+        </div>
+
+        <!-- paused overlay -->
+        <div class="paused-overlay">
+          <div class="play-btn-big">▶</div>
+        </div>
+
+      </div>
+    </div><!-- /player-aspect -->
+
+    <!-- EVENT HEATMAP (activity density across session) -->
+    <div class="heatmap">
+      <span class="heatmap-label">Activity</span>
+      <!-- Bars representing event density — taller = more events in that time slice -->
+      <div class="hm-bar" style="height:4px"></div>
+      <div class="hm-bar" style="height:7px"></div>
+      <div class="hm-bar" style="height:14px;background:rgba(76,174,122,.35)"></div>
+      <div class="hm-bar" style="height:18px;background:rgba(76,174,122,.5)"></div>
+      <div class="hm-bar" style="height:12px"></div>
+      <div class="hm-bar" style="height:8px"></div>
+      <div class="hm-bar" style="height:6px"></div>
+      <div class="hm-bar" style="height:10px"></div>
+      <div class="hm-bar" style="height:20px;background:rgba(76,174,122,.55)"></div>
+      <div class="hm-bar" style="height:16px;background:rgba(76,174,122,.4)"></div>
+      <div class="hm-bar" style="height:9px"></div>
+      <div class="hm-bar" style="height:5px"></div>
+      <div class="hm-bar" style="height:7px"></div>
+      <div class="hm-bar" style="height:11px"></div>
+      <div class="hm-bar" style="height:18px;background:rgba(76,174,122,.5)"></div>
+      <div class="hm-bar" style="height:22px;background:rgba(76,174,122,.6)"></div>
+      <div class="hm-bar" style="height:15px;background:rgba(76,174,122,.4)"></div>
+      <div class="hm-bar" style="height:8px"></div>
+      <div class="hm-bar" style="height:6px"></div>
+      <div class="hm-bar" style="height:9px"></div>
+      <div class="hm-bar" style="height:13px"></div>
+      <div class="hm-bar" style="height:19px;background:rgba(76,174,122,.5)"></div>
+      <div class="hm-bar" style="height:24px;background:rgba(76,174,122,.7)"></div>
+      <div class="hm-bar" style="height:20px;background:rgba(76,174,122,.55)"></div>
+      <div class="hm-bar" style="height:14px;background:rgba(76,174,122,.35)"></div>
+      <div class="hm-bar" style="height:10px"></div>
+      <div class="hm-bar" style="height:7px"></div>
+      <div class="hm-bar" style="height:12px"></div>
+      <div class="hm-bar" style="height:16px;background:rgba(76,174,122,.45)"></div>
+      <div class="hm-bar" style="height:11px"></div>
+      <div class="hm-bar" style="height:8px"></div>
+      <div class="hm-bar" style="height:5px"></div>
+      <div class="hm-bar" style="height:4px"></div>
+      <div class="hm-bar" style="height:3px"></div>
+      <!-- chapter markers -->
+      <div class="heatmap-ch" style="left:0%"></div>
+      <div class="heatmap-ch" style="left:26.8%"></div>
+      <div class="heatmap-ch" style="left:53%"></div>
+      <div class="heatmap-ch" style="left:82%"></div>
+    </div>
+
+    <!-- CONTROLS -->
+    <div class="controls">
+      <!-- Scrubber -->
+      <div class="scrubber-row">
+        <div class="scrubber-track">
+          <div class="scrubber-fill"></div>
+          <!-- chapter dots on timeline -->
+          <div class="ch-dot" style="left:0%">
+            <div class="ch-dot-tooltip">CH 1 · 00:00 — JWT middleware</div>
+          </div>
+          <div class="ch-dot" style="left:26.8%">
+            <div class="ch-dot-tooltip">CH 2 · 12:40 — DB migration</div>
+          </div>
+          <div class="ch-dot" style="left:53%">
+            <div class="ch-dot-tooltip">CH 3 · 25:10 — OAuth callback</div>
+          </div>
+          <div class="ch-dot" style="left:82%">
+            <div class="ch-dot-tooltip">CH 4 · 38:55 — Device flow</div>
+          </div>
+        </div>
+        <div class="scrubber-time">
+          <span>25:10</span>
+          <span style="font-size:8px;color:var(--faint);text-transform:uppercase;letter-spacing:.08em">· Chapter 3 of 4 — Google OAuth callback</span>
+          <span>47:23</span>
+        </div>
+      </div>
+
+      <!-- Controls row -->
+      <div class="ctrl-row">
+        <button class="ctrl-btn" style="font-size:11px">⟨⟨ 10</button>
+        <button class="ctrl-btn play">▶</button>
+        <button class="ctrl-btn" style="font-size:11px">10 ⟩⟩</button>
+
+        <div class="ctrl-sep"></div>
+
+        <button class="ctrl-btn" style="font-size:12px">🔊</button>
+        <input type="range" class="vol-slider" value="70" min="0" max="100">
+
+        <div class="ctrl-sep"></div>
+
+        <select class="speed-select">
+          <option>0.5×</option>
+          <option>1×</option>
+          <option selected>1.5×</option>
+          <option>2×</option>
+          <option>4× (skip idle)</option>
+        </select>
+
+        <div class="ctrl-sep"></div>
+
+        <button class="chapters-btn">☰ Chapters</button>
+
+        <div class="ctrl-right">
+          <div class="view-toggle">
+            <button class="vt-btn active">Split</button>
+            <button class="vt-btn">Code</button>
+            <button class="vt-btn">Events</button>
+            <button class="vt-btn">Diff</button>
+          </div>
+          <div class="ctrl-sep"></div>
+          <button class="ctrl-btn" style="font-size:11px">⛶</button>
+        </div>
+      </div>
+
+      <!-- Event legend -->
+      <div class="event-legend">
+        <span style="font-size:7px;text-transform:uppercase;letter-spacing:.1em;color:var(--faint);margin-right:4px">Timeline markers:</span>
+        <span class="el-item"><span class="el-dot" style="background:var(--amber)"></span>Prompt</span>
+        <span class="el-item"><span class="el-dot" style="background:var(--green)"></span>File write</span>
+        <span class="el-item"><span class="el-dot" style="background:var(--blue)"></span>Tool call</span>
+        <span class="el-item"><span class="el-dot" style="background:var(--red)"></span>Error / retry</span>
+        <span class="el-item"><span class="el-dot" style="background:var(--faint)"></span>Viewer comment</span>
+        <span style="margin-left:auto;font-size:7px;text-transform:uppercase;letter-spacing:.08em;color:var(--faint)">△ Amber bar = chapter start</span>
+      </div>
+    </div>
+  </div><!-- /player-container -->
+
+  <!-- ── VIDEO METADATA ── -->
+  <div class="video-meta">
+    <div class="vm-title">Build auth middleware — JWT + refresh token flow in Go</div>
+
+    <div class="vm-stats-row">
+      <span class="vm-views">14 views</span>
+      <span class="vm-date">· Jun 30, 2026</span>
+      <div class="vm-tags">
+        <span class="vm-tag">#go</span>
+        <span class="vm-tag">#auth</span>
+        <span class="vm-tag">#jwt</span>
+        <span class="vm-tag">#middleware</span>
+      </div>
+    </div>
+
+    <!-- Action buttons -->
+    <div class="action-row">
+      <button class="act-btn like">
+        <span class="act-btn-icon">▲</span> Like
+        <span class="act-count">24</span>
+      </button>
+      <button class="act-btn">
+        <span class="act-btn-icon">▽</span>
+      </button>
+      <div class="act-sep"></div>
+      <button class="act-btn">
+        <span class="act-btn-icon">⊕</span> Share
+      </button>
+      <button class="act-btn">
+        <span class="act-btn-icon">↓</span> Save
+      </button>
+      <button class="act-btn">
+        <span class="act-btn-icon">✂</span> Clip
+      </button>
+      <button class="act-btn">
+        <span class="act-btn-icon">📋</span> Read Story
+      </button>
+      <button class="act-btn" style="margin-left:auto">
+        ⋯
+      </button>
+    </div>
+
+    <!-- Channel -->
+    <div class="channel-card">
+      <div class="channel-avatar">👨‍💻</div>
+      <div class="channel-info">
+        <div class="channel-name">@mukulmalviya2</div>
+        <div class="channel-sub">12 sessions · LiveShortly since Jun 2026</div>
+      </div>
+      <div class="channel-right">
+        <button class="tb-btn">Follow</button>
+        <button class="tb-btn green">🔔 Notify</button>
+      </div>
+    </div>
+
+    <!-- Description -->
+    <div class="desc-box">
+      <div class="desc-head">
+        <span class="desc-session">#A3F9 · Ended · 47m 23s</span>
+        <span style="font-size:10px;color:var(--faint);margin-left:auto">▾ More</span>
+      </div>
+      <div class="desc-stats">
+        <span>247 events</span>
+        <span>31,840 tokens</span>
+        <span>claude-sonnet-4-6</span>
+        <span>9 files changed</span>
+      </div>
+      <div class="desc-body">
+        Full JWT authentication middleware for a Go REST API — Bearer tokens for CLI hooks, HttpOnly cookies for the web client. Covers middleware skeleton, Postgres migration, Google OAuth callback, and CLI device flow. All /api routes are protected by the end.
+      </div>
+      <div class="desc-timestamps">
+        <div class="desc-ts">
+          <span class="desc-ts-time">00:00</span>
+          <span class="desc-ts-label">Chapter 1 — Authn middleware skeleton</span>
+        </div>
+        <div class="desc-ts">
+          <span class="desc-ts-time">12:40</span>
+          <span class="desc-ts-label">Chapter 2 — Postgres migration 002 (users, auth_sessions)</span>
+        </div>
+        <div class="desc-ts">
+          <span class="desc-ts-time">25:10</span>
+          <span class="desc-ts-label">Chapter 3 — Google OAuth callback + ls_session cookie</span>
+        </div>
+        <div class="desc-ts">
+          <span class="desc-ts-time">38:55</span>
+          <span class="desc-ts-label">Chapter 4 — CLI device flow, polling, auto-refresh</span>
+        </div>
+      </div>
+      <div class="desc-more mt8">▾ Show full description</div>
+    </div>
+
+    <!-- COMMENTS -->
+    <div class="comments-section">
+      <div class="comments-head">
+        <span class="comments-count">6 comments</span>
+        <button class="comments-sort">Sort: Top ▾</button>
+      </div>
+
+      <!-- Compose -->
+      <div class="comment-compose">
+        <div class="comment-avatar">👤</div>
+        <div class="comment-input-wrap">
+          <input class="comment-input" placeholder="Add a comment…">
+        </div>
+      </div>
+
+      <!-- Comment 1 — from session (injected viewer) -->
+      <div class="comment">
+        <div class="comment-ava">👩‍💻</div>
+        <div class="comment-body">
+          <div class="comment-meta">
+            <span class="comment-author">@alice_codes</span>
+            <span class="comment-badge session">From Session</span>
+            <span class="comment-ts">
+              <span class="comment-ts-link">38:55</span>
+            </span>
+            <span class="comment-ts" style="margin-left:8px">12h ago</span>
+          </div>
+          <div class="comment-text">Does the CLI auto-refresh on token expiry or does the user have to run <code style="font-size:11px;color:var(--amber);background:var(--panel2);padding:1px 4px">ls login</code> again every time?</div>
+          <div class="injected-badge">⚡ Injected into session at 38:55</div>
+          <div class="owner-reply">
+            <div class="or-head">@mukulmalviya2 (session owner) · Claude replied</div>
+            Auto-refresh — the hooks check token expiry before each API call and call /auth/device/refresh with the refresh token. Users only need to re-login if the 30-day refresh token expires.
+          </div>
+          <div class="comment-actions">
+            <button class="ca-btn like">▲ 8</button>
+            <button class="ca-btn">Reply</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Comment 2 — from session -->
+      <div class="comment">
+        <div class="comment-ava">👨‍💻</div>
+        <div class="comment-body">
+          <div class="comment-meta">
+            <span class="comment-author">@devuser_99</span>
+            <span class="comment-badge session">From Session</span>
+            <span class="comment-ts"><span class="comment-ts-link">12:40</span></span>
+            <span class="comment-ts" style="margin-left:8px">12h ago</span>
+          </div>
+          <div class="comment-text">Why hash the token instead of just relying on JWT expiry? Isn't the JWT already self-contained?</div>
+          <div class="injected-badge">⚡ Injected into session at 12:40</div>
+          <div class="owner-reply">
+            <div class="or-head">Claude replied in session</div>
+            JWTs are stateless by design — no revocation without rotating the secret. Storing the hash gives us a soft-revoke flag per token, so a compromised CLI session can be killed without affecting other users or changing the signing key.
+          </div>
+          <div class="comment-actions">
+            <button class="ca-btn like">▲ 5</button>
+            <button class="ca-btn">Reply</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Comment 3 — post-session viewer -->
+      <div class="comment">
+        <div class="comment-ava">🦀</div>
+        <div class="comment-body">
+          <div class="comment-meta">
+            <span class="comment-author">@rust_fan</span>
+            <span class="comment-ts">4h ago</span>
+          </div>
+          <div class="comment-text">Wild watching auth get built live. Did you consider using sessions in Redis instead of JWTs? The stateless thing bites you anyway with refresh tracking.</div>
+          <div class="comment-actions">
+            <button class="ca-btn like">▲ 3</button>
+            <button class="ca-btn">Reply</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Comment 4 — post-session, owner -->
+      <div class="comment">
+        <div class="comment-ava">👨‍💻</div>
+        <div class="comment-body">
+          <div class="comment-meta">
+            <span class="comment-author">@mukulmalviya2</span>
+            <span class="comment-badge owner">Owner</span>
+            <span class="comment-ts">3h ago</span>
+          </div>
+          <div class="comment-text">Good point @rust_fan — Redis sessions were on the table. Went JWT because the CLI needed a portable credential file. Redis session IDs don't survive machine restarts without extra plumbing.</div>
+          <div class="comment-actions">
+            <button class="ca-btn like">▲ 6</button>
+            <button class="ca-btn">Reply</button>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /comments -->
+
+</div><!-- /main -->
+
+
+<!-- ══════════════════════ SIDEBAR ══════════════════════ -->
+<div class="sidebar">
+
+  <!-- Currently playing indicator -->
+  <div class="playing-now">
+    <span class="live-dot"></span>
+    Replaying session A3F9
+  </div>
+
+  <!-- Autoplay toggle -->
+  <div class="sidebar-head">
+    <span class="sh-label">Up Next</span>
+    <div class="autoplay-row">
+      <span class="ap-label">Autoplay</span>
+      <div class="ap-toggle"></div>
+    </div>
+  </div>
+
+  <!-- Playlist -->
+  <div>
+
+    <!-- Item 1 — LIVE -->
+    <div class="playlist-item">
+      <div class="pi-thumb">
+        <div class="pi-thumb-code">
+<span style="color:var(--faint)">func</span> <span style="color:var(--green)">handler</span><span style="color:var(--muted)">(w, r) {</span>
+<span style="color:var(--muted)">  tok :=</span> <span style="color:var(--green)">extract</span><span style="color:var(--muted)">(r)</span>
+<span style="color:var(--muted)">  if tok == "" {</span>
+<span style="color:var(--muted)">    return 401</span>
+        </div>
+        <div class="pi-status live">● LIVE</div>
+        <div class="pi-duration">Live</div>
+      </div>
+      <div class="pi-meta">
+        <div class="pi-title">Fix React hydration mismatch in Next.js 15 App Router</div>
+        <div class="pi-owner">@devuser_99</div>
+        <div class="pi-stats">89 events · 6 watching</div>
+      </div>
+    </div>
+
+    <!-- Item 2 -->
+    <div class="playlist-item">
+      <div class="pi-thumb">
+        <div class="pi-thumb-code">
+<span style="color:var(--faint)">SELECT</span> <span style="color:var(--green)">s.*,</span>
+<span style="color:var(--faint)">COUNT</span><span style="color:var(--muted)">(e.id)</span>
+<span style="color:var(--faint)">FROM</span> <span style="color:var(--green)">sessions</span>
+<span style="color:var(--faint)">WHERE</span> <span style="color:var(--muted)">status = 'live'</span>
+        </div>
+        <div class="pi-status ended">◼ ENDED</div>
+        <div class="pi-duration">36:14</div>
+      </div>
+      <div class="pi-meta">
+        <div class="pi-title">Optimize session queries — composite indexes, EXPLAIN ANALYZE</div>
+        <div class="pi-owner">@alice_codes</div>
+        <div class="pi-stats">1,247 events · 31 views</div>
+      </div>
+    </div>
+
+    <!-- Item 3 (self — related) -->
+    <div class="playlist-item">
+      <div class="pi-thumb">
+        <div class="pi-thumb-code">
+<span style="color:var(--faint)">w.Header</span><span style="color:var(--muted)">().</span>
+<span style="color:var(--green)">Set</span><span style="color:var(--muted)">(</span>
+<span style="color:var(--red)">"Content-Type"</span><span style="color:var(--muted)">,</span>
+<span style="color:var(--red)">"text/event-stream"</span><span style="color:var(--muted)">)</span>
+        </div>
+        <div class="pi-status ended">◼ ENDED</div>
+        <div class="pi-duration">28:51</div>
+      </div>
+      <div class="pi-meta">
+        <div class="pi-title">SSE streaming — Redis pub/sub fan-out, heartbeats, replay buffer</div>
+        <div class="pi-owner">@mukulmalviya2</div>
+        <div class="pi-stats">743 events · 18 views</div>
+      </div>
+    </div>
+
+    <!-- Item 4 -->
+    <div class="playlist-item">
+      <div class="pi-thumb">
+        <div class="pi-thumb-code">
+<span style="color:var(--faint)">use</span> <span style="color:var(--green)">axum</span><span style="color:var(--muted)">::{Router,</span>
+<span style="color:var(--green)">routing</span><span style="color:var(--muted)">::get};</span>
+<span style="color:var(--faint)">async fn</span> <span style="color:var(--green)">main</span><span style="color:var(--muted)">() {</span>
+<span style="color:var(--faint)">  let</span> <span style="color:var(--muted)">app = Router</span>
+        </div>
+        <div class="pi-status ended">◼ ENDED</div>
+        <div class="pi-duration">41:07</div>
+      </div>
+      <div class="pi-meta">
+        <div class="pi-title">Rust + Axum async server — tokio routing and middleware stack</div>
+        <div class="pi-owner">@rust_fan</div>
+        <div class="pi-stats">611 events · 29 views</div>
+      </div>
+    </div>
+
+    <!-- Item 5 -->
+    <div class="playlist-item">
+      <div class="pi-thumb">
+        <div class="pi-thumb-code">
+<span style="color:var(--faint)">docker</span> <span style="color:var(--green)">compose</span>
+<span style="color:var(--muted)">  up --build</span>
+<span style="color:var(--muted)">  --detach</span>
+<span style="color:var(--cm)"># nginx + CF</span>
+        </div>
+        <div class="pi-status ended">◼ ENDED</div>
+        <div class="pi-duration">22:38</div>
+      </div>
+      <div class="pi-meta">
+        <div class="pi-title">Production deploy — Docker Compose, nginx, Cloudflare TLS termination</div>
+        <div class="pi-owner">@sarah_dev</div>
+        <div class="pi-stats">389 events · 17 views</div>
+      </div>
+    </div>
+
+    <!-- Item 6 -->
+    <div class="playlist-item">
+      <div class="pi-thumb">
+        <div class="pi-thumb-code">
+<span style="color:var(--faint)">const</span> <span style="color:var(--muted)">[theme,</span>
+<span style="color:var(--green)">setTheme</span><span style="color:var(--muted)">] =</span>
+<span style="color:var(--green)">useState</span><span style="color:var(--muted)">(</span><span style="color:var(--red)">'dark'</span><span style="color:var(--muted)">)</span>
+<span style="color:var(--green)">useEffect</span><span style="color:var(--muted)">(() => {</span>
+        </div>
+        <div class="pi-status ended">◼ ENDED</div>
+        <div class="pi-duration">18:44</div>
+      </div>
+      <div class="pi-meta">
+        <div class="pi-title">Dark/light theme toggle with system preference detection</div>
+        <div class="pi-owner">@mukulmalviya2</div>
+        <div class="pi-stats">421 events · 9 views</div>
+      </div>
+    </div>
+
+  </div><!-- /playlist -->
+
+</div><!-- /sidebar -->
+
+</div><!-- /page -->
+
+</body>
+</html>

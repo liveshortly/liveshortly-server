@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Build auth middleware — JWT + refresh token flow · LiveShortly Dev Story</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+
+/* ═══════════════ TOKENS ═══════════════ */
+:root {
+  --bg:       #16150f;
+  --panel:    #1e1d16;
+  --panel2:   #252419;
+  --panel3:   #2c2b22;
+  --hairline: #34322a;
+  --strong:   #ece8da;
+  --ink:      #ece8da;
+  --muted:    #a4a08f;
+  --faint:    #767365;
+  --green:    #4cae7a;
+  --green-bg: rgba(76,174,122,.07);
+  --red:      #e06a5a;
+  --amber:    #d6a94a;
+  --amber-bg: rgba(214,169,74,.08);
+  --blue:     #5b9bd5;
+  --font:     'JetBrains Mono','IBM Plex Mono',ui-monospace,monospace;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{font-family:var(--font);background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;line-height:1.6;}
+a{color:inherit;text-decoration:none;}
+button{font-family:var(--font);cursor:pointer;}
+
+/* scrollbar */
+*{scrollbar-width:thin;scrollbar-color:var(--hairline) transparent;}
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-thumb{background:var(--hairline);}
+
+/* animations */
+@keyframes blink{0%,49%{opacity:1;}50%,100%{opacity:0;}}
+
+/* ═══════════════ TOPBAR ═══════════════ */
+.topbar{
+  position:sticky;top:0;z-index:200;
+  background:rgba(22,21,15,.92);backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--hairline);
+  height:52px;display:flex;align-items:center;gap:12px;
+  padding:0 32px;
+}
+.brand{display:flex;align-items:center;gap:9px;font-size:14px;font-weight:700;letter-spacing:-.02em;margin-right:auto;}
+.mark{width:22px;height:22px;background:var(--green);border-radius:3px;position:relative;flex-shrink:0;}
+.mark::before{content:'';position:absolute;left:4px;top:5px;width:5px;height:11px;background:var(--panel);border-radius:1px;}
+.mark::after{content:'';position:absolute;left:12px;top:5px;width:6px;height:11px;border:2px solid var(--panel);background:var(--green);border-radius:1px;}
+.tb-sep{width:1px;height:22px;background:var(--hairline);}
+.tb-crumb{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--faint);display:flex;align-items:center;gap:8px;}
+.tb-crumb a{color:var(--muted);transition:color 120ms;}
+.tb-crumb a:hover{color:var(--ink);}
+.tb-crumb span{color:var(--hairline);}
+.tb-actions{display:flex;gap:8px;}
+.tb-btn{
+  font-size:10px;text-transform:uppercase;letter-spacing:.1em;font-weight:600;
+  border:1px solid var(--hairline);background:transparent;color:var(--muted);
+  padding:6px 14px;transition:all 120ms;
+}
+.tb-btn:hover{border-color:var(--strong);color:var(--ink);}
+.tb-btn.primary{
+  border-color:var(--green);background:var(--green);color:var(--bg);font-weight:700;
+}
+.tb-btn.primary:hover{background:#5dc98c;border-color:#5dc98c;}
+
+/* ═══════════════ ARTICLE LAYOUT ═══════════════ */
+.article-wrap{
+  max-width:1160px;margin:0 auto;padding:0 32px 96px;
+}
+
+/* ═══════════════ ARTICLE HEADER ═══════════════ */
+.article-header{
+  padding:56px 0 48px;
+  border-bottom:1px solid var(--hairline);
+  margin-bottom:0;
+}
+.ah-status-row{
+  display:flex;align-items:center;gap:12px;margin-bottom:20px;
+}
+.ah-published{
+  display:inline-flex;align-items:center;gap:7px;
+  font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.14em;
+  color:var(--green);border:1px solid var(--green);
+  background:var(--green-bg);padding:4px 12px;
+}
+.ah-ended{
+  font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--faint);
+}
+.ah-read-time{
+  margin-left:auto;
+  font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--faint);
+}
+.ah-title{
+  font-size:36px;font-weight:700;letter-spacing:-.02em;
+  color:var(--ink);line-height:1.15;margin-bottom:20px;
+  max-width:680px;
+}
+.ah-byline{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  margin-bottom:20px;
+}
+.ah-author{font-size:14px;color:var(--green);font-weight:600;}
+.ah-dot{color:var(--hairline);}
+.ah-model{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;}
+.ah-date{font-size:11px;color:var(--muted);}
+.ah-stats{
+  display:flex;align-items:center;gap:0;
+  flex-wrap:wrap;
+  margin-bottom:24px;
+}
+.ah-stat{
+  font-size:11px;color:var(--faint);
+  padding:0 16px;border-right:1px solid var(--hairline);
+  font-variant-numeric:tabular-nums;
+  display:flex;align-items:center;gap:6px;
+}
+.ah-stat:first-child{padding-left:0;}
+.ah-stat:last-child{border-right:none;}
+.ah-stat-val{color:var(--muted);font-weight:500;}
+.ah-tags{display:flex;gap:6px;flex-wrap:wrap;}
+.ah-tag{
+  font-size:9px;text-transform:uppercase;letter-spacing:.1em;
+  color:var(--muted);border:1px solid var(--hairline);padding:3px 9px;
+}
+
+/* ═══════════════ TWO-COL LAYOUT ═══════════════ */
+.two-col{
+  display:grid;
+  grid-template-columns:1fr 260px;
+  gap:48px;
+  align-items:start;
+  padding-top:48px;
+}
+.article-body{min-width:0;}
+
+/* ═══════════════ SIDEBAR (TOC) ═══════════════ */
+.sidebar{
+  position:sticky;top:72px;
+  display:flex;flex-direction:column;gap:0;
+}
+.toc{
+  background:var(--panel);border:1px solid var(--hairline);
+  padding:16px 18px;
+}
+.toc-title{
+  font-size:9px;text-transform:uppercase;letter-spacing:.14em;
+  font-weight:700;color:var(--faint);margin-bottom:12px;
+}
+.toc-item{
+  display:flex;align-items:flex-start;gap:10px;
+  padding:6px 0;border-top:1px solid var(--hairline);
+  font-size:11px;color:var(--muted);cursor:pointer;
+  transition:color 120ms;line-height:1.4;
+}
+.toc-item:first-of-type{border-top:none;padding-top:0;}
+.toc-item:hover{color:var(--ink);}
+.toc-num{color:var(--faint);flex-shrink:0;font-size:10px;margin-top:1px;}
+.toc-timestamp{
+  margin-top:3px;font-size:9px;color:var(--faint);
+  font-variant-numeric:tabular-nums;
+}
+
+/* session meta card in sidebar */
+.meta-card{
+  background:var(--panel);border:1px solid var(--hairline);
+  padding:14px 16px;margin-top:12px;
+  display:flex;flex-direction:column;gap:8px;
+}
+.mc-row{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;font-size:11px;}
+.mc-key{color:var(--faint);text-transform:uppercase;letter-spacing:.08em;font-size:9px;flex-shrink:0;margin-top:1px;}
+.mc-val{color:var(--muted);text-align:right;font-variant-numeric:tabular-nums;line-height:1.3;}
+.mc-val.green{color:var(--green);}
+
+/* share CTA in sidebar */
+.share-card{
+  background:var(--green-bg);border:1px solid var(--green);
+  padding:14px 16px;margin-top:12px;
+}
+.share-card-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--green);margin-bottom:6px;}
+.share-card-desc{font-size:10px;color:var(--muted);margin-bottom:10px;line-height:1.5;}
+.share-url{
+  font-size:9px;color:var(--faint);background:var(--panel);
+  padding:5px 8px;word-break:break-all;
+  border:1px solid var(--hairline);margin-bottom:8px;
+}
+.btn-copy{
+  width:100%;font-size:10px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.1em;background:var(--green);color:var(--bg);
+  border:none;padding:8px;transition:background 120ms;
+}
+.btn-copy:hover{background:#5dc98c;}
+
+/* ═══════════════ ARTICLE CONTENT ═══════════════ */
+
+/* AI summary */
+.ai-summary{
+  background:var(--green-bg);border:1px solid var(--green);
+  padding:20px 22px;margin-bottom:40px;
+}
+.ai-summary-head{
+  display:flex;align-items:center;gap:10px;
+  font-size:9px;text-transform:uppercase;letter-spacing:.14em;font-weight:700;
+  color:var(--green);margin-bottom:12px;
+}
+.ai-icon{
+  width:18px;height:18px;background:var(--green);color:var(--bg);
+  display:flex;align-items:center;justify-content:center;
+  font-size:10px;font-weight:700;flex-shrink:0;
+}
+.ai-summary-text{
+  font-size:14px;color:var(--muted);line-height:1.7;font-style:italic;
+}
+
+/* files built */
+.files-section{margin-bottom:40px;}
+.section-label{
+  font-size:9px;text-transform:uppercase;letter-spacing:.16em;font-weight:700;
+  color:var(--faint);margin-bottom:14px;
+  display:flex;align-items:center;gap:10px;
+}
+.section-label::after{
+  content:'';flex:1;height:1px;background:var(--hairline);
+}
+.file-list{display:flex;flex-direction:column;gap:6px;}
+.file-item{
+  display:flex;align-items:center;gap:12px;
+  padding:8px 12px;background:var(--panel);border:1px solid var(--hairline);
+  font-size:11px;
+}
+.fi-status{
+  font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
+  flex-shrink:0;padding:1px 6px;
+}
+.fi-status.created{color:var(--green);border:1px solid var(--green);}
+.fi-status.modified{color:var(--amber);border:1px solid var(--amber);}
+.fi-path{color:var(--ink);font-weight:500;flex:1;}
+.fi-lines{
+  font-size:10px;color:var(--faint);font-variant-numeric:tabular-nums;
+  flex-shrink:0;
+}
+.fi-lines .add{color:var(--green);}
+.fi-lines .del{color:var(--red);}
+
+/* chapter */
+.chapter{
+  margin-bottom:52px;
+  padding-top:4px;
+}
+.chapter-header{
+  display:flex;align-items:center;gap:14px;
+  margin-bottom:18px;
+  padding-bottom:14px;
+  border-bottom:1px solid var(--hairline);
+}
+.chapter-num{
+  font-size:9px;text-transform:uppercase;letter-spacing:.16em;font-weight:700;color:var(--faint);
+}
+.chapter-timestamp{
+  font-size:10px;color:var(--faint);font-variant-numeric:tabular-nums;
+  margin-left:auto;
+}
+.chapter-prompt{
+  font-size:19px;font-weight:700;color:var(--ink);line-height:1.3;
+  margin-bottom:18px;letter-spacing:-.01em;
+}
+.chapter-prompt::before{
+  content:'"';color:var(--green);margin-right:2px;
+}
+.chapter-prompt::after{
+  content:'"';color:var(--green);margin-left:2px;
+}
+
+/* response prose */
+.response{
+  color:var(--muted);font-size:14px;line-height:1.8;margin-bottom:20px;
+}
+.response p{margin-bottom:14px;}
+.response p:last-child{margin-bottom:0;}
+.response strong{color:var(--ink);font-weight:600;}
+.inline-code{
+  background:var(--panel2);border:1px solid var(--hairline);
+  padding:1px 5px;font-size:12px;color:var(--amber);
+}
+
+/* tool event */
+.tool-event{
+  display:flex;align-items:center;gap:10px;
+  padding:7px 12px;background:var(--panel2);
+  border-left:2px solid var(--hairline);
+  margin:10px 0;font-size:11px;
+}
+.te-icon{font-size:11px;flex-shrink:0;}
+.te-verb{font-size:9px;text-transform:uppercase;letter-spacing:.1em;font-weight:700;flex-shrink:0;}
+.te-verb.read{color:var(--blue);}
+.te-verb.write{color:var(--green);}
+.te-verb.run{color:var(--amber);}
+.te-path{color:var(--muted);flex:1;}
+.te-time{font-size:9px;color:var(--faint);font-variant-numeric:tabular-nums;flex-shrink:0;}
+
+/* code block */
+.code-block{
+  background:var(--panel);border:1px solid var(--hairline);
+  margin:20px 0;overflow:hidden;
+}
+.cb-header{
+  display:flex;align-items:center;gap:12px;
+  padding:8px 14px;border-bottom:1px solid var(--hairline);
+  background:var(--panel2);
+}
+.cb-filename{
+  font-size:11px;color:var(--muted);font-weight:500;
+}
+.cb-lang{
+  font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--faint);
+  margin-left:auto;
+}
+.cb-copy{
+  font-size:9px;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--faint);border:1px solid var(--hairline);
+  background:transparent;padding:2px 8px;transition:all 120ms;
+}
+.cb-copy:hover{color:var(--ink);border-color:var(--strong);}
+.cb-body{
+  padding:16px;font-size:12px;line-height:1.8;overflow-x:auto;
+}
+.kw{color:var(--amber);}
+.fn{color:var(--green);}
+.str{color:var(--red);}
+.cm{color:var(--faint);font-style:italic;}
+.tx{color:var(--muted);}
+.op{color:var(--ink);}
+.ln{color:var(--faint);min-width:24px;display:inline-block;text-align:right;margin-right:16px;user-select:none;font-size:10px;}
+.code-line{display:block;}
+
+/* key insight callout */
+.insight{
+  background:var(--amber-bg);border:1px solid var(--amber);
+  border-left:3px solid var(--amber);
+  padding:14px 18px;margin:20px 0;
+}
+.insight-head{
+  font-size:9px;text-transform:uppercase;letter-spacing:.14em;font-weight:700;
+  color:var(--amber);margin-bottom:8px;
+}
+.insight-body{font-size:13px;color:var(--muted);line-height:1.6;}
+
+/* viewer comment */
+.viewer-comment{
+  background:var(--panel);border:1px solid var(--hairline);
+  border-left:2px solid var(--amber);
+  padding:12px 16px;margin:20px 0;
+}
+.vc-head{
+  display:flex;align-items:center;gap:8px;margin-bottom:6px;
+}
+.vc-author{font-size:10px;font-weight:700;color:var(--amber);}
+.vc-badge{
+  font-size:8px;text-transform:uppercase;letter-spacing:.1em;
+  color:var(--faint);border:1px solid var(--hairline);padding:1px 5px;
+}
+.vc-ts{margin-left:auto;font-size:9px;color:var(--faint);font-variant-numeric:tabular-nums;}
+.vc-text{font-size:13px;color:var(--muted);line-height:1.6;}
+.vc-response{
+  margin-top:8px;padding-top:8px;border-top:1px solid var(--hairline);
+  font-size:12px;color:var(--muted);line-height:1.6;
+}
+.vc-response-head{
+  font-size:8px;text-transform:uppercase;letter-spacing:.1em;font-weight:700;
+  color:var(--green);margin-bottom:4px;
+}
+
+/* chapter divider */
+.chapter-divider{
+  display:flex;align-items:center;gap:16px;
+  margin:40px 0 48px;
+}
+.cd-line{flex:1;height:1px;background:var(--hairline);}
+.cd-glyph{color:var(--faint);font-size:12px;}
+
+/* epilogue / session close */
+.epilogue{
+  background:var(--panel);border:1px solid var(--hairline);
+  padding:24px 28px;margin-top:48px;
+}
+.ep-head{
+  font-size:9px;text-transform:uppercase;letter-spacing:.14em;font-weight:700;
+  color:var(--faint);margin-bottom:16px;
+  display:flex;align-items:center;gap:10px;
+}
+.ep-head::after{content:'';flex:1;height:1px;background:var(--hairline);}
+.ep-grid{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:16px;
+  margin-bottom:20px;
+}
+.ep-cell{display:flex;flex-direction:column;gap:4px;}
+.ep-val{font-size:20px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;line-height:1;}
+.ep-val.green{color:var(--green);}
+.ep-key{font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--faint);}
+.ep-desc{font-size:12px;color:var(--muted);line-height:1.6;}
+
+/* tags at bottom */
+.topic-cloud{
+  display:flex;gap:8px;flex-wrap:wrap;margin-top:32px;
+  padding-top:24px;border-top:1px solid var(--hairline);
+}
+.topic-tag{
+  font-size:10px;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--muted);border:1px solid var(--hairline);padding:4px 12px;
+  transition:all 120ms;cursor:pointer;
+}
+.topic-tag:hover{border-color:var(--strong);color:var(--ink);}
+
+/* author card at bottom */
+.author-card{
+  display:flex;align-items:center;gap:20px;
+  background:var(--panel);border:1px solid var(--hairline);
+  padding:20px 24px;margin-top:16px;
+}
+.author-avatar{
+  width:48px;height:48px;background:var(--panel3);
+  border:1px solid var(--hairline);flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;
+}
+.author-info{}
+.author-name{font-size:14px;font-weight:700;color:var(--green);margin-bottom:2px;}
+.author-handle{font-size:11px;color:var(--faint);margin-bottom:4px;}
+.author-desc{font-size:11px;color:var(--muted);line-height:1.5;}
+
+/* related sessions */
+.related-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px;}
+.related-card{
+  background:var(--panel);border:1px solid var(--hairline);
+  padding:14px 16px;display:flex;flex-direction:column;gap:6px;
+  cursor:pointer;transition:border-color 140ms;
+}
+.related-card:hover{border-color:var(--strong);}
+.rc-type{font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--faint);}
+.rc-title{font-size:12px;font-weight:600;color:var(--ink);line-height:1.3;}
+.rc-meta{font-size:10px;color:var(--muted);}
+
+/* progress bar */
+.progress-bar{
+  height:3px;background:var(--hairline);margin-bottom:0;
+  position:relative;overflow:hidden;
+}
+.progress-fill{
+  height:100%;background:var(--green);width:100%;
+}
+
+/* inline stat pill */
+.stat-pill{
+  display:inline-flex;align-items:center;gap:5px;
+  font-size:9px;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--faint);border:1px solid var(--hairline);
+  padding:2px 8px;vertical-align:middle;
+}
+
+</style>
+</head>
+<body>
+
+<!-- PROGRESS (session 100% complete) -->
+<div class="progress-bar"><div class="progress-fill"></div></div>
+
+<!-- TOPBAR -->
+<nav class="topbar">
+  <div class="brand">
+    <div class="mark"></div>
+    LiveShortly
+  </div>
+  <div class="tb-sep"></div>
+  <div class="tb-crumb">
+    <a href="dashboard.html">Dashboard</a>
+    <span>›</span>
+    <a href="session-viewer.html">Session A3F9</a>
+    <span>›</span>
+    <span style="color:var(--ink)">Dev Story</span>
+  </div>
+  <div class="tb-actions">
+    <button class="tb-btn">⊕ Share</button>
+    <button class="tb-btn">↓ Export PDF</button>
+    <button class="tb-btn primary">● Publish to Feed</button>
+  </div>
+</nav>
+
+<div class="article-wrap">
+
+  <!-- ARTICLE HEADER -->
+  <div class="article-header">
+    <div class="ah-status-row">
+      <span class="ah-published">◼ Session Ended</span>
+      <span class="ah-ended">Jun 30, 2026 · 14:47 UTC</span>
+      <span class="ah-read-time">≈ 8 min read</span>
+    </div>
+
+    <h1 class="ah-title">Build auth middleware — JWT + refresh token flow in Go</h1>
+
+    <div class="ah-byline">
+      <span class="ah-author">@mukulmalviya2</span>
+      <span class="ah-dot">·</span>
+      <span class="ah-model">claude-sonnet-4-6</span>
+      <span class="ah-dot">·</span>
+      <span class="ah-date">Jun 30, 2026</span>
+    </div>
+
+    <div class="ah-stats">
+      <div class="ah-stat"><span>Duration</span><span class="ah-stat-val">47m 23s</span></div>
+      <div class="ah-stat"><span>Events</span><span class="ah-stat-val">247</span></div>
+      <div class="ah-stat"><span>Tokens</span><span class="ah-stat-val">31,840</span></div>
+      <div class="ah-stat"><span>Files touched</span><span class="ah-stat-val">9</span></div>
+      <div class="ah-stat"><span>Viewers</span><span class="ah-stat-val">14</span></div>
+      <div class="ah-stat"><span>Comments</span><span class="ah-stat-val">3</span></div>
+    </div>
+
+    <div class="ah-tags">
+      <span class="ah-tag">#go</span>
+      <span class="ah-tag">#auth</span>
+      <span class="ah-tag">#jwt</span>
+      <span class="ah-tag">#middleware</span>
+      <span class="ah-tag">#redis</span>
+      <span class="ah-tag">#postgres</span>
+      <span class="ah-tag">#api</span>
+    </div>
+  </div>
+
+  <!-- TWO COLUMN -->
+  <div class="two-col">
+
+    <!-- MAIN ARTICLE BODY -->
+    <div class="article-body">
+
+      <!-- AI SUMMARY -->
+      <div class="ai-summary">
+        <div class="ai-summary-head">
+          <div class="ai-icon">AI</div>
+          Session Summary · Generated by Claude
+        </div>
+        <p class="ai-summary-text">
+          In this 47-minute session, the developer implemented a complete JWT-based authentication middleware stack for a Go REST API server. The work covered both web (cookie-based) and CLI (Bearer token) authentication paths, a database migration adding users and session tables, Google OAuth callback handling, and a device-flow for CLI access tokens. By the end, all API routes are protected behind the <span class="inline-code">Authn</span> middleware, with token verification, refresh-on-expiry, and a clean identity-resolution interface used by downstream handlers.
+        </p>
+      </div>
+
+      <!-- WHAT WAS BUILT -->
+      <div class="files-section">
+        <div class="section-label">Files Changed · 9 files · +847 −42 lines</div>
+        <div class="file-list">
+          <div class="file-item">
+            <span class="fi-status created">New</span>
+            <span class="fi-path">api/internal/auth/authn.go</span>
+            <span class="fi-lines"><span class="add">+187</span></span>
+          </div>
+          <div class="file-item">
+            <span class="fi-status created">New</span>
+            <span class="fi-path">api/internal/websession/jwt.go</span>
+            <span class="fi-lines"><span class="add">+124</span></span>
+          </div>
+          <div class="file-item">
+            <span class="fi-status created">New</span>
+            <span class="fi-path">api/internal/handlers/authweb.go</span>
+            <span class="fi-lines"><span class="add">+201</span></span>
+          </div>
+          <div class="file-item">
+            <span class="fi-status created">New</span>
+            <span class="fi-path">api/internal/handlers/device.go</span>
+            <span class="fi-lines"><span class="add">+163</span></span>
+          </div>
+          <div class="file-item">
+            <span class="fi-status created">New</span>
+            <span class="fi-path">infra/postgres/002-auth.sql</span>
+            <span class="fi-lines"><span class="add">+88</span></span>
+          </div>
+          <div class="file-item">
+            <span class="fi-status modified">Modified</span>
+            <span class="fi-path">api/cmd/server/main.go</span>
+            <span class="fi-lines"><span class="add">+44</span> <span class="del">−12</span></span>
+          </div>
+          <div class="file-item">
+            <span class="fi-status modified">Modified</span>
+            <span class="fi-path">api/internal/handlers/sessions.go</span>
+            <span class="fi-lines"><span class="add">+28</span> <span class="del">−18</span></span>
+          </div>
+          <div class="file-item">
+            <span class="fi-status modified">Modified</span>
+            <span class="fi-path">api/internal/config/config.go</span>
+            <span class="fi-lines"><span class="add">+12</span> <span class="del">−4</span></span>
+          </div>
+          <div class="file-item">
+            <span class="fi-status modified">Modified</span>
+            <span class="fi-path">AUTH.md</span>
+            <span class="fi-lines"><span class="add">+81</span> <span class="del">−8</span></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ════════════ CHAPTER 1 ════════════ -->
+      <div id="ch1" class="chapter">
+        <div class="chapter-header">
+          <span class="chapter-num">Chapter 1</span>
+          <span style="font-size:10px;color:var(--hairline)">·</span>
+          <span style="font-size:10px;color:var(--faint)">00:00</span>
+          <span class="chapter-timestamp">+00m 00s into session</span>
+        </div>
+
+        <div class="chapter-prompt">Let's build the auth middleware. Go API needs JWT on every route — Bearer for CLI, cookie for web.</div>
+
+        <div class="response">
+          <p>We'll start by designing the <strong>identity resolution layer</strong> — a single middleware that can handle both authentication paths without forcing handlers to care which one was used.</p>
+          <p>The <span class="inline-code">Authn</span> middleware will extract a token from either the <span class="inline-code">Authorization: Bearer &lt;jwt&gt;</span> header (CLI path) or the <span class="inline-code">ls_session</span> HttpOnly cookie (web path), verify it, and inject the resolved <span class="inline-code">Identity</span> into the request context. Downstream handlers call a single <span class="inline-code">auth.From(ctx)</span> helper — they never touch tokens directly.</p>
+        </div>
+
+        <div class="tool-event">
+          <span class="te-icon">📄</span>
+          <span class="te-verb read">Read</span>
+          <span class="te-path">api/cmd/server/main.go</span>
+          <span class="te-time">00:34</span>
+        </div>
+        <div class="tool-event">
+          <span class="te-icon">✏️</span>
+          <span class="te-verb write">Write</span>
+          <span class="te-path">api/internal/auth/authn.go</span>
+          <span class="te-time">01:12</span>
+        </div>
+
+        <div class="code-block">
+          <div class="cb-header">
+            <span class="cb-filename">api/internal/auth/authn.go</span>
+            <span class="cb-lang">Go</span>
+            <button class="cb-copy">Copy</button>
+          </div>
+          <div class="cb-body">
+<code><span class="code-line"><span class="ln">1</span><span class="cm">// Authn resolves a principal from Bearer token or ls_session cookie.</span></span>
+<span class="code-line"><span class="ln">2</span><span class="cm">// Returns 401 if neither is present or valid.</span></span>
+<span class="code-line"><span class="ln">3</span><span class="kw">func</span><span class="fn"> Authn</span><span class="tx">(next http.Handler) http.Handler {</span></span>
+<span class="code-line"><span class="ln">4</span><span class="tx">  </span><span class="kw">return</span><span class="tx"> http.</span><span class="fn">HandlerFunc</span><span class="tx">(</span><span class="kw">func</span><span class="tx">(w http.ResponseWriter, r *http.Request) {</span></span>
+<span class="code-line"><span class="ln">5</span><span class="tx">    token, err := </span><span class="fn">extractToken</span><span class="tx">(r)</span></span>
+<span class="code-line"><span class="ln">6</span><span class="tx">    </span><span class="kw">if</span><span class="tx"> err != </span><span class="kw">nil</span><span class="tx"> || token == </span><span class="str">""</span><span class="tx"> {</span></span>
+<span class="code-line"><span class="ln">7</span><span class="tx">      http.</span><span class="fn">Error</span><span class="tx">(w, </span><span class="str">"unauthorized"</span><span class="tx">, http.StatusUnauthorized)</span></span>
+<span class="code-line"><span class="ln">8</span><span class="tx">      </span><span class="kw">return</span></span>
+<span class="code-line"><span class="ln">9</span><span class="tx">    }</span></span>
+<span class="code-line"><span class="ln">10</span><span class="tx">    claims, err := ws.</span><span class="fn">Verify</span><span class="tx">(token)</span></span>
+<span class="code-line"><span class="ln">11</span><span class="tx">    </span><span class="kw">if</span><span class="tx"> </span><span class="fn">errors.Is</span><span class="tx">(err, ws.ErrExpired) {</span></span>
+<span class="code-line"><span class="ln">12</span><span class="tx">      http.</span><span class="fn">Error</span><span class="tx">(w, </span><span class="str">"token expired"</span><span class="tx">, http.StatusUnauthorized)</span></span>
+<span class="code-line"><span class="ln">13</span><span class="tx">      </span><span class="kw">return</span></span>
+<span class="code-line"><span class="ln">14</span><span class="tx">    }</span></span>
+<span class="code-line"><span class="ln">15</span><span class="tx">    ctx := context.</span><span class="fn">WithValue</span><span class="tx">(r.Context(), identityKey, </span><span class="fn">identityFrom</span><span class="tx">(claims))</span></span>
+<span class="code-line"><span class="ln">16</span><span class="tx">    next.</span><span class="fn">ServeHTTP</span><span class="tx">(w, r.</span><span class="fn">WithContext</span><span class="tx">(ctx))</span></span>
+<span class="code-line"><span class="ln">17</span><span class="tx">  })</span></span>
+<span class="code-line"><span class="ln">18</span><span class="tx">}</span></span></code>
+          </div>
+        </div>
+
+        <div class="insight">
+          <div class="insight-head">Key Design Decision</div>
+          <div class="insight-body">Both Bearer and cookie tokens share the same JWT format and verification logic — only the extraction path differs. This means the API doesn't need two separate auth stacks, and tokens issued by either flow can be verified by the same <span class="inline-code">ws.Verify()</span> call. The <span class="inline-code">typ</span> claim (<code style="color:var(--amber);font-size:12px">"web"</code> vs <code style="color:var(--amber);font-size:12px">"access"</code>) distinguishes them post-verification if a handler needs to know.</div>
+        </div>
+      </div>
+
+      <div class="chapter-divider"><div class="cd-line"></div><span class="cd-glyph">◈</span><div class="cd-line"></div></div>
+
+      <!-- ════════════ CHAPTER 2 ════════════ -->
+      <div id="ch2" class="chapter">
+        <div class="chapter-header">
+          <span class="chapter-num">Chapter 2</span>
+          <span style="font-size:10px;color:var(--hairline)">·</span>
+          <span style="font-size:10px;color:var(--faint)">12:40</span>
+          <span class="chapter-timestamp">+12m 40s into session</span>
+        </div>
+
+        <div class="chapter-prompt">Now let's do the database migration — I need users and auth_sessions tables before the OAuth callback can work.</div>
+
+        <div class="response">
+          <p>The auth migration adds two tables. <strong><span class="inline-code">users</span></strong> stores the Google-sourced identity (sub, email, handle, avatar URL) with a unique constraint on <span class="inline-code">google_sub</span> for upsert-on-login. <strong><span class="inline-code">auth_sessions</span></strong> stores CLI refresh tokens as JWTs with expiry and a soft-revoke flag — this lets the device flow issue long-lived sessions that can be invalidated without needing the secret.</p>
+          <p>We add <span class="inline-code">owner_id</span> as a foreign key on the existing <span class="inline-code">sessions</span> table so we can filter by user — and an index on it since every dashboard query will filter by owner.</p>
+        </div>
+
+        <div class="tool-event">
+          <span class="te-icon">✏️</span>
+          <span class="te-verb write">Write</span>
+          <span class="te-path">infra/postgres/002-auth.sql</span>
+          <span class="te-time">13:28</span>
+        </div>
+        <div class="tool-event">
+          <span class="te-icon">⚡</span>
+          <span class="te-verb run">Run</span>
+          <span class="te-path">psql -f infra/postgres/002-auth.sql</span>
+          <span class="te-time">14:02</span>
+        </div>
+
+        <div class="code-block">
+          <div class="cb-header">
+            <span class="cb-filename">infra/postgres/002-auth.sql</span>
+            <span class="cb-lang">SQL</span>
+            <button class="cb-copy">Copy</button>
+          </div>
+          <div class="cb-body">
+<code><span class="code-line"><span class="ln">1</span><span class="cm">-- users: one row per Google identity</span></span>
+<span class="code-line"><span class="ln">2</span><span class="kw">CREATE TABLE</span><span class="tx"> users (</span></span>
+<span class="code-line"><span class="ln">3</span><span class="tx">  id          </span><span class="fn">uuid</span><span class="tx">         </span><span class="kw">PRIMARY KEY DEFAULT</span><span class="fn"> gen_random_uuid</span><span class="tx">(),</span></span>
+<span class="code-line"><span class="ln">4</span><span class="tx">  google_sub  </span><span class="fn">text</span><span class="tx">         </span><span class="kw">NOT NULL UNIQUE</span><span class="tx">,</span></span>
+<span class="code-line"><span class="ln">5</span><span class="tx">  email       </span><span class="fn">text</span><span class="tx">         </span><span class="kw">NOT NULL</span><span class="tx">,</span></span>
+<span class="code-line"><span class="ln">6</span><span class="tx">  handle      </span><span class="fn">text</span><span class="tx">         </span><span class="kw">NOT NULL</span><span class="tx">,</span></span>
+<span class="code-line"><span class="ln">7</span><span class="tx">  avatar_url  </span><span class="fn">text</span><span class="tx">,</span></span>
+<span class="code-line"><span class="ln">8</span><span class="tx">  created_at  </span><span class="fn">timestamptz</span><span class="tx">  </span><span class="kw">NOT NULL DEFAULT now</span><span class="tx">()</span></span>
+<span class="code-line"><span class="ln">9</span><span class="tx">);</span></span>
+<span class="code-line"><span class="ln">10</span></span>
+<span class="code-line"><span class="ln">11</span><span class="cm">-- auth_sessions: CLI device-flow refresh tokens</span></span>
+<span class="code-line"><span class="ln">12</span><span class="kw">CREATE TABLE</span><span class="tx"> auth_sessions (</span></span>
+<span class="code-line"><span class="ln">13</span><span class="tx">  id          </span><span class="fn">uuid</span><span class="tx">         </span><span class="kw">PRIMARY KEY DEFAULT</span><span class="fn"> gen_random_uuid</span><span class="tx">(),</span></span>
+<span class="code-line"><span class="ln">14</span><span class="tx">  user_id     </span><span class="fn">uuid</span><span class="tx">         </span><span class="kw">NOT NULL REFERENCES</span><span class="tx"> users(id) </span><span class="kw">ON DELETE CASCADE</span><span class="tx">,</span></span>
+<span class="code-line"><span class="ln">15</span><span class="tx">  token_hash  </span><span class="fn">text</span><span class="tx">         </span><span class="kw">NOT NULL</span><span class="tx">,</span></span>
+<span class="code-line"><span class="ln">16</span><span class="tx">  expires_at  </span><span class="fn">timestamptz</span><span class="tx">  </span><span class="kw">NOT NULL</span><span class="tx">,</span></span>
+<span class="code-line"><span class="ln">17</span><span class="tx">  revoked     </span><span class="fn">boolean</span><span class="tx">      </span><span class="kw">NOT NULL DEFAULT false</span></span>
+<span class="code-line"><span class="ln">18</span><span class="tx">);</span></span>
+<span class="code-line"><span class="ln">19</span></span>
+<span class="code-line"><span class="ln">20</span><span class="cm">-- bind sessions to owners</span></span>
+<span class="code-line"><span class="ln">21</span><span class="kw">ALTER TABLE</span><span class="tx"> sessions </span><span class="kw">ADD COLUMN</span><span class="tx"> owner_id </span><span class="fn">uuid</span><span class="tx"> </span><span class="kw">REFERENCES</span><span class="tx"> users(id);</span></span>
+<span class="code-line"><span class="ln">22</span><span class="kw">CREATE INDEX</span><span class="tx"> idx_sessions_owner </span><span class="kw">ON</span><span class="tx"> sessions(owner_id);</span></span></code>
+          </div>
+        </div>
+
+        <!-- Viewer comment + Claude response in the session -->
+        <div class="viewer-comment">
+          <div class="vc-head">
+            <span class="vc-author">@devuser_99</span>
+            <span class="vc-badge">Viewer</span>
+            <span class="vc-ts">+13m 55s</span>
+          </div>
+          <div class="vc-text">Why store the token hash rather than the full token? Couldn't you just check expiry in the JWT itself?</div>
+          <div class="vc-response">
+            <div class="vc-response-head">Claude responded (via CLI injection)</div>
+            Good question — JWTs are stateless by design, so expiry is in the claim. But if a CLI token is compromised, we need a way to revoke it without invalidating all tokens or changing the secret. Storing the hash gives us a revoke-able allowlist: we check the DB on each refresh poll, and set <span class="inline-code">revoked=true</span> to kill a specific session. The tradeoff is one extra DB lookup per token refresh — worth it for security.
+          </div>
+        </div>
+      </div>
+
+      <div class="chapter-divider"><div class="cd-line"></div><span class="cd-glyph">◈</span><div class="cd-line"></div></div>
+
+      <!-- ════════════ CHAPTER 3 ════════════ -->
+      <div id="ch3" class="chapter">
+        <div class="chapter-header">
+          <span class="chapter-num">Chapter 3</span>
+          <span style="font-size:10px;color:var(--hairline)">·</span>
+          <span style="font-size:10px;color:var(--faint)">25:10</span>
+          <span class="chapter-timestamp">+25m 10s into session</span>
+        </div>
+
+        <div class="chapter-prompt">Wire up the Google OAuth callback — it needs to upsert the user and set the ls_session cookie.</div>
+
+        <div class="response">
+          <p>The Google OAuth callback flow: Google redirects to <span class="inline-code">/auth/google/callback</span> with a <span class="inline-code">code</span> param. We exchange it for an ID token, verify the token with Google's public keys, extract the user's <span class="inline-code">sub</span> (stable Google user ID), and upsert the <span class="inline-code">users</span> row. Then we issue a short-lived <strong>web JWT</strong> (24h, <span class="inline-code">typ=web</span>) and set it as an HttpOnly, SameSite=Lax cookie named <span class="inline-code">ls_session</span>.</p>
+          <p>The <span class="inline-code">state</span> param carries a CSRF nonce stored in a temporary cookie — we verify it on callback to prevent CSRF attacks before doing anything with the code.</p>
+        </div>
+
+        <div class="tool-event">
+          <span class="te-icon">✏️</span>
+          <span class="te-verb write">Write</span>
+          <span class="te-path">api/internal/handlers/authweb.go</span>
+          <span class="te-time">26:44</span>
+        </div>
+
+        <div class="code-block">
+          <div class="cb-header">
+            <span class="cb-filename">api/internal/handlers/authweb.go — callback handler (excerpt)</span>
+            <span class="cb-lang">Go</span>
+            <button class="cb-copy">Copy</button>
+          </div>
+          <div class="cb-body">
+<code><span class="code-line"><span class="ln">48</span><span class="kw">func</span><span class="tx"> (h *Handler) </span><span class="fn">GoogleCallback</span><span class="tx">(w http.ResponseWriter, r *http.Request) {</span></span>
+<span class="code-line"><span class="ln">49</span><span class="tx">  </span><span class="cm">// verify CSRF state nonce</span></span>
+<span class="code-line"><span class="ln">50</span><span class="tx">  </span><span class="kw">if</span><span class="tx"> err := </span><span class="fn">verifyState</span><span class="tx">(r); err != </span><span class="kw">nil</span><span class="tx"> {</span></span>
+<span class="code-line"><span class="ln">51</span><span class="tx">    http.</span><span class="fn">Error</span><span class="tx">(w, </span><span class="str">"invalid state"</span><span class="tx">, http.StatusBadRequest); </span><span class="kw">return</span></span>
+<span class="code-line"><span class="ln">52</span><span class="tx">  }</span></span>
+<span class="code-line"><span class="ln">53</span><span class="tx">  tok, err := h.oauth.</span><span class="fn">Exchange</span><span class="tx">(r.Context(), r.URL.Query().</span><span class="fn">Get</span><span class="tx">(</span><span class="str">"code"</span><span class="tx">))</span></span>
+<span class="code-line"><span class="ln">54</span><span class="tx">  </span><span class="cm">// ... verify ID token, extract sub ...</span></span>
+<span class="code-line"><span class="ln">55</span><span class="tx">  user, err := h.store.</span><span class="fn">UpsertUser</span><span class="tx">(r.Context(), sub, email, handle, avatar)</span></span>
+<span class="code-line"><span class="ln">56</span><span class="tx">  jwt, _ := ws.</span><span class="fn">Issue</span><span class="tx">(user.ID, user.Handle, </span><span class="str">"web"</span><span class="tx">, 24*time.Hour)</span></span>
+<span class="code-line"><span class="ln">57</span><span class="tx">  http.</span><span class="fn">SetCookie</span><span class="tx">(w, &http.Cookie{</span></span>
+<span class="code-line"><span class="ln">58</span><span class="tx">    Name:     </span><span class="str">"ls_session"</span><span class="tx">,</span></span>
+<span class="code-line"><span class="ln">59</span><span class="tx">    Value:    jwt,</span></span>
+<span class="code-line"><span class="ln">60</span><span class="tx">    HttpOnly: </span><span class="kw">true</span><span class="tx">,</span></span>
+<span class="code-line"><span class="ln">61</span><span class="tx">    SameSite: http.SameSiteLaxMode,</span></span>
+<span class="code-line"><span class="ln">62</span><span class="tx">    Path:     </span><span class="str">"/"</span><span class="tx">,</span></span>
+<span class="code-line"><span class="ln">63</span><span class="tx">    MaxAge:   86400,</span></span>
+<span class="code-line"><span class="ln">64</span><span class="tx">  })</span></span>
+<span class="code-line"><span class="ln">65</span><span class="tx">  http.</span><span class="fn">Redirect</span><span class="tx">(w, r, </span><span class="str">"/"</span><span class="tx">, http.StatusFound)</span></span>
+<span class="code-line"><span class="ln">66</span><span class="tx">}</span></span></code>
+          </div>
+        </div>
+      </div>
+
+      <div class="chapter-divider"><div class="cd-line"></div><span class="cd-glyph">◈</span><div class="cd-line"></div></div>
+
+      <!-- ════════════ CHAPTER 4 ════════════ -->
+      <div id="ch4" class="chapter">
+        <div class="chapter-header">
+          <span class="chapter-num">Chapter 4</span>
+          <span style="font-size:10px;color:var(--hairline)">·</span>
+          <span style="font-size:10px;color:var(--faint)">38:55</span>
+          <span class="chapter-timestamp">+38m 55s into session</span>
+        </div>
+
+        <div class="chapter-prompt">Last piece — the CLI device flow. The hooks need an access token without a browser. Poll-based: start → poll → done.</div>
+
+        <div class="response">
+          <p>The device flow is a classic OAuth-style polling exchange without browser dependency. The CLI calls <span class="inline-code">POST /auth/device/start</span> which creates a pending device grant stored in Redis with a short TTL, returning a <span class="inline-code">device_code</span> and a URL for the user to open in a browser. The browser flow authenticates the user and marks the grant as approved. The CLI polls <span class="inline-code">POST /auth/device/poll</span> with the <span class="inline-code">device_code</span> — once approved, it gets back an access token + refresh token pair, which the hook writes to <strong><span class="inline-code">~/.liveshortly/credentials.json</span></strong>.</p>
+        </div>
+
+        <div class="tool-event">
+          <span class="te-icon">✏️</span>
+          <span class="te-verb write">Write</span>
+          <span class="te-path">api/internal/handlers/device.go</span>
+          <span class="te-time">40:12</span>
+        </div>
+        <div class="tool-event">
+          <span class="te-icon">📄</span>
+          <span class="te-verb read">Read</span>
+          <span class="te-path">cli/hooks/session_start.py</span>
+          <span class="te-time">43:07</span>
+        </div>
+        <div class="tool-event">
+          <span class="te-icon">✏️</span>
+          <span class="te-verb write">Write</span>
+          <span class="te-path">AUTH.md</span>
+          <span class="te-time">45:50</span>
+        </div>
+
+        <div class="viewer-comment">
+          <div class="vc-head">
+            <span class="vc-author">@alice_codes</span>
+            <span class="vc-badge">Viewer</span>
+            <span class="vc-ts">+44m 18s</span>
+          </div>
+          <div class="vc-text">Does the CLI auto-refresh on expiry or does it need the user to run <code style="font-size:11px;color:var(--amber)">ls login</code> again?</div>
+          <div class="vc-response">
+            <div class="vc-response-head">Claude responded</div>
+            Auto-refresh — the hooks check token expiry before each API call. If the access token is within 60s of expiry, they call <span class="inline-code">/auth/device/refresh</span> with the refresh token. The refresh token itself lasts 30 days; the user only needs to <span class="inline-code">ls login</span> again if that expires or if they explicitly revoke it.
+          </div>
+        </div>
+
+        <div class="insight">
+          <div class="insight-head">The Full Auth Architecture</div>
+          <div class="insight-body">
+            Two token types, same JWT secret: <strong>web</strong> (24h, from cookie) and <strong>access</strong> (1h, Bearer). Both resolved by the same <span class="inline-code">Authn</span> middleware. Device grants are ephemeral Redis keys (5min TTL). Refresh tokens are in Postgres with soft-revoke. The CLI stores credentials in <span class="inline-code">~/.liveshortly/credentials.json</span> and auto-refreshes. Web sessions expire after 24h and the user re-authenticates via Google.
+          </div>
+        </div>
+      </div>
+
+      <!-- EPILOGUE -->
+      <div class="epilogue">
+        <div class="ep-head">Session Closed</div>
+        <div class="ep-grid">
+          <div class="ep-cell">
+            <div class="ep-val green">47m</div>
+            <div class="ep-key">Total duration</div>
+          </div>
+          <div class="ep-cell">
+            <div class="ep-val">247</div>
+            <div class="ep-key">Events emitted</div>
+          </div>
+          <div class="ep-cell">
+            <div class="ep-val">31.8k</div>
+            <div class="ep-key">Tokens used</div>
+          </div>
+          <div class="ep-cell">
+            <div class="ep-val">9</div>
+            <div class="ep-key">Files changed</div>
+          </div>
+        </div>
+        <div class="ep-desc" style="color:var(--muted);font-size:13px;line-height:1.7;border-top:1px solid var(--hairline);padding-top:14px;">
+          The session was stopped by the developer at <strong>14:47 UTC</strong>. Full auth is now live — every <span class="inline-code">/api</span> route (except <span class="inline-code">/auth/*</span> and <span class="inline-code">/health</span>) requires a valid principal resolved by <span class="inline-code">auth.Authn</span>. The migration was applied cleanly. Web login via Google OAuth works end-to-end, and the CLI device flow was manually tested. The complete auth spec was written to <span class="inline-code">AUTH.md</span> as a binding contract.
+        </div>
+      </div>
+
+      <!-- TAGS -->
+      <div class="topic-cloud">
+        <span style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--faint);margin-right:4px">Topics:</span>
+        <span class="topic-tag">#go</span>
+        <span class="topic-tag">#authentication</span>
+        <span class="topic-tag">#jwt</span>
+        <span class="topic-tag">#middleware</span>
+        <span class="topic-tag">#oauth2</span>
+        <span class="topic-tag">#redis</span>
+        <span class="topic-tag">#postgres</span>
+        <span class="topic-tag">#device-flow</span>
+        <span class="topic-tag">#cookies</span>
+        <span class="topic-tag">#api-security</span>
+      </div>
+
+      <!-- AUTHOR -->
+      <div class="author-card" style="margin-top:32px;">
+        <div class="author-avatar">👨‍💻</div>
+        <div class="author-info">
+          <div class="author-name">@mukulmalviya2</div>
+          <div class="author-handle">LiveShortly · Jun 30, 2026</div>
+          <div class="author-desc">Building LiveShortly — turn Claude Code sessions into live streams. Streaming development in real time so others can watch, learn, and comment.</div>
+        </div>
+        <div style="margin-left:auto;display:flex;flex-direction:column;gap:8px;flex-shrink:0;">
+          <button class="tb-btn" style="font-size:10px">Follow</button>
+          <button class="tb-btn primary" style="font-size:10px">Watch Live</button>
+        </div>
+      </div>
+
+      <!-- RELATED -->
+      <div style="margin-top:32px;">
+        <div class="section-label">More from @mukulmalviya2</div>
+        <div class="related-grid">
+          <div class="related-card">
+            <div class="rc-type">Ended · Jun 29</div>
+            <div class="rc-title">SSE streaming — Redis pub/sub fan-out, heartbeats, replay buffer</div>
+            <div class="rc-meta">743 events · 18 views · 28 min</div>
+          </div>
+          <div class="related-card">
+            <div class="rc-type">Ended · Jun 28</div>
+            <div class="rc-title">Postgres schema migration 001 — sessions and events tables</div>
+            <div class="rc-meta">412 events · 11 views · 19 min</div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /article-body -->
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+
+      <div class="toc">
+        <div class="toc-title">In this story</div>
+        <a href="#ch1" class="toc-item">
+          <span class="toc-num">01</span>
+          <div>
+            <div>JWT middleware skeleton</div>
+            <div class="toc-timestamp">+00m 00s</div>
+          </div>
+        </a>
+        <a href="#ch2" class="toc-item">
+          <span class="toc-num">02</span>
+          <div>
+            <div>Database migration 002</div>
+            <div class="toc-timestamp">+12m 40s</div>
+          </div>
+        </a>
+        <a href="#ch3" class="toc-item">
+          <span class="toc-num">03</span>
+          <div>
+            <div>Google OAuth callback</div>
+            <div class="toc-timestamp">+25m 10s</div>
+          </div>
+        </a>
+        <a href="#ch4" class="toc-item">
+          <span class="toc-num">04</span>
+          <div>
+            <div>CLI device flow</div>
+            <div class="toc-timestamp">+38m 55s</div>
+          </div>
+        </a>
+      </div>
+
+      <div class="meta-card">
+        <div class="mc-row">
+          <span class="mc-key">Session</span>
+          <span class="mc-val">#A3F9</span>
+        </div>
+        <div class="mc-row">
+          <span class="mc-key">Model</span>
+          <span class="mc-val">claude-sonnet-4-6</span>
+        </div>
+        <div class="mc-row">
+          <span class="mc-key">Duration</span>
+          <span class="mc-val green">47m 23s</span>
+        </div>
+        <div class="mc-row">
+          <span class="mc-key">Events</span>
+          <span class="mc-val">247</span>
+        </div>
+        <div class="mc-row">
+          <span class="mc-key">Tokens</span>
+          <span class="mc-val">31,840</span>
+        </div>
+        <div class="mc-row">
+          <span class="mc-key">Viewers</span>
+          <span class="mc-val">14 peak</span>
+        </div>
+        <div class="mc-row">
+          <span class="mc-key">Comments</span>
+          <span class="mc-val">3 (2 injected)</span>
+        </div>
+        <div class="mc-row">
+          <span class="mc-key">Ended</span>
+          <span class="mc-val">Jun 30 14:47</span>
+        </div>
+      </div>
+
+      <div class="share-card">
+        <div class="share-card-title">Share this story</div>
+        <div class="share-card-desc">This session has been turned into a shareable dev story. Anyone with the link can read the full narrative.</div>
+        <div class="share-url">liveshortly.dev/story/a3f9</div>
+        <button class="btn-copy">Copy Link ↗</button>
+      </div>
+
+      <div style="margin-top:12px;background:var(--panel);border:1px solid var(--hairline);padding:14px 16px;">
+        <div style="font-size:9px;text-transform:uppercase;letter-spacing:.14em;font-weight:700;color:var(--faint);margin-bottom:10px;">Publish to feed</div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.5;">Make this story discoverable on the public landing page and shareable on social.</div>
+        <button class="btn-copy" style="background:transparent;color:var(--green);border:1px solid var(--green);">● Publish as Story</button>
+      </div>
+
+    </div><!-- /sidebar -->
+
+  </div><!-- /two-col -->
+
+</div><!-- /article-wrap -->
+
+</body>
+</html>

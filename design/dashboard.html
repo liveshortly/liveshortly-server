@@ -1,0 +1,1105 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LiveShortly — Dashboard (New Design)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ── Design Tokens ─────────────────────────────────────────── */
+:root {
+  --bg:       #16150f;
+  --panel:    #1e1d16;
+  --panel2:   #252419;
+  --hairline: #34322a;
+  --strong:   #ece8da;
+  --ink:      #ece8da;
+  --muted:    #a4a08f;
+  --faint:    #767365;
+  --green:    #4cae7a;
+  --red:      #e06a5a;
+  --amber:    #d6a94a;
+  --shadow:   rgba(0,0,0,0.5);
+  --font:     'JetBrains Mono', 'IBM Plex Mono', ui-monospace, monospace;
+  --sidebar:  240px;
+  --nav-h:    56px;
+}
+
+/* ── Reset ─────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: inherit; text-decoration: none; }
+
+/* ── Utility ───────────────────────────────────────────────── */
+.label {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 600;
+}
+.tnum { font-variant-numeric: tabular-nums; }
+.flex { display: flex; }
+.gap4 { gap: 4px; }
+.gap8 { gap: 8px; }
+.gap12 { gap: 12px; }
+.gap16 { gap: 16px; }
+.items-center { align-items: center; }
+.justify-between { justify-content: space-between; }
+
+/* ── Live dot pulse ─────────────────────────────────────────── */
+@keyframes pulse {
+  0%,100% { opacity:1; transform:scale(1); }
+  50%      { opacity:0.3; transform:scale(0.75); }
+}
+.live-dot {
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--green);
+  animation: pulse 1.2s ease-in-out infinite;
+  flex-shrink: 0;
+}
+@keyframes blink {
+  0%,49% { opacity:1; } 50%,100% { opacity:0; }
+}
+.blink { animation: blink 1s step-end infinite; }
+
+/* ── Layout ─────────────────────────────────────────────────── */
+.app { display: flex; flex-direction: column; min-height: 100vh; }
+
+/* ── Navbar ─────────────────────────────────────────────────── */
+.navbar {
+  height: var(--nav-h);
+  background: var(--panel);
+  border-bottom: 1px solid var(--hairline);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 16px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  flex-shrink: 0;
+}
+.navbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.brand-mark {
+  width: 26px; height: 26px;
+  background: var(--green);
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  position: relative;
+}
+.brand-mark::before {
+  content: '';
+  position: absolute;
+  left: 6px; top: 7px;
+  width: 5px; height: 12px;
+  background: var(--panel);
+  border-radius: 1px;
+}
+.brand-mark::after {
+  content: '';
+  position: absolute;
+  left: 14px; top: 7px;
+  width: 7px; height: 12px;
+  border: 1.5px solid var(--panel);
+  background: var(--green);
+  border-radius: 1px;
+}
+.navbar-search {
+  flex: 1;
+  max-width: 420px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg);
+  border: 1px solid var(--hairline);
+  padding: 0 12px;
+  height: 34px;
+}
+.navbar-search input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.navbar-search input::placeholder { color: var(--faint); }
+.search-slash { color: var(--muted); font-size: 13px; }
+
+.navbar-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.stat-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--bg);
+  border: 1px solid var(--hairline);
+  padding: 5px 14px;
+  cursor: pointer;
+  transition: border-color 120ms;
+  min-width: 70px;
+}
+.stat-chip:hover { border-color: var(--strong); }
+.stat-chip .val {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.stat-chip .val.green { color: var(--green); }
+.stat-chip .lbl {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--faint);
+  margin-top: 2px;
+}
+.divider-v {
+  width: 1px;
+  height: 28px;
+  background: var(--hairline);
+  flex-shrink: 0;
+}
+.user-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.user-avatar {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: var(--green);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--panel);
+  flex-shrink: 0;
+}
+.user-info { line-height: 1.25; }
+.user-name { font-size: 12px; font-weight: 600; }
+.user-action { font-size: 9px; color: var(--red); text-transform: uppercase; letter-spacing: 0.1em; cursor: pointer; }
+
+/* ── Body layout: sidebar + main ───────────────────────────── */
+.body {
+  display: flex;
+  flex: 1;
+}
+
+/* ── Sidebar ─────────────────────────────────────────────────── */
+.sidebar {
+  width: var(--sidebar);
+  flex-shrink: 0;
+  background: var(--panel);
+  border-right: 1px solid var(--hairline);
+  padding: 20px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  position: sticky;
+  top: var(--nav-h);
+  height: calc(100vh - var(--nav-h));
+  overflow-y: auto;
+}
+.sidebar-section { padding: 0 16px; }
+.sidebar-heading {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--faint);
+  font-weight: 600;
+  margin-bottom: 8px;
+  padding-left: 2px;
+}
+.nav-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: background 120ms;
+  margin-bottom: 1px;
+}
+.nav-item:hover { background: var(--panel2); }
+.nav-item.active {
+  background: var(--panel2);
+  border-left: 2px solid var(--strong);
+  padding-left: 8px;
+}
+.nav-item-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 500;
+}
+.nav-item-label.live { color: var(--green); }
+.nav-count {
+  font-size: 10px;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+  background: var(--bg);
+  border: 1px solid var(--hairline);
+  padding: 1px 6px;
+  border-radius: 1px;
+}
+.nav-count.live {
+  color: var(--green);
+  border-color: var(--green);
+  background: rgba(76,174,122,0.08);
+}
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.tag {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  border: 1px solid var(--hairline);
+  padding: 3px 8px;
+  cursor: pointer;
+  transition: border-color 120ms, color 120ms;
+}
+.tag:hover { border-color: var(--amber); color: var(--amber); }
+
+/* ── Main content ─────────────────────────────────────────── */
+.main {
+  flex: 1;
+  min-width: 0;
+  padding: 24px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+/* ── Section header ───────────────────────────────────────── */
+.section-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 12px;
+  border-bottom: 1px dashed var(--hairline);
+  margin-bottom: 16px;
+}
+.section-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-weight: 700;
+  color: var(--ink);
+}
+.section-count {
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.section-filter {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.filter-btn {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  border: 1px solid var(--hairline);
+  background: transparent;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-family: var(--font);
+  transition: border-color 120ms, color 120ms;
+}
+.filter-btn:hover { border-color: var(--strong); color: var(--ink); }
+.filter-btn.active { border-color: var(--strong); background: var(--strong); color: var(--bg); }
+
+/* ── LIVE NOW: 2-column large cards ──────────────────────── */
+.live-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+/* ── Session Stream Card (large) ─────────────────────────── */
+.stream-card {
+  background: var(--panel);
+  border: 1px solid var(--hairline);
+  cursor: pointer;
+  transition: border-color 150ms, transform 150ms;
+  display: flex;
+  flex-direction: column;
+}
+.stream-card:hover {
+  border-color: var(--strong);
+  transform: translateY(-1px);
+}
+.stream-preview {
+  background: var(--bg);
+  border-bottom: 1px solid var(--hairline);
+  padding: 16px;
+  height: 180px;
+  overflow: hidden;
+  position: relative;
+  font-family: var(--font);
+  font-size: 11px;
+  line-height: 1.7;
+}
+.preview-lines { display: flex; flex-direction: column; gap: 0; }
+.preview-line { display: flex; gap: 8px; white-space: nowrap; }
+.ln { color: var(--faint); min-width: 24px; text-align: right; user-select: none; }
+.kw  { color: var(--amber); }
+.fn  { color: var(--green); }
+.str { color: var(--red); }
+.cm  { color: var(--faint); font-style: italic; }
+.tx  { color: var(--muted); }
+.op  { color: var(--ink); opacity: 0.7; }
+.preview-fade {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 48px;
+  background: linear-gradient(to bottom, transparent, var(--bg));
+}
+.preview-badge {
+  position: absolute;
+  top: 10px; left: 10px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--green);
+  color: var(--bg);
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  padding: 3px 8px;
+}
+.preview-badge.ended {
+  background: var(--panel2);
+  color: var(--muted);
+  border: 1px solid var(--hairline);
+}
+.preview-evt {
+  position: absolute;
+  top: 10px; right: 10px;
+  font-size: 9px;
+  color: var(--muted);
+  background: rgba(22,21,15,0.7);
+  border: 1px solid var(--hairline);
+  padding: 2px 7px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.stream-info {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.stream-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+.stream-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.stream-owner {
+  font-size: 11px;
+  color: var(--green);
+  font-weight: 500;
+}
+.stream-sep { color: var(--hairline); }
+.stream-model {
+  font-size: 10px;
+  color: var(--faint);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.stream-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--hairline);
+}
+.btn-outline {
+  font-family: var(--font);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 600;
+  border: 1px solid var(--hairline);
+  background: transparent;
+  color: var(--muted);
+  padding: 5px 12px;
+  cursor: pointer;
+  transition: all 120ms;
+}
+.btn-outline:hover { border-color: var(--strong); color: var(--ink); }
+.btn-solid {
+  font-family: var(--font);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 600;
+  border: 1px solid var(--strong);
+  background: var(--strong);
+  color: var(--bg);
+  padding: 5px 12px;
+  cursor: pointer;
+  transition: all 120ms;
+}
+.btn-solid:hover { background: var(--ink); border-color: var(--ink); }
+.btn-green {
+  font-family: var(--font);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 600;
+  border: 1px solid var(--green);
+  background: var(--green);
+  color: var(--bg);
+  padding: 5px 12px;
+  cursor: pointer;
+}
+
+/* ── RECENT SESSIONS: 4-column grid ─────────────────────── */
+.recent-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+/* ── Small session card ──────────────────────────────────── */
+.session-card {
+  background: var(--panel);
+  border: 1px solid var(--hairline);
+  cursor: pointer;
+  transition: border-color 150ms;
+  display: flex;
+  flex-direction: column;
+}
+.session-card:hover { border-color: var(--strong); }
+.session-preview-sm {
+  height: 80px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--hairline);
+  padding: 8px 10px;
+  overflow: hidden;
+  position: relative;
+  font-size: 9px;
+  line-height: 1.7;
+}
+.session-preview-sm .preview-fade {
+  height: 28px;
+}
+.session-badge {
+  position: absolute;
+  top: 6px; left: 6px;
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 2px 6px;
+}
+.session-badge.live {
+  background: var(--green);
+  color: var(--bg);
+}
+.session-badge.ended {
+  background: transparent;
+  border: 1px solid var(--hairline);
+  color: var(--faint);
+}
+.session-body {
+  padding: 10px 12px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.session-title-sm {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.session-info-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-top: auto;
+}
+.session-owner-sm {
+  font-size: 10px;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.session-time {
+  font-size: 9px;
+  color: var(--faint);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Search bar ─────────────────────────────────────────── */
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--panel);
+  border: 1px solid var(--hairline);
+  padding: 0 14px;
+  height: 40px;
+  margin-bottom: 4px;
+  transition: border-color 150ms;
+}
+.search-bar:focus-within { border-color: var(--strong); }
+.search-bar input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.search-bar input::placeholder { color: var(--faint); }
+
+/* ── Empty state ─────────────────────────────────────────── */
+.empty {
+  border: 1px dashed var(--hairline);
+  background: var(--panel);
+  padding: 48px 16px;
+  text-align: center;
+}
+.empty-title { font-size: 13px; color: var(--ink); text-transform: uppercase; letter-spacing: 0.1em; }
+.empty-sub { font-size: 12px; color: var(--muted); margin-top: 8px; }
+
+/* ── Status badge inline ─────────────────────────────────── */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 1px;
+}
+.status-badge.live { color: var(--green); border: 1px solid var(--green); }
+.status-badge.ended { color: var(--faint); border: 1px solid var(--hairline); }
+
+/* ── Scrollbar ──────────────────────────────────────────── */
+* { scrollbar-width: thin; scrollbar-color: var(--hairline) transparent; }
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--hairline); }
+::-webkit-scrollbar-thumb:hover { background: var(--faint); }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ═══ NAVBAR ══════════════════════════════════════════ -->
+  <nav class="navbar">
+    <a href="#" class="navbar-brand">
+      <div class="brand-mark"></div>
+      LiveShortly<span class="blink" style="color:var(--faint)">_</span>
+    </a>
+
+    <div style="width:1px;height:28px;background:var(--hairline);flex-shrink:0"></div>
+
+    <div class="navbar-search">
+      <span class="search-slash">/</span>
+      <input type="text" placeholder="Search sessions — title or tag">
+    </div>
+
+    <div class="navbar-right">
+      <a href="#" class="stat-chip">
+        <span class="val">24</span>
+        <span class="lbl">Total</span>
+      </a>
+      <a href="#" class="stat-chip">
+        <span class="val green flex items-center gap4"><span class="live-dot"></span>2</span>
+        <span class="lbl">Live Now</span>
+      </a>
+
+      <div class="divider-v"></div>
+
+      <div class="user-pill">
+        <div class="user-avatar">M</div>
+        <div class="user-info">
+          <div class="user-name">mukulmalviya2</div>
+          <div class="user-action">↩ Sign out</div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ═══ BODY ════════════════════════════════════════════ -->
+  <div class="body">
+
+    <!-- ── SIDEBAR ── -->
+    <aside class="sidebar">
+
+      <div class="sidebar-section">
+        <div class="sidebar-heading">Browse</div>
+        <div class="nav-item active">
+          <span class="nav-item-label">◈ All Sessions</span>
+          <span class="nav-count">24</span>
+        </div>
+        <div class="nav-item">
+          <span class="nav-item-label live">
+            <span class="live-dot"></span> Live
+          </span>
+          <span class="nav-count live">2</span>
+        </div>
+        <div class="nav-item">
+          <span class="nav-item-label" style="color:var(--muted)">▪ Ended</span>
+          <span class="nav-count">22</span>
+        </div>
+      </div>
+
+      <div style="height:1px;background:var(--hairline);margin:0 16px"></div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-heading">Shared With Me</div>
+        <div class="nav-item">
+          <span class="nav-item-label" style="color:var(--amber)">⊞ From Others</span>
+          <span class="nav-count" style="color:var(--amber);border-color:var(--amber)">3</span>
+        </div>
+      </div>
+
+      <div style="height:1px;background:var(--hairline);margin:0 16px"></div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-heading">Quick Filters</div>
+        <div class="tag-list">
+          <span class="tag">#python</span>
+          <span class="tag">#web</span>
+          <span class="tag">#api</span>
+          <span class="tag">#claude-4</span>
+          <span class="tag">#auth</span>
+          <span class="tag">#refactor</span>
+          <span class="tag">#debug</span>
+        </div>
+      </div>
+
+      <div style="height:1px;background:var(--hairline);margin:0 16px"></div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-heading">Models</div>
+        <div class="nav-item">
+          <span class="nav-item-label" style="color:var(--muted);font-size:11px">claude-sonnet-4-6</span>
+          <span class="nav-count">18</span>
+        </div>
+        <div class="nav-item">
+          <span class="nav-item-label" style="color:var(--muted);font-size:11px">claude-opus-4-8</span>
+          <span class="nav-count">6</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ── MAIN ── -->
+    <main class="main">
+
+      <!-- Search -->
+      <div class="search-bar">
+        <span style="color:var(--muted)">/</span>
+        <input type="text" placeholder="Search My Sessions — Title or Tag">
+      </div>
+
+      <!-- LIVE NOW section -->
+      <section>
+        <div class="section-head">
+          <span class="live-dot"></span>
+          <span class="section-title">Live Now</span>
+          <span class="section-count tnum">· 2</span>
+          <div class="section-filter">
+            <button class="filter-btn active">All</button>
+            <button class="filter-btn">Live</button>
+            <button class="filter-btn">Ended</button>
+          </div>
+        </div>
+
+        <div class="live-grid">
+
+          <!-- Live Card 1 -->
+          <div class="stream-card">
+            <div class="stream-preview">
+              <span class="preview-badge"><span class="live-dot" style="width:6px;height:6px"></span>LIVE</span>
+              <span class="preview-evt">⚙ 247 EVENTS</span>
+              <div class="preview-lines">
+                <div class="preview-line"><span class="ln">1</span><span class="cm">// auth middleware — JWT validation</span></div>
+                <div class="preview-line"><span class="ln">2</span><span class="kw">import</span><span class="tx"> { verify } </span><span class="kw">from</span><span class="str"> 'jsonwebtoken'</span></div>
+                <div class="preview-line"><span class="ln">3</span></div>
+                <div class="preview-line"><span class="ln">4</span><span class="kw">export</span><span class="tx"> </span><span class="kw">async function</span><span class="fn"> authenticate</span><span class="tx">(req, res, next) {</span></div>
+                <div class="preview-line"><span class="ln">5</span><span class="tx">  </span><span class="kw">const</span><span class="tx"> token = req.headers.</span><span class="fn">authorization</span></div>
+                <div class="preview-line"><span class="ln">6</span><span class="tx">    ?.replace(</span><span class="str">'Bearer '</span><span class="tx">, </span><span class="str">''</span><span class="tx">)</span></div>
+                <div class="preview-line"><span class="ln">7</span><span class="tx">  </span><span class="kw">if</span><span class="tx"> (!token) </span><span class="kw">return</span><span class="tx"> res.</span><span class="fn">status</span><span class="tx">(401).</span><span class="fn">json</span><span class="tx">({ error: </span><span class="str">'Unauthorized'</span><span class="tx"> })</span></div>
+                <div class="preview-line"><span class="ln">8</span><span class="tx">  </span><span class="kw">try</span><span class="tx"> {</span></div>
+                <div class="preview-line"><span class="ln">9</span><span class="tx">    </span><span class="kw">const</span><span class="tx"> payload = </span><span class="kw">await</span><span class="tx"> </span><span class="fn">verify</span><span class="tx">(token, process.env.</span><span class="kw">JWT_SECRET</span><span class="tx">)</span></div>
+              </div>
+              <div class="preview-fade"></div>
+            </div>
+            <div class="stream-info">
+              <div class="stream-title">Build auth middleware — JWT + refresh token flow</div>
+              <div class="stream-meta">
+                <span class="stream-owner">@mukulmalviya2</span>
+                <span class="stream-sep">·</span>
+                <span class="stream-model">claude-sonnet-4-6</span>
+                <span class="stream-sep">·</span>
+                <span style="font-size:10px;color:var(--muted)" class="tnum">247 events</span>
+              </div>
+            </div>
+            <div class="stream-actions">
+              <button class="btn-green">▶ WATCH LIVE</button>
+              <button class="btn-outline">⊕ SHARE</button>
+              <button class="btn-outline">● PUBLIC</button>
+            </div>
+          </div>
+
+          <!-- Live Card 2 -->
+          <div class="stream-card">
+            <div class="stream-preview">
+              <span class="preview-badge"><span class="live-dot" style="width:6px;height:6px"></span>LIVE</span>
+              <span class="preview-evt">⚙ 89 EVENTS</span>
+              <div class="preview-lines">
+                <div class="preview-line"><span class="ln">1</span><span class="cm">// fix React hydration mismatch</span></div>
+                <div class="preview-line"><span class="ln">2</span><span class="kw">import</span><span class="tx"> React, { </span><span class="fn">useEffect</span><span class="tx">, </span><span class="fn">useState</span><span class="tx"> } </span><span class="kw">from</span><span class="str"> 'react'</span></div>
+                <div class="preview-line"><span class="ln">3</span></div>
+                <div class="preview-line"><span class="ln">4</span><span class="kw">function</span><span class="fn"> ClientOnly</span><span class="tx">({ children }) {</span></div>
+                <div class="preview-line"><span class="ln">5</span><span class="tx">  </span><span class="kw">const</span><span class="tx"> [mounted, </span><span class="fn">setMounted</span><span class="tx">] = </span><span class="fn">useState</span><span class="tx">(</span><span class="kw">false</span><span class="tx">)</span></div>
+                <div class="preview-line"><span class="ln">6</span><span class="tx">  </span><span class="fn">useEffect</span><span class="tx">(() => </span><span class="fn">setMounted</span><span class="tx">(</span><span class="kw">true</span><span class="tx">), [])</span></div>
+                <div class="preview-line"><span class="ln">7</span><span class="tx">  </span><span class="kw">if</span><span class="tx"> (!mounted) </span><span class="kw">return</span><span class="tx"> </span><span class="kw">null</span></div>
+                <div class="preview-line"><span class="ln">8</span><span class="tx">  </span><span class="kw">return</span><span class="tx"> &lt;&gt;{children}&lt;/&gt;</span></div>
+                <div class="preview-line"><span class="ln">9</span><span class="tx">}</span></div>
+              </div>
+              <div class="preview-fade"></div>
+            </div>
+            <div class="stream-info">
+              <div class="stream-title">Fix React hydration mismatch in Next.js 15 App Router</div>
+              <div class="stream-meta">
+                <span class="stream-owner">@devuser_99</span>
+                <span class="stream-sep">·</span>
+                <span class="stream-model">claude-opus-4-8</span>
+                <span class="stream-sep">·</span>
+                <span style="font-size:10px;color:var(--muted)" class="tnum">89 events</span>
+              </div>
+            </div>
+            <div class="stream-actions">
+              <button class="btn-green">▶ WATCH LIVE</button>
+              <button class="btn-outline">⊕ SHARE</button>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- MY SESSIONS section -->
+      <section>
+        <div class="section-head">
+          <span class="section-title">My Sessions</span>
+          <span class="section-count tnum">· 22</span>
+          <div class="section-filter" style="margin-left:auto;display:flex;gap:6px">
+            <button class="filter-btn active">All</button>
+            <button class="filter-btn">Ended</button>
+          </div>
+        </div>
+
+        <div class="recent-grid">
+
+          <!-- Card 1 -->
+          <div class="session-card">
+            <div class="session-preview-sm">
+              <span class="session-badge ended">ENDED</span>
+              <div class="preview-lines" style="margin-top:20px">
+                <div class="preview-line"><span class="kw">async function</span><span class="fn"> migrate</span><span class="tx">() {</span></div>
+                <div class="preview-line"><span class="tx">  </span><span class="kw">await</span><span class="tx"> db.</span><span class="fn">runMigration</span><span class="tx">(</span><span class="str">'002'</span><span class="tx">)</span></div>
+                <div class="preview-line"><span class="tx">  console.</span><span class="fn">log</span><span class="tx">(</span><span class="str">'done'</span><span class="tx">)</span></div>
+              </div>
+              <div class="preview-fade"></div>
+            </div>
+            <div class="session-body">
+              <div class="session-title-sm">Postgres migration 002 — add auth tables and session indexes</div>
+              <div class="session-info-row">
+                <span class="session-owner-sm">@mukulmalviya2</span>
+                <span class="session-time">2h ago</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 2 -->
+          <div class="session-card">
+            <div class="session-preview-sm">
+              <span class="session-badge ended">ENDED</span>
+              <div class="preview-lines" style="margin-top:20px">
+                <div class="preview-line"><span class="kw">const</span><span class="tx"> router = </span><span class="fn">chi.NewRouter</span><span class="tx">()</span></div>
+                <div class="preview-line"><span class="tx">router.</span><span class="fn">Use</span><span class="tx">(auth.</span><span class="fn">Authn</span><span class="tx">)</span></div>
+                <div class="preview-line"><span class="tx">router.</span><span class="fn">Get</span><span class="tx">(</span><span class="str">"/api/sessions"</span><span class="tx">,...)</span></div>
+              </div>
+              <div class="preview-fade"></div>
+            </div>
+            <div class="session-body">
+              <div class="session-title-sm">Go API refactor — chi router, middleware chain setup</div>
+              <div class="session-info-row">
+                <span class="session-owner-sm">@mukulmalviya2</span>
+                <span class="session-time">5h ago</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 3 -->
+          <div class="session-card">
+            <div class="session-preview-sm">
+              <span class="session-badge ended">ENDED</span>
+              <div class="preview-lines" style="margin-top:20px">
+                <div class="preview-line"><span class="cm">// SSE stream handler</span></div>
+                <div class="preview-line"><span class="fn">w.Header</span><span class="tx">().</span><span class="fn">Set</span><span class="tx">(</span><span class="str">"Content-Type"</span><span class="tx">,</span></div>
+                <div class="preview-line"><span class="str">  "text/event-stream"</span><span class="tx">)</span></div>
+              </div>
+              <div class="preview-fade"></div>
+            </div>
+            <div class="session-body">
+              <div class="session-title-sm">SSE streaming — real-time event fan-out with Redis pub/sub</div>
+              <div class="session-info-row">
+                <span class="session-owner-sm">@mukulmalviya2</span>
+                <span class="session-time">1d ago</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 4 -->
+          <div class="session-card">
+            <div class="session-preview-sm">
+              <span class="session-badge ended">ENDED</span>
+              <div class="preview-lines" style="margin-top:20px">
+                <div class="preview-line"><span class="kw">export default function</span></div>
+                <div class="preview-line"><span class="fn"> EventStream</span><span class="tx">({ events }) {</span></div>
+                <div class="preview-line"><span class="tx">  </span><span class="kw">const</span><span class="tx"> endRef = </span><span class="fn">useRef</span><span class="tx">()</span></div>
+              </div>
+              <div class="preview-fade"></div>
+            </div>
+            <div class="session-body">
+              <div class="session-title-sm">EventStream component — auto-scroll chat transcript</div>
+              <div class="session-info-row">
+                <span class="session-owner-sm">@mukulmalviya2</span>
+                <span class="session-time">2d ago</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 5 -->
+          <div class="session-card">
+            <div class="session-preview-sm">
+              <span class="session-badge ended">ENDED</span>
+              <div class="preview-lines" style="margin-top:20px">
+                <div class="preview-line"><span class="kw">docker</span><span class="fn"> compose</span><span class="tx"> up</span></div>
+                <div class="preview-line"><span class="tx">  --build --detach</span></div>
+                <div class="preview-line"><span class="cm"># nginx reverse proxy</span></div>
+              </div>
+              <div class="preview-fade"></div>
+            </div>
+            <div class="session-body">
+              <div class="session-title-sm">Production deploy — Docker, nginx config, Cloudflare TLS</div>
+              <div class="session-info-row">
+                <span class="session-owner-sm">@mukulmalviya2</span>
+                <span class="session-time">3d ago</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 6 -->
+          <div class="session-card">
+            <div class="session-preview-sm">
+              <span class="session-badge ended">ENDED</span>
+              <div class="preview-lines" style="margin-top:20px">
+                <div class="preview-line"><span class="kw">const</span><span class="tx"> [theme, </span><span class="fn">setTheme</span><span class="tx">] =</span></div>
+                <div class="preview-line"><span class="fn">  useState</span><span class="tx">(</span><span class="str">'dark'</span><span class="tx">)</span></div>
+                <div class="preview-line"><span class="fn">useEffect</span><span class="tx">(() => {</span></div>
+              </div>
+              <div class="preview-fade"></div>
+            </div>
+            <div class="session-body">
+              <div class="session-title-sm">ThemeProvider — dark/light toggle with system preference detection</div>
+              <div class="session-info-row">
+                <span class="session-owner-sm">@mukulmalviya2</span>
+                <span class="session-time">4d ago</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 7 -->
+          <div class="session-card">
+            <div class="session-preview-sm">
+              <span class="session-badge ended">ENDED</span>
+              <div class="preview-lines" style="margin-top:20px">
+                <div class="preview-line"><span class="cm">// Google OAuth flow</span></div>
+                <div class="preview-line"><span class="kw">func</span><span class="fn"> GoogleCallback</span><span class="tx">(w</span></div>
+                <div class="preview-line"><span class="tx">    http.ResponseWriter, r</span></div>
+              </div>
+              <div class="preview-fade"></div>
+            </div>
+            <div class="session-body">
+              <div class="session-title-sm">Google OAuth callback handler + session cookie setup</div>
+              <div class="session-info-row">
+                <span class="session-owner-sm">@mukulmalviya2</span>
+                <span class="session-time">5d ago</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 8 -->
+          <div class="session-card">
+            <div class="session-preview-sm">
+              <span class="session-badge ended">ENDED</span>
+              <div class="preview-lines" style="margin-top:20px">
+                <div class="preview-line"><span class="cm">// CLI device flow</span></div>
+                <div class="preview-line"><span class="kw">POST</span><span class="fn"> /auth/device/start</span></div>
+                <div class="preview-line"><span class="kw">poll</span><span class="fn"> /auth/device/poll</span></div>
+              </div>
+              <div class="preview-fade"></div>
+            </div>
+            <div class="session-body">
+              <div class="session-title-sm">CLI device auth flow — start/poll tokens, credential storage</div>
+              <div class="session-info-row">
+                <span class="session-owner-sm">@mukulmalviya2</span>
+                <span class="session-time">6d ago</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- SHARED WITH ME section -->
+      <section>
+        <div class="section-head">
+          <span style="color:var(--amber);font-size:13px">⊞</span>
+          <span class="section-title">Shared With Me</span>
+          <span class="section-count tnum">· 3</span>
+        </div>
+
+        <div class="recent-grid">
+
+          <div class="session-card">
+            <div class="session-preview-sm">
+              <span class="session-badge live">LIVE</span>
+              <div class="preview-lines" style="margin-top:20px">
+                <div class="preview-line"><span class="kw">SELECT</span><span class="tx"> * </span><span class="kw">FROM</span><span class="fn"> sessions</span></div>
+                <div class="preview-line"><span class="kw">WHERE</span><span class="tx"> status = </span><span class="str">'live'</span></div>
+                <div class="preview-line"><span class="kw">ORDER BY</span><span class="tx"> created_at</span></div>
+              </div>
+              <div class="preview-fade"></div>
+            </div>
+            <div class="session-body">
+              <div class="session-title-sm">Optimize session query — add composite indexes</div>
+              <div class="session-info-row">
+                <span class="session-owner-sm" style="color:var(--amber)">⊞ viewer</span>
+                <span class="session-time">12m ago</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="session-card">
+            <div class="session-preview-sm">
+              <span class="session-badge ended">ENDED</span>
+              <div class="preview-lines" style="margin-top:20px">
+                <div class="preview-line"><span class="fn">testBuildPackage</span><span class="tx">()</span></div>
+                <div class="preview-line"><span class="tx">  expect(result).</span><span class="fn">toBe</span><span class="tx">(</span><span class="kw">true</span><span class="tx">)</span></div>
+              </div>
+              <div class="preview-fade"></div>
+            </div>
+            <div class="session-body">
+              <div class="session-title-sm">Add integration tests for build pipeline</div>
+              <div class="session-info-row">
+                <span class="session-owner-sm" style="color:var(--amber)">⊞ commenter</span>
+                <span class="session-time">1d ago</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="session-card">
+            <div class="session-preview-sm">
+              <span class="session-badge ended">ENDED</span>
+              <div class="preview-lines" style="margin-top:20px">
+                <div class="preview-line"><span class="cm">// CORS middleware</span></div>
+                <div class="preview-line"><span class="fn">cors.New</span><span class="tx">(cors.Options{</span></div>
+                <div class="preview-line"><span class="tx">  AllowedOrigins: []</span><span class="fn">string</span><span class="tx">{</span></div>
+              </div>
+              <div class="preview-fade"></div>
+            </div>
+            <div class="session-body">
+              <div class="session-title-sm">CORS setup for API — allowed origins config</div>
+              <div class="session-info-row">
+                <span class="session-owner-sm" style="color:var(--amber)">⊞ viewer</span>
+                <span class="session-time">3d ago</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+</body>
+</html>

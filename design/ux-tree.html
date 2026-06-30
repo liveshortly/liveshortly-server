@@ -1,0 +1,1348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LiveShortly — UX Tree & User Journey Map</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:       #16150f;
+  --panel:    #1e1d16;
+  --panel2:   #252419;
+  --panel3:   #2c2b22;
+  --hairline: #34322a;
+  --strong:   #ece8da;
+  --ink:      #ece8da;
+  --muted:    #a4a08f;
+  --faint:    #767365;
+  --green:    #4cae7a;
+  --green-bg: rgba(76,174,122,.08);
+  --red:      #e06a5a;
+  --red-bg:   rgba(224,106,90,.08);
+  --amber:    #d6a94a;
+  --amber-bg: rgba(214,169,74,.08);
+  --blue:     #5b9bd5;
+  --blue-bg:  rgba(91,155,213,.08);
+  --font:     'JetBrains Mono','IBM Plex Mono',ui-monospace,monospace;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{
+  font-family:var(--font);background:var(--bg);color:var(--ink);
+  -webkit-font-smoothing:antialiased;line-height:1.5;
+}
+a{color:inherit;text-decoration:none;}
+
+/* ── scrollbar ── */
+*{scrollbar-width:thin;scrollbar-color:var(--hairline) transparent;}
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-thumb{background:var(--hairline);}
+
+/* ── animations ── */
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.25;transform:scale(.65);}}
+@keyframes blink{0%,49%{opacity:1;}50%,100%{opacity:0;}}
+.live-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 1.2s ease-in-out infinite;flex-shrink:0;}
+
+/* ── layout ── */
+.page{max-width:1400px;margin:0 auto;padding:0 32px 80px;}
+
+/* ── NAV ── */
+.topbar{
+  position:sticky;top:0;z-index:100;
+  background:rgba(22,21,15,.92);backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--hairline);
+  display:flex;align-items:center;gap:12px;
+  padding:0 32px;height:52px;
+}
+.brand{display:flex;align-items:center;gap:9px;font-size:15px;font-weight:700;letter-spacing:-.02em;margin-right:16px;}
+.mark{width:24px;height:24px;background:var(--green);border-radius:4px;position:relative;flex-shrink:0;}
+.mark::before{content:'';position:absolute;left:5px;top:6px;width:5px;height:12px;background:var(--panel);border-radius:1px;}
+.mark::after{content:'';position:absolute;left:13px;top:6px;width:6px;height:12px;border:2px solid var(--panel);background:var(--green);border-radius:1px;}
+.topbar-sep{width:1px;height:24px;background:var(--hairline);}
+.topbar-links{display:flex;gap:0;}
+.tl{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);padding:5px 12px;border-radius:2px;transition:color 120ms,background 120ms;}
+.tl:hover,.tl.active{color:var(--ink);background:var(--panel);}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:8px;}
+.back{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);border:1px solid var(--hairline);padding:5px 12px;transition:all 120ms;}
+.back:hover{color:var(--ink);border-color:var(--strong);}
+
+/* ── page header ── */
+.ph{padding:48px 0 40px;border-bottom:1px solid var(--hairline);margin-bottom:48px;}
+.ph-eyebrow{font-size:10px;text-transform:uppercase;letter-spacing:.16em;color:var(--green);font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+.ph-title{font-size:32px;font-weight:700;letter-spacing:-.02em;color:var(--ink);margin-bottom:10px;}
+.ph-sub{font-size:13px;color:var(--muted);max-width:580px;line-height:1.6;}
+
+/* ── section ── */
+.sec{margin-bottom:64px;}
+.sec-head{display:flex;align-items:center;gap:10px;padding-bottom:14px;border-bottom:1px dashed var(--hairline);margin-bottom:24px;}
+.sec-num{font-size:10px;color:var(--faint);font-weight:600;letter-spacing:.1em;text-transform:uppercase;}
+.sec-title{font-size:12px;text-transform:uppercase;letter-spacing:.14em;font-weight:700;color:var(--ink);}
+.sec-desc{font-size:11px;color:var(--faint);margin-left:auto;}
+
+/* ── legend ── */
+.legend{display:flex;align-items:center;gap:24px;flex-wrap:wrap;padding:14px 18px;background:var(--panel);border:1px solid var(--hairline);margin-bottom:40px;}
+.leg-item{display:flex;align-items:center;gap:8px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);}
+.leg-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.leg-box{width:14px;height:10px;border-radius:1px;flex-shrink:0;}
+.leg-line{width:24px;height:2px;flex-shrink:0;position:relative;}
+.leg-line::after{content:'▸';position:absolute;right:-4px;top:-6px;font-size:10px;}
+
+/* ── node types ── */
+/* Screen node */
+.node-screen{
+  background:var(--panel);border:1px solid var(--hairline);
+  padding:12px 16px;display:inline-flex;flex-direction:column;gap:4px;
+  min-width:160px;
+}
+.node-screen.live{border-color:var(--green);background:var(--green-bg);}
+.node-screen.auth-gate{border-color:var(--amber);background:var(--amber-bg);}
+.node-screen.ext{border-color:var(--faint);border-style:dashed;}
+.node-screen.dead{border-color:var(--red);background:var(--red-bg);opacity:.7;}
+
+.node-label{font-size:9px;text-transform:uppercase;letter-spacing:.12em;font-weight:700;}
+.node-label.green{color:var(--green);}
+.node-label.amber{color:var(--amber);}
+.node-label.red{color:var(--red);}
+.node-label.faint{color:var(--faint);}
+.node-label.blue{color:var(--blue);}
+.node-title{font-size:12px;font-weight:600;color:var(--ink);line-height:1.3;}
+.node-sub{font-size:10px;color:var(--muted);line-height:1.4;}
+
+/* action node */
+.node-action{
+  background:transparent;border:1px solid var(--hairline);border-style:dashed;
+  padding:8px 14px;display:inline-flex;flex-direction:column;gap:3px;
+  font-size:11px;color:var(--muted);
+}
+
+/* decision diamond - rendered as tilted square via CSS */
+.node-decision{
+  background:var(--amber-bg);border:1px solid var(--amber);
+  padding:10px 16px;display:inline-flex;align-items:center;justify-content:center;
+  font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;
+  color:var(--amber);min-width:120px;text-align:center;
+}
+
+/* ── SCREEN INVENTORY GRID ── */
+.screen-grid{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:16px;
+}
+.screen-card{
+  background:var(--panel);border:1px solid var(--hairline);
+  padding:16px 18px;display:flex;flex-direction:column;gap:8px;
+  transition:border-color 150ms;
+}
+.screen-card:hover{border-color:var(--strong);}
+.screen-card.live-screen{border-color:var(--green);}
+.screen-card.auth-screen{border-color:var(--amber);}
+.screen-card.ext-screen{border-style:dashed;}
+.sc-type{font-size:9px;text-transform:uppercase;letter-spacing:.12em;font-weight:700;}
+.sc-name{font-size:14px;font-weight:700;color:var(--ink);}
+.sc-desc{font-size:11px;color:var(--muted);line-height:1.5;}
+.sc-features{display:flex;flex-direction:column;gap:3px;margin-top:4px;border-top:1px solid var(--hairline);padding-top:8px;}
+.sc-feature{font-size:10px;color:var(--faint);}
+.sc-feature::before{content:'◦ ';}
+.sc-links{display:flex;gap:5px;flex-wrap:wrap;margin-top:auto;padding-top:8px;}
+.sc-link-tag{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);border:1px solid var(--hairline);padding:2px 6px;}
+
+/* ── JOURNEY LANES ── */
+.journey{
+  background:var(--panel);border:1px solid var(--hairline);
+  padding:20px 24px;margin-bottom:20px;
+  display:flex;flex-direction:column;gap:14px;
+}
+.journey-header{
+  display:flex;align-items:center;gap:12px;
+  padding-bottom:12px;border-bottom:1px solid var(--hairline);
+}
+.journey-num{
+  font-size:20px;font-weight:700;color:var(--faint);line-height:1;
+}
+.journey-info{}
+.journey-type{font-size:9px;text-transform:uppercase;letter-spacing:.12em;font-weight:700;margin-bottom:2px;}
+.journey-name{font-size:14px;font-weight:700;color:var(--ink);}
+.journey-goal{font-size:11px;color:var(--muted);}
+.journey-badge{
+  margin-left:auto;font-size:9px;text-transform:uppercase;letter-spacing:.1em;
+  font-weight:700;padding:4px 12px;border-radius:1px;
+}
+
+/* flow row */
+.flow{
+  display:flex;align-items:stretch;gap:0;overflow-x:auto;
+  padding-bottom:4px;
+}
+.flow-step{
+  display:flex;flex-direction:column;align-items:flex-start;gap:6px;
+  flex-shrink:0;
+}
+.flow-node{
+  background:var(--panel2);border:1px solid var(--hairline);
+  padding:10px 14px;min-width:140px;max-width:180px;
+  display:flex;flex-direction:column;gap:4px;
+}
+.flow-node.screen-live{border-color:var(--green);background:var(--green-bg);}
+.flow-node.screen-auth{border-color:var(--amber);background:var(--amber-bg);}
+.flow-node.screen-ext{border-color:var(--faint);border-style:dashed;background:transparent;}
+.flow-node.screen-err{border-color:var(--red);background:var(--red-bg);}
+.fn-type{font-size:8px;text-transform:uppercase;letter-spacing:.12em;font-weight:700;}
+.fn-type.green{color:var(--green);}
+.fn-type.amber{color:var(--amber);}
+.fn-type.faint{color:var(--faint);}
+.fn-type.red{color:var(--red);}
+.fn-name{font-size:11px;font-weight:700;color:var(--ink);line-height:1.3;}
+.fn-action{font-size:10px;color:var(--muted);line-height:1.4;}
+.fn-tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:2px;}
+.fn-tag{font-size:8px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);border:1px solid var(--hairline);padding:1px 5px;}
+.flow-connector{
+  display:flex;align-items:center;padding:0 2px;flex-shrink:0;
+  align-self:center;margin-bottom:28px; /* offset for type label */
+}
+.connector-line{
+  height:1px;width:28px;background:var(--hairline);
+  position:relative;display:flex;align-items:center;
+}
+.connector-label{
+  position:absolute;top:-20px;left:50%;transform:translateX(-50%);
+  font-size:8px;text-transform:uppercase;letter-spacing:.06em;
+  color:var(--faint);white-space:nowrap;
+  background:var(--bg);padding:0 4px;
+}
+.connector-arrow{color:var(--faint);font-size:10px;margin-left:-4px;line-height:1;}
+
+/* branch connector (vertical split) */
+.flow-branch{
+  display:flex;flex-direction:column;gap:8px;align-self:center;flex-shrink:0;
+}
+.branch-option{
+  display:flex;align-items:center;gap:0;
+}
+.branch-label{
+  font-size:8px;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--amber);padding:2px 6px;border:1px solid var(--amber);
+  white-space:nowrap;
+}
+
+/* ── ACCESS CONTROL MAP ── */
+.access-grid{
+  display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:1px;
+  background:var(--hairline);border:1px solid var(--hairline);
+}
+.access-header{
+  background:var(--panel2);padding:10px 14px;
+  font-size:9px;text-transform:uppercase;letter-spacing:.12em;font-weight:700;
+  text-align:center;
+}
+.access-header.green{color:var(--green);}
+.access-header.amber{color:var(--amber);}
+.access-row-label{background:var(--panel);padding:10px 14px;font-size:11px;font-weight:600;color:var(--ink);}
+.access-cell{background:var(--panel);padding:10px 14px;text-align:center;font-size:11px;}
+.access-yes{color:var(--green);}
+.access-no{color:var(--red);}
+.access-cond{color:var(--amber);}
+
+/* ── NAVIGATION MAP (from/to) ── */
+.nav-table{width:100%;border-collapse:collapse;}
+.nav-table th,.nav-table td{
+  padding:10px 14px;text-align:left;
+  border-bottom:1px solid var(--hairline);font-size:11px;
+}
+.nav-table th{
+  font-size:9px;text-transform:uppercase;letter-spacing:.12em;color:var(--faint);
+  background:var(--panel2);font-weight:600;
+}
+.nav-table tr:hover td{background:var(--panel2);}
+.nav-screen{font-weight:700;color:var(--ink);}
+.nav-cta{color:var(--green);font-weight:600;}
+.nav-paths{display:flex;gap:6px;flex-wrap:wrap;}
+.nav-path-chip{
+  font-size:9px;text-transform:uppercase;letter-spacing:.07em;
+  color:var(--muted);border:1px solid var(--hairline);padding:2px 7px;
+}
+.nav-path-chip.primary{border-color:var(--green);color:var(--green);}
+.nav-path-chip.auth{border-color:var(--amber);color:var(--amber);}
+
+/* ── STATE MACHINE ── */
+.states-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+.state-card{background:var(--panel);border:1px solid var(--hairline);padding:16px 18px;}
+.state-name{font-size:12px;font-weight:700;color:var(--ink);margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--hairline);}
+.state-triggers{display:flex;flex-direction:column;gap:6px;}
+.state-trig{font-size:11px;display:flex;align-items:flex-start;gap:8px;}
+.state-trig-evt{flex:1;color:var(--muted);}
+.state-trig-next{color:var(--green);font-weight:600;}
+.state-arrow{color:var(--hairline);}
+
+/* ── misc util ── */
+.label{font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.mt-4{margin-top:4px;}
+.mt-8{margin-top:8px;}
+.mt-12{margin-top:12px;}
+.gap-row{display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap;}
+
+/* ── entry node (user type) ── */
+.entry-nodes{display:flex;gap:12px;flex-wrap:wrap;}
+.entry-node{
+  background:var(--panel2);border:1px solid var(--hairline);
+  padding:14px 18px;display:flex;flex-direction:column;gap:4px;min-width:180px;
+}
+.en-icon{font-size:20px;line-height:1;margin-bottom:4px;}
+.en-label{font-size:9px;text-transform:uppercase;letter-spacing:.12em;font-weight:700;color:var(--faint);}
+.en-name{font-size:13px;font-weight:700;color:var(--ink);}
+.en-desc{font-size:10px;color:var(--muted);line-height:1.4;}
+
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="brand">
+    <div class="mark"></div>
+    LiveShortly
+  </div>
+  <div class="topbar-sep"></div>
+  <div class="topbar-links">
+    <a href="index.html" class="tl">← All Files</a>
+    <a href="#screen-inventory" class="tl">Screens</a>
+    <a href="#journeys" class="tl">Journeys</a>
+    <a href="#access" class="tl">Access</a>
+    <a href="#navmap" class="tl">Nav Map</a>
+    <a href="#states" class="tl">States</a>
+  </div>
+  <div class="topbar-right">
+    <a href="landing.html" class="back">↗ Landing Page</a>
+    <a href="dashboard.html" class="back">↗ Dashboard</a>
+    <a href="session-viewer.html" class="back">↗ Session Viewer</a>
+  </div>
+</div>
+
+<div class="page">
+
+<!-- PAGE HEADER -->
+<div class="ph">
+  <div class="ph-eyebrow"><span class="live-dot"></span> Design Documentation</div>
+  <h1 class="ph-title">UX Tree & User Journey Map</h1>
+  <p class="ph-sub">Complete screen inventory, user journey flows, access control matrix, and navigation paths for the LiveShortly platform.</p>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     LEGEND
+═══════════════════════════════════════════════ -->
+<div class="legend">
+  <span class="leg-item"><span class="leg-box" style="background:var(--green-bg);border:1.5px solid var(--green)"></span>Public Screen</span>
+  <span class="leg-item"><span class="leg-box" style="background:var(--amber-bg);border:1.5px solid var(--amber)"></span>Auth Gate / Decision</span>
+  <span class="leg-item"><span class="leg-box" style="background:var(--panel2);border:1px dashed var(--faint)"></span>External System</span>
+  <span class="leg-item"><span class="leg-box" style="background:var(--panel);border:1px solid var(--hairline)"></span>Authenticated Screen</span>
+  <span class="leg-item"><span class="leg-box" style="background:var(--red-bg);border:1.5px solid var(--red)"></span>Error / Dead End</span>
+  <span style="width:1px;height:16px;background:var(--hairline);flex-shrink:0"></span>
+  <span class="leg-item"><span class="leg-line" style="background:var(--green)"></span>Primary CTA</span>
+  <span class="leg-item"><span class="leg-line" style="background:var(--hairline)"></span>Navigation</span>
+  <span class="leg-item"><span class="leg-line" style="background:var(--amber)"></span>Auth Required</span>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     USER TYPES
+═══════════════════════════════════════════════ -->
+<div class="sec" id="users">
+  <div class="sec-head">
+    <span class="sec-num">00</span>
+    <span class="sec-title">User Types & Entry Points</span>
+    <span class="sec-desc">Who uses LiveShortly and how they arrive</span>
+  </div>
+
+  <div class="entry-nodes">
+    <div class="entry-node">
+      <div class="en-icon">👤</div>
+      <div class="en-label">User Type · Unauthenticated</div>
+      <div class="en-name">Anonymous Visitor</div>
+      <div class="en-desc">Arrives via search, social link, or direct URL. Can browse and watch sessions without logging in. Cannot comment.</div>
+      <div class="mt-8">
+        <span class="sc-link-tag">#discover</span>
+        <span class="sc-link-tag">#watch</span>
+        <span class="sc-link-tag">#no-auth</span>
+      </div>
+    </div>
+    <div class="entry-node" style="border-color:var(--amber)">
+      <div class="en-icon">🔗</div>
+      <div class="en-label">User Type · Unauthenticated</div>
+      <div class="en-name">Shared Link Visitor</div>
+      <div class="en-desc">Receives a direct session link from a developer. Lands directly on Session Viewer. Can watch; must sign in to comment if commenter access is granted.</div>
+      <div class="mt-8">
+        <span class="sc-link-tag">#shared-link</span>
+        <span class="sc-link-tag">#direct</span>
+      </div>
+    </div>
+    <div class="entry-node" style="border-color:var(--green)">
+      <div class="en-icon">💻</div>
+      <div class="en-label">User Type · Authenticated</div>
+      <div class="en-name">Developer / Streamer</div>
+      <div class="en-desc">Signed in with Google. Runs Claude Code with hooks installed. Owns sessions. Can share, end, make public, and inject comments from CLI.</div>
+      <div class="mt-8">
+        <span class="sc-link-tag">#owner</span>
+        <span class="sc-link-tag">#cli</span>
+        <span class="sc-link-tag">#stream</span>
+      </div>
+    </div>
+    <div class="entry-node">
+      <div class="en-icon">👁️</div>
+      <div class="en-label">User Type · Authenticated</div>
+      <div class="en-name">Viewer / Commenter</div>
+      <div class="en-desc">Signed in. Access granted via share (viewer or commenter role). Can watch replays of ended sessions and comment on sessions with commenter access.</div>
+      <div class="mt-8">
+        <span class="sc-link-tag">#viewer</span>
+        <span class="sc-link-tag">#commenter</span>
+        <span class="sc-link-tag">#shared</span>
+      </div>
+    </div>
+    <div class="entry-node" style="border-style:dashed">
+      <div class="en-icon">🤖</div>
+      <div class="en-label">User Type · Non-Human</div>
+      <div class="en-name">CLI Hook / System</div>
+      <div class="en-desc">Python hooks fired by Claude Code events. Posts session events via Bearer JWT. Drains viewer comments to inject into Claude context.</div>
+      <div class="mt-8">
+        <span class="sc-link-tag">#api</span>
+        <span class="sc-link-tag">#bearer</span>
+        <span class="sc-link-tag">#automated</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     SCREEN INVENTORY
+═══════════════════════════════════════════════ -->
+<div class="sec" id="screen-inventory">
+  <div class="sec-head">
+    <span class="sec-num">01</span>
+    <span class="sec-title">Screen Inventory</span>
+    <span class="sec-desc">All surfaces in the product</span>
+  </div>
+
+  <div class="screen-grid">
+
+    <!-- Landing -->
+    <div class="screen-card" style="border-color:var(--green)">
+      <div class="sc-type green">Screen · Public</div>
+      <div class="sc-name">Landing Page</div>
+      <div class="sc-desc">Public home feed showing live and recent sessions. No auth required. Primary discovery and acquisition surface.</div>
+      <div class="sc-features">
+        <div class="sc-feature">Activity ticker — real-time scroll</div>
+        <div class="sc-feature">Hero — featured live session</div>
+        <div class="sc-feature">Live Now grid (3 col)</div>
+        <div class="sc-feature">Trending / Recent grids</div>
+        <div class="sc-feature">Category browse</div>
+        <div class="sc-feature">Start Streaming CTA banner</div>
+      </div>
+      <div class="sc-links">
+        <span class="sc-link-tag" style="border-color:var(--green);color:var(--green)">landing.html</span>
+        <span class="sc-link-tag">#public</span>
+        <span class="sc-link-tag">#feed</span>
+      </div>
+    </div>
+
+    <!-- Auth -->
+    <div class="screen-card" style="border-color:var(--amber)">
+      <div class="sc-type amber">Screen · Auth Gate</div>
+      <div class="sc-name">Sign In</div>
+      <div class="sc-desc">Google OAuth 2.0 flow. Web users sign in via /auth/google/login → callback → ls_session cookie. CLI users use device flow with access + refresh tokens.</div>
+      <div class="sc-features">
+        <div class="sc-feature">Google OAuth redirect</div>
+        <div class="sc-feature">ls_session cookie (web)</div>
+        <div class="sc-feature">Device flow (CLI)</div>
+        <div class="sc-feature">Token refresh logic</div>
+      </div>
+      <div class="sc-links">
+        <span class="sc-link-tag" style="border-color:var(--amber);color:var(--amber)">/auth/google/*</span>
+        <span class="sc-link-tag">#oauth</span>
+        <span class="sc-link-tag">#jwt</span>
+      </div>
+    </div>
+
+    <!-- Dashboard -->
+    <div class="screen-card">
+      <div class="sc-type" style="color:var(--blue)">Screen · Authenticated</div>
+      <div class="sc-name">Dashboard</div>
+      <div class="sc-desc">Authenticated home. Session browser with MY SESSIONS and SHARED WITH ME tables. Live stat chips. Session management actions.</div>
+      <div class="sc-features">
+        <div class="sc-feature">My Sessions table (paginated)</div>
+        <div class="sc-feature">Shared With Me table</div>
+        <div class="sc-feature">Search sessions</div>
+        <div class="sc-feature">⊕ Share / ● Make Public buttons</div>
+        <div class="sc-feature">Live Now stat chip</div>
+        <div class="sc-feature">Auto-refresh every 5s</div>
+      </div>
+      <div class="sc-links">
+        <span class="sc-link-tag" style="color:var(--blue);border-color:var(--blue)">dashboard.html</span>
+        <span class="sc-link-tag">#auth-required</span>
+      </div>
+    </div>
+
+    <!-- Session Viewer -->
+    <div class="screen-card" style="border-color:var(--green)">
+      <div class="sc-type green">Screen · Public + Auth</div>
+      <div class="sc-name">Session Viewer</div>
+      <div class="sc-desc">Core stream page. SSE for live sessions, static events for ended. Split layout: event stream left, chat right. Works for all access levels.</div>
+      <div class="sc-features">
+        <div class="sc-feature">SSE live stream (live sessions)</div>
+        <div class="sc-feature">Event log — bubbles + sys rows</div>
+        <div class="sc-feature">Chat sidebar (authenticated)</div>
+        <div class="sc-feature">Meta strip (model/events/views)</div>
+        <div class="sc-feature">Inline session rename</div>
+        <div class="sc-feature">⊘ End Session (owner only)</div>
+        <div class="sc-feature">Composer — inject to CLI</div>
+      </div>
+      <div class="sc-links">
+        <span class="sc-link-tag" style="color:var(--green);border-color:var(--green)">session-viewer.html</span>
+        <span class="sc-link-tag">#sse</span>
+        <span class="sc-link-tag">#realtime</span>
+      </div>
+    </div>
+
+    <!-- CLI Setup -->
+    <div class="screen-card" style="border-style:dashed">
+      <div class="sc-type faint">External · CLI</div>
+      <div class="sc-name">CLI Setup / Docs</div>
+      <div class="sc-desc">External: hook files in ~/.claude/hooks/. Developer installs 5 Python scripts and configures env vars. Sessions are then captured automatically.</div>
+      <div class="sc-features">
+        <div class="sc-feature">session_start.py</div>
+        <div class="sc-feature">user_prompt_submit.py</div>
+        <div class="sc-feature">pre_tool_use.py (comment drain)</div>
+        <div class="sc-feature">post_tool_use.py</div>
+        <div class="sc-feature">stop.py</div>
+      </div>
+      <div class="sc-links">
+        <span class="sc-link-tag">#external</span>
+        <span class="sc-link-tag">#cli</span>
+        <span class="sc-link-tag">#hooks</span>
+      </div>
+    </div>
+
+    <!-- Share Dialog -->
+    <div class="screen-card">
+      <div class="sc-type" style="color:var(--blue)">Overlay · Authenticated</div>
+      <div class="sc-name">Share Dialog</div>
+      <div class="sc-desc">Modal for sharing sessions. Grants viewer/commenter access to specific users, or generates a public link with role. Sets session visibility.</div>
+      <div class="sc-features">
+        <div class="sc-feature">Add user by email</div>
+        <div class="sc-feature">Set role: viewer / commenter</div>
+        <div class="sc-feature">Copy shareable link</div>
+        <div class="sc-feature">⊕ SHARE button → dialog</div>
+        <div class="sc-feature">● PUBLIC / ⊕ SHARE TO ALL</div>
+      </div>
+      <div class="sc-links">
+        <span class="sc-link-tag">#modal</span>
+        <span class="sc-link-tag">#overlay</span>
+        <span class="sc-link-tag">#auth-required</span>
+      </div>
+    </div>
+
+    <!-- API -->
+    <div class="screen-card" style="border-style:dashed">
+      <div class="sc-type faint">External · API</div>
+      <div class="sc-name">Go API Server</div>
+      <div class="sc-desc">REST + SSE backend on :8000. All /api routes require auth (Bearer or cookie). Manages sessions, events, shares, and the SSE fan-out.</div>
+      <div class="sc-features">
+        <div class="sc-feature">POST /api/sessions</div>
+        <div class="sc-feature">POST /api/sessions/{id}/events</div>
+        <div class="sc-feature">GET /api/sessions/{id}/stream (SSE)</div>
+        <div class="sc-feature">POST /api/sessions/{id}/comments</div>
+        <div class="sc-feature">PATCH /api/sessions/{id} (share)</div>
+      </div>
+      <div class="sc-links">
+        <span class="sc-link-tag">#backend</span>
+        <span class="sc-link-tag">#go</span>
+        <span class="sc-link-tag">#sse</span>
+      </div>
+    </div>
+
+    <!-- Error / 401 -->
+    <div class="screen-card" style="border-color:var(--red)">
+      <div class="sc-type red">Screen · Error State</div>
+      <div class="sc-name">Access Denied / 401</div>
+      <div class="sc-desc">Session exists but user lacks access. Shown when visiting a session that is private, not shared, or link-only and user is not authenticated.</div>
+      <div class="sc-features">
+        <div class="sc-feature">401 — sign in gate</div>
+        <div class="sc-feature">403 — no permission (owner-only)</div>
+        <div class="sc-feature">404 — session not found</div>
+      </div>
+      <div class="sc-links">
+        <span class="sc-link-tag" style="color:var(--red);border-color:var(--red)">#error</span>
+        <span class="sc-link-tag">#dead-end</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     USER JOURNEYS
+═══════════════════════════════════════════════ -->
+<div class="sec" id="journeys">
+  <div class="sec-head">
+    <span class="sec-num">02</span>
+    <span class="sec-title">User Journey Flows</span>
+    <span class="sec-desc">Step-by-step paths through the product</span>
+  </div>
+
+
+  <!-- ── JOURNEY 1: ANONYMOUS DISCOVERY ── -->
+  <div class="journey">
+    <div class="journey-header">
+      <div class="journey-num">J1</div>
+      <div class="journey-info">
+        <div class="journey-type green" style="color:var(--green)">User Type: Anonymous Visitor</div>
+        <div class="journey-name">Discover & Watch</div>
+        <div class="journey-goal">Goal: Browse sessions and watch a live stream without signing in</div>
+      </div>
+      <span class="journey-badge" style="background:var(--green-bg);border:1px solid var(--green);color:var(--green)">No Auth Required</span>
+    </div>
+
+    <div class="flow">
+      <div class="flow-step">
+        <div class="fn-type faint">Entry</div>
+        <div class="flow-node screen-ext">
+          <div class="fn-type faint">External</div>
+          <div class="fn-name">Web / Search / Social</div>
+          <div class="fn-action">User clicks link or types URL</div>
+        </div>
+      </div>
+
+      <div class="flow-connector"><div class="connector-line"><span class="connector-label">navigate</span></div><div class="connector-arrow">▸</div></div>
+
+      <div class="flow-step">
+        <div class="fn-type green">Screen · Public</div>
+        <div class="flow-node screen-live">
+          <div class="fn-name">Landing Page</div>
+          <div class="fn-action">Hero stream, Live Now grid, category browse</div>
+          <div class="fn-tags"><span class="fn-tag">ticker</span><span class="fn-tag">hero</span><span class="fn-tag">grid</span></div>
+        </div>
+      </div>
+
+      <div class="flow-connector"><div class="connector-line"><span class="connector-label">click stream</span></div><div class="connector-arrow">▸</div></div>
+
+      <div class="flow-step">
+        <div class="fn-type green">Screen · Public</div>
+        <div class="flow-node screen-live">
+          <div class="fn-name">Session Viewer</div>
+          <div class="fn-action">Watch live event stream in real time</div>
+          <div class="fn-tags"><span class="fn-tag">sse</span><span class="fn-tag">read-only</span></div>
+        </div>
+      </div>
+
+      <div class="flow-connector"><div class="connector-line"><span class="connector-label">wants to chat</span></div><div class="connector-arrow">▸</div></div>
+
+      <div class="flow-step">
+        <div class="fn-type amber">Gate · Auth</div>
+        <div class="flow-node screen-auth">
+          <div class="fn-name">Sign In Gate</div>
+          <div class="fn-action">Chat requires Google sign-in + commenter access</div>
+          <div class="fn-tags"><span class="fn-tag">oauth</span></div>
+        </div>
+      </div>
+
+      <div class="flow-connector"><div class="connector-line"><span class="connector-label">auth success</span></div><div class="connector-arrow">▸</div></div>
+
+      <div class="flow-step">
+        <div class="fn-type green">Screen · Auth</div>
+        <div class="flow-node screen-live">
+          <div class="fn-name">Session Viewer</div>
+          <div class="fn-action">Chat sidebar unlocked — type and send comments</div>
+          <div class="fn-tags"><span class="fn-tag">chat</span><span class="fn-tag">commenter</span></div>
+        </div>
+      </div>
+
+      <div class="flow-connector"><div class="connector-line"><span class="connector-label">comment sent</span></div><div class="connector-arrow">▸</div></div>
+
+      <div class="flow-step">
+        <div class="fn-type faint">System</div>
+        <div class="flow-node screen-ext">
+          <div class="fn-name">CLI Hook picks up</div>
+          <div class="fn-action">Comment injected into Claude's next context window</div>
+          <div class="fn-tags"><span class="fn-tag">redis</span><span class="fn-tag">sse</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ── JOURNEY 2: SHARED LINK VIEWER ── -->
+  <div class="journey">
+    <div class="journey-header">
+      <div class="journey-num">J2</div>
+      <div class="journey-info">
+        <div class="journey-type" style="color:var(--amber)">User Type: Shared Link Visitor</div>
+        <div class="journey-name">Open a Shared Session Link</div>
+        <div class="journey-goal">Goal: View a session shared directly — watch, then optionally comment</div>
+      </div>
+      <span class="journey-badge" style="background:var(--amber-bg);border:1px solid var(--amber);color:var(--amber)">Auth Optional</span>
+    </div>
+
+    <div class="flow">
+      <div class="flow-step">
+        <div class="fn-type faint">Entry</div>
+        <div class="flow-node screen-ext">
+          <div class="fn-type faint">External</div>
+          <div class="fn-name">Shared Link</div>
+          <div class="fn-action">Slack / email / DM — /session/{id} URL</div>
+          <div class="fn-tags"><span class="fn-tag">direct</span></div>
+        </div>
+      </div>
+
+      <div class="flow-connector"><div class="connector-line"><span class="connector-label">open URL</span></div><div class="connector-arrow">▸</div></div>
+
+      <div class="flow-step">
+        <div class="fn-type amber">Gate · Access Check</div>
+        <div class="flow-node screen-auth">
+          <div class="fn-name">Access Check</div>
+          <div class="fn-action">Is session public / link-only? Or does user have share grant?</div>
+          <div class="fn-tags"><span class="fn-tag">authz</span></div>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:6px;align-self:center;flex-shrink:0;padding:0 4px;margin-bottom:22px;">
+        <div style="display:flex;align-items:center;gap:4px;">
+          <div style="width:1px;height:32px;background:var(--green);margin-left:14px"></div>
+        </div>
+        <div style="font-size:8px;text-transform:uppercase;letter-spacing:.08em;color:var(--green);padding-left:4px">Access OK</div>
+        <div style="font-size:8px;text-transform:uppercase;letter-spacing:.08em;color:var(--red);padding-left:4px;margin-top:6px">Denied</div>
+      </div>
+
+      <div class="flow-step">
+        <div class="fn-type green">Screen · Public</div>
+        <div class="flow-node screen-live">
+          <div class="fn-name">Session Viewer</div>
+          <div class="fn-action">Watch live or replay events read-only</div>
+          <div class="fn-tags"><span class="fn-tag">watch</span><span class="fn-tag">sse</span></div>
+        </div>
+      </div>
+
+      <div class="flow-connector"><div class="connector-line"><span class="connector-label">if commenter role</span></div><div class="connector-arrow">▸</div></div>
+
+      <div class="flow-step">
+        <div class="fn-type amber">Gate · Auth</div>
+        <div class="flow-node screen-auth">
+          <div class="fn-name">Sign In Gate</div>
+          <div class="fn-action">Must be signed in to post comments</div>
+        </div>
+      </div>
+
+      <div class="flow-connector"><div class="connector-line"><span class="connector-label">sign in</span></div><div class="connector-arrow">▸</div></div>
+
+      <div class="flow-step">
+        <div class="fn-type green">Screen · Auth</div>
+        <div class="flow-node screen-live">
+          <div class="fn-name">Session Viewer</div>
+          <div class="fn-action">Comment in chat → CLI picks up</div>
+          <div class="fn-tags"><span class="fn-tag">commenter</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- denied branch -->
+    <div style="display:flex;align-items:center;gap:8px;padding-left:320px;">
+      <div style="width:1px;height:20px;background:var(--red)"></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;padding-left:330px;">
+      <div style="width:24px;height:1px;background:var(--red)"></div>
+      <div class="flow-node screen-err" style="min-width:180px">
+        <div class="fn-type red">Error State</div>
+        <div class="fn-name">Access Denied</div>
+        <div class="fn-action">401 — sign in or request access from session owner</div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ── JOURNEY 3: START STREAMING ── -->
+  <div class="journey">
+    <div class="journey-header">
+      <div class="journey-num">J3</div>
+      <div class="journey-info">
+        <div class="journey-type green" style="color:var(--green)">User Type: Developer / Streamer</div>
+        <div class="journey-name">Start Streaming for the First Time</div>
+        <div class="journey-goal">Goal: Install hooks, stream a Claude Code session, and share the link</div>
+      </div>
+      <span class="journey-badge" style="background:var(--green-bg);border:1px solid var(--green);color:var(--green)">Auth Required</span>
+    </div>
+
+    <div class="flow">
+      <div class="flow-step">
+        <div class="fn-type faint">Entry</div>
+        <div class="flow-node screen-live">
+          <div class="fn-type green">Screen · Public</div>
+          <div class="fn-name">Landing Page</div>
+          <div class="fn-action">Sees "Start Streaming" CTA in hero or banner</div>
+        </div>
+      </div>
+
+      <div class="flow-connector"><div class="connector-line"><span class="connector-label">click CTA</span></div><div class="connector-arrow">▸</div></div>
+
+      <div class="flow-step">
+        <div class="fn-type amber">Gate · Auth</div>
+        <div class="flow-node screen-auth">
+          <div class="fn-name">Sign In</div>
+          <div class="fn-action">Google OAuth → ls_session cookie set</div>
+          <div class="fn-tags"><span class="fn-tag">google</span><span class="fn-tag">oauth</span></div>
+        </div>
+      </div>
+
+      <div class="flow-connector"><div class="connector-line"><span class="connector-label">success</span></div><div class="connector-arrow">▸</div></div>
+
+      <div class="flow-step">
+        <div class="fn-type" style="color:var(--blue)">Screen · Auth</div>
+        <div class="flow-node">
+          <div class="fn-name">Dashboard</div>
+          <div class="fn-action">No sessions yet — sees empty state with CLI setup instructions</div>
+          <div class="fn-tags"><span class="fn-tag">empty state</span></div>
+        </div>
+      </div>
+
+      <div class="flow-connector"><div class="connector-line"><span class="connector-label">install CLI</span></div><div class="connector-arrow">▸</div></div>
+
+      <div class="flow-step">
+        <div class="fn-type faint">External · CLI</div>
+        <div class="flow-node screen-ext">
+          <div class="fn-name">Install Hooks</div>
+          <div class="fn-action">Copy 5 Python files → ~/.claude/hooks/; run ls login for device flow</div>
+          <div class="fn-tags"><span class="fn-tag">device-flow</span><span class="fn-tag">jwt</span></div>
+        </div>
+      </div>
+
+      <div class="flow-connector"><div class="connector-line"><span class="connector-label">run Claude</span></div><div class="connector-arrow">▸</div></div>
+
+      <div class="flow-step">
+        <div class="fn-type faint">External · CLI</div>
+        <div class="flow-node screen-ext">
+          <div class="fn-name">Session Opens</div>
+          <div class="fn-action">session_start.py → POST /api/sessions → session ID created</div>
+          <div class="fn-tags"><span class="fn-tag">api</span><span class="fn-tag">postgres</span></div>
+        </div>
+      </div>
+
+      <div class="flow-connector"><div class="connector-line"><span class="connector-label">auto-navigate</span></div><div class="connector-arrow">▸</div></div>
+
+      <div class="flow-step">
+        <div class="fn-type green">Screen · Live</div>
+        <div class="flow-node screen-live">
+          <div class="fn-name">Session Viewer</div>
+          <div class="fn-action">Live stream. Owner sees End Session + Share + composer</div>
+          <div class="fn-tags"><span class="fn-tag">live</span><span class="fn-tag">owner</span></div>
+        </div>
+      </div>
+
+      <div class="flow-connector"><div class="connector-line"><span class="connector-label">share link</span></div><div class="connector-arrow">▸</div></div>
+
+      <div class="flow-step">
+        <div class="fn-type" style="color:var(--blue)">Overlay</div>
+        <div class="flow-node">
+          <div class="fn-name">Share Dialog</div>
+          <div class="fn-action">Add viewer by email or make public link. Set commenter role</div>
+          <div class="fn-tags"><span class="fn-tag">share</span><span class="fn-tag">access</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ── JOURNEY 4: RETURNING DEVELOPER ── -->
+  <div class="journey">
+    <div class="journey-header">
+      <div class="journey-num">J4</div>
+      <div class="journey-info">
+        <div class="journey-type" style="color:var(--blue)">User Type: Returning Developer</div>
+        <div class="journey-name">Review, Replay & Manage Past Sessions</div>
+        <div class="journey-goal">Goal: Open the dashboard, find a past session, replay events, share or publish</div>
+      </div>
+      <span class="journey-badge" style="background:rgba(91,155,213,.12);border:1px solid var(--blue);color:var(--blue)">Auth Required</span>
+    </div>
+
+    <div class="flow">
+      <div class="flow-step">
+        <div class="fn-type faint">Entry</div>
+        <div class="flow-node screen-ext">
+          <div class="fn-type faint">Direct / Bookmark</div>
+          <div class="fn-name">app.liveshortly.dev</div>
+          <div class="fn-action">User has active session cookie</div>
+        </div>
+      </div>
+
+      <div class="flow-connector"><div class="connector-line"><span class="connector-label">auth check</span></div><div class="connector-arrow">▸</div></div>
+
+      <div class="flow-step">
+        <div class="fn-type" style="color:var(--blue)">Screen · Auth</div>
+        <div class="flow-node">
+          <div class="fn-name">Dashboard</div>
+          <div class="fn-action">MY SESSIONS table — all past sessions listed with status badges</div>
+          <div class="fn-tags"><span class="fn-tag">table</span><span class="fn-tag">search</span></div>
+        </div>
+      </div>
+
+      <div class="flow-connector"><div class="connector-line"><span class="connector-label">click session</span></div><div class="connector-arrow">▸</div></div>
+
+      <div class="flow-step">
+        <div class="fn-type green">Screen · Ended</div>
+        <div class="flow-node">
+          <div class="fn-name">Session Viewer</div>
+          <div class="fn-action">Replay full event log. Read ENDED badge, meta strip</div>
+          <div class="fn-tags"><span class="fn-tag">replay</span><span class="fn-tag">owner</span></div>
+        </div>
+      </div>
+
+      <div class="flow-connector"><div class="connector-line"><span class="connector-label">action</span></div><div class="connector-arrow">▸</div></div>
+
+      <div class="flow-step">
+        <div class="fn-type" style="color:var(--blue)">Overlay · Auth</div>
+        <div class="flow-node">
+          <div class="fn-name">Share Dialog</div>
+          <div class="fn-action">Share with team → viewer / commenter. OR → ● PUBLIC to broadcast</div>
+          <div class="fn-tags"><span class="fn-tag">share</span><span class="fn-tag">acl</span></div>
+        </div>
+      </div>
+
+      <div class="flow-connector"><div class="connector-line"><span class="connector-label">publish</span></div><div class="connector-arrow">▸</div></div>
+
+      <div class="flow-step">
+        <div class="fn-type green">Screen · Public</div>
+        <div class="flow-node screen-live">
+          <div class="fn-name">Landing Page</div>
+          <div class="fn-action">Session now appears in public feed for anyone to find</div>
+          <div class="fn-tags"><span class="fn-tag">public</span><span class="fn-tag">feed</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ── JOURNEY 5: LIVE CLI SESSION ── -->
+  <div class="journey">
+    <div class="journey-header">
+      <div class="journey-num">J5</div>
+      <div class="journey-info">
+        <div class="journey-type green" style="color:var(--green)">User Type: Developer (Live Session)</div>
+        <div class="journey-name">Active Claude Code Session — Viewer Comments Loop</div>
+        <div class="journey-goal">Goal: Viewer comments flow back into Claude's context in real time</div>
+      </div>
+      <span class="journey-badge" style="background:var(--green-bg);border:1px solid var(--green);color:var(--green)">Realtime Loop</span>
+    </div>
+
+    <div class="flow">
+      <div class="flow-step">
+        <div class="fn-type faint">External</div>
+        <div class="flow-node screen-ext">
+          <div class="fn-name">Viewer in Chat</div>
+          <div class="fn-action">Types comment in Session Viewer composer</div>
+        </div>
+      </div>
+
+      <div class="flow-connector"><div class="connector-line"><span class="connector-label">POST comment</span></div><div class="connector-arrow">▸</div></div>
+
+      <div class="flow-step">
+        <div class="fn-type faint">System · API</div>
+        <div class="flow-node screen-ext">
+          <div class="fn-name">Go API</div>
+          <div class="fn-action">POST /api/sessions/{id}/comments → emit viewer_comment event → RPUSH pending queue</div>
+          <div class="fn-tags"><span class="fn-tag">redis</span><span class="fn-tag">postgres</span></div>
+        </div>
+      </div>
+
+      <div class="flow-connector"><div class="connector-line"><span class="connector-label">SSE fan-out</span></div><div class="connector-arrow">▸</div></div>
+
+      <div class="flow-step">
+        <div class="fn-type green">Screen · Live</div>
+        <div class="flow-node screen-live">
+          <div class="fn-name">Session Viewer</div>
+          <div class="fn-action">viewer_comment event appears in event stream for all watchers</div>
+          <div class="fn-tags"><span class="fn-tag">sse</span><span class="fn-tag">realtime</span></div>
+        </div>
+      </div>
+
+      <div class="flow-connector"><div class="connector-line"><span class="connector-label">next tool call</span></div><div class="connector-arrow">▸</div></div>
+
+      <div class="flow-step">
+        <div class="fn-type faint">External · CLI</div>
+        <div class="flow-node screen-ext">
+          <div class="fn-name">pre_tool_use.py hook</div>
+          <div class="fn-action">GET /pending → drain queue → inject into hookSpecificOutput.additionalContext</div>
+          <div class="fn-tags"><span class="fn-tag">python</span><span class="fn-tag">hook</span></div>
+        </div>
+      </div>
+
+      <div class="flow-connector"><div class="connector-line"><span class="connector-label">Claude sees it</span></div><div class="connector-arrow">▸</div></div>
+
+      <div class="flow-step">
+        <div class="fn-type faint">External · AI</div>
+        <div class="flow-node screen-ext">
+          <div class="fn-name">Claude Code</div>
+          <div class="fn-action">Viewer comment in context window. Claude can respond to it in next message</div>
+          <div class="fn-tags"><span class="fn-tag">llm</span><span class="fn-tag">context</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     ACCESS CONTROL MATRIX
+═══════════════════════════════════════════════ -->
+<div class="sec" id="access">
+  <div class="sec-head">
+    <span class="sec-num">03</span>
+    <span class="sec-title">Access Control Matrix</span>
+    <span class="sec-desc">Who can do what on each surface</span>
+  </div>
+
+  <div class="access-grid">
+    <div class="access-header">Capability</div>
+    <div class="access-header">Anonymous</div>
+    <div class="access-header amber">Viewer / Commenter</div>
+    <div class="access-header green">Owner</div>
+
+    <div class="access-row-label">View Landing Page</div>
+    <div class="access-cell access-yes">✓ Yes</div>
+    <div class="access-cell access-yes">✓ Yes</div>
+    <div class="access-cell access-yes">✓ Yes</div>
+
+    <div class="access-row-label">Browse Public Sessions</div>
+    <div class="access-cell access-yes">✓ Yes</div>
+    <div class="access-cell access-yes">✓ Yes</div>
+    <div class="access-cell access-yes">✓ Yes</div>
+
+    <div class="access-row-label">Watch Public / Link Session</div>
+    <div class="access-cell access-yes">✓ Yes</div>
+    <div class="access-cell access-yes">✓ Yes</div>
+    <div class="access-cell access-yes">✓ Yes</div>
+
+    <div class="access-row-label">Watch Private Session</div>
+    <div class="access-cell access-no">✗ No</div>
+    <div class="access-cell access-cond">△ If shared</div>
+    <div class="access-cell access-yes">✓ Yes (own)</div>
+
+    <div class="access-row-label">Comment in Chat</div>
+    <div class="access-cell access-no">✗ No</div>
+    <div class="access-cell access-cond">△ Commenter role</div>
+    <div class="access-cell access-yes">✓ Yes</div>
+
+    <div class="access-row-label">View Dashboard</div>
+    <div class="access-cell access-no">✗ No</div>
+    <div class="access-cell access-yes">✓ Yes</div>
+    <div class="access-cell access-yes">✓ Yes</div>
+
+    <div class="access-row-label">Rename Session Title</div>
+    <div class="access-cell access-no">✗ No</div>
+    <div class="access-cell access-no">✗ No</div>
+    <div class="access-cell access-yes">✓ Yes</div>
+
+    <div class="access-row-label">Share Session</div>
+    <div class="access-cell access-no">✗ No</div>
+    <div class="access-cell access-no">✗ No</div>
+    <div class="access-cell access-yes">✓ Yes</div>
+
+    <div class="access-row-label">Make Session Public</div>
+    <div class="access-cell access-no">✗ No</div>
+    <div class="access-cell access-no">✗ No</div>
+    <div class="access-cell access-yes">✓ Yes</div>
+
+    <div class="access-row-label">End Session</div>
+    <div class="access-cell access-no">✗ No</div>
+    <div class="access-cell access-no">✗ No</div>
+    <div class="access-cell access-yes">✓ Yes</div>
+
+    <div class="access-row-label">View Session Events</div>
+    <div class="access-cell access-cond">△ Public only</div>
+    <div class="access-cell access-yes">✓ Yes</div>
+    <div class="access-cell access-yes">✓ Yes</div>
+
+    <div class="access-row-label">Stream via CLI</div>
+    <div class="access-cell access-no">✗ No</div>
+    <div class="access-cell access-no">✗ No</div>
+    <div class="access-cell access-yes">✓ Owner only</div>
+  </div>
+
+  <div style="margin-top:12px;font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:.08em;">
+    △ = Conditional &nbsp;·&nbsp; Commenter = viewer role with comment permission &nbsp;·&nbsp; Link-only sessions require the exact URL to access
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     NAVIGATION MAP (from each screen)
+═══════════════════════════════════════════════ -->
+<div class="sec" id="navmap">
+  <div class="sec-head">
+    <span class="sec-num">04</span>
+    <span class="sec-title">Navigation Map</span>
+    <span class="sec-desc">Where you can go from each screen</span>
+  </div>
+
+  <table class="nav-table">
+    <thead>
+      <tr>
+        <th style="width:180px">FROM Screen</th>
+        <th>Primary CTAs</th>
+        <th>Navigation Links</th>
+        <th>Auto / System</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="nav-screen">Landing Page</span></td>
+        <td>
+          <div class="nav-paths">
+            <span class="nav-path-chip primary">▶ Watch → Session Viewer</span>
+            <span class="nav-path-chip primary">Start Streaming → Sign In</span>
+          </div>
+        </td>
+        <td>
+          <div class="nav-paths">
+            <span class="nav-path-chip">Browse →  Landing (filtered)</span>
+            <span class="nav-path-chip">Sign In → Auth → Dashboard</span>
+            <span class="nav-path-chip">Category → Landing (tagged)</span>
+          </div>
+        </td>
+        <td><span class="nav-path-chip">Ticker updates live (SSE)</span></td>
+      </tr>
+      <tr>
+        <td><span class="nav-screen">Sign In</span></td>
+        <td>
+          <div class="nav-paths">
+            <span class="nav-path-chip primary">Google Auth → Dashboard</span>
+          </div>
+        </td>
+        <td><div class="nav-paths"><span class="nav-path-chip">← Back to Landing</span></div></td>
+        <td><span class="nav-path-chip">Auth cookie set → redirect</span></td>
+      </tr>
+      <tr>
+        <td><span class="nav-screen">Dashboard</span></td>
+        <td>
+          <div class="nav-paths">
+            <span class="nav-path-chip primary">Session row → Session Viewer</span>
+            <span class="nav-path-chip auth">⊕ Share → Share Dialog</span>
+            <span class="nav-path-chip auth">● Public → confirm</span>
+          </div>
+        </td>
+        <td>
+          <div class="nav-paths">
+            <span class="nav-path-chip">My Sessions tab</span>
+            <span class="nav-path-chip">Shared With Me tab</span>
+            <span class="nav-path-chip">Search → filter table</span>
+            <span class="nav-path-chip">Logo → Landing Page</span>
+          </div>
+        </td>
+        <td><span class="nav-path-chip">Auto-refresh every 5s</span></td>
+      </tr>
+      <tr>
+        <td><span class="nav-screen">Session Viewer</span></td>
+        <td>
+          <div class="nav-paths">
+            <span class="nav-path-chip primary">Chat send → POST comment</span>
+            <span class="nav-path-chip auth">⊘ End Session → confirm</span>
+            <span class="nav-path-chip auth">⊕ Share → Share Dialog</span>
+          </div>
+        </td>
+        <td>
+          <div class="nav-paths">
+            <span class="nav-path-chip">← Back → Dashboard</span>
+            <span class="nav-path-chip">Logo → Landing / Dashboard</span>
+            <span class="nav-path-chip">Session ID (rename inline)</span>
+            <span class="nav-path-chip">● PUBLIC toggle</span>
+          </div>
+        </td>
+        <td>
+          <div class="nav-paths">
+            <span class="nav-path-chip">SSE events auto-scroll</span>
+            <span class="nav-path-chip">ENDED → status update</span>
+          </div>
+        </td>
+      </tr>
+      <tr>
+        <td><span class="nav-screen">Share Dialog</span></td>
+        <td>
+          <div class="nav-paths">
+            <span class="nav-path-chip primary">Copy link → clipboard</span>
+            <span class="nav-path-chip primary">Add user → POST share</span>
+          </div>
+        </td>
+        <td><div class="nav-paths"><span class="nav-path-chip">✕ Close → back to source</span></div></td>
+        <td>–</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     SESSION STATE MACHINE
+═══════════════════════════════════════════════ -->
+<div class="sec" id="states">
+  <div class="sec-head">
+    <span class="sec-num">05</span>
+    <span class="sec-title">Session State Machine</span>
+    <span class="sec-desc">All states a session can be in and how it transitions</span>
+  </div>
+
+  <div class="states-grid">
+
+    <div class="state-card" style="border-color:var(--green)">
+      <div class="state-name" style="color:var(--green)">● LIVE</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--hairline)">
+        Active Claude Code session. Events streaming via SSE. CLI hooks posting events in real time.
+      </div>
+      <div class="state-triggers">
+        <div class="state-trig">
+          <span class="state-trig-evt">stop.py fires</span>
+          <span class="state-arrow">→</span>
+          <span class="state-trig-next">ENDED</span>
+        </div>
+        <div class="state-trig">
+          <span class="state-trig-evt">Owner clicks ⊘ End</span>
+          <span class="state-arrow">→</span>
+          <span class="state-trig-next">ENDED</span>
+        </div>
+        <div class="state-trig">
+          <span class="state-trig-evt">Owner shares link</span>
+          <span class="state-arrow">→</span>
+          <span class="state-trig-next">LIVE + SHARED</span>
+        </div>
+        <div class="state-trig">
+          <span class="state-trig-evt">Owner makes public</span>
+          <span class="state-arrow">→</span>
+          <span class="state-trig-next">LIVE + PUBLIC</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="state-card" style="border-color:var(--faint)">
+      <div class="state-name" style="color:var(--muted)">◼ ENDED</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--hairline)">
+        Session completed. Full event log available for replay. No new events. Redis buffer archived to storage.
+      </div>
+      <div class="state-triggers">
+        <div class="state-trig">
+          <span class="state-trig-evt">Owner shares link</span>
+          <span class="state-arrow">→</span>
+          <span class="state-trig-next">ENDED + SHARED</span>
+        </div>
+        <div class="state-trig">
+          <span class="state-trig-evt">Owner makes public</span>
+          <span class="state-arrow">→</span>
+          <span class="state-trig-next">ENDED + PUBLIC</span>
+        </div>
+        <div class="state-trig">
+          <span class="state-trig-evt">Revoke all shares</span>
+          <span class="state-arrow">→</span>
+          <span class="state-trig-next">ENDED (private)</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="state-card" style="border-color:var(--amber)">
+      <div class="state-name" style="color:var(--amber)">🔗 SHARED</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--hairline)">
+        Session has explicit share grants. Specific users have viewer or commenter access.
+      </div>
+      <div class="state-triggers">
+        <div class="state-trig">
+          <span class="state-trig-evt">Visibility = link</span>
+          <span class="state-arrow">→</span>
+          <span class="state-trig-next">LINK-ONLY</span>
+        </div>
+        <div class="state-trig">
+          <span class="state-trig-evt">Visibility = public</span>
+          <span class="state-arrow">→</span>
+          <span class="state-trig-next">PUBLIC</span>
+        </div>
+        <div class="state-trig">
+          <span class="state-trig-evt">All shares revoked</span>
+          <span class="state-arrow">→</span>
+          <span class="state-trig-next">PRIVATE</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="state-card">
+      <div class="state-name" style="color:var(--muted)">🔒 PRIVATE</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--hairline)">
+        Default state. Only the owner can access. Not visible to anyone else.
+      </div>
+      <div class="state-triggers">
+        <div class="state-trig">
+          <span class="state-trig-evt">⊕ Share added</span>
+          <span class="state-arrow">→</span>
+          <span class="state-trig-next">SHARED</span>
+        </div>
+        <div class="state-trig">
+          <span class="state-trig-evt">● Make Public</span>
+          <span class="state-arrow">→</span>
+          <span class="state-trig-next">PUBLIC</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="state-card" style="border-color:var(--green)">
+      <div class="state-name" style="color:var(--green)">🌐 PUBLIC</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--hairline)">
+        Visible to all users, including unauthenticated. Appears in public feed on Landing Page.
+      </div>
+      <div class="state-triggers">
+        <div class="state-trig">
+          <span class="state-trig-evt">Owner reverts</span>
+          <span class="state-arrow">→</span>
+          <span class="state-trig-next">PRIVATE</span>
+        </div>
+        <div class="state-trig">
+          <span class="state-trig-evt">link_role=commenter</span>
+          <span class="state-arrow">→</span>
+          <span class="state-trig-next">PUBLIC + anyone can comment</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="state-card">
+      <div class="state-name" style="color:var(--amber)">🔗 LINK-ONLY</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--hairline)">
+        Accessible to anyone with the exact URL. Not discoverable in public feed. Requires the link.
+      </div>
+      <div class="state-triggers">
+        <div class="state-trig">
+          <span class="state-trig-evt">Owner makes public</span>
+          <span class="state-arrow">→</span>
+          <span class="state-trig-next">PUBLIC</span>
+        </div>
+        <div class="state-trig">
+          <span class="state-trig-evt">Owner locks down</span>
+          <span class="state-arrow">→</span>
+          <span class="state-trig-next">PRIVATE</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     FOOTER
+═══════════════════════════════════════════════ -->
+<div style="margin-top:48px;padding-top:24px;border-top:1px solid var(--hairline);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+  <div style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--faint)">
+    LiveShortly · UX Tree · Design Documentation
+  </div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;">
+    <a href="landing.html" style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);border:1px solid var(--hairline);padding:4px 12px;transition:all 120ms;" onmouseover="this.style.color='var(--ink)'" onmouseout="this.style.color='var(--muted)'">Landing Page</a>
+    <a href="dashboard.html" style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);border:1px solid var(--hairline);padding:4px 12px;transition:all 120ms;" onmouseover="this.style.color='var(--ink)'" onmouseout="this.style.color='var(--muted)'">Dashboard</a>
+    <a href="session-viewer.html" style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);border:1px solid var(--hairline);padding:4px 12px;transition:all 120ms;" onmouseover="this.style.color='var(--ink)'" onmouseout="this.style.color='var(--muted)'">Session Viewer</a>
+    <a href="index.html" style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);border:1px solid var(--hairline);padding:4px 12px;transition:all 120ms;" onmouseover="this.style.color='var(--ink)'" onmouseout="this.style.color='var(--muted)'">← All Files</a>
+  </div>
+</div>
+
+</div><!-- /page -->
+</body>
+</html>

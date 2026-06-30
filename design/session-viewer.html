@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LiveShortly — Session Viewer (New Design)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ── Design Tokens ─────────────────────────────────────────── */
+:root {
+  --bg:       #16150f;
+  --panel:    #1e1d16;
+  --panel2:   #252419;
+  --hairline: #34322a;
+  --strong:   #ece8da;
+  --ink:      #ece8da;
+  --muted:    #a4a08f;
+  --faint:    #767365;
+  --green:    #4cae7a;
+  --red:      #e06a5a;
+  --amber:    #d6a94a;
+  --shadow:   rgba(0,0,0,0.5);
+  --blue:     #5b9bd5;
+  --font:     'JetBrains Mono', 'IBM Plex Mono', ui-monospace, monospace;
+  --nav-h:    56px;
+  --chat-w:   340px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: inherit; text-decoration: none; }
+button { font-family: var(--font); cursor: pointer; }
+
+/* ── Utility ───────────────────────────────────────────────── */
+.label {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 600;
+}
+.tnum { font-variant-numeric: tabular-nums; }
+
+@keyframes pulse {
+  0%,100% { opacity:1; transform:scale(1); }
+  50%      { opacity:0.3; transform:scale(0.75); }
+}
+.live-dot {
+  display: inline-block; width: 8px; height: 8px;
+  border-radius: 50%; background: var(--green);
+  animation: pulse 1.2s ease-in-out infinite;
+  flex-shrink: 0;
+}
+@keyframes blink { 0%,49%{opacity:1}50%,100%{opacity:0} }
+.blink { animation: blink 1s step-end infinite; }
+
+/* ── Scrollbar ──────────────────────────────────────────────── */
+* { scrollbar-width: thin; scrollbar-color: var(--hairline) transparent; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--hairline); }
+
+/* ── Navbar ─────────────────────────────────────────────────── */
+.navbar {
+  height: var(--nav-h);
+  background: var(--panel);
+  border-bottom: 1px solid var(--hairline);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 14px;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 10;
+}
+.brand-mark {
+  width: 26px; height: 26px;
+  background: var(--green);
+  border-radius: 5px;
+  flex-shrink: 0;
+  position: relative;
+}
+.brand-mark::before {
+  content: '';
+  position: absolute;
+  left: 6px; top: 7px;
+  width: 5px; height: 12px;
+  background: var(--panel);
+  border-radius: 1px;
+}
+.brand-mark::after {
+  content: '';
+  position: absolute;
+  left: 14px; top: 7px;
+  width: 7px; height: 12px;
+  border: 1.5px solid var(--panel);
+  background: var(--green);
+  border-radius: 1px;
+}
+.nav-brand {
+  display: flex; align-items: center; gap: 9px;
+  font-weight: 700; font-size: 16px; letter-spacing: -0.02em;
+  flex-shrink: 0;
+}
+.nav-back {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--muted); border: 1px solid var(--hairline);
+  background: transparent; padding: 5px 12px;
+  transition: all 120ms;
+}
+.nav-back:hover { border-color: var(--strong); color: var(--ink); }
+.nav-session-title {
+  font-size: 13px; font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 400px;
+}
+.nav-right {
+  margin-left: auto; display: flex; align-items: center; gap: 10px;
+}
+.status-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em;
+  font-weight: 700; padding: 4px 10px;
+}
+.status-badge.live {
+  color: var(--green); border: 1px solid var(--green);
+  background: rgba(76,174,122,0.08);
+}
+.status-badge.ended {
+  color: var(--faint); border: 1px solid var(--hairline);
+}
+.btn-sm {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em;
+  font-weight: 600; border: 1px solid var(--hairline);
+  background: transparent; color: var(--muted);
+  padding: 5px 12px; transition: all 120ms;
+}
+.btn-sm:hover { border-color: var(--strong); color: var(--ink); }
+.btn-sm.green {
+  border-color: var(--green); background: var(--green); color: var(--bg);
+}
+.btn-sm.danger {
+  border-color: var(--red); color: var(--red);
+}
+.btn-sm.danger:hover { background: var(--red); color: var(--panel); }
+
+/* ── App layout ─────────────────────────────────────────────── */
+.app { display: flex; flex-direction: column; height: 100vh; }
+.viewer-body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+/* ── Left pane: stream + meta ───────────────────────────────── */
+.stream-pane {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── Code stream area ───────────────────────────────────────── */
+.code-stream {
+  background: var(--bg);
+  border-bottom: 1px solid var(--hairline);
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 0;
+  font-size: 12px;
+  line-height: 1.8;
+}
+.event-row {
+  display: flex;
+  justify-content: center;
+  padding: 3px 16px;
+}
+/* System event rows */
+.sys-event {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 80%;
+  border: 1px solid var(--hairline);
+  background: var(--panel);
+  color: var(--muted);
+  padding: 3px 12px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+}
+/* ── Work block (replaces centered sys-event pills) ─────── */
+.work-block {
+  margin: 8px 16px 8px 16px;
+  border: 1px solid var(--hairline);
+  border-left: 2px solid var(--green);
+  background: var(--panel);
+  overflow: hidden;
+}
+.work-block summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 14px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  transition: background 100ms;
+}
+.work-block summary::-webkit-details-marker { display: none; }
+.work-block summary:hover { background: var(--panel2); }
+.wb-toggle {
+  font-size: 8px; color: var(--faint);
+  transition: transform 200ms;
+  flex-shrink: 0;
+}
+details[open] .wb-toggle { transform: rotate(90deg); }
+.wb-glyph { font-size: 10px; color: var(--green); flex-shrink: 0; }
+.wb-label {
+  font-size: 10px; text-transform: uppercase;
+  letter-spacing: .1em; font-weight: 600; color: var(--muted);
+}
+.wb-chips { display: flex; gap: 6px; margin-left: 4px; }
+.wb-chip {
+  font-size: 9px; text-transform: uppercase; letter-spacing: .07em;
+  color: var(--faint); border: 1px solid var(--hairline); padding: 1px 6px;
+}
+.wb-chip.write { color: var(--green); border-color: rgba(76,174,122,.4); }
+.wb-chip.run   { color: var(--amber); border-color: rgba(214,169,74,.4); }
+.wb-chip.ok    { color: var(--green); }
+.wb-chip.fail  { color: var(--red); border-color: rgba(224,106,90,.4); }
+.wb-dur {
+  margin-left: auto; font-size: 9px; color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* individual step rows inside a work block */
+.work-step {
+  display: flex; align-items: center; gap: 10px;
+  padding: 5px 14px;
+  border-top: 1px solid var(--hairline);
+  font-size: 11px; font-variant-numeric: tabular-nums;
+}
+.work-step:hover { background: var(--panel2); }
+.ws-icon { font-size: 11px; flex-shrink: 0; width: 14px; text-align: center; }
+.ws-verb {
+  font-size: 9px; text-transform: uppercase; letter-spacing: .09em;
+  font-weight: 600; min-width: 52px; flex-shrink: 0;
+}
+.ws-path { flex: 1; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ws-detail { font-size: 9px; color: var(--faint); flex-shrink: 0; white-space: nowrap; }
+.ws-time { font-size: 9px; color: var(--faint); flex-shrink: 0; padding-left: 10px; border-left: 1px solid var(--hairline); }
+
+.work-step.ws-read  .ws-verb { color: var(--blue, #5b9bd5); }
+.work-step.ws-read  .ws-icon { color: var(--blue, #5b9bd5); }
+.work-step.ws-write .ws-verb { color: var(--green); }
+.work-step.ws-write .ws-icon { color: var(--green); }
+.work-step.ws-write .ws-path { color: var(--ink); }
+.work-step.ws-run   .ws-verb { color: var(--amber); }
+.work-step.ws-run   .ws-icon { color: var(--amber); }
+.work-step.ws-ok    .ws-verb { color: var(--green); }
+.work-step.ws-ok    .ws-icon { color: var(--green); }
+.work-step.ws-fail  .ws-verb { color: var(--red); }
+.work-step.ws-fail  .ws-icon { color: var(--red); }
+
+/* single isolated activity line (for lone tool calls not grouped) */
+.activity-line {
+  display: flex; align-items: center; gap: 10px;
+  margin: 4px 16px;
+  padding: 5px 12px;
+  border-left: 2px solid var(--hairline);
+  font-size: 10px; color: var(--faint);
+  font-variant-numeric: tabular-nums;
+  transition: border-color 120ms;
+}
+.activity-line:hover { border-left-color: var(--muted); }
+.al-icon { font-size: 10px; flex-shrink: 0; width: 14px; text-align: center; }
+.al-verb {
+  font-size: 9px; text-transform: uppercase; letter-spacing: .09em;
+  font-weight: 600; color: var(--faint); min-width: 48px; flex-shrink: 0;
+}
+.al-path { flex: 1; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.al-time { font-size: 9px; color: var(--faint); flex-shrink: 0; margin-left: auto; }
+/* Chat bubbles */
+.bubble-row { padding: 5px 16px; }
+.bubble-row.right { justify-content: flex-end; }
+.bubble {
+  max-width: 72%;
+  border-radius: 2px;
+  padding: 8px 12px;
+  font-size: 12px;
+  line-height: 1.55;
+}
+.bubble.prompt {
+  background: color-mix(in srgb, var(--amber) 7%, var(--panel));
+  border: 1px solid var(--amber);
+  border-right: 3px solid var(--amber);
+  margin-left: auto;
+}
+.bubble.response {
+  background: var(--panel);
+  border: 1px solid var(--green);
+  border-left: 3px solid var(--green);
+}
+.bubble.viewer-comment {
+  background: color-mix(in srgb, var(--amber) 6%, var(--panel));
+  border: 1px solid var(--amber);
+  border-left: 3px solid var(--amber);
+}
+.bubble-header {
+  display: flex; justify-content: space-between;
+  align-items: center; gap: 12px;
+  margin-bottom: 5px;
+  font-size: 9px; text-transform: uppercase;
+  letter-spacing: 0.12em; font-weight: 700;
+}
+.bubble-sender { color: var(--green); }
+.bubble-sender.you { color: var(--amber); }
+.bubble-sender.viewer { color: var(--amber); }
+.bubble-time { color: var(--faint); font-variant-numeric: tabular-nums; }
+.bubble-body { color: var(--ink); word-break: break-word; }
+.bubble-body code {
+  font-family: var(--font);
+  font-size: 0.9em;
+  background: var(--panel2);
+  border: 1px solid var(--hairline);
+  padding: 0 4px;
+  border-radius: 1px;
+}
+.bubble-reply {
+  border-left: 3px solid var(--amber);
+  background: color-mix(in srgb, var(--amber) 8%, var(--panel));
+  padding: 3px 8px;
+  margin-bottom: 6px;
+  font-size: 10px;
+  cursor: pointer;
+}
+.bubble-reply-label { color: var(--amber); font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em; }
+.bubble-reply-text { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ── Meta strip (bottom of stream pane) ─────────────────────── */
+.meta-strip {
+  background: var(--panel);
+  border-top: 1px solid var(--hairline);
+  flex-shrink: 0;
+}
+.meta-header {
+  display: flex; align-items: flex-start;
+  justify-content: space-between; gap: 12px;
+  padding: 14px 18px 0;
+  flex-wrap: wrap;
+}
+.meta-title {
+  font-size: 16px; font-weight: 700;
+  letter-spacing: -0.01em; color: var(--ink);
+  flex: 1; min-width: 0;
+}
+.meta-id { font-size: 9px; color: var(--faint); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 4px; }
+.meta-grid {
+  display: flex; gap: 0;
+  padding: 12px 18px;
+  border-top: 1px dashed var(--hairline);
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+.meta-cell {
+  padding: 0 20px 0 0;
+  min-width: 0;
+  margin-right: 20px;
+  border-right: 1px solid var(--hairline);
+  padding-right: 20px;
+}
+.meta-cell:last-child { border-right: none; margin-right: 0; }
+.meta-cell-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--faint); margin-bottom: 3px; }
+.meta-cell-val { font-size: 13px; color: var(--ink); white-space: nowrap; }
+.meta-cell-val.mono { font-variant-numeric: tabular-nums; }
+.tags-row {
+  padding: 0 18px 12px;
+  display: flex; gap: 6px; flex-wrap: wrap;
+}
+.tag-pill {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--muted); border: 1px solid var(--hairline);
+  padding: 2px 8px;
+}
+
+/* ── Right pane: chat sidebar ───────────────────────────────── */
+.chat-pane {
+  width: var(--chat-w);
+  flex-shrink: 0;
+  border-left: 1px solid var(--hairline);
+  background: var(--panel);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.chat-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--hairline);
+  display: flex; align-items: center; justify-content: space-between;
+  flex-shrink: 0;
+}
+.chat-title { font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); font-weight: 600; }
+.chat-count { font-size: 10px; color: var(--faint); }
+.chat-messages {
+  flex: 1; overflow-y: auto;
+  padding: 12px 0;
+  display: flex; flex-direction: column; gap: 1px;
+}
+/* chat message */
+.chat-msg {
+  padding: 6px 14px;
+  display: flex; gap: 8px;
+  transition: background 80ms;
+}
+.chat-msg:hover { background: var(--panel2); }
+.chat-avatar {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; font-weight: 700;
+  margin-top: 1px;
+}
+.chat-avatar.claude { background: rgba(76,174,122,0.2); color: var(--green); border: 1px solid var(--green); }
+.chat-avatar.you    { background: rgba(214,169,74,0.2);  color: var(--amber); border: 1px solid var(--amber); }
+.chat-avatar.viewer { background: rgba(214,169,74,0.15); color: var(--amber); border: 1px dashed var(--amber); }
+.chat-body { flex: 1; min-width: 0; }
+.chat-name-row { display: flex; align-items: baseline; gap: 6px; margin-bottom: 2px; }
+.chat-name { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
+.chat-name.claude { color: var(--green); }
+.chat-name.you { color: var(--amber); }
+.chat-name.viewer { color: var(--amber); }
+.chat-time-sm { font-size: 9px; color: var(--faint); font-variant-numeric: tabular-nums; }
+.chat-text { font-size: 11px; color: var(--ink); line-height: 1.5; word-break: break-word; }
+.chat-text code {
+  font-size: 0.9em; background: var(--panel2);
+  border: 1px solid var(--hairline); padding: 0 3px;
+}
+/* Viewer badge */
+.viewer-tag {
+  font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--amber); border: 1px dashed var(--amber);
+  padding: 1px 5px; margin-left: 4px; white-space: nowrap;
+}
+/* Chat composer */
+.chat-composer {
+  border-top: 1px solid var(--hairline);
+  padding: 10px 12px;
+  flex-shrink: 0;
+}
+.composer-input-row {
+  display: flex;
+  border: 1px solid var(--strong);
+  background: var(--bg);
+}
+.composer-prefix {
+  display: flex; align-items: center;
+  padding: 0 10px;
+  color: var(--green);
+  border-right: 1px solid var(--hairline);
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.composer-input {
+  flex: 1; background: transparent; border: none; outline: none;
+  color: var(--ink); font-family: var(--font);
+  font-size: 11px; letter-spacing: 0.06em;
+  text-transform: uppercase; padding: 10px 10px;
+}
+.composer-input::placeholder { color: var(--faint); }
+.composer-send {
+  background: var(--strong); color: var(--bg);
+  border: none; border-left: 1px solid var(--strong);
+  font-size: 10px; text-transform: uppercase;
+  letter-spacing: 0.1em; font-weight: 700;
+  padding: 0 14px; white-space: nowrap;
+}
+.composer-hint {
+  font-size: 9px; color: var(--faint);
+  text-transform: uppercase; letter-spacing: 0.08em;
+  margin-top: 5px; text-align: center;
+}
+/* Viewer count */
+.viewer-row {
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--hairline);
+  display: flex; align-items: center; gap: 8px;
+  font-size: 10px; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.1em;
+  flex-shrink: 0;
+}
+.viewer-count { font-size: 14px; font-weight: 700; color: var(--ink); }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ═══ NAVBAR ══════════════════════════════════════════ -->
+  <nav class="navbar">
+    <a href="dashboard.html" class="nav-brand">
+      <div class="brand-mark"></div>
+      LiveShortly<span class="blink" style="color:var(--faint)">_</span>
+    </a>
+
+    <div style="width:1px;height:28px;background:var(--hairline);flex-shrink:0"></div>
+
+    <a href="dashboard.html" class="nav-back">◂ Back to HUD</a>
+
+    <div style="font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:0.1em">SESSION a3f9</div>
+    <div class="nav-session-title">Build auth middleware — JWT + refresh token flow</div>
+
+    <div class="nav-right">
+      <span style="font-size:10px;color:var(--green);text-transform:uppercase;letter-spacing:0.1em;border:1px solid var(--green);padding:3px 8px;background:rgba(76,174,122,0.06)">● PUBLIC</span>
+      <button class="btn-sm">⊕ SHARE</button>
+      <span class="status-badge live"><span class="live-dot" style="width:6px;height:6px"></span>LIVE</span>
+      <button class="btn-sm danger">⊘ END SESSION</button>
+    </div>
+  </nav>
+
+  <!-- ═══ VIEWER BODY ═════════════════════════════════════ -->
+  <div class="viewer-body">
+
+    <!-- ── LEFT: STREAM + META ── -->
+    <div class="stream-pane">
+
+      <!-- Code stream -->
+      <div class="code-stream">
+
+        <!-- lone activity line before first prompt -->
+        <div class="activity-line">
+          <span class="al-icon" style="color:var(--blue,#5b9bd5)">↗</span>
+          <span class="al-verb" style="color:var(--blue,#5b9bd5)">Read</span>
+          <span class="al-path">api/internal/auth/ · ls -la</span>
+          <span class="al-time">09:42:11</span>
+        </div>
+
+        <!-- Prompt bubble (right) -->
+        <div class="event-row" style="justify-content:flex-end">
+          <div class="bubble prompt">
+            <div class="bubble-header">
+              <span class="bubble-sender you">You</span>
+              <span class="bubble-time">09:42:08</span>
+            </div>
+            <div class="bubble-body">Can you build the JWT middleware? It needs to handle both the web cookie and the CLI bearer token. Make sure the refresh flow works too.</div>
+          </div>
+        </div>
+
+        <!-- WORK BLOCK: Claude's actions between prompt 1 → response 1 -->
+        <details class="work-block" open>
+          <summary>
+            <span class="wb-toggle">▸</span>
+            <span class="wb-glyph">◆</span>
+            <span class="wb-label">Claude · 4 steps</span>
+            <div class="wb-chips">
+              <span class="wb-chip write">2 files</span>
+              <span class="wb-chip run">test</span>
+              <span class="wb-chip ok">passed</span>
+            </div>
+            <span class="wb-dur">3.1s</span>
+          </summary>
+          <div class="work-step ws-write">
+            <span class="ws-icon">✏</span>
+            <span class="ws-verb">Created</span>
+            <span class="ws-path">api/internal/auth/authn.go</span>
+            <span class="ws-detail">+187 lines</span>
+            <span class="ws-time">09:42:31</span>
+          </div>
+          <div class="work-step ws-write">
+            <span class="ws-icon">✏</span>
+            <span class="ws-verb">Created</span>
+            <span class="ws-path">api/internal/auth/refresh.go</span>
+            <span class="ws-detail">+94 lines</span>
+            <span class="ws-time">09:42:35</span>
+          </div>
+          <div class="work-step ws-run">
+            <span class="ws-icon">⚡</span>
+            <span class="ws-verb">Run</span>
+            <span class="ws-path">go test ./internal/auth/...</span>
+            <span class="ws-detail"></span>
+            <span class="ws-time">09:42:38</span>
+          </div>
+          <div class="work-step ws-ok">
+            <span class="ws-icon">✓</span>
+            <span class="ws-verb">Passed</span>
+            <span class="ws-path">ok  github.com/liveshortly/api/internal/auth  0.423s</span>
+            <span class="ws-detail"></span>
+            <span class="ws-time">09:42:42</span>
+          </div>
+        </details>
+
+        <!-- Response bubble (left) -->
+        <div class="event-row" style="justify-content:flex-start">
+          <div class="bubble response">
+            <div class="bubble-header">
+              <span class="bubble-sender">◆ Claude</span>
+              <span class="bubble-time">09:42:43</span>
+            </div>
+            <div class="bubble-reply">
+              <div class="bubble-reply-label">↩ Replying to You</div>
+              <div class="bubble-reply-text">Can you build the JWT middleware? It needs to handle both the web cookie…</div>
+            </div>
+            <div class="bubble-body">Done! I created two files:<br><br>
+              <code>authn.go</code> — the <code>Authn</code> middleware resolves a principal from either a <code>Bearer</code> JWT or an <code>ls_session</code> cookie. Invalid or expired tokens return 401.<br><br>
+              <code>refresh.go</code> — handles the refresh token flow. When the access token is expired, it checks the refresh token, issues a new pair, and rotates the refresh token. Refresh tokens are stored in Redis with a 30-day TTL.<br><br>
+              All tests pass. Want me to wire this into the chi router next?</div>
+          </div>
+        </div>
+
+        <!-- Viewer comment -->
+        <div class="event-row" style="justify-content:flex-start">
+          <div class="bubble viewer-comment">
+            <div class="bubble-header">
+              <span class="bubble-sender viewer">✉ @johndoe · Viewer</span>
+              <span class="bubble-time">09:43:02</span>
+            </div>
+            <div class="bubble-body">How are you handling token rotation race conditions? Two concurrent refresh requests could both try to rotate the same refresh token.</div>
+          </div>
+        </div>
+
+        <!-- Another prompt -->
+        <div class="event-row" style="justify-content:flex-end">
+          <div class="bubble prompt">
+            <div class="bubble-header">
+              <span class="bubble-sender you">You</span>
+              <span class="bubble-time">09:43:18</span>
+            </div>
+            <div class="bubble-body">@johndoe good catch — yes, handle the refresh rotation race with a Redis SET NX lock. Add that.</div>
+          </div>
+        </div>
+
+        <!-- WORK BLOCK: Claude's actions between prompt 2 → response 2 -->
+        <details class="work-block" open>
+          <summary>
+            <span class="wb-toggle">▸</span>
+            <span class="wb-glyph">◆</span>
+            <span class="wb-label">Claude · 3 steps</span>
+            <div class="wb-chips">
+              <span class="wb-chip write">1 file</span>
+              <span class="wb-chip run">test</span>
+              <span class="wb-chip ok">12 passed</span>
+            </div>
+            <span class="wb-dur">2.1s</span>
+          </summary>
+          <div class="work-step ws-write">
+            <span class="ws-icon">✏</span>
+            <span class="ws-verb">Modified</span>
+            <span class="ws-path">api/internal/auth/refresh.go</span>
+            <span class="ws-detail">+31 −4 lines</span>
+            <span class="ws-time">09:43:44</span>
+          </div>
+          <div class="work-step ws-run">
+            <span class="ws-icon">⚡</span>
+            <span class="ws-verb">Run</span>
+            <span class="ws-path">go test ./internal/auth/... -run TestRefreshRace</span>
+            <span class="ws-detail"></span>
+            <span class="ws-time">09:43:49</span>
+          </div>
+          <div class="work-step ws-ok">
+            <span class="ws-icon">✓</span>
+            <span class="ws-verb">Passed</span>
+            <span class="ws-path">ok  .../auth  (cached)  — all 12 tests pass</span>
+            <span class="ws-detail"></span>
+            <span class="ws-time">09:43:51</span>
+          </div>
+        </details>
+
+        <!-- Claude responds to viewer -->
+        <div class="event-row" style="justify-content:flex-start">
+          <div class="bubble response">
+            <div class="bubble-header">
+              <span class="bubble-sender">◆ Claude</span>
+              <span class="bubble-time">09:43:52</span>
+            </div>
+            <div class="bubble-reply">
+              <div class="bubble-reply-label">↩ Replying to @johndoe · Viewer</div>
+              <div class="bubble-reply-text">How are you handling token rotation race conditions?…</div>
+            </div>
+            <div class="bubble-body">Fixed! I added a <code>SET NX</code> distributed lock in Redis:<br><br>
+              When a refresh is attempted, we acquire a lock with key <code>refresh_lock:{tokenHash}</code> and a 5s TTL. Only the first request wins the lock — concurrent requests get a 409 and retry after a short backoff. The old token is invalidated atomically with the lock acquisition.<br><br>
+              12 tests pass including the new <code>TestRefreshRace</code> which fires 50 concurrent refresh requests.</div>
+          </div>
+        </div>
+
+        <!-- lone activity line after last response (Claude peeking ahead) -->
+        <div class="activity-line">
+          <span class="al-icon" style="color:var(--blue,#5b9bd5)">↗</span>
+          <span class="al-verb" style="color:var(--blue,#5b9bd5)">Read</span>
+          <span class="al-path">api/cmd/server/main.go</span>
+          <span class="al-time">09:44:15</span>
+        </div>
+
+        <!-- Padding at bottom so last msg isn't hidden by meta strip -->
+        <div style="height:12px"></div>
+
+      </div><!-- /code-stream -->
+
+      <!-- Meta strip -->
+      <div class="meta-strip">
+        <div class="meta-header">
+          <div style="flex:1;min-width:0">
+            <div class="meta-id">SESSION A3F9 · 247 EVENTS</div>
+            <div class="meta-title">Build auth middleware — JWT + refresh token flow</div>
+          </div>
+        </div>
+        <div class="meta-grid">
+          <div class="meta-cell">
+            <div class="meta-cell-label">Owner</div>
+            <div class="meta-cell-val">@mukulmalviya2</div>
+          </div>
+          <div class="meta-cell">
+            <div class="meta-cell-label">Model</div>
+            <div class="meta-cell-val" style="color:var(--muted)">claude-sonnet-4-6</div>
+          </div>
+          <div class="meta-cell">
+            <div class="meta-cell-label">Framework</div>
+            <div class="meta-cell-val" style="color:var(--muted)">go/chi</div>
+          </div>
+          <div class="meta-cell">
+            <div class="meta-cell-label">Events</div>
+            <div class="meta-cell-val mono">247</div>
+          </div>
+          <div class="meta-cell">
+            <div class="meta-cell-label">Views</div>
+            <div class="meta-cell-val mono">14</div>
+          </div>
+          <div class="meta-cell">
+            <div class="meta-cell-label">Tokens In / Out</div>
+            <div class="meta-cell-val mono" style="color:var(--muted)">18,420 / 6,890</div>
+          </div>
+          <div class="meta-cell">
+            <div class="meta-cell-label">Started</div>
+            <div class="meta-cell-val mono" style="color:var(--muted)">32m ago</div>
+          </div>
+        </div>
+        <div class="tags-row">
+          <span class="tag-pill">#auth</span>
+          <span class="tag-pill">#jwt</span>
+          <span class="tag-pill">#go</span>
+          <span class="tag-pill">#redis</span>
+          <span class="tag-pill">#api</span>
+        </div>
+      </div>
+
+    </div><!-- /stream-pane -->
+
+    <!-- ── RIGHT: CHAT ── -->
+    <div class="chat-pane">
+      <div class="chat-header">
+        <span class="chat-title">Viewer Chat</span>
+        <span class="chat-count">3 online</span>
+      </div>
+
+      <div class="viewer-row">
+        <span class="live-dot" style="width:6px;height:6px"></span>
+        <span class="viewer-count">14</span>
+        <span>watching now</span>
+      </div>
+
+      <div class="chat-messages">
+
+        <div class="chat-msg">
+          <div class="chat-avatar viewer">J</div>
+          <div class="chat-body">
+            <div class="chat-name-row">
+              <span class="chat-name viewer">@johndoe</span>
+              <span class="viewer-tag">VIEWER</span>
+              <span class="chat-time-sm">09:43:02</span>
+            </div>
+            <div class="chat-text">How are you handling token rotation race conditions? Two concurrent refresh requests could both try to rotate the same refresh token.</div>
+          </div>
+        </div>
+
+        <div class="chat-msg">
+          <div class="chat-avatar claude">◆</div>
+          <div class="chat-body">
+            <div class="chat-name-row">
+              <span class="chat-name claude">Claude</span>
+              <span class="chat-time-sm">09:43:52</span>
+            </div>
+            <div class="chat-text">Fixed with a Redis <code>SET NX</code> lock! 12 tests pass including the new race condition test.</div>
+          </div>
+        </div>
+
+        <div class="chat-msg">
+          <div class="chat-avatar viewer">S</div>
+          <div class="chat-body">
+            <div class="chat-name-row">
+              <span class="chat-name viewer">@sarah_dev</span>
+              <span class="viewer-tag">VIEWER</span>
+              <span class="chat-time-sm">09:44:03</span>
+            </div>
+            <div class="chat-text">What's the TTL on the refresh lock? 5s seems short if the token DB write is slow.</div>
+          </div>
+        </div>
+
+        <div class="chat-msg">
+          <div class="chat-avatar you">M</div>
+          <div class="chat-body">
+            <div class="chat-name-row">
+              <span class="chat-name you">@mukulmalviya2</span>
+              <span class="chat-time-sm">09:44:18</span>
+            </div>
+            <div class="chat-text">Good point, bumping to 10s. The token writes go through pgx with a connection pool so latency should be low but better safe.</div>
+          </div>
+        </div>
+
+        <div class="chat-msg">
+          <div class="chat-avatar viewer">A</div>
+          <div class="chat-body">
+            <div class="chat-name-row">
+              <span class="chat-name viewer">@alice_codes</span>
+              <span class="viewer-tag">VIEWER</span>
+              <span class="chat-time-sm">09:44:55</span>
+            </div>
+            <div class="chat-text">Are you planning to add refresh token families to detect token theft? (Each refresh invalidates the whole family if the old token is replayed.)</div>
+          </div>
+        </div>
+
+        <div class="chat-msg">
+          <div class="chat-avatar claude">◆</div>
+          <div class="chat-body">
+            <div class="chat-name-row">
+              <span class="chat-name claude">Claude</span>
+              <span class="chat-time-sm">09:45:12</span>
+            </div>
+            <div class="chat-text">Great idea @alice_codes — refresh families are the right approach for theft detection. We can add a <code>family_id</code> UUID column to the tokens table and cascade-revoke the whole family on replay. Should I add that?</div>
+          </div>
+        </div>
+
+        <div class="chat-msg">
+          <div class="chat-avatar viewer">J</div>
+          <div class="chat-body">
+            <div class="chat-name-row">
+              <span class="chat-name viewer">@johndoe</span>
+              <span class="viewer-tag">VIEWER</span>
+              <span class="chat-time-sm">09:45:34</span>
+            </div>
+            <div class="chat-text">This is super clean architecture 🔥 Following along. The Redis pub/sub pattern for SSE is clever too.</div>
+          </div>
+        </div>
+
+        <div class="chat-msg">
+          <div class="chat-avatar viewer">S</div>
+          <div class="chat-body">
+            <div class="chat-name-row">
+              <span class="chat-name viewer">@sarah_dev</span>
+              <span class="viewer-tag">VIEWER</span>
+              <span class="chat-time-sm">09:46:02</span>
+            </div>
+            <div class="chat-text">Can you show what the token payload struct looks like? Curious what claims you're including.</div>
+          </div>
+        </div>
+
+      </div><!-- /chat-messages -->
+
+      <!-- Composer -->
+      <div class="chat-composer">
+        <div class="composer-input-row">
+          <div class="composer-prefix">⌐</div>
+          <input class="composer-input" type="text" placeholder="Message the session…">
+          <button class="composer-send">SEND ▸</button>
+        </div>
+        <div class="composer-hint">Messages are injected into Claude's context via CLI hook</div>
+      </div>
+
+    </div><!-- /chat-pane -->
+
+  </div><!-- /viewer-body -->
+
+</div>
+</body>
+</html>
