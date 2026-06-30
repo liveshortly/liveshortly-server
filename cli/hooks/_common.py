@@ -160,6 +160,28 @@ def clear_mapping(claude_id):
         pass
 
 
+def mapping_has_model(claude_id):
+    """True if this session's model has already been reported (mapping flag)."""
+    try:
+        with open(_mapping_path(claude_id)) as f:
+            return bool(json.load(f).get("model"))
+    except Exception:
+        return False
+
+
+def mark_mapping_model(claude_id, model):
+    """Record that the model was reported, so we don't PATCH again. Best effort."""
+    try:
+        path = _mapping_path(claude_id)
+        with open(path) as f:
+            rec = json.load(f)
+        rec["model"] = model
+        with open(path, "w") as f:
+            json.dump(rec, f)
+    except Exception:
+        pass
+
+
 def post_json(path, body, timeout=3, claude_id=None):
     """POST a JSON body to api_base()+path and return the parsed JSON response.
 
@@ -281,4 +303,63 @@ def emit(ls_id, event_type, payload, actor="agent", claude_id=None):
         body["actor"] = actor
     return post_json(
         "/api/sessions/" + str(ls_id) + "/events", body, claude_id=claude_id
+    )
+
+
+def patch_json(path, body, timeout=3, claude_id=None):
+    """PATCH a JSON body to api_base()+path. Returns dict on success, else None."""
+    url = api_base() + path
+    try:
+        data = json.dumps(body if body is not None else {}).encode("utf-8")
+    except Exception as exc:
+        log("patch_json encode failed:", exc)
+        return None
+    req = urllib.request.Request(
+        url, data=data, method="PATCH", headers=api_headers(claude_id)
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            raw = resp.read()
+        return json.loads(raw.decode("utf-8")) if raw else {}
+    except Exception as exc:
+        log("patch_json failed:", url, exc)
+        return None
+
+
+def detect_model(transcript_path):
+    """Best-effort: read the model id from the Claude Code session transcript.
+
+    The transcript is JSONL; each assistant turn carries `message.model`
+    (e.g. "claude-opus-4-8"). Scans from the end for the latest. Returns the
+    model id or None.
+    """
+    if not transcript_path or not os.path.exists(transcript_path):
+        return None
+    try:
+        with open(transcript_path) as f:
+            lines = f.readlines()
+    except OSError:
+        return None
+    for line in reversed(lines):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            obj = json.loads(line)
+        except Exception:
+            continue
+        msg = obj.get("message")
+        if isinstance(msg, dict):
+            model = msg.get("model")
+            if model and model != "<synthetic>":
+                return model
+    return None
+
+
+def report_model(ls_id, model, claude_id=None):
+    """Set the session's model label via PATCH. Best effort."""
+    if not (ls_id and model):
+        return None
+    return patch_json(
+        "/api/sessions/" + str(ls_id), {"model": model}, claude_id=claude_id
     )

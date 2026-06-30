@@ -455,40 +455,15 @@ export default function SessionViewer({
       />
 
       {/* Input-requested banner — Claude is waiting; any viewer who can comment
-          may answer, and their message drives the session. */}
+          may answer, and their message drives the session. Permission prompts
+          additionally get one-tap Yes/No quick replies. */}
       {inputPending && (
-        <div
-          className="label"
-          role="status"
-          style={{
-            marginTop: 10,
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            border: "1px solid var(--amber)",
-            background: "color-mix(in srgb, var(--amber) 12%, var(--panel))",
-            color: "var(--amber)",
-            padding: "10px 12px",
-          }}
-        >
-          <span className="live-dot" style={{ background: "var(--amber)" }} />
-          <span style={{ fontWeight: 700 }}>⌐ INPUT REQUESTED</span>
-          <span
-            style={{
-              color: "var(--ink)",
-              textTransform: "none",
-              letterSpacing: 0,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-              minWidth: 0,
-            }}
-            title={(inputRequest?.payload?.message as string) ?? ""}
-          >
-            {(inputRequest?.payload?.message as string) ||
-              "Claude is waiting — send a message to steer the session."}
-          </span>
-        </div>
+        <InputRequestBanner
+          id={id}
+          message={(inputRequest?.payload?.message as string) || ""}
+          kind={(inputRequest?.payload?.kind as string) || "input"}
+          canReply={isLive && meta?.can_comment !== false}
+        />
       )}
 
       {/* Composer — only while live AND the viewer is allowed to comment.
@@ -526,6 +501,128 @@ export default function SessionViewer({
 }
 
 type SendState = "idle" | "sending" | "sent" | "error";
+
+/** Banner shown while Claude waits for input. Renders the request message and,
+ *  for permission prompts, one-tap quick replies that any commenter can use to
+ *  answer without typing. Replies post as ordinary messages (queued + injected
+ *  into the CLI on the next prompt/tool boundary). */
+function InputRequestBanner({
+  id,
+  message,
+  kind,
+  canReply,
+}: {
+  id: string;
+  message: string;
+  kind: string;
+  canReply: boolean;
+}) {
+  const [sent, setSent] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  // Quick replies tuned to the kind of wait. Permission prompts are yes/no;
+  // a plain input wait still offers a fast "continue".
+  const replies =
+    kind === "permission"
+      ? [
+          { label: "✓ YES, ALLOW", value: "yes" },
+          { label: "✕ NO, DENY", value: "no" },
+        ]
+      : [{ label: "▸ CONTINUE", value: "continue" }];
+
+  const quickSend = async (value: string) => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await postComment(id, value);
+      setSent(value);
+    } catch {
+      // best-effort; the composer below remains available
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div
+      role="status"
+      style={{
+        marginTop: 10,
+        border: "1px solid var(--amber)",
+        background: "color-mix(in srgb, var(--amber) 12%, var(--panel))",
+        padding: "10px 12px",
+        display: "flex",
+        flexDirection: "column",
+        gap: 8,
+      }}
+    >
+      <div
+        className="label"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          color: "var(--amber)",
+        }}
+      >
+        <span className="live-dot" style={{ background: "var(--amber)" }} />
+        <span style={{ fontWeight: 700 }}>
+          {kind === "permission" ? "⌐ PERMISSION REQUESTED" : "⌐ INPUT REQUESTED"}
+        </span>
+        <span
+          style={{
+            color: "var(--ink)",
+            textTransform: "none",
+            letterSpacing: 0,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            minWidth: 0,
+          }}
+          title={message}
+        >
+          {message || "Claude is waiting — send a message to steer the session."}
+        </span>
+      </div>
+
+      {canReply && (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {replies.map((r) => (
+            <button
+              key={r.value}
+              type="button"
+              onClick={() => quickSend(r.value)}
+              disabled={busy}
+              className="label"
+              style={{
+                border: "1px solid var(--amber)",
+                background: sent === r.value ? "var(--amber)" : "transparent",
+                color: sent === r.value ? "var(--panel)" : "var(--ink)",
+                padding: "6px 14px",
+                cursor: busy ? "default" : "pointer",
+                fontSize: 11,
+                fontWeight: 700,
+              }}
+            >
+              {sent === r.value ? "✓ SENT" : r.label}
+            </button>
+          ))}
+          <span
+            className="label"
+            style={{
+              alignSelf: "center",
+              color: "var(--muted)",
+              textTransform: "none",
+              letterSpacing: 0,
+            }}
+          >
+            or type a full reply below
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
 
 /** Pinned composer to message the live session. Echoes back over SSE.
  *  When `emphasize` is set (Claude is waiting for input) it highlights amber

@@ -28,6 +28,8 @@ function markerFor(type: string): { color: string; glyph: string } {
       return { color: "var(--muted)", glyph: "·" };
     case "viewer_comment":
       return { color: "var(--amber)", glyph: "✉" };
+    case "input_requested":
+      return { color: "var(--amber)", glyph: "⌐" };
     default:
       return { color: "var(--faint)", glyph: "•" };
   }
@@ -68,6 +70,11 @@ function systemLine(e: SessionEvent): string {
       return path ? `wrote ${path}` : truncate(summarizePayload(p), 100);
     case "output":
       return truncate(str("text") ?? summarizePayload(p), 120) || "output";
+    case "input_requested": {
+      const kind = str("kind") === "permission" ? "permission" : "input";
+      const msg = str("message");
+      return `awaiting ${kind}${msg ? ` — ${truncate(msg, 90)}` : ""}`;
+    }
     default:
       return truncate(summarizePayload(p), 100);
   }

@@ -349,6 +349,17 @@ func (st *Store) RenameSession(ctx context.Context, id, title string) (*Session,
 	return st.GetSession(ctx, id)
 }
 
+// UpdateSessionModel sets the model label reported by the capture client. The
+// CLI learns the true model only after the first assistant turn, so this is
+// called once the transcript reveals it.
+func (st *Store) UpdateSessionModel(ctx context.Context, id, model string) (*Session, error) {
+	const q = `UPDATE sessions SET model = $2 WHERE id = $1`
+	if _, err := st.pool.Exec(ctx, q, id, model); err != nil {
+		return nil, err
+	}
+	return st.GetSession(ctx, id)
+}
+
 // AddUsage accumulates reported input/output token usage onto a session.
 func (st *Store) AddUsage(ctx context.Context, id string, inputTokens, outputTokens int64) (*Session, error) {
 	const q = `UPDATE sessions

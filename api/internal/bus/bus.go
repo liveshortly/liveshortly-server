@@ -28,7 +28,9 @@ func deviceKey(dc string) string   { return "device:" + dc }
 func userCodeKey(uc string) string { return "usercode:" + uc }
 
 // pendingTTL bounds how long an undrained viewer comment lingers in the queue.
-const pendingTTL = 2 * time.Hour
+// Kept in step with the live-session idle timeout so a comment never expires
+// before the session it targets is reaped.
+const pendingTTL = 7 * time.Hour
 
 // NextSeq atomically allocates the next event sequence number for a session.
 func (b *Bus) NextSeq(ctx context.Context, sessionID string) (int, error) {

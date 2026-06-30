@@ -40,7 +40,7 @@ changes.
   "session_id": "uuid",
   "seq": 1,
   "actor": "agent | tool | viewer | null",
-  "event_type": "prompt | response | tool_call | file_write | output",
+  "event_type": "prompt | response | tool_call | pre_tool | file_write | output | stream_end | viewer_comment | input_requested",
   "payload": { "any": "json" },
   "ts": "RFC3339"
 }
@@ -54,6 +54,7 @@ changes.
 | POST | `/api/sessions` | `{"title"?,"model"?,"framework"?,"tags"?:[]}` | `201 {...Session,"url":"/session/{id}"}` |
 | GET  | `/api/sessions?status=live\|ended\|all&q=&limit=&offset=` | — | `200 {"results":[Session],"total":int}` |
 | GET  | `/api/sessions/{id}` | — | `200 {...Session,"events":[Event]}` (view_count++) |
+| PATCH | `/api/sessions/{id}` | `{"title"?,"visibility"?,"link_role"?,"model"?}` | `200 Session` (owner only) |
 | POST | `/api/sessions/{id}/events` | `{"event_type":string,"payload":object,"actor"?:string}` | `201 Event` |
 | GET  | `/api/sessions/{id}/stream` | — | `200` SSE stream (see below) |
 | POST | `/api/sessions/{id}/stop` | — | `200 {...Session}` (status=ended) |
@@ -90,13 +91,31 @@ A viewer watching a LIVE session can send a message back into the running CLI se
 - `POST /api/sessions/{id}/comments` (live only): creates a normal event
   `event_type:"viewer_comment", actor:"viewer", payload:{message,username}` via the
   usual emit path (seq + persist + buffer + publish) so all SSE viewers and late
-  joiners see it; ALSO `RPUSH session:{id}:pending` `{username,message,ts}` (EXPIRE 7200).
+  joiners see it; ALSO `RPUSH session:{id}:pending` `{username,message,ts}` (EXPIRE 25200 = 7h,
+  kept in step with the live-session idle timeout).
 - `GET /api/sessions/{id}/comments/pending`: atomically drains `session:{id}:pending`
   (LRANGE 0 -1 + DEL) → `{comments:[...]}`. Called by the capture hook every prompt.
 - Hook injection: the Claude Code `UserPromptSubmit` (and `PreToolUse`) hook calls the
   pending endpoint and returns the comments to Claude via
   `{"hookSpecificOutput":{"hookEventName":"...","additionalContext":"...@user: msg..."}}`
   on stdout, prefixed with an instruction to address the viewer.
+
+## Input/permission requests → web (Notification hook)
+When the CLI blocks for the developer — a tool permission prompt or an idle input
+wait — Claude Code fires the `Notification` hook. The capture client emits
+`event_type:"input_requested", payload:{message,kind,ts}` where `kind ∈ {permission,input}`.
+The web viewer renders an amber banner with the message and, while the session is
+live and the viewer may comment, one-tap quick replies (Yes/No for `permission`,
+Continue for `input`). Any reply posts as an ordinary comment (queued on `pending`
+and injected on the next prompt/tool boundary). The banner clears as soon as any
+later activity event (`prompt`/`response`/`pre_tool`/`tool_call`/…/`viewer_comment`)
+supersedes the request.
+
+## Model reporting
+A fresh session is created without a model (no assistant turn exists yet). The
+capture client reads the JSONL transcript (`message.model` on assistant turns)
+and, on resume, passes it to `POST /api/sessions`; for fresh sessions it reports
+the model once known via `PATCH /api/sessions/{id}` `{"model":...}` (owner only).
 
 ## Env vars (api)
 `PORT` (8000), `DATABASE_URL`, `REDIS_URL`, `STORAGE_PATH` (/app/data/sessions),

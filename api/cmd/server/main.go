@@ -118,7 +118,7 @@ func main() {
 const (
 	// idleTimeout is how long a live session may go without any new event before
 	// the reaper ends it. The CLI resets this implicitly by emitting events.
-	idleTimeout = 2 * time.Hour
+	idleTimeout = 7 * time.Hour
 	// reapInterval is how often the reaper scans for idle sessions.
 	reapInterval = 10 * time.Minute
 )

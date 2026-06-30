@@ -7,7 +7,16 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from _common import read_event, load_mapping, emit, log  # noqa: E402
+from _common import (  # noqa: E402
+    read_event,
+    load_mapping,
+    emit,
+    detect_model,
+    report_model,
+    mapping_has_model,
+    mark_mapping_model,
+    log,
+)
 
 FILE_WRITE_TOOLS = {"Write", "Edit", "MultiEdit", "NotebookEdit"}
 MAX_OUTPUT_CHARS = 2000
@@ -47,6 +56,13 @@ def main():
     if not ls_id:
         log("post_tool_use: no session mapping; skipping")
         return 0
+
+    # Report the true model once the transcript reveals it (a fresh session is
+    # created model-less before any assistant turn).
+    if claude_id and not mapping_has_model(claude_id):
+        model = detect_model(event.get("transcript_path"))
+        if model and report_model(ls_id, model, claude_id=claude_id) is not None:
+            mark_mapping_model(claude_id, model)
 
     tool_name = event.get("tool_name", "")
     tool_input = event.get("tool_input", {})

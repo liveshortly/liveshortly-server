@@ -172,6 +172,7 @@ type patchSessionReq struct {
 	Visibility *string `json:"visibility"`
 	LinkRole   *string `json:"link_role"`
 	Title      *string `json:"title"`
+	Model      *string `json:"model"`
 }
 
 // PatchSession updates a session's title and/or sharing visibility (owner only).
@@ -211,6 +212,20 @@ func (h *Handler) PatchSession(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Set the model label, if supplied (the capture client reports the true
+	// model once the first assistant turn reveals it).
+	if req.Model != nil {
+		model := strings.TrimSpace(*req.Model)
+		if model == "" || len(model) > 120 {
+			httpx.Error(w, http.StatusBadRequest, "model must be 1–120 characters")
+			return
+		}
+		if _, err := h.store.UpdateSessionModel(r.Context(), id, model); err != nil {
+			httpx.Error(w, http.StatusInternalServerError, "failed to update model")
+			return
+		}
+	}
+
 	updated := s
 	if req.Visibility != nil || req.LinkRole != nil {
 		u, err := h.store.UpdateSessionVisibility(r.Context(), id, req.Visibility, req.LinkRole)
@@ -219,7 +234,7 @@ func (h *Handler) PatchSession(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		updated = u
-	} else if req.Title != nil {
+	} else if req.Title != nil || req.Model != nil {
 		u, err := h.store.GetSession(r.Context(), id)
 		if err == nil && u != nil {
 			updated = u

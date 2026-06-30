@@ -11,6 +11,7 @@ from _common import (  # noqa: E402
     post_json,
     save_mapping,
     resolve_handle,
+    detect_model,
     web_base,
     log,
 )
@@ -29,9 +30,13 @@ def main():
 
     body = {
         "title": title,
-        "model": "claude",
         "framework": "claude-code",
     }
+    # On resume the transcript already names the model; a fresh session has none
+    # yet (reported later by post_tool_use.py once the first turn reveals it).
+    model = detect_model(event.get("transcript_path"))
+    if model:
+        body["model"] = model
 
     handle = resolve_handle(claude_id)
     resp = post_json("/api/sessions", body, claude_id=claude_id)
