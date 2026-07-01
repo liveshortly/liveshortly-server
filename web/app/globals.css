@@ -236,8 +236,15 @@ a {
 .session-page {
   display: flex;
   flex-direction: column;
+  /* Fixed to the viewport height below the global header. `vh` first as a
+     universal fallback (older engines drop the `dvh` line, which would leave
+     height:auto and make the whole page scroll); `dvh` refines it where
+     supported. overflow:hidden guarantees the page never scrolls — only the
+     panes inside do. */
+  height: calc(100vh - 148px);
   height: calc(100dvh - 148px);
   min-height: 480px;
+  overflow: hidden;
   /* Full-bleed to the viewport edges, then re-pad to cap content at ~1440. */
   margin-inline: calc(50% - 50vw);
   padding-inline: max(16px, calc(50vw - 720px));
