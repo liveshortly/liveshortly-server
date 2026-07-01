@@ -236,13 +236,13 @@ a {
 .session-page {
   display: flex;
   flex-direction: column;
-  /* Fixed to the viewport height below the global header. `vh` first as a
-     universal fallback (older engines drop the `dvh` line, which would leave
-     height:auto and make the whole page scroll); `dvh` refines it where
-     supported. overflow:hidden guarantees the page never scrolls — only the
-     panes inside do. */
+  /* Fixed to the viewport height below the global header. Use `vh` (not `dvh`):
+     it is universal and never dropped by the minifier, so the height always
+     applies — otherwise the element falls back to height:auto and the whole
+     page scrolls. On mobile (<=860px) the media query below switches this to
+     height:auto, so `vh`'s browser-chrome quirk never applies here.
+     overflow:hidden guarantees the page never scrolls — only the panes do. */
   height: calc(100vh - 148px);
-  height: calc(100dvh - 148px);
   min-height: 480px;
   overflow: hidden;
   /* Full-bleed to the viewport edges, then re-pad to cap content at ~1440. */
