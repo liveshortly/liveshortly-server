@@ -1,0 +1,1263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LiveShortly — Blog Composer</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+
+:root {
+  --bg:       #16150f;
+  --panel:    #1e1d16;
+  --panel2:   #252419;
+  --panel3:   #2c2b22;
+  --hairline: #34322a;
+  --ink:      #ece8da;
+  --muted:    #a4a08f;
+  --faint:    #767365;
+  --green:    #4cae7a;
+  --amber:    #d6a94a;
+  --blue:     #5b9bd5;
+  --red:      #e06a5a;
+  --purple:   #9b72cf;
+  --paper:    #f0ede3;
+  --font:     'JetBrains Mono','IBM Plex Mono',ui-monospace,monospace;
+  --prose:    'Inter','Helvetica Neue',system-ui,sans-serif;
+}
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+html,body { height:100%; overflow:hidden; }
+body { font-family:var(--font); background:var(--bg); color:var(--ink); -webkit-font-smoothing:antialiased; display:flex; flex-direction:column; }
+*{ scrollbar-width:thin; scrollbar-color:var(--hairline) transparent; }
+
+/* ═══ TOP BAR ═══ */
+.topbar {
+  height: 48px; flex-shrink: 0;
+  display: flex; align-items: center; gap: 0;
+  background: rgba(22,21,15,.97); backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--hairline);
+  z-index: 100;
+}
+.tb-left {
+  display: flex; align-items: center; gap: 12px;
+  padding: 0 16px; min-width: 260px; border-right: 1px solid var(--hairline);
+  height: 100%;
+}
+.tb-back {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 10px; text-transform: uppercase; letter-spacing: .1em;
+  color: var(--faint); cursor: pointer; white-space: nowrap;
+}
+.tb-back:hover { color: var(--muted); }
+.tb-sep { width: 1px; height: 16px; background: var(--hairline); }
+.tb-story-type {
+  font-size: 8px; text-transform: uppercase; letter-spacing: .14em; font-weight: 700;
+  color: var(--amber); border: 1px solid rgba(214,169,74,.3); padding: 2px 6px;
+}
+
+.tb-center {
+  flex: 1; display: flex; align-items: center; gap: 12px;
+  padding: 0 20px; height: 100%;
+}
+.tb-title-wrap { flex: 1; display: flex; align-items: center; gap: 10px; }
+.tb-title-input {
+  flex: 1; background: none; border: none; outline: none;
+  font-family: var(--font); font-size: 13px; font-weight: 600; color: var(--ink);
+  letter-spacing: -.01em;
+  border-bottom: 1px solid transparent;
+}
+.tb-title-input:focus { border-bottom-color: var(--hairline); }
+.tb-draft-pill {
+  font-size: 8px; text-transform: uppercase; letter-spacing: .14em; font-weight: 700;
+  color: var(--amber); border: 1px solid rgba(214,169,74,.3);
+  background: rgba(214,169,74,.06); padding: 3px 8px; white-space: nowrap;
+}
+.tb-wordcount {
+  font-size: 9px; color: var(--faint); letter-spacing: .04em; white-space: nowrap;
+}
+
+.tb-right {
+  display: flex; align-items: center; gap: 8px;
+  padding: 0 16px; min-width: 270px; border-left: 1px solid var(--hairline);
+  height: 100%;
+}
+.tb-btn {
+  font-family: var(--font); font-size: 10px; text-transform: uppercase;
+  letter-spacing: .12em; font-weight: 700; padding: 6px 14px; cursor: pointer;
+  border: none; white-space: nowrap;
+}
+.btn-ghost { background: none; color: var(--muted); border: 1px solid var(--hairline); }
+.btn-ghost:hover { color: var(--ink); border-color: var(--muted); }
+.btn-primary { background: var(--green); color: #0f1f17; border: none; }
+.btn-primary:hover { opacity: .9; }
+
+/* ═══ MAIN THREE-COLUMN ═══ */
+.main {
+  flex: 1; display: flex; min-height: 0;
+  overflow: hidden;
+}
+
+/* ═══ LEFT: SOURCE PANEL ═══ */
+.source-panel {
+  width: 260px; flex-shrink: 0;
+  border-right: 1px solid var(--hairline);
+  display: flex; flex-direction: column;
+  overflow: hidden; background: var(--panel);
+}
+.sp-head {
+  padding: 10px 14px; border-bottom: 1px solid var(--hairline);
+  display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+}
+.sp-head-title { font-size: 8px; text-transform: uppercase; letter-spacing: .16em; font-weight: 700; color: var(--faint); }
+.sp-head-badge { font-size: 7px; text-transform: uppercase; letter-spacing: .1em; font-weight: 700; color: var(--green); border: 1px solid rgba(76,174,122,.3); padding: 2px 5px; }
+
+.sp-scroll { flex: 1; overflow-y: auto; }
+
+/* Session card */
+.sp-session {
+  margin: 10px; padding: 10px; background: var(--panel2);
+  border: 1px solid var(--hairline);
+}
+.sp-session-name { font-size: 10px; font-weight: 700; color: var(--ink); margin-bottom: 6px; line-height: 1.4; }
+.sp-session-meta { display: flex; flex-wrap: wrap; gap: 4px; }
+.sp-meta-pill {
+  font-size: 7px; text-transform: uppercase; letter-spacing: .1em; font-weight: 700;
+  padding: 2px 5px;
+}
+.smp-g { color: var(--green);  border: 1px solid rgba(76,174,122,.25); background: rgba(76,174,122,.06); }
+.smp-b { color: var(--blue);   border: 1px solid rgba(91,155,213,.25); background: rgba(91,155,213,.06); }
+.smp-n { color: var(--faint);  border: 1px solid var(--hairline); }
+
+/* Source sections */
+.sp-section { border-bottom: 1px solid var(--hairline); padding-bottom: 2px; }
+.sp-section-head {
+  padding: 9px 14px 7px; display: flex; align-items: center; gap: 6px;
+  cursor: pointer;
+}
+.sp-section-head:hover { background: rgba(255,255,255,.02); }
+.sp-section-icon { font-size: 9px; color: var(--faint); }
+.sp-section-label { font-size: 8px; text-transform: uppercase; letter-spacing: .14em; font-weight: 700; color: var(--faint); flex: 1; }
+.sp-section-count { font-size: 8px; color: var(--faint); font-weight: 700; }
+.sp-chevron { font-size: 7px; color: var(--faint); }
+
+/* Chapter item */
+.sp-chapter {
+  padding: 6px 14px 6px 24px; display: flex; align-items: flex-start; gap: 8px;
+  cursor: pointer; position: relative;
+}
+.sp-chapter::before {
+  content: ''; position: absolute; left: 14px; top: 0; bottom: 0;
+  width: 1px; background: var(--hairline);
+}
+.sp-chapter:hover { background: rgba(255,255,255,.03); }
+.sp-chapter:hover .sp-insert-btn { opacity: 1; }
+.sp-chapter-num { font-size: 8px; color: var(--faint); width: 12px; flex-shrink: 0; margin-top: 1px; }
+.sp-chapter-body { flex: 1; min-width: 0; }
+.sp-chapter-name { font-size: 9.5px; color: var(--ink); line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sp-chapter-time { font-size: 8px; color: var(--faint); margin-top: 2px; }
+.sp-insert-btn {
+  opacity: 0; flex-shrink: 0;
+  font-size: 7px; text-transform: uppercase; letter-spacing: .1em; font-weight: 700;
+  color: var(--green); border: 1px solid rgba(76,174,122,.3); background: none;
+  font-family: var(--font); padding: 1px 5px; cursor: pointer; white-space: nowrap;
+  transition: opacity .15s;
+}
+
+/* Code clip item */
+.sp-clip {
+  padding: 6px 14px; display: flex; align-items: flex-start; gap: 8px;
+  cursor: pointer;
+}
+.sp-clip:hover { background: rgba(255,255,255,.03); }
+.sp-clip:hover .sp-insert-btn { opacity: 1; }
+.sp-clip-icon { font-size: 9px; color: var(--faint); width: 12px; flex-shrink: 0; margin-top: 1px; }
+.sp-clip-body { flex: 1; min-width: 0; }
+.sp-clip-file { font-size: 9px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sp-clip-sub  { font-size: 8px; color: var(--faint); margin-top: 1px; }
+
+/* Q&A item */
+.sp-qa {
+  padding: 7px 14px; display: flex; align-items: flex-start; gap: 8px;
+  cursor: pointer;
+}
+.sp-qa:hover { background: rgba(255,255,255,.03); }
+.sp-qa:hover .sp-insert-btn { opacity: 1; }
+.sp-qa-body { flex: 1; min-width: 0; }
+.sp-qa-viewer { font-size: 7px; text-transform: uppercase; letter-spacing: .1em; color: var(--blue); margin-bottom: 3px; }
+.sp-qa-q { font-size: 9px; color: var(--ink); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* ═══ CENTER: EDITOR ═══ */
+.editor-col {
+  flex: 1; display: flex; flex-direction: column; min-width: 0;
+  background: var(--panel2);
+}
+
+/* Toolbar */
+.editor-toolbar {
+  flex-shrink: 0; padding: 0 12px;
+  height: 38px; display: flex; align-items: center; gap: 2px;
+  border-bottom: 1px solid var(--hairline);
+  background: var(--panel); position: sticky; top: 0; z-index: 10;
+}
+.tb-group {
+  display: flex; align-items: center; gap: 1px;
+  padding: 0 6px; border-right: 1px solid var(--hairline);
+}
+.tb-group:last-child { border-right: none; }
+.tbtool {
+  width: 28px; height: 26px; display: flex; align-items: center; justify-content: center;
+  font-family: var(--font); font-size: 9px; font-weight: 700; color: var(--faint);
+  cursor: pointer; border-radius: 3px; text-transform: uppercase; letter-spacing: .04em;
+  border: none; background: none;
+}
+.tbtool:hover { background: rgba(255,255,255,.06); color: var(--ink); }
+.tbtool.active { background: rgba(76,174,122,.1); color: var(--green); }
+.tbtool-wide { width: auto; padding: 0 8px; }
+.tbtool-sep { width: 1px; height: 14px; background: var(--hairline); margin: 0 4px; }
+.tb-ai-btn {
+  margin-left: auto; display: flex; align-items: center; gap: 5px;
+  font-family: var(--font); font-size: 8px; text-transform: uppercase; letter-spacing: .1em; font-weight: 700;
+  color: var(--purple); border: 1px solid rgba(155,114,207,.3); background: rgba(155,114,207,.06);
+  padding: 3px 8px; cursor: pointer;
+}
+.tb-mode {
+  display: flex; align-items: center; gap: 1px; padding: 2px;
+  background: rgba(255,255,255,.04); border-radius: 4px;
+}
+.mode-btn {
+  font-family: var(--font); font-size: 8px; text-transform: uppercase; letter-spacing: .1em;
+  font-weight: 700; padding: 3px 8px; cursor: pointer; border: none; border-radius: 3px;
+  background: none; color: var(--faint);
+}
+.mode-btn.active { background: var(--panel3); color: var(--ink); }
+
+/* Editor scroll area */
+.editor-scroll {
+  flex: 1; overflow-y: auto;
+  padding: 32px 0 80px;
+}
+.editor-wrap {
+  max-width: 720px; margin: 0 auto; padding: 0 40px;
+}
+
+/* Title area */
+.ed-cover-slot {
+  width: 100%; height: 180px; background: var(--panel3);
+  border: 1px dashed var(--hairline); display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 8px; cursor: pointer;
+  margin-bottom: 28px; position: relative; overflow: hidden;
+}
+.ed-cover-slot::before {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(135deg, rgba(76,174,122,.04) 0%, transparent 50%, rgba(91,155,213,.04) 100%);
+}
+.ed-cover-icon { font-size: 14px; color: var(--faint); }
+.ed-cover-text { font-size: 9px; text-transform: uppercase; letter-spacing: .14em; color: var(--faint); }
+.ed-cover-sub  { font-size: 8px; color: var(--panel3); }
+
+.ed-tags-row {
+  display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px;
+}
+.ed-tag {
+  font-size: 8px; text-transform: uppercase; letter-spacing: .1em; font-weight: 700;
+  padding: 3px 8px; border: 1px solid var(--hairline); color: var(--faint);
+}
+.ed-tag-add {
+  font-size: 8px; letter-spacing: .1em; color: var(--faint);
+  border: 1px dashed var(--hairline); padding: 3px 8px; cursor: pointer;
+}
+.ed-tag-add:hover { color: var(--muted); }
+
+.ed-title-input {
+  width: 100%; background: none; border: none; outline: none;
+  font-family: var(--prose); font-size: 32px; font-weight: 700;
+  color: var(--ink); line-height: 1.2; letter-spacing: -.02em;
+  resize: none; overflow: hidden; margin-bottom: 12px;
+}
+.ed-title-input::placeholder { color: var(--panel3); }
+
+.ed-subtitle-input {
+  width: 100%; background: none; border: none; outline: none;
+  font-family: var(--prose); font-size: 16px; color: var(--muted);
+  line-height: 1.5; resize: none; overflow: hidden; margin-bottom: 28px;
+}
+.ed-subtitle-input::placeholder { color: var(--panel3); }
+
+/* Content body */
+.ed-body {
+  font-family: var(--prose); font-size: 15px; line-height: 1.75;
+  color: rgba(236,232,218,.82);
+}
+
+.ed-body h2 {
+  font-family: var(--font); font-size: 13px; text-transform: uppercase;
+  letter-spacing: .12em; font-weight: 700; color: var(--ink);
+  margin: 36px 0 14px; padding-bottom: 8px;
+  border-bottom: 1px solid var(--hairline);
+}
+.ed-body h3 {
+  font-family: var(--prose); font-size: 18px; font-weight: 700; color: var(--ink);
+  margin: 24px 0 10px; letter-spacing: -.01em;
+}
+.ed-body p { margin-bottom: 16px; }
+.ed-body p:last-child { margin-bottom: 0; }
+
+.ed-body strong { color: var(--ink); font-weight: 700; }
+.ed-body code {
+  font-family: var(--font); font-size: 12px; background: var(--panel3);
+  border: 1px solid var(--hairline); padding: 1px 5px; color: var(--green);
+  border-radius: 2px;
+}
+.ed-body a { color: var(--blue); text-decoration: none; border-bottom: 1px solid rgba(91,155,213,.3); }
+
+/* Chapter marker */
+.ed-chapter-marker {
+  display: flex; align-items: center; gap: 10px;
+  margin: 32px 0 24px; padding: 10px 14px;
+  background: var(--panel); border: 1px solid var(--hairline);
+  border-left: 2px solid var(--green); position: relative;
+}
+.ed-chapter-num { font-size: 8px; text-transform: uppercase; letter-spacing: .14em; font-weight: 700; color: var(--green); }
+.ed-chapter-title-text { font-size: 11px; font-weight: 700; color: var(--ink); letter-spacing: -.01em; font-family: var(--prose); }
+.ed-chapter-ts { font-size: 8px; color: var(--faint); margin-left: auto; white-space: nowrap; }
+.ed-chapter-drag { position: absolute; left: -8px; top: 50%; transform: translateY(-50%); color: var(--faint); font-size: 9px; cursor: grab; opacity: 0; transition: opacity .15s; }
+.ed-chapter-marker:hover .ed-chapter-drag { opacity: 1; }
+
+/* Code block */
+.ed-code-block {
+  margin: 20px 0; border: 1px solid var(--hairline);
+  background: var(--panel); overflow: hidden;
+}
+.ed-code-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 14px; border-bottom: 1px solid var(--hairline);
+  background: rgba(255,255,255,.02);
+}
+.ed-code-lang { font-size: 8px; text-transform: uppercase; letter-spacing: .1em; font-weight: 700; color: var(--green); }
+.ed-code-file { font-size: 9px; color: var(--faint); flex: 1; }
+.ed-code-session-tag { font-size: 7px; text-transform: uppercase; letter-spacing: .1em; font-weight: 700; color: var(--blue); border: 1px solid rgba(91,155,213,.25); padding: 2px 5px; }
+.ed-code-copy { font-size: 7px; text-transform: uppercase; letter-spacing: .1em; color: var(--faint); border: 1px solid var(--hairline); padding: 2px 5px; cursor: pointer; }
+.ed-code-body { padding: 16px; overflow-x: auto; }
+.ed-code-body pre {
+  font-family: var(--font); font-size: 12px; line-height: 1.65;
+  color: var(--ink); white-space: pre;
+}
+.tk-k  { color: var(--purple); }
+.tk-s  { color: var(--amber); }
+.tk-c  { color: var(--faint); font-style: italic; }
+.tk-t  { color: var(--blue); }
+.tk-f  { color: var(--green); }
+.tk-n  { color: var(--red); }
+
+/* Inject callout */
+.ed-inject {
+  margin: 24px 0; padding: 14px 16px; padding-left: 20px;
+  border-left: 3px solid var(--blue); background: rgba(91,155,213,.06);
+  border: 1px solid rgba(91,155,213,.15); border-left: 3px solid var(--blue);
+  position: relative;
+}
+.ed-inject-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.ed-inject-icon { font-size: 9px; color: var(--blue); }
+.ed-inject-label { font-size: 7px; text-transform: uppercase; letter-spacing: .14em; font-weight: 700; color: var(--blue); }
+.ed-inject-viewer { font-size: 8px; color: var(--muted); }
+.ed-inject-q { font-family: var(--prose); font-size: 13px; color: var(--ink); font-weight: 600; margin-bottom: 6px; line-height: 1.4; }
+.ed-inject-response { font-family: var(--prose); font-size: 12px; color: var(--muted); line-height: 1.55; }
+.ed-inject-ts { font-size: 7px; color: var(--faint); margin-top: 6px; }
+.ed-inject-remove {
+  position: absolute; top: 8px; right: 8px;
+  font-size: 8px; color: var(--faint); cursor: pointer;
+  font-family: var(--font); background: none; border: none; padding: 2px;
+}
+.ed-inject-remove:hover { color: var(--red); }
+
+/* Stats epilogue */
+.ed-stats-epilogue {
+  margin-top: 40px; padding-top: 24px; border-top: 1px solid var(--hairline);
+}
+.ed-epi-label { font-size: 8px; text-transform: uppercase; letter-spacing: .16em; font-weight: 700; color: var(--faint); margin-bottom: 16px; }
+.ed-epi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.ed-epi-cell {
+  padding: 12px; background: var(--panel); border: 1px solid var(--hairline);
+  display: flex; flex-direction: column; gap: 4px;
+}
+.ed-epi-value { font-size: 20px; font-weight: 700; color: var(--green); letter-spacing: -.02em; }
+.ed-epi-key { font-size: 8px; text-transform: uppercase; letter-spacing: .1em; color: var(--faint); }
+
+/* Replay CTA */
+.ed-replay-cta {
+  margin-top: 20px; padding: 16px; background: var(--panel); border: 1px solid var(--hairline);
+  display: flex; align-items: center; gap: 14px;
+}
+.ed-replay-icon { font-size: 20px; color: var(--green); }
+.ed-replay-text { flex: 1; }
+.ed-replay-title { font-size: 12px; font-weight: 700; color: var(--ink); margin-bottom: 3px; }
+.ed-replay-sub { font-size: 10px; color: var(--muted); line-height: 1.4; }
+.ed-replay-btn {
+  font-family: var(--font); font-size: 9px; text-transform: uppercase;
+  letter-spacing: .1em; font-weight: 700; padding: 6px 14px; cursor: pointer;
+  background: none; border: 1px solid var(--hairline); color: var(--muted);
+}
+.ed-replay-btn:hover { border-color: var(--green); color: var(--green); }
+
+/* Bottom status bar */
+.editor-statusbar {
+  flex-shrink: 0; height: 28px; display: flex; align-items: center; gap: 16px;
+  padding: 0 40px; border-top: 1px solid var(--hairline);
+  background: var(--panel); font-size: 8px; color: var(--faint);
+  text-transform: uppercase; letter-spacing: .08em;
+}
+.sb-autosave { display: flex; align-items: center; gap: 5px; }
+.sb-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--green); }
+.sb-sep { width: 1px; height: 10px; background: var(--hairline); }
+.sb-quality {
+  margin-left: auto; display: flex; align-items: center; gap: 6px;
+}
+.sb-q-label { color: var(--faint); }
+.sb-q-bar { display: flex; gap: 2px; }
+.sb-q-seg {
+  width: 16px; height: 3px; border-radius: 1px;
+}
+.sq-filled { background: var(--green); }
+.sq-half   { background: var(--amber); }
+.sq-empty  { background: var(--hairline); }
+
+/* ═══ RIGHT: SETTINGS PANEL ═══ */
+.settings-panel {
+  width: 270px; flex-shrink: 0;
+  border-left: 1px solid var(--hairline);
+  display: flex; flex-direction: column;
+  overflow: hidden; background: var(--panel);
+}
+.settings-scroll { flex: 1; overflow-y: auto; }
+
+.set-section {
+  padding: 14px 16px; border-bottom: 1px solid var(--hairline);
+}
+.set-section-head {
+  font-size: 8px; text-transform: uppercase; letter-spacing: .16em; font-weight: 700;
+  color: var(--faint); margin-bottom: 12px;
+}
+
+/* Publish status */
+.set-status-row { display: flex; gap: 4px; }
+.status-opt {
+  flex: 1; padding: 6px 8px; font-family: var(--font);
+  font-size: 8px; text-transform: uppercase; letter-spacing: .1em; font-weight: 700;
+  cursor: pointer; border: 1px solid var(--hairline); background: none;
+  color: var(--faint); text-align: center;
+}
+.status-opt:hover { border-color: var(--muted); color: var(--muted); }
+.status-opt.active { border-color: var(--amber); color: var(--amber); background: rgba(214,169,74,.06); }
+
+/* Visibility */
+.set-vis-row { display: flex; flex-direction: column; gap: 4px; }
+.vis-opt {
+  display: flex; align-items: center; gap: 9px; padding: 7px 10px;
+  border: 1px solid var(--hairline); cursor: pointer; background: none;
+  transition: border-color .15s;
+}
+.vis-opt:hover { border-color: var(--muted); }
+.vis-opt.active { border-color: var(--green); background: rgba(76,174,122,.05); }
+.vis-radio {
+  width: 12px; height: 12px; border-radius: 50%;
+  border: 1px solid var(--hairline); flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.vis-opt.active .vis-radio { border-color: var(--green); }
+.vis-radio::after {
+  content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--green);
+  opacity: 0;
+}
+.vis-opt.active .vis-radio::after { opacity: 1; }
+.vis-label { font-size: 10px; font-weight: 600; color: var(--ink); }
+.vis-sub   { font-size: 8px; color: var(--faint); line-height: 1.4; margin-top: 2px; }
+
+/* Tags */
+.set-tags { display: flex; flex-wrap: wrap; gap: 5px; }
+.set-tag {
+  font-size: 9px; text-transform: uppercase; letter-spacing: .08em; font-weight: 700;
+  padding: 3px 8px; border: 1px solid var(--hairline); color: var(--muted);
+  display: flex; align-items: center; gap: 5px;
+}
+.set-tag-x { color: var(--faint); cursor: pointer; font-size: 8px; }
+.set-tag-x:hover { color: var(--red); }
+.set-tag-add {
+  font-size: 9px; text-transform: uppercase; letter-spacing: .08em;
+  padding: 3px 8px; border: 1px dashed var(--hairline); color: var(--faint);
+  cursor: pointer; font-family: var(--font); background: none;
+}
+
+/* Cover image */
+.set-cover {
+  width: 100%; height: 80px; background: var(--panel2);
+  border: 1px dashed var(--hairline); display: flex; align-items: center;
+  justify-content: center; gap: 6px; cursor: pointer;
+}
+.set-cover-text { font-size: 8px; text-transform: uppercase; letter-spacing: .1em; color: var(--faint); }
+
+/* Series */
+.set-series-input {
+  width: 100%; background: var(--panel2); border: 1px solid var(--hairline);
+  outline: none; font-family: var(--font); font-size: 10px; color: var(--ink);
+  padding: 7px 10px;
+}
+.set-series-input::placeholder { color: var(--faint); }
+.set-series-input:focus { border-color: var(--green); }
+
+/* Toggles */
+.set-toggle-row {
+  display: flex; align-items: center; gap: 10px; padding: 5px 0;
+}
+.set-toggle-label { font-size: 10px; color: var(--muted); flex: 1; }
+.set-toggle-sub   { font-size: 8px; color: var(--faint); }
+.toggle {
+  width: 32px; height: 17px; border-radius: 9px;
+  position: relative; cursor: pointer; flex-shrink: 0;
+  transition: background .2s;
+}
+.toggle-on  { background: var(--green); }
+.toggle-off { background: var(--panel3); }
+.toggle::after {
+  content: ''; position: absolute;
+  width: 11px; height: 11px; border-radius: 50%; background: white;
+  top: 3px; transition: left .2s;
+}
+.toggle-on::after  { left: 18px; }
+.toggle-off::after { left: 3px; }
+
+/* Session attribution */
+.set-session-link {
+  display: flex; align-items: center; gap: 8px; padding: 8px 10px;
+  background: var(--panel2); border: 1px solid var(--hairline);
+}
+.ssl-icon { font-size: 9px; color: var(--green); }
+.ssl-body { flex: 1; min-width: 0; }
+.ssl-name { font-size: 9px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ssl-meta { font-size: 7px; color: var(--faint); margin-top: 1px; }
+.ssl-unlink { font-size: 7px; color: var(--faint); cursor: pointer; }
+.ssl-unlink:hover { color: var(--red); }
+
+/* Publish CTA */
+.set-publish-cta {
+  padding: 14px 16px; background: rgba(76,174,122,.06);
+  border-top: 1px solid rgba(76,174,122,.15);
+  display: flex; flex-direction: column; gap: 8px;
+  flex-shrink: 0;
+}
+.pub-btn {
+  width: 100%; font-family: var(--font); font-size: 11px; text-transform: uppercase;
+  letter-spacing: .12em; font-weight: 700; padding: 10px; cursor: pointer;
+  background: var(--green); color: #0f1f17; border: none;
+}
+.pub-btn:hover { opacity: .9; }
+.pub-schedule-btn {
+  width: 100%; font-family: var(--font); font-size: 9px; text-transform: uppercase;
+  letter-spacing: .1em; font-weight: 700; padding: 7px; cursor: pointer;
+  background: none; color: var(--faint); border: 1px solid var(--hairline);
+}
+.pub-schedule-btn:hover { border-color: var(--amber); color: var(--amber); }
+.pub-note { font-size: 8px; color: var(--faint); text-align: center; line-height: 1.5; }
+
+</style>
+</head>
+<body>
+
+<!-- ═══ TOP BAR ═══ -->
+<div class="topbar">
+
+  <div class="tb-left">
+    <div class="tb-back">
+      <span>◂</span>
+      <span>Sessions</span>
+    </div>
+    <div class="tb-sep"></div>
+    <span class="tb-story-type">Dev Story</span>
+  </div>
+
+  <div class="tb-center">
+    <div class="tb-title-wrap">
+      <input class="tb-title-input" type="text"
+        value="Rebuilding Auth Middleware From Scratch (With Claude)">
+      <span class="tb-draft-pill">Draft</span>
+    </div>
+    <span class="tb-wordcount">847 words · 4 min read</span>
+
+    <div class="tb-mode">
+      <button class="mode-btn active">Write</button>
+      <button class="mode-btn">Preview</button>
+    </div>
+  </div>
+
+  <div class="tb-right">
+    <button class="tb-btn btn-ghost">Discard</button>
+    <button class="tb-btn btn-ghost">Save Draft</button>
+    <button class="tb-btn btn-primary">Publish →</button>
+  </div>
+
+</div><!-- /topbar -->
+
+
+<!-- ═══ MAIN ═══ -->
+<div class="main">
+
+
+  <!-- ═══ SOURCE PANEL ═══ -->
+  <div class="source-panel">
+
+    <div class="sp-head">
+      <span class="sp-head-title">Session Source</span>
+      <span class="sp-head-badge">Auto-filled</span>
+    </div>
+
+    <div class="sp-scroll">
+
+      <!-- Session card -->
+      <div class="sp-session">
+        <div class="sp-session-name">auth-middleware-rebuild · Jul 1 2026</div>
+        <div class="sp-session-meta">
+          <span class="sp-meta-pill smp-g">89 min</span>
+          <span class="sp-meta-pill smp-b">247 events</span>
+          <span class="sp-meta-pill smp-n">6 files</span>
+          <span class="sp-meta-pill smp-n">47 tool calls</span>
+        </div>
+      </div>
+
+      <!-- Chapters -->
+      <div class="sp-section">
+        <div class="sp-section-head">
+          <span class="sp-section-icon">≡</span>
+          <span class="sp-section-label">Chapters</span>
+          <span class="sp-section-count">6</span>
+          <span class="sp-chevron">▾</span>
+        </div>
+
+        <div class="sp-chapter">
+          <span class="sp-chapter-num">01</span>
+          <div class="sp-chapter-body">
+            <div class="sp-chapter-name">The Problem</div>
+            <div class="sp-chapter-time">0:00 – 12:30</div>
+          </div>
+          <button class="sp-insert-btn">Insert</button>
+        </div>
+
+        <div class="sp-chapter">
+          <span class="sp-chapter-num">02</span>
+          <div class="sp-chapter-body">
+            <div class="sp-chapter-name">Diagnosis</div>
+            <div class="sp-chapter-time">12:30 – 28:45</div>
+          </div>
+          <button class="sp-insert-btn">Insert</button>
+        </div>
+
+        <div class="sp-chapter">
+          <span class="sp-chapter-num">03</span>
+          <div class="sp-chapter-body">
+            <div class="sp-chapter-name">Token Validation</div>
+            <div class="sp-chapter-time">28:45 – 51:20</div>
+          </div>
+          <button class="sp-insert-btn">Insert</button>
+        </div>
+
+        <div class="sp-chapter">
+          <span class="sp-chapter-num">04</span>
+          <div class="sp-chapter-body">
+            <div class="sp-chapter-name">Writing Tests First</div>
+            <div class="sp-chapter-time">51:20 – 1:08:10</div>
+          </div>
+          <button class="sp-insert-btn">Insert</button>
+        </div>
+
+        <div class="sp-chapter">
+          <span class="sp-chapter-num">05</span>
+          <div class="sp-chapter-body">
+            <div class="sp-chapter-name">Race Condition Hunt</div>
+            <div class="sp-chapter-time">1:08:10 – 1:24:45</div>
+          </div>
+          <button class="sp-insert-btn">Insert</button>
+        </div>
+
+        <div class="sp-chapter" style="margin-bottom:8px">
+          <span class="sp-chapter-num">06</span>
+          <div class="sp-chapter-body">
+            <div class="sp-chapter-name">The Fix</div>
+            <div class="sp-chapter-time">1:24:45 – 1:29:20</div>
+          </div>
+          <button class="sp-insert-btn">Insert</button>
+        </div>
+      </div>
+
+      <!-- Code clips -->
+      <div class="sp-section">
+        <div class="sp-section-head">
+          <span class="sp-section-icon">{ }</span>
+          <span class="sp-section-label">Code Clips</span>
+          <span class="sp-section-count">8</span>
+          <span class="sp-chevron">▾</span>
+        </div>
+
+        <div class="sp-clip">
+          <span class="sp-clip-icon">▸</span>
+          <div class="sp-clip-body">
+            <div class="sp-clip-file">internal/auth/middleware.go</div>
+            <div class="sp-clip-sub">Final implementation · +84 / -12</div>
+          </div>
+          <button class="sp-insert-btn">Insert</button>
+        </div>
+
+        <div class="sp-clip">
+          <span class="sp-clip-icon">▸</span>
+          <div class="sp-clip-body">
+            <div class="sp-clip-file">internal/auth/middleware_test.go</div>
+            <div class="sp-clip-sub">Test suite · +156 added</div>
+          </div>
+          <button class="sp-insert-btn">Insert</button>
+        </div>
+
+        <div class="sp-clip">
+          <span class="sp-clip-icon">▸</span>
+          <div class="sp-clip-body">
+            <div class="sp-clip-file">internal/websession/jwt.go</div>
+            <div class="sp-clip-sub">Token validation · key change at 28:45</div>
+          </div>
+          <button class="sp-insert-btn">Insert</button>
+        </div>
+
+        <div class="sp-clip" style="margin-bottom:8px">
+          <span class="sp-clip-icon">▸</span>
+          <div class="sp-clip-body">
+            <div class="sp-clip-file">Error trace (1:08:10)</div>
+            <div class="sp-clip-sub">Goroutine race — the aha moment</div>
+          </div>
+          <button class="sp-insert-btn">Insert</button>
+        </div>
+      </div>
+
+      <!-- Viewer Q&A -->
+      <div class="sp-section" style="border-bottom:none">
+        <div class="sp-section-head">
+          <span class="sp-section-icon">⌥</span>
+          <span class="sp-section-label">Viewer Injects</span>
+          <span class="sp-section-count">5</span>
+          <span class="sp-chevron">▾</span>
+        </div>
+
+        <div class="sp-qa">
+          <div class="sp-qa-body">
+            <div class="sp-qa-viewer">@lx_dev asked at 29:12</div>
+            <div class="sp-qa-q">Why not use a mutex instead of a channel here?</div>
+          </div>
+          <button class="sp-insert-btn">Insert</button>
+        </div>
+
+        <div class="sp-qa">
+          <div class="sp-qa-body">
+            <div class="sp-qa-viewer">@mira_codes asked at 51:40</div>
+            <div class="sp-qa-q">Can this handle refresh token rotation?</div>
+          </div>
+          <button class="sp-insert-btn">Insert</button>
+        </div>
+
+        <div class="sp-qa" style="margin-bottom:8px">
+          <div class="sp-qa-body">
+            <div class="sp-qa-viewer">@tundra_k asked at 1:09:05</div>
+            <div class="sp-qa-q">Is this the same race condition from the Go blog post?</div>
+          </div>
+          <button class="sp-insert-btn">Insert</button>
+        </div>
+
+      </div><!-- /sp-section -->
+
+    </div><!-- /sp-scroll -->
+
+  </div><!-- /source-panel -->
+
+
+  <!-- ═══ EDITOR ═══ -->
+  <div class="editor-col">
+
+    <!-- Toolbar -->
+    <div class="editor-toolbar">
+
+      <div class="tb-group">
+        <button class="tbtool tbtool-wide">H1</button>
+        <button class="tbtool tbtool-wide">H2</button>
+        <button class="tbtool tbtool-wide">H3</button>
+      </div>
+
+      <div class="tb-group">
+        <button class="tbtool" title="Bold"><strong>B</strong></button>
+        <button class="tbtool" title="Italic"><em>I</em></button>
+        <button class="tbtool" title="Strikethrough" style="text-decoration:line-through">S</button>
+      </div>
+
+      <div class="tb-group">
+        <button class="tbtool" title="Inline code">&lt;/&gt;</button>
+        <button class="tbtool active" title="Code block">{ }</button>
+        <button class="tbtool" title="Quote">❝</button>
+      </div>
+
+      <div class="tb-group">
+        <button class="tbtool" title="Link">↗</button>
+        <button class="tbtool" title="Image">▣</button>
+        <button class="tbtool" title="Divider">—</button>
+        <button class="tbtool" title="Session clip">⊞</button>
+      </div>
+
+      <div class="tb-group">
+        <button class="tbtool" title="Bullet list">•</button>
+        <button class="tbtool" title="Numbered list">1.</button>
+        <button class="tbtool" title="Task list">☐</button>
+      </div>
+
+      <button class="tb-ai-btn">
+        <span>✦</span>
+        <span>Claude Draft</span>
+      </button>
+
+    </div><!-- /toolbar -->
+
+    <!-- Scrollable editor body -->
+    <div class="editor-scroll">
+      <div class="editor-wrap">
+
+        <!-- Cover drop zone -->
+        <div class="ed-cover-slot">
+          <span class="ed-cover-icon">▣</span>
+          <span class="ed-cover-text">Add a cover image</span>
+          <span class="ed-cover-sub">or auto-generate from session thumbnail</span>
+        </div>
+
+        <!-- Tags -->
+        <div class="ed-tags-row">
+          <span class="ed-tag">Go</span>
+          <span class="ed-tag">Auth</span>
+          <span class="ed-tag">JWT</span>
+          <span class="ed-tag">Race Condition</span>
+          <button class="ed-tag-add">+ Add tag</button>
+        </div>
+
+        <!-- Title -->
+        <textarea class="ed-title-input" rows="2"
+          placeholder="Story title...">Rebuilding Auth Middleware From Scratch (With Claude)</textarea>
+
+        <!-- Subtitle -->
+        <textarea class="ed-subtitle-input" rows="2"
+          placeholder="Add a subtitle or summary...">89 minutes. 47 tool calls. One very grumpy middleware bug. Here's exactly how Claude and I tore apart our JWT validation and put it back together.</textarea>
+
+        <!-- Content body -->
+        <div class="ed-body">
+
+          <!-- Chapter 1 -->
+          <div class="ed-chapter-marker">
+            <span class="ed-chapter-drag">⠿</span>
+            <span class="ed-chapter-num">Chapter 01</span>
+            <span class="ed-chapter-title-text">The Problem</span>
+            <span class="ed-chapter-ts">▶ 0:00</span>
+          </div>
+
+          <p>
+            It started, as these things always do, with a bug report that seemed
+            deceptively simple. Users were getting <code>401 Unauthorized</code>
+            errors <em>after</em> successfully logging in — but only sometimes, and
+            only on the second request. The kind of bug that makes you distrust
+            everything you know about HTTP.
+          </p>
+          <p>
+            I'd been staring at <code>internal/auth/middleware.go</code> for about
+            20 minutes before I decided to just start a session and let Claude look
+            over my shoulder. The best debugging partner I know doesn't get tired,
+            doesn't check Slack mid-thought, and has read every Go spec ever written.
+          </p>
+
+          <!-- Chapter 2 -->
+          <div class="ed-chapter-marker">
+            <span class="ed-chapter-drag">⠿</span>
+            <span class="ed-chapter-num">Chapter 02</span>
+            <span class="ed-chapter-title-text">Diagnosis</span>
+            <span class="ed-chapter-ts">▶ 12:30</span>
+          </div>
+
+          <p>
+            The first thing Claude did was ask to see the middleware chain. Not
+            the broken function — the whole chain. That reframing shifted everything.
+            The issue wasn't in our <code>Authn</code> middleware; it was in how we
+            were passing the <code>Identity</code> context value downstream.
+          </p>
+
+          <!-- Viewer inject: mutex question -->
+          <div class="ed-inject">
+            <button class="ed-inject-remove">✕</button>
+            <div class="ed-inject-header">
+              <span class="ed-inject-icon">⌥</span>
+              <span class="ed-inject-label">Viewer Inject</span>
+              <span class="ed-inject-viewer">@lx_dev · 29:12</span>
+            </div>
+            <div class="ed-inject-q">"Why not use a mutex instead of a channel here?"</div>
+            <div class="ed-inject-response">
+              Good catch from the chat. I was already holding a channel for the wrong
+              reason — we didn't need a mutex <em>or</em> a channel. We needed to stop
+              sharing mutable state between goroutines entirely. This comment sent us
+              down the path that ultimately found the real fix.
+            </div>
+            <div class="ed-inject-ts">This viewer comment changed the direction of the session.</div>
+          </div>
+
+          <!-- Chapter 3 -->
+          <div class="ed-chapter-marker">
+            <span class="ed-chapter-drag">⠿</span>
+            <span class="ed-chapter-num">Chapter 03</span>
+            <span class="ed-chapter-title-text">Token Validation</span>
+            <span class="ed-chapter-ts">▶ 28:45</span>
+          </div>
+
+          <p>
+            The real problem turned out to be in <code>websession/jwt.go</code>.
+            We were reusing a <code>jwt.Parser</code> across goroutines without
+            realizing the parser held internal state that wasn't safe for concurrent
+            access. Classic Go gotcha.
+          </p>
+
+          <!-- Code block -->
+          <div class="ed-code-block">
+            <div class="ed-code-header">
+              <span class="ed-code-lang">Go</span>
+              <span class="ed-code-file">internal/websession/jwt.go · before fix</span>
+              <span class="ed-code-session-tag">Clip · 28:45</span>
+              <button class="ed-code-copy">Copy</button>
+            </div>
+            <div class="ed-code-body">
+              <pre><span class="tk-c">// BUG: shared parser — not safe for concurrent use</span>
+<span class="tk-k">var</span> sharedParser <span class="tk-t">= jwt</span>.NewParser(
+    jwt.WithValidMethods([]<span class="tk-t">string</span>{<span class="tk-s">"RS256"</span>}),
+)
+
+<span class="tk-k">func</span> <span class="tk-f">Verify</span>(tokenStr <span class="tk-t">string</span>) (*Claims, <span class="tk-t">error</span>) {
+    token, err := sharedParser.<span class="tk-f">ParseWithClaims</span>(
+        tokenStr, &Claims{},
+        keyFunc,
+    )
+    <span class="tk-k">if</span> err != <span class="tk-n">nil</span> {
+        <span class="tk-k">return</span> <span class="tk-n">nil</span>, err
+    }
+    <span class="tk-k">return</span> token.Claims.(*Claims), <span class="tk-n">nil</span>
+}</pre>
+            </div>
+          </div>
+
+          <!-- Chapter 4 -->
+          <div class="ed-chapter-marker">
+            <span class="ed-chapter-drag">⠿</span>
+            <span class="ed-chapter-num">Chapter 04</span>
+            <span class="ed-chapter-title-text">Writing Tests First</span>
+            <span class="ed-chapter-ts">▶ 51:20</span>
+          </div>
+
+          <p>
+            Before touching the implementation, Claude pushed us to write the
+            tests first. This was the right call. Not because we're TDD purists —
+            because the bug was timing-sensitive and we needed a reliable way to
+            reproduce it before fixing it. We ended up with a race-condition test
+            using <code>testing/race</code> that would have caught this the first
+            time around.
+          </p>
+
+          <!-- Second code block (fixed version) -->
+          <div class="ed-code-block">
+            <div class="ed-code-header">
+              <span class="ed-code-lang">Go</span>
+              <span class="ed-code-file">internal/websession/jwt.go · fixed</span>
+              <span class="ed-code-session-tag">Clip · 1:24:45</span>
+              <button class="ed-code-copy">Copy</button>
+            </div>
+            <div class="ed-code-body">
+              <pre><span class="tk-c">// FIX: create a new parser per call — zero shared state</span>
+<span class="tk-k">func</span> <span class="tk-f">Verify</span>(tokenStr <span class="tk-t">string</span>) (*Claims, <span class="tk-t">error</span>) {
+    parser := jwt.<span class="tk-f">NewParser</span>(
+        jwt.<span class="tk-f">WithValidMethods</span>([]<span class="tk-t">string</span>{<span class="tk-s">"RS256"</span>}),
+        jwt.<span class="tk-f">WithIssuedAt</span>(),
+    )
+    token, err := parser.<span class="tk-f">ParseWithClaims</span>(
+        tokenStr, &Claims{},
+        keyFunc,
+    )
+    <span class="tk-k">if</span> err != <span class="tk-n">nil</span> {
+        <span class="tk-k">return</span> <span class="tk-n">nil</span>, fmt.<span class="tk-f">Errorf</span>(<span class="tk-s">"jwt verify: %w"</span>, err)
+    }
+    claims, ok := token.Claims.(*Claims)
+    <span class="tk-k">if</span> !ok || !token.Valid {
+        <span class="tk-k">return</span> <span class="tk-n">nil</span>, <span class="tk-f">errInvalidToken</span>
+    }
+    <span class="tk-k">return</span> claims, <span class="tk-n">nil</span>
+}</pre>
+            </div>
+          </div>
+
+          <!-- Chapter 5+6 combined -->
+          <div class="ed-chapter-marker">
+            <span class="ed-chapter-drag">⠿</span>
+            <span class="ed-chapter-num">Chapter 05</span>
+            <span class="ed-chapter-title-text">Race Condition Hunt</span>
+            <span class="ed-chapter-ts">▶ 1:08:10</span>
+          </div>
+
+          <p>
+            The race condition hunt was the most interesting part of the session —
+            if you want to watch 38 minutes of live debugging including two wrong
+            turns and one <em>very</em> satisfying "oh" moment, the full replay
+            is linked at the bottom of this post.
+          </p>
+
+          <!-- Viewer inject: race condition question -->
+          <div class="ed-inject">
+            <button class="ed-inject-remove">✕</button>
+            <div class="ed-inject-header">
+              <span class="ed-inject-icon">⌥</span>
+              <span class="ed-inject-label">Viewer Inject</span>
+              <span class="ed-inject-viewer">@tundra_k · 1:09:05</span>
+            </div>
+            <div class="ed-inject-q">"Is this the same race condition from the Go blog post?"</div>
+            <div class="ed-inject-response">
+              Yes — and the viewer linking that blog post at exactly this moment
+              saved me at least 20 minutes. The <code>sync.Pool</code> gotcha with
+              non-zero-safe types is well-documented, but I hadn't made the
+              connection. Sometimes chat is the best documentation.
+            </div>
+            <div class="ed-inject-ts">This viewer comment changed the direction of the session.</div>
+          </div>
+
+          <p>
+            Once we understood what was happening, the fix was four lines. The
+            lesson, as always with concurrent Go: don't share parsers, validators,
+            or anything that holds internal parse state across goroutines. Create them
+            per-request. The allocation overhead is negligible; the correctness
+            guarantee is not.
+          </p>
+
+          <!-- Stats epilogue -->
+          <div class="ed-stats-epilogue">
+            <div class="ed-epi-label">Session Epilogue — Auto-filled from session</div>
+            <div class="ed-epi-grid">
+              <div class="ed-epi-cell">
+                <span class="ed-epi-value">89m</span>
+                <span class="ed-epi-key">Session length</span>
+              </div>
+              <div class="ed-epi-cell">
+                <span class="ed-epi-value">247</span>
+                <span class="ed-epi-key">Total events</span>
+              </div>
+              <div class="ed-epi-cell">
+                <span class="ed-epi-value">47</span>
+                <span class="ed-epi-key">Tool calls</span>
+              </div>
+              <div class="ed-epi-cell">
+                <span class="ed-epi-value">6</span>
+                <span class="ed-epi-key">Files changed</span>
+              </div>
+              <div class="ed-epi-cell">
+                <span class="ed-epi-value">312</span>
+                <span class="ed-epi-key">Live viewers</span>
+              </div>
+              <div class="ed-epi-cell">
+                <span class="ed-epi-value">21</span>
+                <span class="ed-epi-key">Comments</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Replay CTA -->
+          <div class="ed-replay-cta">
+            <span class="ed-replay-icon">▶</span>
+            <div class="ed-replay-text">
+              <div class="ed-replay-title">Watch the full session replay</div>
+              <div class="ed-replay-sub">
+                89 min · Chapters auto-synced with this article. Jump to any section
+                directly from the player.
+              </div>
+            </div>
+            <button class="ed-replay-btn">Configure →</button>
+          </div>
+
+        </div><!-- /ed-body -->
+
+      </div><!-- /editor-wrap -->
+    </div><!-- /editor-scroll -->
+
+    <!-- Status bar -->
+    <div class="editor-statusbar">
+      <div class="sb-autosave">
+        <span class="sb-dot"></span>
+        <span>Saved 2 min ago</span>
+      </div>
+      <div class="sb-sep"></div>
+      <span>847 words</span>
+      <div class="sb-sep"></div>
+      <span>4 min read</span>
+      <div class="sb-sep"></div>
+      <span>2 injects · 2 code clips · 5 chapters</span>
+
+      <div class="sb-quality">
+        <span class="sb-q-label">Story quality</span>
+        <div class="sb-q-bar">
+          <div class="sb-q-seg sq-filled"></div>
+          <div class="sb-q-seg sq-filled"></div>
+          <div class="sb-q-seg sq-filled"></div>
+          <div class="sb-q-seg sq-half"></div>
+          <div class="sb-q-seg sq-empty"></div>
+        </div>
+        <span>4 / 5</span>
+      </div>
+    </div>
+
+  </div><!-- /editor-col -->
+
+
+  <!-- ═══ SETTINGS PANEL ═══ -->
+  <div class="settings-panel">
+
+    <div class="settings-scroll">
+
+      <!-- Publish status -->
+      <div class="set-section">
+        <div class="set-section-head">Status</div>
+        <div class="set-status-row">
+          <button class="status-opt active">Draft</button>
+          <button class="status-opt">Ready</button>
+          <button class="status-opt">Sched.</button>
+        </div>
+      </div>
+
+      <!-- Visibility -->
+      <div class="set-section">
+        <div class="set-section-head">Visibility</div>
+        <div class="set-vis-row">
+
+          <div class="vis-opt active">
+            <div class="vis-radio"></div>
+            <div>
+              <div class="vis-label">Public</div>
+              <div class="vis-sub">Anyone can read · shows in feed</div>
+            </div>
+          </div>
+
+          <div class="vis-opt">
+            <div class="vis-radio"></div>
+            <div>
+              <div class="vis-label">Link only</div>
+              <div class="vis-sub">Shareable link · not in feed</div>
+            </div>
+          </div>
+
+          <div class="vis-opt">
+            <div class="vis-radio"></div>
+            <div>
+              <div class="vis-label">Private</div>
+              <div class="vis-sub">Only you</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Tags -->
+      <div class="set-section">
+        <div class="set-section-head">Tags</div>
+        <div class="set-tags">
+          <span class="set-tag">Go <span class="set-tag-x">✕</span></span>
+          <span class="set-tag">Auth <span class="set-tag-x">✕</span></span>
+          <span class="set-tag">JWT <span class="set-tag-x">✕</span></span>
+          <span class="set-tag">Debugging <span class="set-tag-x">✕</span></span>
+          <button class="set-tag-add">+ tag</button>
+        </div>
+      </div>
+
+      <!-- Cover image -->
+      <div class="set-section">
+        <div class="set-section-head">Cover Image</div>
+        <div class="set-cover">
+          <span style="font-size:12px;color:var(--faint)">▣</span>
+          <span class="set-cover-text">Upload or auto-generate</span>
+        </div>
+      </div>
+
+      <!-- Series -->
+      <div class="set-section">
+        <div class="set-section-head">Series</div>
+        <input class="set-series-input" type="text" placeholder="Add to a series...">
+      </div>
+
+      <!-- Toggles -->
+      <div class="set-section">
+        <div class="set-section-head">Options</div>
+
+        <div class="set-toggle-row">
+          <div>
+            <div class="set-toggle-label">Comments</div>
+          </div>
+          <div class="toggle toggle-on"></div>
+        </div>
+
+        <div class="set-toggle-row" style="margin-top:10px">
+          <div>
+            <div class="set-toggle-label">Session replay link</div>
+            <div class="set-toggle-sub">Embed replay button in story</div>
+          </div>
+          <div class="toggle toggle-on"></div>
+        </div>
+
+        <div class="set-toggle-row" style="margin-top:10px">
+          <div>
+            <div class="set-toggle-label">Email subscribers</div>
+            <div class="set-toggle-sub">Notify 312 followers</div>
+          </div>
+          <div class="toggle toggle-off"></div>
+        </div>
+
+        <div class="set-toggle-row" style="margin-top:10px">
+          <div>
+            <div class="set-toggle-label">Show session stats</div>
+            <div class="set-toggle-sub">Epilogue at end of post</div>
+          </div>
+          <div class="toggle toggle-on"></div>
+        </div>
+
+      </div>
+
+      <!-- Session attribution -->
+      <div class="set-section">
+        <div class="set-section-head">Source Session</div>
+        <div class="set-session-link">
+          <span class="ssl-icon">▶</span>
+          <div class="ssl-body">
+            <div class="ssl-name">auth-middleware-rebuild</div>
+            <div class="ssl-meta">Jul 1 2026 · 89 min · 247 events</div>
+          </div>
+          <span class="ssl-unlink">Unlink</span>
+        </div>
+      </div>
+
+      <!-- SEO / OG -->
+      <div class="set-section">
+        <div class="set-section-head">SEO Preview</div>
+        <div style="padding:10px;background:var(--panel2);border:1px solid var(--hairline);">
+          <div style="font-size:9px;color:var(--blue);margin-bottom:4px;">liveshortly.com/@reza / auth-middleware</div>
+          <div style="font-size:11px;font-weight:700;color:var(--ink);margin-bottom:3px;line-height:1.3;font-family:var(--prose);">Rebuilding Auth Middleware From Scratch (With Claude)</div>
+          <div style="font-size:9px;color:var(--muted);line-height:1.4;font-family:var(--prose);">89 minutes. 47 tool calls. One very grumpy middleware bug…</div>
+        </div>
+      </div>
+
+    </div><!-- /settings-scroll -->
+
+    <!-- Publish CTA (sticky bottom) -->
+    <div class="set-publish-cta">
+      <button class="pub-btn">Publish Dev Story</button>
+      <button class="pub-schedule-btn">Schedule for later</button>
+      <div class="pub-note">Will post to your public profile<br>and notify followers</div>
+    </div>
+
+  </div><!-- /settings-panel -->
+
+
+</div><!-- /main -->
+
+</body>
+</html>
