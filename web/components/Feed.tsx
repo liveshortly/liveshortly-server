@@ -10,7 +10,13 @@ const SEARCH_DEBOUNCE_MS = 300;
 const PAGE_SIZE = 24;
 const TRENDING_COUNT = 4;
 
-export default function Feed() {
+export default function Feed({
+  showPlaceholderHero = true,
+}: {
+  /** Skip the value-prop hero when there's nothing to feature yet — set to
+   *  false when the caller (e.g. the landing page) already has its own. */
+  showPlaceholderHero?: boolean;
+} = {}) {
   const [query, setQuery] = useState("");
   const [debounced, setDebounced] = useState("");
   const [items, setItems] = useState<Session[]>([]);
@@ -145,7 +151,10 @@ export default function Feed() {
       {!searching && items.length > 0 && <Ticker items={items} />}
 
       {/* ── Hero — featured live/top session, or the value-prop placeholder ── */}
-      {!searching && (firstLoaded || featured) && <Hero session={featured} />}
+      {!searching &&
+        (featured || (firstLoaded && showPlaceholderHero)) && (
+          <Hero session={featured} />
+        )}
 
       {/* ── Search ── */}
       <SearchBox query={query} onQuery={setQuery} />

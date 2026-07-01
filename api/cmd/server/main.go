@@ -177,14 +177,16 @@ func router(cfg config.Config, h *handlers.Handler, ga *handlers.GoogleAuth, mgr
 		// web app can decide whether to show the login screen.
 		r.Get("/me", ga.Me)
 
-		// GetSession and Stream accept an anonymous caller: a session with
-		// visibility="open" is watchable without signing in, so auth here is
-		// optional and the handler itself enforces visibility.
+		// GetSession, Stream and Feed accept an anonymous caller: a session
+		// with visibility="open" is watchable without signing in, and the
+		// public feed (published sessions only) is the anonymous landing
+		// page, so auth here is optional.
 		r.Group(func(r chi.Router) {
 			r.Use(auth.OptionalAuthn(mgr))
 
 			r.Get("/sessions/{id}", h.GetSession)
 			r.Get("/sessions/{id}/stream", h.Stream)
+			r.Get("/feed", h.Feed)
 		})
 
 		// Everything else requires a resolved principal (bearer or cookie).
@@ -192,8 +194,6 @@ func router(cfg config.Config, h *handlers.Handler, ga *handlers.GoogleAuth, mgr
 			r.Use(auth.Authn(mgr))
 
 			r.Get("/stats", h.Stats)
-
-			r.Get("/feed", h.Feed)
 
 			r.Get("/sessions", h.ListSessions)
 			r.Post("/sessions", h.CreateSession)

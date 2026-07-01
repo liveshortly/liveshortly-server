@@ -9,7 +9,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"liveshortly/internal/auth"
 	"liveshortly/internal/httpx"
 	"liveshortly/internal/store"
 )
@@ -44,15 +43,10 @@ func (h *Handler) Unpublish(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, s)
 }
 
-// Feed returns a page of published sessions for any signed-in user: newest-first
-// when browsing (keyset cursor), or relevance-ranked when ?q= is present.
-// GET /api/feed?q=&cursor=&limit=.
+// Feed returns a page of published sessions to any caller, signed in or not
+// (it's the public landing feed): newest-first when browsing (keyset cursor),
+// or relevance-ranked when ?q= is present. GET /api/feed?q=&cursor=&limit=.
 func (h *Handler) Feed(w http.ResponseWriter, r *http.Request) {
-	if _, ok := auth.Principal(r.Context()); !ok {
-		httpx.Error(w, http.StatusUnauthorized, "no principal")
-		return
-	}
-
 	q := strings.TrimSpace(r.URL.Query().Get("q"))
 	limit := clampInt(r.URL.Query().Get("limit"), 24, 1, 60)
 	cursor := r.URL.Query().Get("cursor")

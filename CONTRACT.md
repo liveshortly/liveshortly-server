@@ -53,7 +53,7 @@ changes.
 | GET  | `/health` | — | `{"ok":true,"ts":"RFC3339"}` |
 | POST | `/api/sessions` | `{"title"?,"model"?,"framework"?,"tags"?:[]}` | `201 {...Session,"url":"/session/{id}"}` |
 | GET  | `/api/sessions?status=live\|ended\|all&q=&limit=&offset=` | — | `200 {"results":[Session],"total":int}` |
-| GET  | `/api/feed?q=&cursor=&limit=` | — | `200 {"results":[Session],"next_cursor":string}` (signed-in; published only) |
+| GET  | `/api/feed?q=&cursor=&limit=` | — | `200 {"results":[Session],"next_cursor":string}` (public — anonymous OK; published only) |
 | POST | `/api/sessions/{id}/publish` | — | `200 Session` (owner; lists in feed + public) |
 | POST | `/api/sessions/{id}/unpublish` | — | `200 Session` (owner; removes from feed + private) |
 | POST | `/api/sessions/{id}/typing` | — | `204` (ephemeral "viewer is typing" presence, live only) |
@@ -125,13 +125,15 @@ used by the default hooks.)
 
 ## Feed (publish)
 Publishing lists a session in the public, discoverable feed and makes it readable by
-any signed-in user (it replaces the old "share to all" unlisted link).
+anyone, signed in or not (it replaces the old "share to all" unlisted link, and
+doubles as the anonymous landing page).
 - `POST …/publish` sets `published_at=now()`, `visibility='public'`, precomputes a
   `hero` snippet (opening prompt → notable edit → title) and a `search_vector`
   (`tsvector`: title^A + hero^B + tags^C). `POST …/unpublish` reverses it.
-- `GET /api/feed` (any signed-in user) returns published sessions. Browsing pages by
-  keyset cursor on `(published_at, id)`; `?q=` switches to `ts_rank` relevance
-  (offset cursor). `next_cursor` is an opaque base64 token; empty = end of feed.
+- `GET /api/feed` (public — `auth.OptionalAuthn`, no sign-in required) returns
+  published sessions. Browsing pages by keyset cursor on `(published_at, id)`;
+  `?q=` switches to `ts_rank` relevance (offset cursor). `next_cursor` is an
+  opaque base64 token; empty = end of feed.
 - Feed tiles are synthesized from Session fields + `hero` (no image); `published_at`
   and `hero` are part of the Session shape.
 

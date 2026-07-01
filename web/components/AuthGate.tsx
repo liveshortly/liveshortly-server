@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import HudHeader from "@/components/HudHeader";
-import LoginScreen from "@/components/LoginScreen";
+import Landing from "@/components/Landing";
 import ThemeToggle from "@/components/ThemeToggle";
 import { loginUrl, me as fetchMe, type Me } from "@/lib/api";
 
@@ -12,10 +12,11 @@ type Phase = "loading" | "authed" | "anon";
 /**
  * AuthN gate for the whole app. Checks GET /api/me on mount:
  * - loading  → minimal placeholder
- * - anon     → full-screen login (no header/dashboard), EXCEPT on /session/*,
- *              which may be watchable anonymously (visibility="open"); that
- *              route gets a minimal guest header instead and decides access
- *              itself from the API response (401 there prompts sign-in inline).
+ * - anon     → marketing landing page (product pitch + sign-in/up + the
+ *              public feed), EXCEPT on /session/*, which may be watchable
+ *              anonymously (visibility="open"); that route gets a minimal
+ *              guest header instead and decides access itself from the API
+ *              response (401 there prompts sign-in inline).
  * - authed   → HUD header (with the user) + the requested page
  */
 export default function AuthGate({ children }: { children: React.ReactNode }) {
@@ -75,7 +76,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
         </>
       );
     }
-    return <LoginScreen />;
+    return <Landing />;
   }
 
   return (
