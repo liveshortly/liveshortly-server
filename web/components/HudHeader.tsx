@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import Clock from "@/components/Clock";
 import Panel from "@/components/Panel";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -54,6 +55,7 @@ export default function HudHeader({ user }: { user?: Me | null }) {
   const liveNow = data?.live_now ?? 0;
 
   return (
+    <>
     <header
       style={{
         borderBottom: "1px solid var(--strong)",
@@ -139,10 +141,6 @@ export default function HudHeader({ user }: { user?: Me | null }) {
               </>
             )}
           </div>
-          <nav style={{ marginTop: 8, display: "flex", gap: 16 }}>
-            <NavLink href="/" label="HUD" />
-            <NavLink href="/feed" label="FEED" />
-          </nav>
         </div>
 
         {/* Stat panels — clicking filters the session list by status. */}
@@ -155,12 +153,12 @@ export default function HudHeader({ user }: { user?: Me | null }) {
           }}
         >
           <StatTile
-            href="/?status=all"
+            href="/hud?status=all"
             label="Total Sessions"
             value={data ? fmtInt(data.total_sessions) : "··"}
           />
           <StatTile
-            href="/?status=live"
+            href="/hud?status=live"
             label="Live Now"
             value={data ? fmtInt(data.live_now) : "··"}
             accent={liveNow > 0 ? "green" : "ink"}
@@ -224,24 +222,62 @@ export default function HudHeader({ user }: { user?: Me | null }) {
         </div>
       </div>
     </header>
+    <HudTabs />
+    </>
   );
 }
 
-/** A compact top-nav link in the HUD header. */
-function NavLink({ href, label }: { href: string; label: string }) {
+/** The primary tab bar — sits on the header line like terminal tabs. */
+function HudTabs() {
+  const pathname = usePathname() || "/";
+  const tabs = [
+    { href: "/", label: "▣ FEED", match: (p: string) => p === "/" || p === "/feed" },
+    { href: "/hud", label: "⌂ MY HUD", match: (p: string) => p.startsWith("/hud") },
+  ];
   return (
-    <Link
-      href={href}
-      className="label"
+    <nav
       style={{
-        color: "var(--muted)",
-        borderBottom: "1px solid transparent",
-        paddingBottom: 1,
-        letterSpacing: "0.1em",
+        borderBottom: "1px solid var(--hairline)",
+        background: "var(--bg)",
       }}
     >
-      {label}
-    </Link>
+      <div
+        style={{
+          maxWidth: 1180,
+          margin: "0 auto",
+          padding: "0 16px",
+          display: "flex",
+          gap: 4,
+        }}
+      >
+        {tabs.map((t) => {
+          const active = t.match(pathname);
+          return (
+            <Link
+              key={t.href}
+              href={t.href}
+              className="label"
+              style={{
+                position: "relative",
+                top: 1, // overlap the strip's bottom border for a "tab" feel
+                padding: "11px 16px",
+                fontSize: 11,
+                letterSpacing: "0.12em",
+                color: active ? "var(--green)" : "var(--muted)",
+                background: active ? "var(--panel)" : "transparent",
+                border: active ? "1px solid var(--hairline)" : "1px solid transparent",
+                borderBottom: active
+                  ? "2px solid var(--green)"
+                  : "2px solid transparent",
+                fontWeight: active ? 700 : 500,
+              }}
+            >
+              {t.label}
+            </Link>
+          );
+        })}
+      </div>
+    </nav>
   );
 }
 

@@ -41,6 +41,8 @@ export default function SessionViewer({
   } | null>(null);
 
   const seen = useRef<Set<string>>(new Set());
+  // The scrollable event-log viewport, so we can keep it pinned to the latest.
+  const streamRef = useRef<HTMLDivElement>(null);
 
   const addEvents = (incoming: SessionEvent[]) => {
     if (incoming.length === 0) return;
@@ -194,6 +196,12 @@ export default function SessionViewer({
     );
   }, [isLive, inputPending, events]);
 
+  // Keep the event log pinned to the newest entry as events/typing arrive.
+  useEffect(() => {
+    const el = streamRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [events.length, claudeTyping, viewerIsTyping]);
+
   // Notify the viewer (browser notification + soft chime) when input is newly
   // requested — so anyone watching knows it's their turn to answer.
   const notifiedFor = useRef<string | null>(null);
@@ -300,9 +308,10 @@ export default function SessionViewer({
       style={{
         display: "flex",
         flexDirection: "column",
-        // Fill the viewport below the global header so the event log can grow
-        // to occupy the space instead of leaving a gap under short sessions.
-        minHeight: "calc(100dvh - 188px)",
+        // Fill the viewport below the global header + tab bar so the event log
+        // can grow to occupy the space instead of leaving a gap under short
+        // sessions (content is bottom-aligned inside it).
+        minHeight: "calc(100dvh - 220px)",
       }}
     >
       <Link
@@ -503,10 +512,11 @@ export default function SessionViewer({
         <span style={{ color: "var(--muted)" }}>{streamLabel(conn, isLive)}</span>
       </div>
 
-      {/* The event log is the "chat window": it grows to fill all remaining
-          height and scrolls internally, so short sessions never leave wasted
-          space and the composer stays pinned just below it. */}
+      {/* The event log is the "chat window": it fills all remaining height and
+          scrolls internally, and its content is bottom-aligned (chat-style) so a
+          sparse session sits just above the composer instead of leaving a gap. */}
       <div
+        ref={streamRef}
         style={{
           flex: 1,
           minHeight: 240,
@@ -515,31 +525,33 @@ export default function SessionViewer({
           flexDirection: "column",
         }}
       >
-        <EventStream
-          events={events}
-          live={isLive}
-          ownerHandle={meta?.owner_handle ?? null}
-        />
-        {(claudeTyping || viewerIsTyping) && (
-          <div
-            style={{
-              display: "flex",
-              gap: 8,
-              flexWrap: "wrap",
-              padding: "10px 2px 2px",
-            }}
-          >
-            {claudeTyping && (
-              <TypingIndicator label="CLAUDE IS WORKING" tone="green" />
-            )}
-            {viewerIsTyping && viewerTyping && (
-              <TypingIndicator
-                label={`@${viewerTyping.who} IS TYPING`}
-                tone="amber"
-              />
-            )}
-          </div>
-        )}
+        <div style={{ marginTop: "auto" }}>
+          <EventStream
+            events={events}
+            live={isLive}
+            ownerHandle={meta?.owner_handle ?? null}
+          />
+          {(claudeTyping || viewerIsTyping) && (
+            <div
+              style={{
+                display: "flex",
+                gap: 8,
+                flexWrap: "wrap",
+                padding: "10px 2px 2px",
+              }}
+            >
+              {claudeTyping && (
+                <TypingIndicator label="CLAUDE IS WORKING" tone="green" />
+              )}
+              {viewerIsTyping && viewerTyping && (
+                <TypingIndicator
+                  label={`@${viewerTyping.who} IS TYPING`}
+                  tone="amber"
+                />
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Input-requested banner — surfaces that the CLI is waiting for input so
