@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import HudHeader from "@/components/HudHeader";
 import LoginScreen from "@/components/LoginScreen";
+import ThemeToggle from "@/components/ThemeToggle";
 import { loginUrl, me as fetchMe, type Me } from "@/lib/api";
 
 type Phase = "loading" | "authed" | "anon";
@@ -114,18 +115,21 @@ function GuestHeader() {
             _
           </span>
         </span>
-        <a
-          href={loginUrl()}
-          className="label"
-          style={{
-            border: "1px solid var(--strong)",
-            padding: "6px 12px",
-            fontSize: 10,
-            color: "var(--ink)",
-          }}
-        >
-          SIGN IN
-        </a>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <ThemeToggle />
+          <a
+            href={loginUrl()}
+            className="label"
+            style={{
+              border: "1px solid var(--strong)",
+              padding: "6px 12px",
+              fontSize: 10,
+              color: "var(--ink)",
+            }}
+          >
+            SIGN IN
+          </a>
+        </div>
       </div>
     </header>
   );

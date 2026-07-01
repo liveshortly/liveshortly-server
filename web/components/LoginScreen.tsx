@@ -2,6 +2,7 @@
 
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import ThemeToggle from "@/components/ThemeToggle";
 import { loginUrl } from "@/lib/api";
 
 function LoginInner() {
@@ -38,19 +39,29 @@ function LoginInner() {
           style={{
             display: "flex",
             alignItems: "center",
+            justifyContent: "space-between",
             gap: 8,
-            fontSize: 22,
-            fontWeight: 700,
-            letterSpacing: "-0.02em",
           }}
         >
-          <span aria-hidden style={{ color: "var(--green)" }}>
-            ◧
-          </span>
-          LiveShortly
-          <span className="blink" style={{ color: "var(--muted)" }}>
-            _
-          </span>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              fontSize: 22,
+              fontWeight: 700,
+              letterSpacing: "-0.02em",
+            }}
+          >
+            <span aria-hidden style={{ color: "var(--green)" }}>
+              ◧
+            </span>
+            LiveShortly
+            <span className="blink" style={{ color: "var(--muted)" }}>
+              _
+            </span>
+          </div>
+          <ThemeToggle />
         </div>
 
         <div
