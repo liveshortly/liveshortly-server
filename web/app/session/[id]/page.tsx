@@ -18,7 +18,7 @@ import {
   type SessionDetail,
   type SessionEvent,
 } from "@/lib/api";
-import { fmtInt, localTime, shortId, timeAgo, utcTime } from "@/lib/utils";
+import { fmtInt, localTime, shortId, timeAgo } from "@/lib/utils";
 
 type Connection = "idle" | "connecting" | "open" | "closed" | "ended";
 
@@ -296,16 +296,7 @@ export default function SessionViewer({
   }
 
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        // Fill the viewport below the global header + tab bar so the event log
-        // can grow to occupy the space instead of leaving a gap under short
-        // sessions (content is bottom-aligned inside it).
-        minHeight: "calc(100dvh - 220px)",
-      }}
-    >
+    <div className="session-page">
       <Link
         href="/"
         className="label"
@@ -564,16 +555,6 @@ export default function SessionViewer({
           viewerTyping={viewerIsTyping ? viewerTyping : null}
           ownerHandle={meta?.owner_handle ?? null}
         />
-      </div>
-
-      <div
-        className="label tnum"
-        style={{ marginTop: 8, color: "var(--faint)", textAlign: "right" }}
-      >
-        {fmtInt(events.length)} EVENTS RENDERED
-        {events.length > 0
-          ? ` · LAST ${utcTime(events[events.length - 1]?.ts)} UTC`
-          : ""}
       </div>
     </div>
   );

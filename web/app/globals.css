@@ -230,14 +230,27 @@ a {
   }
 }
 
-/* Session viewer — Twitch-style split: stream on the left, viewer chat on the
-   right. Each pane scrolls internally so the header stays put. */
+/* Session viewer — full-height, widened column. Breaks out of the 1180px
+   .app-main to use more horizontal real estate (capped at 1440), and fills the
+   viewport below the global header so the split window is full height. */
+.session-page {
+  display: flex;
+  flex-direction: column;
+  height: calc(100dvh - 148px);
+  min-height: 480px;
+  /* Full-bleed to the viewport edges, then re-pad to cap content at ~1440. */
+  margin-inline: calc(50% - 50vw);
+  padding-inline: max(16px, calc(50vw - 720px));
+}
+
+/* Twitch-style split: stream on the left, viewer chat on the right. The body
+   flexes to fill all remaining height; each pane scrolls internally. */
 .viewer-body {
   display: flex;
   gap: 14px;
   align-items: stretch;
-  height: min(72vh, 760px);
-  min-height: 460px;
+  flex: 1;
+  min-height: 0;
 }
 .stream-pane {
   flex: 1 1 0;
@@ -247,7 +260,7 @@ a {
   min-height: 0;
 }
 .chat-pane {
-  flex: 0 0 320px;
+  flex: 0 0 340px;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -255,10 +268,13 @@ a {
   background: var(--panel);
 }
 @media (max-width: 860px) {
-  .viewer-body {
-    flex-direction: column;
+  .session-page {
     height: auto;
     min-height: 0;
+  }
+  .viewer-body {
+    flex-direction: column;
+    flex: 0 1 auto;
   }
   .stream-pane {
     height: 60vh;
