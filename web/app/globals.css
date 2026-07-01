@@ -170,6 +170,45 @@ a {
   border-bottom: 1px dashed var(--hairline);
 }
 
+/* Scrolling activity ticker — a full-width marquee of recent session activity.
+   Two identical tracks sit side-by-side and translate -50% for a seamless loop. */
+@keyframes ls-ticker {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.ticker-track {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  animation: ls-ticker 48s linear infinite;
+  will-change: transform;
+}
+
+.ticker-wrap:hover .ticker-track {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ticker-track {
+    animation: none;
+  }
+}
+
+/* Card/tile hover lift, shared by feed tiles and hero. */
+.lift {
+  transition: border-color 120ms, box-shadow 120ms, transform 120ms;
+}
+.lift:hover {
+  border-color: var(--strong);
+  box-shadow: 3px 3px 0 var(--shadow);
+  transform: translate(-1px, -1px);
+}
+
 /* Main content column. */
 .app-main {
   max-width: 1180px;
