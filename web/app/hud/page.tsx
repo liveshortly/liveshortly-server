@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import SessionTable from "@/components/SessionTable";
+import SessionCard from "@/components/SessionCard";
 import ShareDialog from "@/components/ShareDialog";
 import PublishAction from "@/components/PublishAction";
 import { listSessions, type Session } from "@/lib/api";
@@ -103,26 +103,81 @@ function Dashboard() {
     };
   }, []);
 
+  // Owner action row shared by every owned card (publish + share popover).
+  const ownerActions = (s: Session) => (
+    <>
+      <PublishAction session={s} onChanged={updateMine} />
+      <ShareAction
+        session={s}
+        open={shareFor?.id === s.id}
+        onToggle={() => setShareFor((cur) => (cur?.id === s.id ? null : s))}
+        onClose={() => setShareFor(null)}
+      />
+    </>
+  );
+
+  // Split owned sessions so live ones headline their own grid.
+  const liveMine = mine?.filter((s) => s.status === "live") ?? [];
+  const restMine = mine?.filter((s) => s.status !== "live") ?? [];
+  const restLabel = status === "ended" ? "ENDED SESSIONS" : "RECENT SESSIONS";
+
   return (
     <>
       <SearchBox query={query} onQuery={setQuery} />
 
-      {/* MY SESSIONS */}
+      {/* Filter breadcrumb — mirrors the ?status= chip from the header tiles. */}
+      {status !== "all" && (
+        <div
+          className="label"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            marginBottom: 14,
+            color: "var(--muted)",
+          }}
+        >
+          <span>FILTER · {status} only</span>
+          <button
+            type="button"
+            onClick={() =>
+              router.replace(
+                query ? `/hud?q=${encodeURIComponent(query)}` : "/hud",
+                { scroll: false },
+              )
+            }
+            className="label"
+            style={{
+              border: "none",
+              background: "transparent",
+              cursor: "pointer",
+              color: "var(--red)",
+              padding: 0,
+            }}
+          >
+            ✕ CLEAR
+          </button>
+        </div>
+      )}
+
+      {/* ◉ LIVE NOW — owned live sessions, highlighted */}
+      {liveMine.length > 0 && (
+        <Section title="◉ LIVE NOW" count={liveMine.length} tone="green">
+          <CardGrid>
+            {liveMine.map((s) => (
+              <SessionCard key={s.id} session={s} actions={ownerActions(s)} />
+            ))}
+          </CardGrid>
+        </Section>
+      )}
+
+      {liveMine.length > 0 && <div style={{ height: 24 }} />}
+
+      {/* ▣ MY SESSIONS — the rest (or the filtered set) */}
       <Section
-        title="MY SESSIONS"
-        count={mine?.length}
-        hint={
-          status !== "all"
-            ? `${status} only`
-            : query
-              ? `filter "${query}"`
-              : undefined
-        }
-        onClearFilter={
-          status !== "all"
-            ? () => router.replace(query ? `/hud?q=${encodeURIComponent(query)}` : "/hud", { scroll: false })
-            : undefined
-        }
+        title={status === "live" ? "◉ MY LIVE SESSIONS" : `▣ ${restLabel}`}
+        count={status === "live" ? undefined : restMine.length}
+        hint={query ? `filter "${query}"` : undefined}
       >
         {mineErr ? (
           <ErrorBar text={mineErr} />
@@ -137,50 +192,67 @@ function Dashboard() {
                 : "Start a Claude Code session to capture one here."
             }
           />
-        ) : (
-          <SessionTable
-            sessions={mine}
-            action={(s) => (
-              <span
-                style={{
-                  display: "inline-flex",
-                  gap: 8,
-                  justifyContent: "flex-end",
-                }}
-              >
-                <PublishAction session={s} onChanged={updateMine} />
-                <ShareAction
-                  session={s}
-                  open={shareFor?.id === s.id}
-                  onToggle={() =>
-                    setShareFor((cur) => (cur?.id === s.id ? null : s))
-                  }
-                  onClose={() => setShareFor(null)}
-                />
-              </span>
-            )}
+        ) : status === "live" ? (
+          // Live-only filter: everything already shown in LIVE NOW above.
+          liveMine.length === 0 && (
+            <Empty title="NO LIVE SESSIONS" sub="Nothing is streaming right now." />
+          )
+        ) : restMine.length === 0 ? (
+          <Empty
+            title={liveMine.length > 0 ? "NOTHING ELSE YET" : "NO SESSIONS YET"}
+            sub={
+              liveMine.length > 0
+                ? "Your only sessions are live right now."
+                : "Start a Claude Code session to capture one here."
+            }
           />
+        ) : (
+          <CardGrid>
+            {restMine.map((s) => (
+              <SessionCard key={s.id} session={s} actions={ownerActions(s)} />
+            ))}
+          </CardGrid>
         )}
       </Section>
 
       <div style={{ height: 28 }} />
 
-      {/* SHARED WITH ME */}
-      <Section title="SHARED WITH ME" count={shared?.length}>
+      {/* 🔗 SHARED WITH ME */}
+      <Section title="🔗 SHARED WITH ME" count={shared?.length}>
         {sharedErr ? (
           <ErrorBar text={sharedErr} />
         ) : shared == null ? (
           <Loading what="SHARED SESSIONS" />
         ) : shared.length === 0 ? (
-          <Empty
-            title="NOTHING SHARED"
-            sub="NO SESSIONS SHARED WITH YOU YET."
-          />
+          <Empty title="NOTHING SHARED" sub="No sessions shared with you yet." />
         ) : (
-          <SessionTable sessions={shared} showAccess />
+          <CardGrid>
+            {shared.map((s) => (
+              <SessionCard
+                key={s.id}
+                session={s}
+                accessRole={s.shared_role ?? "viewer"}
+              />
+            ))}
+          </CardGrid>
         )}
       </Section>
     </>
+  );
+}
+
+/** Responsive card grid used across the dashboard sections. */
+function CardGrid({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fill, minmax(258px, 1fr))",
+        gap: 14,
+      }}
+    >
+      {children}
+    </div>
   );
 }
 
@@ -295,12 +367,14 @@ function Section({
   count,
   hint,
   onClearFilter,
+  tone,
   children,
 }: {
   title: string;
   count?: number;
   hint?: string;
   onClearFilter?: () => void;
+  tone?: "green";
   children: React.ReactNode;
 }) {
   return (
@@ -315,7 +389,9 @@ function Section({
           gap: 10,
         }}
       >
-        <span style={{ color: "var(--ink)" }}>{title}</span>
+        <span style={{ color: tone === "green" ? "var(--green)" : "var(--ink)" }}>
+          {title}
+        </span>
         {count != null && (
           <span className="tnum" style={{ color: "var(--muted)" }}>
             · {fmtInt(count)}
