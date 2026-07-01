@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LiveShortly — Logo Exploration</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+
+/* ═══════ TOKENS ═══════ */
+:root {
+  --bg:       #16150f;
+  --panel:    #1e1d16;
+  --panel2:   #252419;
+  --panel3:   #2c2b22;
+  --hairline: #34322a;
+  --ink:      #ece8da;
+  --muted:    #a4a08f;
+  --faint:    #767365;
+  --green:    #4cae7a;
+  --green-d:  #3d9466;
+  --amber:    #d6a94a;
+  --red:      #e06a5a;
+  --blue:     #5b9bd5;
+  --font:     'JetBrains Mono','IBM Plex Mono',ui-monospace,monospace;
+
+  --light-bg:     #f0ede3;
+  --light-panel:  #e8e4d8;
+  --light-ink:    #1e1c14;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{font-family:var(--font);background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;min-height:100vh;}
+a{color:inherit;text-decoration:none;}
+*{scrollbar-width:thin;scrollbar-color:var(--hairline) transparent;}
+
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+@keyframes blink{0%,49%{opacity:1}50%,100%{opacity:0}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* ═══════ PAGE HEADER ═══════ */
+.page-header{
+  border-bottom:1px solid var(--hairline);
+  padding:40px 40px 32px;
+  display:flex;align-items:flex-start;justify-content:space-between;gap:40px;
+}
+.ph-left{flex:1;}
+.ph-eyebrow{
+  font-size:9px;text-transform:uppercase;letter-spacing:.18em;
+  color:var(--faint);margin-bottom:10px;font-weight:600;
+}
+.ph-title{font-size:32px;font-weight:700;letter-spacing:-.03em;color:var(--ink);line-height:1;}
+.ph-sub{font-size:12px;color:var(--muted);margin-top:8px;letter-spacing:.04em;line-height:1.6;}
+.ph-right{flex-shrink:0;}
+
+/* current logo ref */
+.current-ref{
+  background:var(--panel);border:1px solid var(--hairline);
+  padding:16px 24px;
+  display:flex;flex-direction:column;gap:12px;
+  min-width:220px;
+}
+.cr-label{font-size:8px;text-transform:uppercase;letter-spacing:.16em;color:var(--faint);font-weight:700;}
+.cr-logo{display:flex;align-items:center;gap:10px;}
+.cr-mark{
+  width:24px;height:24px;background:var(--green);border-radius:3px;
+  position:relative;flex-shrink:0;
+}
+.cr-mark::before{content:'';position:absolute;left:5px;top:5px;width:5px;height:13px;background:var(--panel);border-radius:1px;}
+.cr-mark::after{content:'';position:absolute;left:14px;top:5px;width:6px;height:13px;border:2px solid var(--panel);background:var(--green);border-radius:1px;}
+.cr-wordmark{font-size:15px;font-weight:700;letter-spacing:-.02em;}
+.cr-desc{font-size:9px;color:var(--faint);letter-spacing:.06em;line-height:1.5;}
+
+/* ═══════ CONCEPTS GRID ═══════ */
+.concepts{
+  display:grid;grid-template-columns:repeat(3,1fr);
+  border-left:1px solid var(--hairline);
+}
+.concept-card{
+  border-right:1px solid var(--hairline);
+  border-bottom:1px solid var(--hairline);
+  display:flex;flex-direction:column;
+  animation:fadeUp .5s ease both;
+}
+.concept-card:nth-child(1){animation-delay:.05s}
+.concept-card:nth-child(2){animation-delay:.1s}
+.concept-card:nth-child(3){animation-delay:.15s}
+.concept-card:nth-child(4){animation-delay:.2s}
+.concept-card:nth-child(5){animation-delay:.25s}
+.concept-card:nth-child(6){animation-delay:.3s}
+
+/* concept number badge */
+.concept-num{
+  padding:14px 20px 0;
+  font-size:9px;text-transform:uppercase;letter-spacing:.16em;
+  color:var(--faint);font-weight:700;
+  display:flex;justify-content:space-between;align-items:center;
+}
+.cn-badge{
+  font-size:8px;padding:2px 7px;letter-spacing:.1em;
+}
+.cn-badge.pick{border:1px solid var(--green);color:var(--green);background:rgba(76,174,122,.08);}
+.cn-badge.bold{border:1px solid var(--amber);color:var(--amber);background:rgba(214,169,74,.08);}
+
+/* Dark preview area */
+.preview-dark{
+  margin:16px 20px 0;
+  background:var(--panel);border:1px solid var(--hairline);
+  height:160px;
+  display:flex;align-items:center;justify-content:center;
+  position:relative;overflow:hidden;
+}
+.preview-dark::before{
+  content:'';position:absolute;inset:0;
+  background:repeating-linear-gradient(
+    to bottom,transparent 0,transparent 3px,rgba(0,0,0,.04) 3px,rgba(0,0,0,.04) 4px
+  );
+  pointer-events:none;
+}
+.pd-label{
+  position:absolute;top:8px;left:10px;
+  font-size:7px;text-transform:uppercase;letter-spacing:.12em;color:var(--faint);
+}
+
+/* Light preview area */
+.preview-light{
+  margin:8px 20px 0;
+  background:var(--light-bg);border:1px solid rgba(30,28,20,.12);
+  height:80px;
+  display:flex;align-items:center;justify-content:center;
+  position:relative;
+}
+.pl-label{
+  position:absolute;top:7px;left:10px;
+  font-size:7px;text-transform:uppercase;letter-spacing:.12em;color:rgba(30,28,20,.35);
+}
+
+/* Wordmark strip */
+.wordmark-strip{
+  margin:10px 20px 0;
+  background:var(--panel2);border:1px solid var(--hairline);
+  padding:10px 14px;
+  display:flex;align-items:center;gap:10px;
+}
+.ws-name{font-size:14px;font-weight:700;letter-spacing:-.02em;color:var(--ink);}
+.ws-name span{color:var(--green);}
+.ws-sep{width:1px;height:18px;background:var(--hairline);}
+.ws-alt{font-size:11px;color:var(--faint);letter-spacing:.02em;font-style:italic;}
+
+/* Size row */
+.sizes-row{
+  margin:10px 20px 0;
+  display:flex;align-items:flex-end;gap:14px;
+  padding:10px 14px;
+  background:var(--panel);border:1px solid var(--hairline);
+}
+.sz{display:flex;flex-direction:column;align-items:center;gap:5px;}
+.sz-label{font-size:7px;text-transform:uppercase;letter-spacing:.1em;color:var(--faint);}
+
+/* Meta section */
+.concept-meta{padding:14px 20px 20px;flex:1;display:flex;flex-direction:column;gap:8px;}
+.cm-name{font-size:14px;font-weight:700;color:var(--ink);letter-spacing:-.01em;}
+.cm-desc{font-size:10px;color:var(--muted);line-height:1.65;}
+.cm-tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:2px;}
+.tag-good{
+  font-size:7px;text-transform:uppercase;letter-spacing:.1em;font-weight:700;
+  color:var(--green);border:1px solid rgba(76,174,122,.3);
+  background:rgba(76,174,122,.08);padding:2px 6px;
+}
+.tag-neutral{
+  font-size:7px;text-transform:uppercase;letter-spacing:.1em;font-weight:700;
+  color:var(--faint);border:1px solid var(--hairline);padding:2px 6px;
+}
+.tag-concern{
+  font-size:7px;text-transform:uppercase;letter-spacing:.1em;font-weight:700;
+  color:var(--amber);border:1px solid rgba(214,169,74,.3);
+  background:rgba(214,169,74,.06);padding:2px 6px;
+}
+
+/* ═══════ IN CONTEXT STRIP ═══════ */
+.in-context{
+  border-top:2px solid var(--hairline);
+  padding:32px 40px 40px;
+}
+.ic-header{
+  display:flex;align-items:baseline;gap:12px;margin-bottom:24px;
+}
+.ic-title{font-size:9px;text-transform:uppercase;letter-spacing:.18em;font-weight:700;color:var(--faint);}
+.ic-sub{font-size:10px;color:var(--muted);}
+
+.ic-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+
+.ic-nav{
+  background:var(--panel);border:1px solid var(--hairline);
+  height:40px;display:flex;align-items:center;gap:0;padding:0 14px;
+  position:relative;overflow:hidden;
+}
+.ic-nav::after{
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background:repeating-linear-gradient(
+    to bottom,transparent 0,transparent 3px,rgba(0,0,0,.04) 3px,rgba(0,0,0,.04) 4px
+  );
+}
+.ic-brand{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:700;letter-spacing:-.02em;}
+.ic-name{font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--faint);margin-top:1px;padding:0 14px;border-left:1px solid var(--hairline);}
+.ic-dummy{
+  margin-left:auto;display:flex;gap:8px;
+}
+.ic-pill{width:40px;height:14px;background:var(--panel3);border:1px solid var(--hairline);}
+.ic-pill.g{background:rgba(76,174,122,.2);border-color:rgba(76,174,122,.3);}
+
+/* ═══════ FOOTER NOTE ═══════ */
+.footer-note{
+  border-top:1px solid var(--hairline);
+  padding:20px 40px;
+  display:flex;align-items:center;gap:12px;
+  font-size:9px;color:var(--faint);letter-spacing:.08em;text-transform:uppercase;
+}
+.rec-badge{
+  font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;
+  padding:3px 8px;border:1px solid var(--green);color:var(--green);background:rgba(76,174,122,.08);
+}
+
+/* ═══════ SVG COLOUR HELPERS ═══════ */
+.on-dark  { color: var(--green); }
+.on-light { color: var(--light-ink); }
+
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════
+     HEADER
+════════════════════════════════════════════════════════════ -->
+<div class="page-header">
+  <div class="ph-left">
+    <div class="ph-eyebrow">Logo Exploration · Jul 2026 · 6 Directions</div>
+    <div class="ph-title">LiveShortly<br>Rebrand</div>
+    <div class="ph-sub">
+      Each concept is shown dark-native (primary), light-mode, at multiple sizes,<br>
+      and as a wordmark. All marks are CSS/SVG — no images.
+    </div>
+  </div>
+  <div class="ph-right">
+    <div class="current-ref">
+      <div class="cr-label">Current mark</div>
+      <div class="cr-logo">
+        <div class="cr-mark"></div>
+        <span class="cr-wordmark">LiveShortly</span>
+      </div>
+      <div class="cr-desc">CSS rectangles inside a green square.<br>No concept behind the shape.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     6 LOGO CONCEPTS
+════════════════════════════════════════════════════════════ -->
+<div class="concepts">
+
+
+  <!-- ══ CONCEPT 01: SIGNAL BARS ══ -->
+  <div class="concept-card">
+    <div class="concept-num">
+      <span>01 · Signal</span>
+      <span class="cn-badge pick">Recommended</span>
+    </div>
+
+    <!-- Dark preview -->
+    <div class="preview-dark">
+      <span class="pd-label">Dark · Primary</span>
+      <svg width="88" height="60" viewBox="0 0 22 15" fill="none" xmlns="http://www.w3.org/2000/svg" class="on-dark">
+        <rect x="0"  y="9"  width="4" height="6"  fill="currentColor"/>
+        <rect x="6"  y="5"  width="4" height="10" fill="currentColor"/>
+        <rect x="12" y="2"  width="4" height="13" fill="currentColor"/>
+        <rect x="18" y="0"  width="4" height="15" fill="currentColor" opacity=".55"/>
+        <!-- live dot attached to tallest bar -->
+        <circle cx="20" cy="0" r="0" fill="currentColor"/>
+      </svg>
+    </div>
+
+    <!-- Light preview -->
+    <div class="preview-light">
+      <span class="pl-label">Light mode</span>
+      <svg width="48" height="32" viewBox="0 0 22 15" fill="none" class="on-light">
+        <rect x="0"  y="9"  width="4" height="6"  fill="currentColor"/>
+        <rect x="6"  y="5"  width="4" height="10" fill="currentColor"/>
+        <rect x="12" y="2"  width="4" height="13" fill="currentColor"/>
+        <rect x="18" y="0"  width="4" height="15" fill="currentColor" opacity=".45"/>
+      </svg>
+    </div>
+
+    <!-- Wordmark -->
+    <div class="wordmark-strip">
+      <svg width="22" height="15" viewBox="0 0 22 15" fill="none" class="on-dark" style="flex-shrink:0">
+        <rect x="0"  y="9"  width="4" height="6"  fill="currentColor"/>
+        <rect x="6"  y="5"  width="4" height="10" fill="currentColor"/>
+        <rect x="12" y="2"  width="4" height="13" fill="currentColor"/>
+        <rect x="18" y="0"  width="4" height="15" fill="currentColor" opacity=".5"/>
+      </svg>
+      <span class="ws-name"><span>Live</span>Shortly</span>
+      <div class="ws-sep"></div>
+      <span class="ws-alt">live.shortly</span>
+    </div>
+
+    <!-- Sizes -->
+    <div class="sizes-row">
+      <div class="sz">
+        <svg width="11" height="8" viewBox="0 0 22 15" fill="none" class="on-dark">
+          <rect x="0" y="9" width="4" height="6" fill="currentColor"/>
+          <rect x="6" y="5" width="4" height="10" fill="currentColor"/>
+          <rect x="12" y="2" width="4" height="13" fill="currentColor"/>
+          <rect x="18" y="0" width="4" height="15" fill="currentColor" opacity=".5"/>
+        </svg>
+        <span class="sz-label">12px</span>
+      </div>
+      <div class="sz">
+        <svg width="22" height="15" viewBox="0 0 22 15" fill="none" class="on-dark">
+          <rect x="0" y="9" width="4" height="6" fill="currentColor"/>
+          <rect x="6" y="5" width="4" height="10" fill="currentColor"/>
+          <rect x="12" y="2" width="4" height="13" fill="currentColor"/>
+          <rect x="18" y="0" width="4" height="15" fill="currentColor" opacity=".5"/>
+        </svg>
+        <span class="sz-label">22px</span>
+      </div>
+      <div class="sz">
+        <svg width="44" height="30" viewBox="0 0 22 15" fill="none" class="on-dark">
+          <rect x="0" y="9" width="4" height="6" fill="currentColor"/>
+          <rect x="6" y="5" width="4" height="10" fill="currentColor"/>
+          <rect x="12" y="2" width="4" height="13" fill="currentColor"/>
+          <rect x="18" y="0" width="4" height="15" fill="currentColor" opacity=".5"/>
+        </svg>
+        <span class="sz-label">44px</span>
+      </div>
+    </div>
+
+    <div class="concept-meta">
+      <div class="cm-name">Signal</div>
+      <div class="cm-desc">Four ascending bars read simultaneously as live broadcast signal strength, session event density, and an audio waveform. Bottom-aligned, left-short to right-tall. The fourth bar fades slightly — always one step from full signal. Unambiguously live-media.</div>
+      <div class="cm-tags">
+        <span class="tag-good">Scales to 12px</span>
+        <span class="tag-good">Media-native</span>
+        <span class="tag-good">Simple to render</span>
+        <span class="tag-neutral">Familiar shape</span>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ══ CONCEPT 02: BROADCAST PROMPT ══ -->
+  <div class="concept-card">
+    <div class="concept-num">
+      <span>02 · Broadcast</span>
+      <span class="cn-badge bold">Bold choice</span>
+    </div>
+
+    <div class="preview-dark">
+      <span class="pd-label">Dark · Primary</span>
+      <svg width="88" height="74" viewBox="0 0 30 22" fill="none" xmlns="http://www.w3.org/2000/svg" class="on-dark">
+        <!-- The > prompt -->
+        <path d="M2 3 L13 11 L2 19" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+        <!-- Broadcast arcs -->
+        <path d="M17 6.5 Q23 11 17 15.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+        <path d="M21 3 Q30 11 21 19" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none" opacity=".55"/>
+      </svg>
+    </div>
+
+    <div class="preview-light">
+      <span class="pl-label">Light mode</span>
+      <svg width="52" height="44" viewBox="0 0 30 22" fill="none" class="on-light">
+        <path d="M2 3 L13 11 L2 19" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M17 6.5 Q23 11 17 15.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+        <path d="M21 3 Q30 11 21 19" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none" opacity=".5"/>
+      </svg>
+    </div>
+
+    <div class="wordmark-strip">
+      <svg width="24" height="18" viewBox="0 0 30 22" fill="none" class="on-dark" style="flex-shrink:0">
+        <path d="M2 3 L13 11 L2 19" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M17 6.5 Q23 11 17 15.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+        <path d="M21 3 Q30 11 21 19" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none" opacity=".55"/>
+      </svg>
+      <span class="ws-name"><span>Live</span>Shortly</span>
+      <div class="ws-sep"></div>
+      <span class="ws-alt">LIVE SHORTLY</span>
+    </div>
+
+    <div class="sizes-row">
+      <div class="sz">
+        <svg width="12" height="10" viewBox="0 0 30 22" fill="none" class="on-dark">
+          <path d="M2 3 L13 11 L2 19" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M17 6.5 Q23 11 17 15.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>
+          <path d="M21 3 Q30 11 21 19" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none" opacity=".55"/>
+        </svg>
+        <span class="sz-label">12px</span>
+      </div>
+      <div class="sz">
+        <svg width="24" height="18" viewBox="0 0 30 22" fill="none" class="on-dark">
+          <path d="M2 3 L13 11 L2 19" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M17 6.5 Q23 11 17 15.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+          <path d="M21 3 Q30 11 21 19" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none" opacity=".55"/>
+        </svg>
+        <span class="sz-label">24px</span>
+      </div>
+      <div class="sz">
+        <svg width="48" height="36" viewBox="0 0 30 22" fill="none" class="on-dark">
+          <path d="M2 3 L13 11 L2 19" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M17 6.5 Q23 11 17 15.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+          <path d="M21 3 Q30 11 21 19" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none" opacity=".55"/>
+        </svg>
+        <span class="sz-label">48px</span>
+      </div>
+    </div>
+
+    <div class="concept-meta">
+      <div class="cm-name">Broadcast</div>
+      <div class="cm-desc">The terminal prompt `>` is the heart of every CLI interaction. Add two wifi-style arcs and it becomes a broadcasting antenna. Reads literally: your terminal prompt is now live on the internet.</div>
+      <div class="cm-tags">
+        <span class="tag-good">Concept-driven</span>
+        <span class="tag-good">Unique</span>
+        <span class="tag-neutral">Complex at 12px</span>
+        <span class="tag-concern">Arcs drop out small</span>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ══ CONCEPT 03: TERMINAL WINDOW ══ -->
+  <div class="concept-card">
+    <div class="concept-num">
+      <span>03 · Window</span>
+    </div>
+
+    <div class="preview-dark">
+      <span class="pd-label">Dark · Primary</span>
+      <svg width="88" height="72" viewBox="0 0 28 22" fill="none" xmlns="http://www.w3.org/2000/svg" class="on-dark">
+        <!-- Frame -->
+        <rect x="1" y="1" width="26" height="20" rx="2.5" stroke="currentColor" stroke-width="1.5"/>
+        <!-- Titlebar separator -->
+        <line x1="1" y1="7" x2="27" y2="7" stroke="currentColor" stroke-width="1.5"/>
+        <!-- Traffic dots -->
+        <circle cx="4.5"  cy="4" r="1.5" fill="currentColor" opacity=".8"/>
+        <circle cx="8.5"  cy="4" r="1.5" fill="currentColor" opacity=".4"/>
+        <circle cx="12.5" cy="4" r="1.5" fill="currentColor" opacity=".2"/>
+        <!-- Prompt > -->
+        <path d="M5 11.5 L8 13.5 L5 15.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        <!-- Cursor block -->
+        <rect x="9.5" y="11" width="5" height="5" fill="currentColor" rx="0.5"/>
+      </svg>
+    </div>
+
+    <div class="preview-light">
+      <span class="pl-label">Light mode</span>
+      <svg width="52" height="42" viewBox="0 0 28 22" fill="none" class="on-light">
+        <rect x="1" y="1" width="26" height="20" rx="2.5" stroke="currentColor" stroke-width="1.5"/>
+        <line x1="1" y1="7" x2="27" y2="7" stroke="currentColor" stroke-width="1.5"/>
+        <circle cx="4.5"  cy="4" r="1.5" fill="currentColor" opacity=".8"/>
+        <circle cx="8.5"  cy="4" r="1.5" fill="currentColor" opacity=".4"/>
+        <circle cx="12.5" cy="4" r="1.5" fill="currentColor" opacity=".2"/>
+        <path d="M5 11.5 L8 13.5 L5 15.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        <rect x="9.5" y="11" width="5" height="5" fill="currentColor" rx="0.5"/>
+      </svg>
+    </div>
+
+    <div class="wordmark-strip">
+      <svg width="22" height="18" viewBox="0 0 28 22" fill="none" class="on-dark" style="flex-shrink:0">
+        <rect x="1" y="1" width="26" height="20" rx="2.5" stroke="currentColor" stroke-width="1.5"/>
+        <line x1="1" y1="7" x2="27" y2="7" stroke="currentColor" stroke-width="1.5"/>
+        <circle cx="4.5" cy="4" r="1.5" fill="currentColor" opacity=".8"/>
+        <circle cx="8.5" cy="4" r="1.5" fill="currentColor" opacity=".4"/>
+        <path d="M5 11.5 L8 13.5 L5 15.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        <rect x="9.5" y="11" width="5" height="5" fill="currentColor" rx="0.5"/>
+      </svg>
+      <span class="ws-name"><span>Live</span>Shortly</span>
+    </div>
+
+    <div class="sizes-row">
+      <div class="sz">
+        <svg width="14" height="11" viewBox="0 0 28 22" fill="none" class="on-dark">
+          <rect x="1" y="1" width="26" height="20" rx="2.5" stroke="currentColor" stroke-width="2"/>
+          <line x1="1" y1="7" x2="27" y2="7" stroke="currentColor" stroke-width="2"/>
+          <circle cx="5" cy="4" r="2" fill="currentColor" opacity=".8"/>
+          <rect x="9.5" y="11" width="5" height="5" fill="currentColor" rx="0.5"/>
+        </svg>
+        <span class="sz-label">14px</span>
+      </div>
+      <div class="sz">
+        <svg width="28" height="22" viewBox="0 0 28 22" fill="none" class="on-dark">
+          <rect x="1" y="1" width="26" height="20" rx="2.5" stroke="currentColor" stroke-width="1.5"/>
+          <line x1="1" y1="7" x2="27" y2="7" stroke="currentColor" stroke-width="1.5"/>
+          <circle cx="4.5" cy="4" r="1.5" fill="currentColor" opacity=".8"/>
+          <circle cx="8.5" cy="4" r="1.5" fill="currentColor" opacity=".4"/>
+          <path d="M5 11.5 L8 13.5 L5 15.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          <rect x="9.5" y="11" width="5" height="5" fill="currentColor" rx="0.5"/>
+        </svg>
+        <span class="sz-label">28px</span>
+      </div>
+      <div class="sz">
+        <svg width="56" height="44" viewBox="0 0 28 22" fill="none" class="on-dark">
+          <rect x="1" y="1" width="26" height="20" rx="2.5" stroke="currentColor" stroke-width="1.5"/>
+          <line x1="1" y1="7" x2="27" y2="7" stroke="currentColor" stroke-width="1.5"/>
+          <circle cx="4.5" cy="4" r="1.5" fill="currentColor" opacity=".8"/>
+          <circle cx="8.5" cy="4" r="1.5" fill="currentColor" opacity=".4"/>
+          <circle cx="12.5" cy="4" r="1.5" fill="currentColor" opacity=".2"/>
+          <path d="M5 11.5 L8 13.5 L5 15.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          <rect x="9.5" y="11" width="5" height="5" fill="currentColor" rx="0.5"/>
+        </svg>
+        <span class="sz-label">56px</span>
+      </div>
+    </div>
+
+    <div class="concept-meta">
+      <div class="cm-name">Window</div>
+      <div class="cm-desc">A literal terminal window frame with a `>` prompt and blinking cursor inside. The three traffic-light dots reinforce the "macOS/terminal" reading. Honest and direct — this is exactly what you're streaming.</div>
+      <div class="cm-tags">
+        <span class="tag-good">Literal & clear</span>
+        <span class="tag-good">Terminal-native</span>
+        <span class="tag-concern">Detail drops at 14px</span>
+        <span class="tag-neutral">Less distinctive</span>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ══ CONCEPT 04: PULSE / HEARTBEAT ══ -->
+  <div class="concept-card">
+    <div class="concept-num">
+      <span>04 · Pulse</span>
+      <span class="cn-badge bold">Most unique</span>
+    </div>
+
+    <div class="preview-dark">
+      <span class="pd-label">Dark · Primary</span>
+      <svg width="120" height="50" viewBox="0 0 38 18" fill="none" xmlns="http://www.w3.org/2000/svg" class="on-dark">
+        <!-- ECG line -->
+        <path d="M1 9 L6 9 L8.5 2 L11 16 L13.5 9 L20 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <!-- Flat trailing line -->
+        <line x1="20" y1="9" x2="25" y2="9" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".3"/>
+        <!-- Live dot -->
+        <circle cx="32" cy="9" r="3.5" fill="currentColor"/>
+        <!-- Pulse ring -->
+        <circle cx="32" cy="9" r="6" stroke="currentColor" stroke-width="1" opacity=".25"/>
+      </svg>
+    </div>
+
+    <div class="preview-light">
+      <span class="pl-label">Light mode</span>
+      <svg width="72" height="30" viewBox="0 0 38 18" fill="none" class="on-light">
+        <path d="M1 9 L6 9 L8.5 2 L11 16 L13.5 9 L20 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="20" y1="9" x2="25" y2="9" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".3"/>
+        <circle cx="32" cy="9" r="3.5" fill="currentColor"/>
+        <circle cx="32" cy="9" r="6" stroke="currentColor" stroke-width="1" opacity=".2"/>
+      </svg>
+    </div>
+
+    <div class="wordmark-strip">
+      <svg width="30" height="14" viewBox="0 0 38 18" fill="none" class="on-dark" style="flex-shrink:0">
+        <path d="M1 9 L6 9 L8.5 2 L11 16 L13.5 9 L20 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="20" y1="9" x2="25" y2="9" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".3"/>
+        <circle cx="32" cy="9" r="3.5" fill="currentColor"/>
+      </svg>
+      <span class="ws-name"><span>Live</span>Shortly</span>
+      <div class="ws-sep"></div>
+      <span class="ws-alt">● Live</span>
+    </div>
+
+    <div class="sizes-row">
+      <div class="sz">
+        <svg width="19" height="9" viewBox="0 0 38 18" fill="none" class="on-dark">
+          <path d="M1 9 L6 9 L8.5 2 L11 16 L13.5 9 L20 9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="30" cy="9" r="4" fill="currentColor"/>
+        </svg>
+        <span class="sz-label">19px</span>
+      </div>
+      <div class="sz">
+        <svg width="38" height="18" viewBox="0 0 38 18" fill="none" class="on-dark">
+          <path d="M1 9 L6 9 L8.5 2 L11 16 L13.5 9 L20 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <line x1="20" y1="9" x2="25" y2="9" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".3"/>
+          <circle cx="32" cy="9" r="3.5" fill="currentColor"/>
+          <circle cx="32" cy="9" r="6" stroke="currentColor" stroke-width="1" opacity=".25"/>
+        </svg>
+        <span class="sz-label">38px</span>
+      </div>
+      <div class="sz">
+        <svg width="76" height="36" viewBox="0 0 38 18" fill="none" class="on-dark">
+          <path d="M1 9 L6 9 L8.5 2 L11 16 L13.5 9 L20 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <line x1="20" y1="9" x2="25" y2="9" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".3"/>
+          <circle cx="32" cy="9" r="3.5" fill="currentColor"/>
+          <circle cx="32" cy="9" r="6" stroke="currentColor" stroke-width="1" opacity=".25"/>
+        </svg>
+        <span class="sz-label">76px</span>
+      </div>
+    </div>
+
+    <div class="concept-meta">
+      <div class="cm-name">Pulse</div>
+      <div class="cm-desc">An ECG heartbeat line — flat, then a sharp spike, then flat again — ending with a live dot and pulse ring. Reads as: this session is alive. Has emotional resonance. The ECG shape references medical monitors, which are the ultimate "live" displays.</div>
+      <div class="cm-tags">
+        <span class="tag-good">Emotional</span>
+        <span class="tag-good">Unique in dev tools</span>
+        <span class="tag-concern">Wide, not square</span>
+        <span class="tag-neutral">Non-obvious at 16px</span>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ══ CONCEPT 05: STREAM ─ THREE CHEVRONS ══ -->
+  <div class="concept-card">
+    <div class="concept-num">
+      <span>05 · Stream</span>
+    </div>
+
+    <div class="preview-dark">
+      <span class="pd-label">Dark · Primary</span>
+      <svg width="88" height="60" viewBox="0 0 28 20" fill="none" xmlns="http://www.w3.org/2000/svg" class="on-dark">
+        <path d="M2 3 L8 10 L2 17"   stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M10 3 L16 10 L10 17" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M18 3 L24 10 L18 17" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity=".45"/>
+      </svg>
+    </div>
+
+    <div class="preview-light">
+      <span class="pl-label">Light mode</span>
+      <svg width="52" height="36" viewBox="0 0 28 20" fill="none" class="on-light">
+        <path d="M2 3 L8 10 L2 17"   stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M10 3 L16 10 L10 17" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M18 3 L24 10 L18 17" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity=".4"/>
+      </svg>
+    </div>
+
+    <div class="wordmark-strip">
+      <svg width="22" height="16" viewBox="0 0 28 20" fill="none" class="on-dark" style="flex-shrink:0">
+        <path d="M2 3 L8 10 L2 17"   stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M10 3 L16 10 L10 17" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M18 3 L24 10 L18 17" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity=".45"/>
+      </svg>
+      <span class="ws-name"><span>Live</span>Shortly</span>
+      <div class="ws-sep"></div>
+      <span class="ws-alt">>> stream</span>
+    </div>
+
+    <div class="sizes-row">
+      <div class="sz">
+        <svg width="14" height="10" viewBox="0 0 28 20" fill="none" class="on-dark">
+          <path d="M2 3 L8 10 L2 17"   stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M10 3 L16 10 L10 17" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M18 3 L24 10 L18 17" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity=".45"/>
+        </svg>
+        <span class="sz-label">14px</span>
+      </div>
+      <div class="sz">
+        <svg width="28" height="20" viewBox="0 0 28 20" fill="none" class="on-dark">
+          <path d="M2 3 L8 10 L2 17"   stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M10 3 L16 10 L10 17" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M18 3 L24 10 L18 17" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity=".45"/>
+        </svg>
+        <span class="sz-label">28px</span>
+      </div>
+      <div class="sz">
+        <svg width="56" height="40" viewBox="0 0 28 20" fill="none" class="on-dark">
+          <path d="M2 3 L8 10 L2 17"   stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M10 3 L16 10 L10 17" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M18 3 L24 10 L18 17" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity=".45"/>
+        </svg>
+        <span class="sz-label">56px</span>
+      </div>
+    </div>
+
+    <div class="concept-meta">
+      <div class="cm-name">Stream</div>
+      <div class="cm-desc">Three right-pointing chevrons, the last one faded. Triple-chevron `>>>` is the Python shell prompt, the "fast-forward" gesture, and the UNIX pipeline operator simultaneously. The fade suggests infinite continuation.</div>
+      <div class="cm-tags">
+        <span class="tag-good">Developer-coded</span>
+        <span class="tag-good">Scales well</span>
+        <span class="tag-neutral">Reads fast-forward</span>
+        <span class="tag-concern">Generic chevrons</span>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ══ CONCEPT 06: RECORD ══ -->
+  <div class="concept-card">
+    <div class="concept-num">
+      <span>06 · Record</span>
+    </div>
+
+    <div class="preview-dark">
+      <span class="pd-label">Dark · Primary</span>
+      <svg width="72" height="72" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="on-dark">
+        <defs>
+          <mask id="play-cut-lg">
+            <rect width="24" height="24" fill="white"/>
+            <path d="M10 8.5 L15 12 L10 15.5" stroke="black" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          </mask>
+        </defs>
+        <!-- outer ring -->
+        <circle cx="12" cy="12" r="11" stroke="currentColor" stroke-width="1.5"/>
+        <!-- inner filled disc with > cutout -->
+        <circle cx="12" cy="12" r="5.5" fill="currentColor" mask="url(#play-cut-lg)"/>
+      </svg>
+    </div>
+
+    <div class="preview-light">
+      <span class="pl-label">Light mode</span>
+      <svg width="42" height="42" viewBox="0 0 24 24" fill="none" class="on-light">
+        <defs>
+          <mask id="play-cut-sm">
+            <rect width="24" height="24" fill="white"/>
+            <path d="M10 8.5 L15 12 L10 15.5" stroke="black" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          </mask>
+        </defs>
+        <circle cx="12" cy="12" r="11" stroke="currentColor" stroke-width="1.5"/>
+        <circle cx="12" cy="12" r="5.5" fill="currentColor" mask="url(#play-cut-sm)"/>
+      </svg>
+    </div>
+
+    <div class="wordmark-strip">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" class="on-dark" style="flex-shrink:0">
+        <defs>
+          <mask id="play-cut-wm">
+            <rect width="24" height="24" fill="white"/>
+            <path d="M10 8.5 L15 12 L10 15.5" stroke="black" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          </mask>
+        </defs>
+        <circle cx="12" cy="12" r="11" stroke="currentColor" stroke-width="1.5"/>
+        <circle cx="12" cy="12" r="5.5" fill="currentColor" mask="url(#play-cut-wm)"/>
+      </svg>
+      <span class="ws-name"><span>Live</span>Shortly</span>
+      <div class="ws-sep"></div>
+      <span class="ws-alt">⏺ on air</span>
+    </div>
+
+    <div class="sizes-row">
+      <div class="sz">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" class="on-dark">
+          <defs>
+            <mask id="play-cut-t1">
+              <rect width="24" height="24" fill="white"/>
+              <path d="M10 8.5 L15 12 L10 15.5" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+            </mask>
+          </defs>
+          <circle cx="12" cy="12" r="11" stroke="currentColor" stroke-width="2"/>
+          <circle cx="12" cy="12" r="5.5" fill="currentColor" mask="url(#play-cut-t1)"/>
+        </svg>
+        <span class="sz-label">14px</span>
+      </div>
+      <div class="sz">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" class="on-dark">
+          <defs>
+            <mask id="play-cut-t2">
+              <rect width="24" height="24" fill="white"/>
+              <path d="M10 8.5 L15 12 L10 15.5" stroke="black" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+            </mask>
+          </defs>
+          <circle cx="12" cy="12" r="11" stroke="currentColor" stroke-width="1.5"/>
+          <circle cx="12" cy="12" r="5.5" fill="currentColor" mask="url(#play-cut-t2)"/>
+        </svg>
+        <span class="sz-label">24px</span>
+      </div>
+      <div class="sz">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" class="on-dark">
+          <defs>
+            <mask id="play-cut-t3">
+              <rect width="24" height="24" fill="white"/>
+              <path d="M10 8.5 L15 12 L10 15.5" stroke="black" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+            </mask>
+          </defs>
+          <circle cx="12" cy="12" r="11" stroke="currentColor" stroke-width="1.5"/>
+          <circle cx="12" cy="12" r="5.5" fill="currentColor" mask="url(#play-cut-t3)"/>
+        </svg>
+        <span class="sz-label">48px</span>
+      </div>
+    </div>
+
+    <div class="concept-meta">
+      <div class="cm-name">Record</div>
+      <div class="cm-desc">A thin outer ring (broadcast frame) with an inner filled disc (the record button). A `>` play mark is cut transparently through the inner dot — so it plays back exactly what it records. Ring-in-ring is also a classic "session" concept in media.</div>
+      <div class="cm-tags">
+        <span class="tag-good">Square footprint</span>
+        <span class="tag-good">Media-literal</span>
+        <span class="tag-neutral">Circular (common)</span>
+        <span class="tag-concern">Cutout drops at 14px</span>
+      </div>
+    </div>
+  </div>
+
+
+</div><!-- /concepts -->
+
+
+<!-- ══════════════════════════════════════════════════════════
+     IN CONTEXT — all 6 logos in a nav strip
+════════════════════════════════════════════════════════════ -->
+<div class="in-context">
+  <div class="ic-header">
+    <span class="ic-title">In Context</span>
+    <span class="ic-sub">how each mark reads in the actual navbar at 20px</span>
+  </div>
+
+  <div class="ic-grid">
+
+    <!-- 01 Signal -->
+    <div class="ic-nav">
+      <div class="ic-brand">
+        <svg width="17" height="12" viewBox="0 0 22 15" fill="none" class="on-dark">
+          <rect x="0" y="9" width="4" height="6" fill="currentColor"/>
+          <rect x="6" y="5" width="4" height="10" fill="currentColor"/>
+          <rect x="12" y="2" width="4" height="13" fill="currentColor"/>
+          <rect x="18" y="0" width="4" height="15" fill="currentColor" opacity=".5"/>
+        </svg>
+        LiveShortly
+      </div>
+      <span class="ic-name">01 · Signal</span>
+      <div class="ic-dummy"><div class="ic-pill"></div><div class="ic-pill g"></div></div>
+    </div>
+
+    <!-- 02 Broadcast -->
+    <div class="ic-nav">
+      <div class="ic-brand">
+        <svg width="18" height="14" viewBox="0 0 30 22" fill="none" class="on-dark">
+          <path d="M2 3 L13 11 L2 19" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M17 6.5 Q23 11 17 15.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+          <path d="M21 3 Q30 11 21 19" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none" opacity=".55"/>
+        </svg>
+        LiveShortly
+      </div>
+      <span class="ic-name">02 · Broadcast</span>
+      <div class="ic-dummy"><div class="ic-pill"></div><div class="ic-pill g"></div></div>
+    </div>
+
+    <!-- 03 Window -->
+    <div class="ic-nav">
+      <div class="ic-brand">
+        <svg width="20" height="16" viewBox="0 0 28 22" fill="none" class="on-dark">
+          <rect x="1" y="1" width="26" height="20" rx="2.5" stroke="currentColor" stroke-width="1.5"/>
+          <line x1="1" y1="7" x2="27" y2="7" stroke="currentColor" stroke-width="1.5"/>
+          <circle cx="4.5" cy="4" r="1.5" fill="currentColor" opacity=".8"/>
+          <circle cx="8.5" cy="4" r="1.5" fill="currentColor" opacity=".4"/>
+          <rect x="9.5" y="11" width="5" height="5" fill="currentColor" rx="0.5"/>
+        </svg>
+        LiveShortly
+      </div>
+      <span class="ic-name">03 · Window</span>
+      <div class="ic-dummy"><div class="ic-pill"></div><div class="ic-pill g"></div></div>
+    </div>
+
+    <!-- 04 Pulse -->
+    <div class="ic-nav">
+      <div class="ic-brand">
+        <svg width="24" height="10" viewBox="0 0 38 18" fill="none" class="on-dark">
+          <path d="M1 9 L6 9 L8.5 2 L11 16 L13.5 9 L20 9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <line x1="20" y1="9" x2="25" y2="9" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".3"/>
+          <circle cx="32" cy="9" r="3.5" fill="currentColor"/>
+        </svg>
+        LiveShortly
+      </div>
+      <span class="ic-name">04 · Pulse</span>
+      <div class="ic-dummy"><div class="ic-pill"></div><div class="ic-pill g"></div></div>
+    </div>
+
+    <!-- 05 Stream -->
+    <div class="ic-nav">
+      <div class="ic-brand">
+        <svg width="16" height="12" viewBox="0 0 28 20" fill="none" class="on-dark">
+          <path d="M2 3 L8 10 L2 17"   stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M10 3 L16 10 L10 17" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M18 3 L24 10 L18 17" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity=".45"/>
+        </svg>
+        LiveShortly
+      </div>
+      <span class="ic-name">05 · Stream</span>
+      <div class="ic-dummy"><div class="ic-pill"></div><div class="ic-pill g"></div></div>
+    </div>
+
+    <!-- 06 Record -->
+    <div class="ic-nav">
+      <div class="ic-brand">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" class="on-dark">
+          <defs>
+            <mask id="play-cut-ctx">
+              <rect width="24" height="24" fill="white"/>
+              <path d="M10 8.5 L15 12 L10 15.5" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+            </mask>
+          </defs>
+          <circle cx="12" cy="12" r="11" stroke="currentColor" stroke-width="2"/>
+          <circle cx="12" cy="12" r="5.5" fill="currentColor" mask="url(#play-cut-ctx)"/>
+        </svg>
+        LiveShortly
+      </div>
+      <span class="ic-name">06 · Record</span>
+      <div class="ic-dummy"><div class="ic-pill"></div><div class="ic-pill g"></div></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     FOOTER NOTE
+════════════════════════════════════════════════════════════ -->
+<div class="footer-note">
+  <span class="rec-badge">Recommended: 01 Signal</span>
+  <span style="color:var(--hairline)">·</span>
+  <span>Clean, scalable, media-native. Works at 12px favicon. Strong enough to carry alone.</span>
+  <span style="margin-left:auto;">Runner-up: 02 Broadcast for more conceptual storytelling.</span>
+</div>
+
+</body>
+</html>

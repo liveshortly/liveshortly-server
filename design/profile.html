@@ -1,0 +1,1334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>@mukulmalviya2 · LiveShortly</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+
+/* ═══════ TOKENS ═══════ */
+:root {
+  --bg:       #16150f;
+  --panel:    #1e1d16;
+  --panel2:   #252419;
+  --panel3:   #2c2b22;
+  --hairline: #34322a;
+  --strong:   #ece8da;
+  --ink:      #ece8da;
+  --muted:    #a4a08f;
+  --faint:    #767365;
+  --green:    #4cae7a;
+  --green-bg: rgba(76,174,122,.08);
+  --green-border: rgba(76,174,122,.25);
+  --red:      #e06a5a;
+  --amber:    #d6a94a;
+  --amber-bg: rgba(214,169,74,.08);
+  --blue:     #5b9bd5;
+  --blue-bg:  rgba(91,155,213,.08);
+  --purple:   #9b7fd4;
+  --font:     'JetBrains Mono','IBM Plex Mono',ui-monospace,monospace;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{font-family:var(--font);background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;}
+a{color:inherit;text-decoration:none;}
+button{font-family:var(--font);cursor:pointer;}
+*{scrollbar-width:thin;scrollbar-color:var(--hairline) transparent;}
+::-webkit-scrollbar{width:5px;}
+::-webkit-scrollbar-thumb{background:var(--hairline);}
+
+/* ═══════ ANIMATIONS ═══════ */
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.25;transform:scale(.65)}}
+@keyframes livePulse{0%,100%{box-shadow:0 0 0 0 rgba(76,174,122,.4)}70%{box-shadow:0 0 0 8px rgba(76,174,122,0)}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes scanH{0%{left:-60%}100%{left:110%}}
+@keyframes streak{0%,100%{transform:scaleY(1)}50%{transform:scaleY(1.15)}}
+
+.live-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 1.2s ease-in-out infinite;flex-shrink:0}
+
+/* ═══════ TOPBAR ═══════ */
+.topbar{
+  position:sticky;top:0;z-index:300;
+  background:rgba(22,21,15,.95);backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--hairline);
+  height:50px;display:flex;align-items:center;padding:0 20px;gap:0;
+}
+.brand{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700;letter-spacing:-.02em;padding-right:20px;border-right:1px solid var(--hairline);}
+.mark{width:20px;height:20px;background:var(--green);border-radius:3px;position:relative;flex-shrink:0;}
+.mark::before{content:'';position:absolute;left:4px;top:4px;width:4px;height:11px;background:var(--panel);border-radius:1px;}
+.mark::after{content:'';position:absolute;left:11px;top:4px;width:5px;height:11px;border:2px solid var(--panel);background:var(--green);border-radius:1px;}
+.tb-search{
+  flex:1;max-width:380px;margin:0 20px;
+  display:flex;align-items:center;gap:8px;
+  background:var(--panel2);border:1px solid var(--hairline);
+  padding:0 12px;height:32px;
+}
+.tb-search input{flex:1;background:none;border:none;outline:none;color:var(--ink);font-family:var(--font);font-size:11px;letter-spacing:.05em;}
+.tb-search input::placeholder{color:var(--faint);}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:10px;}
+.tb-btn{
+  font-size:10px;text-transform:uppercase;letter-spacing:.1em;font-weight:600;
+  border:1px solid var(--hairline);background:transparent;color:var(--muted);
+  padding:5px 14px;transition:all 120ms;
+}
+.tb-btn:hover{border-color:var(--strong);color:var(--ink);}
+.tb-btn.green{border-color:var(--green);background:var(--green);color:var(--bg);font-weight:700;}
+.tb-live-indicator{
+  display:flex;align-items:center;gap:6px;
+  font-size:9px;text-transform:uppercase;letter-spacing:.12em;font-weight:700;
+  color:var(--green);border:1px solid var(--green-border);
+  background:var(--green-bg);padding:4px 10px;
+}
+
+/* ═══════ LIVE BANNER ═══════ */
+.live-banner{
+  background:linear-gradient(90deg, rgba(76,174,122,.12) 0%, rgba(76,174,122,.04) 100%);
+  border-bottom:1px solid var(--green-border);
+  padding:10px 28px;
+  display:flex;align-items:center;gap:16px;
+  animation:fadeUp .4s ease;
+}
+.lb-pill{
+  font-size:9px;text-transform:uppercase;letter-spacing:.14em;font-weight:700;
+  background:var(--green);color:var(--bg);padding:3px 8px;flex-shrink:0;
+}
+.lb-title{flex:1;font-size:12px;color:var(--ink);font-weight:500;}
+.lb-viewers{font-size:10px;color:var(--green);letter-spacing:.08em;}
+.lb-watch{
+  font-size:10px;text-transform:uppercase;letter-spacing:.1em;font-weight:700;
+  border:1px solid var(--green);color:var(--green);background:transparent;
+  padding:5px 14px;transition:all 120ms;
+}
+.lb-watch:hover{background:var(--green);color:var(--bg);}
+
+/* ═══════ PAGE SHELL ═══════ */
+.page{max-width:1200px;margin:0 auto;padding:0 24px 80px;}
+
+/* ═══════ PROFILE HERO ═══════ */
+.profile-hero{
+  padding:32px 0 24px;
+  display:flex;gap:32px;align-items:flex-start;
+}
+
+/* Avatar frame */
+.avatar-frame{
+  position:relative;flex-shrink:0;
+  width:100px;height:100px;
+}
+.avatar-ring{
+  position:absolute;inset:-3px;border-radius:50%;
+  border:2px solid var(--green);
+  animation:livePulse 2s ease-in-out infinite;
+}
+.avatar-bg{
+  width:100%;height:100%;border-radius:50%;
+  background:var(--panel2);border:1px solid var(--hairline);
+  display:flex;align-items:center;justify-content:center;
+  font-size:28px;font-weight:700;color:var(--green);
+  overflow:hidden;position:relative;
+}
+.avatar-code-bg{
+  position:absolute;inset:0;font-size:7px;color:rgba(76,174,122,.18);
+  line-height:1.4;padding:6px;overflow:hidden;word-break:break-all;
+  pointer-events:none;
+}
+.avatar-initials{position:relative;z-index:1;font-size:26px;font-weight:700;color:var(--green);}
+.avatar-live-tag{
+  position:absolute;bottom:-4px;left:50%;transform:translateX(-50%);
+  font-size:7px;text-transform:uppercase;letter-spacing:.12em;font-weight:700;
+  background:var(--green);color:var(--bg);padding:2px 6px;white-space:nowrap;
+}
+
+/* Bio section */
+.ph-bio-col{flex:1;min-width:0;}
+.ph-name{font-size:22px;font-weight:700;letter-spacing:-.02em;color:var(--ink);}
+.ph-handle{font-size:12px;color:var(--faint);letter-spacing:.05em;margin-top:2px;}
+.ph-title{
+  font-size:11px;color:var(--muted);margin-top:8px;letter-spacing:.04em;
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+}
+.ph-title-sep{color:var(--hairline);}
+.ph-bio-text{
+  font-size:11.5px;color:var(--muted);line-height:1.65;
+  margin-top:10px;max-width:500px;
+}
+.ph-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px;}
+.ph-tag{
+  font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--faint);
+  border:1px solid var(--hairline);padding:2px 8px;
+  transition:border-color 120ms,color 120ms;
+}
+.ph-tag:hover{border-color:var(--muted);color:var(--muted);}
+.ph-meta{
+  display:flex;gap:16px;margin-top:10px;flex-wrap:wrap;
+  font-size:10px;color:var(--faint);letter-spacing:.06em;
+}
+.ph-meta-item{display:flex;align-items:center;gap:5px;}
+.ph-actions{display:flex;gap:8px;margin-top:14px;}
+.btn-follow{
+  font-size:10px;text-transform:uppercase;letter-spacing:.12em;font-weight:700;
+  background:var(--green);color:var(--bg);border:none;padding:7px 20px;
+  transition:background 120ms;font-family:var(--font);
+}
+.btn-follow:hover{background:#5dc98c;}
+.btn-secondary{
+  font-size:10px;text-transform:uppercase;letter-spacing:.1em;font-weight:600;
+  background:transparent;color:var(--muted);border:1px solid var(--hairline);
+  padding:6px 16px;transition:all 120ms;font-family:var(--font);
+}
+.btn-secondary:hover{border-color:var(--strong);color:var(--ink);}
+
+/* Right column: whoami card + DNA */
+.ph-right-col{width:320px;flex-shrink:0;display:flex;flex-direction:column;gap:12px;}
+
+/* Terminal whoami card */
+.terminal-card{
+  background:var(--panel);border:1px solid var(--hairline);
+  overflow:hidden;
+}
+.tc-titlebar{
+  display:flex;align-items:center;gap:6px;
+  padding:8px 12px;border-bottom:1px solid var(--hairline);
+  background:var(--panel2);
+}
+.tc-dot{width:10px;height:10px;border-radius:50%;}
+.tc-dot.r{background:#e06a5a;}
+.tc-dot.y{background:#d6a94a;}
+.tc-dot.g{background:#4cae7a;}
+.tc-cmd{margin-left:8px;font-size:10px;color:var(--faint);letter-spacing:.08em;}
+.tc-body{padding:14px 16px;font-size:10.5px;line-height:1.8;}
+.tc-line{display:flex;gap:8px;align-items:baseline;}
+.tc-key{color:var(--blue);}
+.tc-colon{color:var(--faint);}
+.tc-str{color:var(--amber);}
+.tc-num{color:var(--green);}
+.tc-live{color:var(--green);font-weight:700;}
+.tc-comma{color:var(--faint);}
+.tc-brace{color:var(--muted);}
+.tc-cursor{
+  display:inline-block;width:7px;height:13px;
+  background:var(--green);opacity:.9;
+  animation:pulse 1s ease-in-out infinite;
+  vertical-align:text-bottom;margin-left:2px;
+}
+
+/* Language DNA bar */
+.dna-card{
+  background:var(--panel);border:1px solid var(--hairline);
+  padding:14px 16px;
+}
+.dna-header{
+  display:flex;justify-content:space-between;align-items:center;
+  margin-bottom:10px;
+}
+.dna-title{font-size:9px;text-transform:uppercase;letter-spacing:.14em;color:var(--faint);font-weight:700;}
+.dna-bar{display:flex;height:7px;overflow:hidden;gap:2px;}
+.dna-seg{height:100%;transition:width .6s ease;}
+.dna-seg.go{background:var(--blue);}
+.dna-seg.ts{background:#e5534b;}
+.dna-seg.py{background:var(--amber);}
+.dna-seg.sql{background:var(--purple);}
+.dna-seg.sh{background:var(--green);}
+.dna-legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:8px;}
+.dl-item{display:flex;align-items:center;gap:5px;font-size:9px;color:var(--muted);}
+.dl-dot{width:7px;height:7px;border-radius:1px;flex-shrink:0;}
+.dl-dot.go{background:var(--blue);}
+.dl-dot.ts{background:#e5534b;}
+.dl-dot.py{background:var(--amber);}
+.dl-dot.sql{background:var(--purple);}
+.dl-dot.sh{background:var(--green);}
+
+/* ═══════ STATS RIBBON ═══════ */
+.stats-ribbon{
+  display:flex;border:1px solid var(--hairline);
+  background:var(--panel);
+  margin:0 0 24px;
+  overflow:hidden;
+}
+.stat-cell{
+  flex:1;padding:16px 20px;border-right:1px solid var(--hairline);
+  display:flex;flex-direction:column;gap:4px;
+  transition:background 150ms;
+}
+.stat-cell:last-child{border-right:none;}
+.stat-cell:hover{background:var(--panel2);}
+.stat-num{font-size:22px;font-weight:700;color:var(--ink);letter-spacing:-.02em;}
+.stat-num.green{color:var(--green);}
+.stat-num.amber{color:var(--amber);}
+.stat-label{font-size:8px;text-transform:uppercase;letter-spacing:.14em;color:var(--faint);font-weight:700;}
+.stat-sub{font-size:9px;color:var(--muted);margin-top:1px;}
+
+/* ═══════ ACTIVITY HEATMAP ═══════ */
+.activity-section{margin-bottom:28px;}
+.section-head{
+  display:flex;align-items:baseline;gap:12px;margin-bottom:14px;flex-wrap:wrap;
+}
+.sh-title{font-size:9px;text-transform:uppercase;letter-spacing:.14em;font-weight:700;color:var(--faint);}
+.sh-sub{font-size:10px;color:var(--muted);}
+.sh-streak{
+  display:flex;align-items:center;gap:5px;
+  font-size:9px;font-weight:700;color:var(--amber);letter-spacing:.08em;
+  border:1px solid rgba(214,169,74,.3);background:rgba(214,169,74,.06);
+  padding:2px 8px;
+}
+.sh-streak .s-num{font-size:14px;}
+
+.heatmap-wrap{
+  background:var(--panel);border:1px solid var(--hairline);
+  padding:16px 20px 14px;overflow-x:auto;
+}
+.hm-month-labels{
+  display:flex;margin-bottom:4px;margin-left:24px;
+  font-size:8px;color:var(--faint);letter-spacing:.08em;
+}
+.hm-month-label{flex:1;min-width:0;}
+.hm-grid-row{display:flex;gap:4px;align-items:flex-start;}
+.hm-day-labels{
+  display:flex;flex-direction:column;gap:2px;margin-right:6px;
+  font-size:7px;color:var(--faint);letter-spacing:.06em;
+  padding-top:2px;
+}
+.hm-day-label{height:10px;line-height:10px;}
+.hm-weeks{display:flex;gap:2px;}
+.hm-week{display:flex;flex-direction:column;gap:2px;}
+.hm-cell{
+  width:10px;height:10px;
+  background:var(--panel2);border:1px solid var(--hairline);
+  transition:all 120ms;cursor:pointer;position:relative;
+}
+.hm-cell:hover::after{
+  content:attr(data-tip);
+  position:absolute;bottom:14px;left:50%;transform:translateX(-50%);
+  background:var(--panel3);border:1px solid var(--hairline);
+  font-size:8px;color:var(--ink);padding:3px 7px;white-space:nowrap;
+  pointer-events:none;z-index:10;
+}
+.hm-cell.l1{background:rgba(76,174,122,.2);border-color:rgba(76,174,122,.15);}
+.hm-cell.l2{background:rgba(76,174,122,.4);border-color:rgba(76,174,122,.25);}
+.hm-cell.l3{background:rgba(76,174,122,.65);border-color:rgba(76,174,122,.4);}
+.hm-cell.l4{background:var(--green);border-color:var(--green);}
+.hm-legend{
+  display:flex;align-items:center;gap:4px;margin-top:10px;
+  font-size:8px;color:var(--faint);letter-spacing:.06em;
+  justify-content:flex-end;
+}
+.hm-leg-cell{width:10px;height:10px;border:1px solid var(--hairline);}
+.hm-leg-cell.l0{background:var(--panel2);}
+.hm-leg-cell.l1{background:rgba(76,174,122,.2);border-color:rgba(76,174,122,.15);}
+.hm-leg-cell.l2{background:rgba(76,174,122,.4);border-color:rgba(76,174,122,.25);}
+.hm-leg-cell.l3{background:rgba(76,174,122,.65);border-color:rgba(76,174,122,.4);}
+.hm-leg-cell.l4{background:var(--green);border-color:var(--green);}
+
+/* ═══════ DEVELOPER TRAITS ═══════ */
+.traits-row{
+  display:flex;gap:10px;flex-wrap:wrap;
+  margin-bottom:28px;
+}
+.trait-badge{
+  display:flex;align-items:center;gap:8px;
+  background:var(--panel);border:1px solid var(--hairline);
+  padding:9px 14px;flex:1;min-width:180px;
+  transition:border-color 150ms;
+}
+.trait-badge:hover{border-color:var(--muted);}
+.trait-icon{font-size:13px;flex-shrink:0;width:20px;text-align:center;}
+.trait-info{display:flex;flex-direction:column;gap:2px;}
+.trait-name{font-size:9px;text-transform:uppercase;letter-spacing:.12em;font-weight:700;color:var(--ink);}
+.trait-sub{font-size:8px;color:var(--faint);letter-spacing:.06em;}
+
+/* ═══════ VIEWER WALL ═══════ */
+.viewers-section{margin-bottom:28px;}
+.viewer-wall{
+  display:flex;align-items:center;gap:0;
+  background:var(--panel);border:1px solid var(--hairline);
+  padding:14px 20px;
+}
+.viewer-avatars{display:flex;margin-right:16px;}
+.vw-avatar{
+  width:30px;height:30px;border-radius:50%;
+  background:var(--panel2);border:2px solid var(--panel);
+  display:flex;align-items:center;justify-content:center;
+  font-size:10px;font-weight:700;color:var(--muted);
+  margin-left:-8px;flex-shrink:0;
+}
+.vw-avatar:first-child{margin-left:0;}
+.vw-avatar.g{color:var(--green);}
+.vw-avatar.b{color:var(--blue);}
+.vw-avatar.a{color:var(--amber);}
+.vw-count{font-size:12px;font-weight:700;color:var(--ink);}
+.vw-label{font-size:10px;color:var(--muted);margin-left:8px;}
+.vw-top{
+  margin-left:auto;display:flex;align-items:center;gap:16px;
+  font-size:10px;color:var(--faint);letter-spacing:.06em;
+}
+.vw-top-item{display:flex;align-items:center;gap:6px;}
+.vw-top-name{color:var(--muted);}
+.vw-top-count{color:var(--ink);font-weight:600;}
+
+/* ═══════ PINNED SESSIONS ═══════ */
+.pinned-grid{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:12px;
+  margin-bottom:32px;
+}
+.pinned-card{
+  background:var(--panel);border:1px solid var(--hairline);
+  overflow:hidden;cursor:pointer;transition:border-color 150ms;
+  position:relative;
+}
+.pinned-card:hover{border-color:var(--muted);}
+.pin-indicator{
+  position:absolute;top:8px;right:8px;z-index:2;
+  font-size:7px;text-transform:uppercase;letter-spacing:.12em;font-weight:700;
+  background:var(--amber);color:var(--bg);padding:2px 6px;
+}
+.pc-thumb{
+  height:80px;background:var(--player, #0a0908);border-bottom:1px solid var(--hairline);
+  padding:10px 12px;font-size:9px;line-height:1.6;overflow:hidden;
+  position:relative;
+}
+.pc-thumb::after{
+  content:'';position:absolute;bottom:0;left:0;right:0;height:30px;
+  background:linear-gradient(to bottom,transparent,var(--panel));
+}
+.pc-meta{padding:10px 12px;}
+.pc-type{font-size:7px;text-transform:uppercase;letter-spacing:.14em;color:var(--faint);margin-bottom:4px;display:flex;align-items:center;gap:6px;}
+.pc-title{font-size:11px;font-weight:600;color:var(--ink);line-height:1.4;}
+.pc-stats{font-size:9px;color:var(--faint);margin-top:5px;display:flex;gap:10px;}
+
+/* ═══════ CONTENT SECTION ═══════ */
+.content-layout{display:flex;gap:20px;align-items:flex-start;}
+.content-main{flex:1;min-width:0;}
+.content-aside{width:240px;flex-shrink:0;position:sticky;top:70px;}
+
+/* Filter tabs */
+.filter-tabs{
+  display:flex;gap:0;border:1px solid var(--hairline);
+  background:var(--panel);margin-bottom:16px;overflow:hidden;
+}
+.ft{
+  flex:1;padding:9px 8px;text-align:center;
+  font-size:9px;text-transform:uppercase;letter-spacing:.1em;font-weight:700;
+  color:var(--faint);background:transparent;border:none;border-right:1px solid var(--hairline);
+  cursor:pointer;transition:all 120ms;font-family:var(--font);
+  display:flex;align-items:center;justify-content:center;gap:5px;
+}
+.ft:last-child{border-right:none;}
+.ft:hover{background:var(--panel2);color:var(--muted);}
+.ft.active{background:var(--panel2);color:var(--ink);}
+.ft-badge{
+  font-size:7px;background:var(--panel3);color:var(--faint);
+  padding:1px 4px;letter-spacing:.06em;
+}
+.ft.active .ft-badge{background:var(--hairline);color:var(--muted);}
+
+/* Content cards */
+.card-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+
+/* ── VIDEO / SESSION CARD ── */
+.cc-video{
+  background:var(--panel);border:1px solid var(--hairline);
+  overflow:hidden;cursor:pointer;transition:border-color 150ms;
+  display:flex;flex-direction:column;
+}
+.cc-video:hover{border-color:var(--muted);}
+.cv-thumb{
+  height:96px;background:#0a0908;border-bottom:1px solid var(--hairline);
+  position:relative;overflow:hidden;
+  padding:8px 10px;font-size:8.5px;line-height:1.55;
+}
+.cv-thumb-scan{
+  position:absolute;inset:0;
+  background:repeating-linear-gradient(to bottom,transparent 0,transparent 3px,rgba(0,0,0,.05) 3px,rgba(0,0,0,.05) 4px);
+  pointer-events:none;
+}
+.cv-badge{
+  position:absolute;top:6px;left:6px;z-index:2;
+  font-size:7px;text-transform:uppercase;letter-spacing:.12em;font-weight:700;padding:2px 6px;
+}
+.cv-badge.ended{background:var(--panel3);color:var(--faint);border:1px solid var(--hairline);}
+.cv-badge.live{background:var(--green);color:var(--bg);}
+.cv-dur{
+  position:absolute;bottom:6px;right:6px;
+  font-size:8px;color:var(--faint);background:rgba(10,9,8,.8);
+  padding:1px 5px;
+}
+.cv-body{padding:10px 12px;flex:1;display:flex;flex-direction:column;}
+.cv-title{font-size:11px;font-weight:600;color:var(--ink);line-height:1.4;flex:1;}
+.cv-meta{margin-top:6px;display:flex;gap:10px;font-size:9px;color:var(--faint);}
+
+/* ── DEV STORY CARD ── */
+.cc-story{
+  background:var(--panel);border:1px solid var(--hairline);
+  padding:14px 14px 12px;cursor:pointer;transition:border-color 150ms;
+  display:flex;flex-direction:column;gap:8px;
+}
+.cc-story:hover{border-color:var(--muted);}
+.cs-type{
+  display:flex;align-items:center;gap:6px;
+  font-size:7px;text-transform:uppercase;letter-spacing:.14em;font-weight:700;color:var(--blue);
+}
+.cs-rule{flex:1;height:1px;background:var(--hairline);}
+.cs-readtime{color:var(--faint);}
+.cs-title{font-size:12px;font-weight:600;color:var(--ink);line-height:1.4;}
+.cs-excerpt{font-size:10px;color:var(--muted);line-height:1.6;font-style:italic;}
+.cs-footer{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.cs-tag{
+  font-size:8px;color:var(--faint);border:1px solid var(--hairline);
+  padding:1px 6px;letter-spacing:.08em;
+}
+.cs-date{font-size:9px;color:var(--faint);margin-left:auto;}
+
+/* ── SHORT CARD ── */
+.cc-short{
+  background:var(--panel);border:1px solid var(--hairline);
+  overflow:hidden;cursor:pointer;transition:border-color 150ms;
+  display:flex;flex-direction:column;
+}
+.cc-short:hover{border-color:var(--amber);}
+.csh-thumb{
+  height:120px;background:#0a0908;
+  position:relative;overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+  border-bottom:1px solid var(--hairline);
+}
+.csh-code-bg{
+  position:absolute;inset:0;font-size:8px;color:rgba(214,169,74,.12);
+  line-height:1.5;padding:8px;overflow:hidden;word-break:break-all;
+}
+.csh-play{
+  position:relative;z-index:1;
+  width:36px;height:36px;border-radius:50%;
+  background:rgba(214,169,74,.15);border:1px solid var(--amber);
+  display:flex;align-items:center;justify-content:center;
+  font-size:14px;color:var(--amber);
+}
+.csh-dur{
+  position:absolute;bottom:6px;right:8px;
+  font-size:8px;color:var(--amber);font-weight:700;
+  background:rgba(10,9,8,.85);padding:1px 5px;
+}
+.csh-badge{
+  position:absolute;top:6px;left:6px;
+  font-size:7px;text-transform:uppercase;letter-spacing:.12em;font-weight:700;
+  background:rgba(214,169,74,.2);color:var(--amber);
+  border:1px solid rgba(214,169,74,.3);padding:2px 6px;
+}
+.csh-body{padding:10px 12px;}
+.csh-title{font-size:10.5px;font-weight:600;color:var(--ink);line-height:1.4;}
+.csh-sub{font-size:9px;color:var(--faint);margin-top:3px;}
+
+/* ── LIVE CARD ── */
+.cc-live{
+  background:var(--panel);
+  border:1px solid var(--green-border);
+  overflow:hidden;cursor:pointer;
+  display:flex;flex-direction:column;
+  grid-column:span 2;
+  transition:border-color 150ms;
+}
+.cc-live:hover{border-color:var(--green);}
+.cl-inner{display:flex;gap:0;}
+.cl-thumb{
+  width:220px;flex-shrink:0;min-height:120px;
+  background:#050503;position:relative;overflow:hidden;
+  padding:10px 12px;font-size:8.5px;line-height:1.55;
+  border-right:1px solid var(--green-border);
+}
+.cl-scan{
+  position:absolute;inset:0;
+  background:repeating-linear-gradient(to bottom,transparent 0,transparent 3px,rgba(0,0,0,.05) 3px,rgba(0,0,0,.05) 4px);
+  pointer-events:none;z-index:1;
+}
+.cl-meta{flex:1;padding:14px 16px;display:flex;flex-direction:column;gap:6px;}
+.cl-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.cl-live-pill{
+  font-size:8px;text-transform:uppercase;letter-spacing:.14em;font-weight:700;
+  background:var(--green);color:var(--bg);padding:2px 8px;
+  display:flex;align-items:center;gap:5px;
+}
+.cl-viewers{font-size:9px;color:var(--green);letter-spacing:.06em;}
+.cl-elapsed{font-size:9px;color:var(--faint);}
+.cl-title{font-size:13px;font-weight:600;color:var(--ink);line-height:1.35;}
+.cl-desc{font-size:10px;color:var(--muted);line-height:1.6;max-width:400px;}
+.cl-context{
+  margin-top:4px;background:var(--green-bg);border-left:2px solid var(--green);
+  padding:6px 10px;font-size:9px;color:var(--muted);
+}
+.cl-context-label{font-size:7px;text-transform:uppercase;letter-spacing:.14em;color:var(--green);font-weight:700;margin-bottom:2px;}
+
+/* ═══════ CODE ARCHAEOLOGY ASIDE ═══════ */
+.aside-card{
+  background:var(--panel);border:1px solid var(--hairline);
+  margin-bottom:12px;overflow:hidden;
+}
+.ac-head{
+  display:flex;align-items:center;gap:8px;
+  padding:10px 14px;border-bottom:1px solid var(--hairline);
+  background:var(--panel2);
+}
+.ac-title{font-size:8px;text-transform:uppercase;letter-spacing:.14em;font-weight:700;color:var(--faint);}
+.ac-body{padding:4px 0;}
+.ac-file{
+  display:flex;align-items:center;gap:8px;padding:7px 14px;
+  border-bottom:1px solid rgba(52,50,42,.5);font-size:10px;
+  cursor:pointer;transition:background 120ms;
+}
+.ac-file:last-child{border-bottom:none;}
+.ac-file:hover{background:var(--panel2);}
+.ac-filename{flex:1;min-width:0;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ac-ext{color:var(--faint);font-size:9px;}
+.ac-bar-wrap{width:60px;height:4px;background:var(--panel3);flex-shrink:0;}
+.ac-bar{height:100%;background:var(--blue);}
+.ac-sessions{font-size:8px;color:var(--faint);flex-shrink:0;}
+
+/* Inject spotlight */
+.inject-card .ac-body{padding:10px 14px;display:flex;flex-direction:column;gap:10px;}
+.inject-item{border-left:2px solid var(--amber);padding:6px 10px;background:var(--amber-bg);}
+.ij-comment{font-size:9px;color:var(--muted);line-height:1.5;font-style:italic;}
+.ij-meta{font-size:8px;color:var(--faint);margin-top:3px;display:flex;gap:8px;flex-wrap:wrap;}
+.ij-badge{color:var(--amber);font-weight:700;}
+
+/* Tools used */
+.tool-list{padding:10px 14px;display:flex;flex-direction:column;gap:5px;}
+.tool-row{display:flex;align-items:center;gap:8px;}
+.tool-name{font-size:9px;color:var(--muted);width:80px;flex-shrink:0;letter-spacing:.06em;}
+.tool-bar-wrap{flex:1;height:4px;background:var(--panel3);}
+.tool-bar{height:100%;background:var(--green);transition:width .6s ease;}
+.tool-count{font-size:8px;color:var(--faint);width:30px;text-align:right;flex-shrink:0;}
+
+/* ═══════ FOOTER ═══════ */
+.page-footer{
+  border-top:1px solid var(--hairline);margin-top:40px;
+  padding:20px 0 0;
+  display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+  font-size:9px;color:var(--faint);letter-spacing:.08em;text-transform:uppercase;
+}
+.footer-brand{color:var(--muted);font-weight:600;}
+
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════
+     TOPBAR
+════════════════════════════════════════════════════════════ -->
+<nav class="topbar">
+  <div class="brand">
+    <div class="mark"></div>
+    LiveShortly
+  </div>
+  <div class="tb-search">
+    <span style="font-size:10px;color:var(--faint)">⌕</span>
+    <input type="text" placeholder="SEARCH SESSIONS, DEVS, TOPICS...">
+  </div>
+  <div class="tb-right">
+    <div class="tb-live-indicator">
+      <span class="live-dot"></span>
+      Live Now · 14
+    </div>
+    <button class="tb-btn">Browse</button>
+    <button class="tb-btn green">Start Session</button>
+  </div>
+</nav>
+
+<!-- ══════════════════════════════════════════════════════════
+     LIVE BANNER — shown when this dev is actively coding
+════════════════════════════════════════════════════════════ -->
+<div class="live-banner">
+  <span class="live-dot"></span>
+  <span class="lb-pill">Live Now</span>
+  <span class="lb-title">Fix production Redis connection pooling — context deadline exceeded on peak load</span>
+  <span class="lb-viewers">8 watching</span>
+  <span style="font-size:9px;color:var(--faint);letter-spacing:.06em;">38:12 elapsed</span>
+  <button class="lb-watch">Watch Live →</button>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     PAGE
+════════════════════════════════════════════════════════════ -->
+<div class="page">
+
+  <!-- ── PROFILE HERO ── -->
+  <div class="profile-hero">
+
+    <!-- Avatar -->
+    <div class="avatar-frame">
+      <div class="avatar-ring"></div>
+      <div class="avatar-bg">
+        <div class="avatar-code-bg">func main(){r:=chi.NewRouter()r.Use(middleware.Auth)r.Get("/stream",handlers.Stream)http.ListenAndServe(":8000",r)}funcEmitEvent(ctx,e){seq,_:=redis.Incr(ctx)store.InsertEvent(ctx,e)bus.Publish(ctx,e)}</div>
+        <span class="avatar-initials">MM</span>
+      </div>
+      <div class="avatar-live-tag">● LIVE</div>
+    </div>
+
+    <!-- Bio -->
+    <div class="ph-bio-col">
+      <div class="ph-name">Mukul Malviya</div>
+      <div class="ph-handle">@mukulmalviya2</div>
+      <div class="ph-title">
+        <span>Backend Engineer</span>
+        <span class="ph-title-sep">·</span>
+        <span style="color:var(--blue)">Go</span>
+        <span style="color:var(--faint)">/</span>
+        <span style="color:#e5534b">TypeScript</span>
+        <span class="ph-title-sep">·</span>
+        <span>Building LiveShortly in public</span>
+      </div>
+      <div class="ph-bio-text">
+        Coding sessions streamed live, indexed, replayable. I build auth systems, SSE infrastructure, and ship fast. Watch me debug production issues, refactor Go handlers, and argue with Redis in real-time.
+      </div>
+      <div class="ph-tags">
+        <span class="ph-tag">#go</span>
+        <span class="ph-tag">#auth</span>
+        <span class="ph-tag">#sse</span>
+        <span class="ph-tag">#devtools</span>
+        <span class="ph-tag">#redis</span>
+        <span class="ph-tag">#postgres</span>
+        <span class="ph-tag">#nextjs</span>
+      </div>
+      <div class="ph-meta">
+        <span class="ph-meta-item">◉ Mumbai, IN</span>
+        <span class="ph-meta-item">⌗ Joined Dec 2025</span>
+        <span class="ph-meta-item" style="color:var(--green)">● Currently streaming</span>
+      </div>
+      <div class="ph-actions">
+        <button class="btn-follow">+ Follow</button>
+        <button class="btn-secondary">Share Profile</button>
+        <button class="btn-secondary">RSS Feed</button>
+      </div>
+    </div>
+
+    <!-- Right: Terminal card + DNA -->
+    <div class="ph-right-col">
+
+      <!-- whoami terminal -->
+      <div class="terminal-card">
+        <div class="tc-titlebar">
+          <span class="tc-dot r"></span>
+          <span class="tc-dot y"></span>
+          <span class="tc-dot g"></span>
+          <span class="tc-cmd">$ whoami --json</span>
+        </div>
+        <div class="tc-body">
+          <div class="tc-line"><span class="tc-brace">{</span></div>
+          <div class="tc-line" style="padding-left:14px">
+            <span class="tc-key">"handle"</span><span class="tc-colon">:</span>&nbsp;<span class="tc-str">"@mukulmalviya2"</span><span class="tc-comma">,</span>
+          </div>
+          <div class="tc-line" style="padding-left:14px">
+            <span class="tc-key">"sessions"</span><span class="tc-colon">:</span>&nbsp;<span class="tc-num">47</span><span class="tc-comma">,</span>
+          </div>
+          <div class="tc-line" style="padding-left:14px">
+            <span class="tc-key">"total_events"</span><span class="tc-colon">:</span>&nbsp;<span class="tc-num">28,419</span><span class="tc-comma">,</span>
+          </div>
+          <div class="tc-line" style="padding-left:14px">
+            <span class="tc-key">"hours_in_flow"</span><span class="tc-colon">:</span>&nbsp;<span class="tc-num">89.4</span><span class="tc-comma">,</span>
+          </div>
+          <div class="tc-line" style="padding-left:14px">
+            <span class="tc-key">"followers"</span><span class="tc-colon">:</span>&nbsp;<span class="tc-num">312</span><span class="tc-comma">,</span>
+          </div>
+          <div class="tc-line" style="padding-left:14px">
+            <span class="tc-key">"total_replays"</span><span class="tc-colon">:</span>&nbsp;<span class="tc-num">4,821</span><span class="tc-comma">,</span>
+          </div>
+          <div class="tc-line" style="padding-left:14px">
+            <span class="tc-key">"status"</span><span class="tc-colon">:</span>&nbsp;<span class="tc-live">"LIVE NOW"</span>
+          </div>
+          <div class="tc-line"><span class="tc-brace">}</span><span class="tc-cursor"></span></div>
+        </div>
+      </div>
+
+      <!-- Language DNA -->
+      <div class="dna-card">
+        <div class="dna-header">
+          <span class="dna-title">Language DNA</span>
+          <span style="font-size:8px;color:var(--faint);letter-spacing:.06em">from 47 sessions</span>
+        </div>
+        <div class="dna-bar">
+          <div class="dna-seg go" style="width:54%"></div>
+          <div class="dna-seg ts" style="width:22%"></div>
+          <div class="dna-seg py" style="width:12%"></div>
+          <div class="dna-seg sql" style="width:8%"></div>
+          <div class="dna-seg sh" style="width:4%"></div>
+        </div>
+        <div class="dna-legend">
+          <div class="dl-item"><div class="dl-dot go"></div>Go 54%</div>
+          <div class="dl-item"><div class="dl-dot ts"></div>TypeScript 22%</div>
+          <div class="dl-item"><div class="dl-dot py"></div>Python 12%</div>
+          <div class="dl-item"><div class="dl-dot sql"></div>SQL 8%</div>
+          <div class="dl-item"><div class="dl-dot sh"></div>Shell 4%</div>
+        </div>
+      </div>
+
+    </div>
+
+  </div><!-- /profile-hero -->
+
+  <!-- ── STATS RIBBON ── -->
+  <div class="stats-ribbon">
+    <div class="stat-cell">
+      <div class="stat-num green">47</div>
+      <div class="stat-label">Sessions</div>
+      <div class="stat-sub">1 live now</div>
+    </div>
+    <div class="stat-cell">
+      <div class="stat-num">28,419</div>
+      <div class="stat-label">Total Events</div>
+      <div class="stat-sub">prompts · files · tools</div>
+    </div>
+    <div class="stat-cell">
+      <div class="stat-num amber">89.4h</div>
+      <div class="stat-label">In Flow</div>
+      <div class="stat-sub">avg 114 min/session</div>
+    </div>
+    <div class="stat-cell">
+      <div class="stat-num">4,821</div>
+      <div class="stat-label">Replays</div>
+      <div class="stat-sub">↑ 18% this month</div>
+    </div>
+    <div class="stat-cell">
+      <div class="stat-num">312</div>
+      <div class="stat-label">Followers</div>
+      <div class="stat-sub">64 following</div>
+    </div>
+    <div class="stat-cell">
+      <div class="stat-num green">6</div>
+      <div class="stat-label">Dev Stories</div>
+      <div class="stat-sub">published</div>
+    </div>
+  </div>
+
+  <!-- ── ACTIVITY HEATMAP ── -->
+  <div class="activity-section">
+    <div class="section-head">
+      <span class="sh-title">Session Activity</span>
+      <span class="sh-sub">47 sessions in the last year</span>
+      <div class="sh-streak">
+        <span class="s-num">12</span>
+        <span>day streak 🔥</span>
+      </div>
+    </div>
+    <div class="heatmap-wrap">
+      <div class="hm-month-labels">
+        <span class="hm-month-label">Jul</span>
+        <span class="hm-month-label">Aug</span>
+        <span class="hm-month-label">Sep</span>
+        <span class="hm-month-label">Oct</span>
+        <span class="hm-month-label">Nov</span>
+        <span class="hm-month-label">Dec</span>
+        <span class="hm-month-label">Jan</span>
+        <span class="hm-month-label">Feb</span>
+        <span class="hm-month-label">Mar</span>
+        <span class="hm-month-label">Apr</span>
+        <span class="hm-month-label">May</span>
+        <span class="hm-month-label">Jun</span>
+      </div>
+      <div class="hm-grid-row">
+        <div class="hm-day-labels">
+          <div class="hm-day-label">Mon</div>
+          <div class="hm-day-label"></div>
+          <div class="hm-day-label">Wed</div>
+          <div class="hm-day-label"></div>
+          <div class="hm-day-label">Fri</div>
+          <div class="hm-day-label"></div>
+          <div class="hm-day-label">Sun</div>
+        </div>
+        <div class="hm-weeks" id="heatmap"></div>
+      </div>
+      <div class="hm-legend">
+        <span>Less</span>
+        <div class="hm-leg-cell l0"></div>
+        <div class="hm-leg-cell l1"></div>
+        <div class="hm-leg-cell l2"></div>
+        <div class="hm-leg-cell l3"></div>
+        <div class="hm-leg-cell l4"></div>
+        <span>More</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── DEVELOPER TRAITS ── -->
+  <div class="traits-row">
+    <div class="trait-badge">
+      <div class="trait-icon">✓</div>
+      <div class="trait-info">
+        <div class="trait-name">Writes Tests First</div>
+        <div class="trait-sub">observed in 89% of sessions</div>
+      </div>
+    </div>
+    <div class="trait-badge">
+      <div class="trait-icon">⚡</div>
+      <div class="trait-info">
+        <div class="trait-name">Iterative Refactorer</div>
+        <div class="trait-sub">avg 3.2 edits per file per session</div>
+      </div>
+    </div>
+    <div class="trait-badge">
+      <div class="trait-icon">🌙</div>
+      <div class="trait-info">
+        <div class="trait-name">Night Owl</div>
+        <div class="trait-sub">peak coding 10 PM – 2 AM IST</div>
+      </div>
+    </div>
+    <div class="trait-badge">
+      <div class="trait-icon">◑</div>
+      <div class="trait-info">
+        <div class="trait-name">Deep Focus Mode</div>
+        <div class="trait-sub">avg 114 min uninterrupted per session</div>
+      </div>
+    </div>
+    <div class="trait-badge">
+      <div class="trait-icon">👁</div>
+      <div class="trait-info">
+        <div class="trait-name">Audience-Driven</div>
+        <div class="trait-sub">31 viewer comments injected into Claude</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── VIEWER WALL ── -->
+  <div class="viewers-section">
+    <div class="section-head">
+      <span class="sh-title">Regulars</span>
+      <span class="sh-sub">viewers who show up every time</span>
+    </div>
+    <div class="viewer-wall">
+      <div class="viewer-avatars">
+        <div class="vw-avatar g">AL</div>
+        <div class="vw-avatar b">RF</div>
+        <div class="vw-avatar a">SD</div>
+        <div class="vw-avatar">D9</div>
+        <div class="vw-avatar" style="color:var(--purple)">XK</div>
+        <div class="vw-avatar g">PV</div>
+        <div class="vw-avatar b">AJ</div>
+        <div class="vw-avatar" style="background:var(--panel3);color:var(--faint);font-size:8px;">+46</div>
+      </div>
+      <span class="vw-count">53</span>
+      <span class="vw-label">repeat viewers</span>
+      <div class="vw-top">
+        <div class="vw-top-item">
+          <span class="vw-top-name">@alice_codes</span>
+          <span class="vw-top-count">31 sessions attended</span>
+        </div>
+        <div class="vw-top-item">
+          <span class="vw-top-name">@rust_fan</span>
+          <span class="vw-top-count">28 sessions</span>
+        </div>
+        <div class="vw-top-item">
+          <span class="vw-top-name">@sarah_dev</span>
+          <span class="vw-top-count">22 sessions</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PINNED SESSIONS ── -->
+  <div style="margin-bottom:28px;">
+    <div class="section-head">
+      <span class="sh-title">◆ Pinned</span>
+      <span class="sh-sub">featured sessions</span>
+    </div>
+    <div class="pinned-grid">
+
+      <div class="pinned-card">
+        <div class="pin-indicator">◆ Pinned</div>
+        <div class="pc-thumb">
+          <span style="color:var(--faint)">// auth middleware</span><br>
+          <span style="color:var(--blue)">func</span> <span style="color:var(--green)">Authn</span><span style="color:var(--muted)">(next http.Handler) http.Handler {</span><br>
+          <span style="color:var(--muted)">  token :=</span> <span style="color:var(--green)">extractBearer</span><span style="color:var(--muted)">(r)</span><br>
+          <span style="color:var(--blue)">  if</span> <span style="color:var(--muted)">token == "" {</span><br>
+          <span style="color:var(--muted)">    w.WriteHeader(401)</span>
+        </div>
+        <div class="pc-meta">
+          <div class="pc-type">
+            <span style="color:var(--faint)">◼</span> Session Replay
+            <span style="color:var(--hairline)">·</span>
+            <span>47:23</span>
+          </div>
+          <div class="pc-title">Build auth middleware — JWT + refresh token flow in Go</div>
+          <div class="pc-stats">
+            <span>1,247 events</span>
+            <span>18 views</span>
+            <span>+187 lines</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="pinned-card">
+        <div class="pin-indicator">◆ Pinned</div>
+        <div class="pc-thumb">
+          <span style="color:var(--faint)">-- explain analyze</span><br>
+          <span style="color:var(--blue)">SELECT</span> <span style="color:var(--muted)">s.*, COUNT(e.id)</span><br>
+          <span style="color:var(--blue)">FROM</span> <span style="color:var(--green)">sessions</span> <span style="color:var(--muted)">s</span><br>
+          <span style="color:var(--blue)">JOIN</span> <span style="color:var(--green)">events</span> <span style="color:var(--muted)">e ON e.session_id = s.id</span><br>
+          <span style="color:var(--blue)">WHERE</span> <span style="color:var(--muted)">s.status = 'live'</span>
+        </div>
+        <div class="pc-meta">
+          <div class="pc-type" style="color:var(--blue)">
+            ■ Dev Story
+            <span style="color:var(--hairline)">·</span>
+            <span style="color:var(--faint)">8 min read</span>
+          </div>
+          <div class="pc-title">How I found a 40× query speedup with composite indexes</div>
+          <div class="pc-stats">
+            <span>6 chapters</span>
+            <span>3 min read</span>
+            <span>↑ 847 views</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="pinned-card">
+        <div class="pin-indicator">◆ Pinned</div>
+        <div class="pc-thumb">
+          <span style="color:var(--faint)">// SSE fan-out</span><br>
+          <span style="color:var(--blue)">w.Header</span><span style="color:var(--muted)">().Set(</span><span style="color:var(--amber)">"Content-Type"</span><span style="color:var(--muted)">,</span><br>
+          <span style="color:var(--amber)">  "text/event-stream"</span><span style="color:var(--muted)">)</span><br>
+          <span style="color:var(--blue)">for</span> <span style="color:var(--muted)">msg := range ch {</span><br>
+          <span style="color:var(--muted)">  fmt.Fprintf(w, "data: %s\n\n", msg)</span>
+        </div>
+        <div class="pc-meta">
+          <div class="pc-type">
+            <span style="color:var(--amber)">⚡</span>
+            <span style="color:var(--amber)">Short Clip</span>
+            <span style="color:var(--hairline)">·</span>
+            <span style="color:var(--faint)">1:12</span>
+          </div>
+          <div class="pc-title">That moment SSE fan-out clicked — Redis pub/sub to 40 clients</div>
+          <div class="pc-stats">
+            <span>412 views</span>
+            <span>28 replays</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── CONTENT TABS + GRID ── -->
+  <div class="content-layout">
+
+    <div class="content-main">
+
+      <div class="filter-tabs">
+        <button class="ft active">All <span class="ft-badge">47</span></button>
+        <button class="ft" style="color:var(--green)">● Live <span class="ft-badge" style="background:var(--green-bg);color:var(--green)">1</span></button>
+        <button class="ft">Sessions <span class="ft-badge">38</span></button>
+        <button class="ft">Dev Stories <span class="ft-badge">6</span></button>
+        <button class="ft" style="color:var(--amber)">⚡ Shorts <span class="ft-badge">3</span></button>
+      </div>
+
+      <div class="card-grid">
+
+        <!-- LIVE CARD (full width) -->
+        <div class="cc-live">
+          <div class="cl-inner">
+            <div class="cl-thumb">
+              <div class="cl-scan"></div>
+              <span style="color:var(--faint);position:relative;z-index:2">// redis pool fix</span><br>
+              <span style="color:var(--blue);position:relative;z-index:2">func</span> <span style="color:var(--green);position:relative;z-index:2">NewPool</span><span style="color:var(--muted);position:relative;z-index:2">(cfg *Config) *redis.Pool {</span><br>
+              <span style="color:var(--muted);position:relative;z-index:2">  return &amp;redis.Pool{</span><br>
+              <span style="color:var(--muted);position:relative;z-index:2">    MaxIdle:     10,</span><br>
+              <span style="color:var(--muted);position:relative;z-index:2">    MaxActive:   100,</span><br>
+              <span style="color:var(--muted);position:relative;z-index:2">    IdleTimeout: 240,</span><br>
+              <span style="color:var(--muted);position:relative;z-index:2">    Dial: func() (redis.Conn, error) {</span><br>
+              <span style="color:var(--muted);position:relative;z-index:2">      return redis.Dial("tcp", cfg.Addr)</span>
+            </div>
+            <div class="cl-meta">
+              <div class="cl-top">
+                <div class="cl-live-pill"><span class="live-dot" style="width:5px;height:5px;"></span> Live Now</div>
+                <span class="cl-viewers">8 watching</span>
+                <span class="cl-elapsed">38:12 elapsed</span>
+              </div>
+              <div class="cl-title">Fix production Redis connection pooling — context deadline exceeded on peak load</div>
+              <div class="cl-desc">Tracing a connection leak that only appears under 50+ concurrent SSE subscribers. Going through pool config, dial timeouts, and idle connection cleanup.</div>
+              <div class="cl-context">
+                <div class="cl-context-label">Claude's last action</div>
+                Reading internal/bus/pool.go — examining MaxIdle vs MaxActive configuration...
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SESSION card 1 -->
+        <div class="cc-video">
+          <div class="cv-thumb">
+            <div class="cv-thumb-scan"></div>
+            <div class="cv-badge ended">◼ Ended</div>
+            <div class="cv-dur">47:23</div>
+            <span style="color:var(--faint);position:relative;z-index:2">func Authn(next http.Handler)</span><br>
+            <span style="color:var(--muted);position:relative;z-index:2">  tok := extractBearer(r)</span><br>
+            <span style="color:var(--muted);position:relative;z-index:2">  claims, err := jwt.Parse(tok)</span><br>
+            <span style="color:var(--muted);position:relative;z-index:2">  ctx := context.WithValue(ctx</span>
+          </div>
+          <div class="cv-body">
+            <div class="cv-title">Build auth middleware — JWT + refresh token flow in Go</div>
+            <div class="cv-meta">
+              <span>1,247 events</span>
+              <span>18 views</span>
+              <span>4,821 replays</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- DEV STORY card 1 -->
+        <div class="cc-story">
+          <div class="cs-type">
+            <span>■ Dev Story</span>
+            <div class="cs-rule"></div>
+            <span class="cs-readtime">8 min</span>
+          </div>
+          <div class="cs-title">How I found a 40× query speedup with composite indexes on the sessions table</div>
+          <div class="cs-excerpt">"The query was fast in staging. Under real load, EXPLAIN ANALYZE revealed a 400ms sequential scan I never saw coming. Here's exactly how I fixed it..."</div>
+          <div class="cs-footer">
+            <span class="cs-tag">#postgres</span>
+            <span class="cs-tag">#performance</span>
+            <span class="cs-tag">#go</span>
+            <span class="cs-date">Jun 30, 2026</span>
+          </div>
+        </div>
+
+        <!-- SHORT clip -->
+        <div class="cc-short">
+          <div class="csh-thumb">
+            <div class="csh-code-bg">func main(){r:=chi.NewRouter()r.Use(middleware.Auth)r.Get("/stream",handlers.Stream)http.ListenAndServe(":8000",r)}funcEmitEvent(ctx,e){seq,_:=redis.Incr(ctx)store.InsertEvent(ctx,e)bus.Publish(ctx,e)}</div>
+            <div class="csh-badge">⚡ Short</div>
+            <div class="csh-play">▶</div>
+            <div class="csh-dur">1:12</div>
+          </div>
+          <div class="csh-body">
+            <div class="csh-title">The exact moment SSE fan-out clicked — Redis pub/sub to 40 clients simultaneously</div>
+            <div class="csh-sub">from session B7D2 · Jun 28</div>
+          </div>
+        </div>
+
+        <!-- SESSION card 2 -->
+        <div class="cc-video">
+          <div class="cv-thumb">
+            <div class="cv-thumb-scan"></div>
+            <div class="cv-badge ended">◼ Ended</div>
+            <div class="cv-dur">36:14</div>
+            <span style="color:var(--faint);position:relative;z-index:2">-- EXPLAIN ANALYZE</span><br>
+            <span style="color:var(--blue);position:relative;z-index:2">CREATE INDEX</span> <span style="color:var(--muted);position:relative;z-index:2">CONCURRENTLY</span><br>
+            <span style="color:var(--muted);position:relative;z-index:2">  idx_events_session_seq</span><br>
+            <span style="color:var(--blue);position:relative;z-index:2">ON</span> <span style="color:var(--green);position:relative;z-index:2">session_events</span><span style="color:var(--muted);position:relative;z-index:2">(session_id, seq)</span>
+          </div>
+          <div class="cv-body">
+            <div class="cv-title">Optimize session queries — composite indexes, EXPLAIN ANALYZE deep dive</div>
+            <div class="cv-meta">
+              <span>743 events</span>
+              <span>31 views</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- DEV STORY card 2 -->
+        <div class="cc-story">
+          <div class="cs-type">
+            <span>■ Dev Story</span>
+            <div class="cs-rule"></div>
+            <span class="cs-readtime">11 min</span>
+          </div>
+          <div class="cs-title">Why I chose JWT over Redis sessions for the CLI device flow — and what I'd change now</div>
+          <div class="cs-excerpt">"The portable credential file was the deciding factor. Six months in, I'm reconsidering the refresh token rotation strategy..."</div>
+          <div class="cs-footer">
+            <span class="cs-tag">#auth</span>
+            <span class="cs-tag">#jwt</span>
+            <span class="cs-tag">#architecture</span>
+            <span class="cs-date">Jun 24, 2026</span>
+          </div>
+        </div>
+
+        <!-- SESSION card 3 -->
+        <div class="cc-video">
+          <div class="cv-thumb">
+            <div class="cv-thumb-scan"></div>
+            <div class="cv-badge ended">◼ Ended</div>
+            <div class="cv-dur">28:51</div>
+            <span style="color:var(--blue);position:relative;z-index:2">w.Header</span><span style="color:var(--muted);position:relative;z-index:2">().Set(</span><br>
+            <span style="color:var(--amber);position:relative;z-index:2">  "Content-Type"</span><span style="color:var(--muted);position:relative;z-index:2">,</span><br>
+            <span style="color:var(--amber);position:relative;z-index:2">  "text/event-stream"</span><span style="color:var(--muted);position:relative;z-index:2">)</span><br>
+            <span style="color:var(--muted);position:relative;z-index:2">w.Header().Set("Cache-Control", "no-cache")</span>
+          </div>
+          <div class="cv-body">
+            <div class="cv-title">SSE streaming — Redis pub/sub fan-out, 15s heartbeats, replay buffer</div>
+            <div class="cv-meta">
+              <span>891 events</span>
+              <span>22 views</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- SHORT clip 2 -->
+        <div class="cc-short">
+          <div class="csh-thumb">
+            <div class="csh-code-bg">SELECT*FROM session_events WHERE session_id=$1 ORDER BY seq OFFSET$2 LIMIT$3 -- index scan</div>
+            <div class="csh-badge">⚡ Short</div>
+            <div class="csh-play">▶</div>
+            <div class="csh-dur">0:47</div>
+          </div>
+          <div class="csh-body">
+            <div class="csh-title">A viewer spotted the missing index — injected comment saved 15 min of debugging</div>
+            <div class="csh-sub">from session C4E1 · Jun 22 · viewer-suggested</div>
+          </div>
+        </div>
+
+      </div><!-- /card-grid -->
+
+    </div><!-- /content-main -->
+
+    <!-- ── ASIDE ── -->
+    <div class="content-aside">
+
+      <!-- Code Archaeology -->
+      <div class="aside-card">
+        <div class="ac-head">
+          <span class="ac-title">Code Archaeology</span>
+        </div>
+        <div class="ac-body">
+          <div class="ac-file">
+            <span class="ac-filename">handlers/events.go</span>
+            <div class="ac-bar-wrap"><div class="ac-bar" style="width:100%"></div></div>
+            <span class="ac-sessions">19 sessions</span>
+          </div>
+          <div class="ac-file">
+            <span class="ac-filename">internal/bus/bus.go</span>
+            <div class="ac-bar-wrap"><div class="ac-bar" style="width:73%"></div></div>
+            <span class="ac-sessions">14 sessions</span>
+          </div>
+          <div class="ac-file">
+            <span class="ac-filename">internal/auth/authn.go</span>
+            <div class="ac-bar-wrap"><div class="ac-bar" style="width:63%"></div></div>
+            <span class="ac-sessions">12 sessions</span>
+          </div>
+          <div class="ac-file">
+            <span class="ac-filename">store/sessions.go</span>
+            <div class="ac-bar-wrap"><div class="ac-bar" style="width:52%"></div></div>
+            <span class="ac-sessions">10 sessions</span>
+          </div>
+          <div class="ac-file">
+            <span class="ac-filename">web/app/page.tsx</span>
+            <div class="ac-bar-wrap"><div class="ac-bar" style="width:36%"></div></div>
+            <span class="ac-sessions">7 sessions</span>
+          </div>
+          <div class="ac-file">
+            <span class="ac-filename">infra/init.sql</span>
+            <div class="ac-bar-wrap"><div class="ac-bar" style="width:21%"></div></div>
+            <span class="ac-sessions">4 sessions</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Viewer Inject Spotlight -->
+      <div class="aside-card inject-card">
+        <div class="ac-head">
+          <span class="ac-title">Inject Spotlight</span>
+        </div>
+        <div class="ac-body">
+          <div class="inject-item">
+            <div class="ij-comment">"Have you tried EXPLAIN (ANALYZE, BUFFERS) to see cache hits?"</div>
+            <div class="ij-meta">
+              <span class="ij-badge">@alice_codes</span>
+              <span>⚡ injected into Claude</span>
+              <span>session C4E1</span>
+            </div>
+          </div>
+          <div class="inject-item">
+            <div class="ij-comment">"The refresh token rotation should invalidate all siblings on reuse detection"</div>
+            <div class="ij-meta">
+              <span class="ij-badge">@rust_fan</span>
+              <span>⚡ injected into Claude</span>
+              <span>session A3F9</span>
+            </div>
+          </div>
+          <div class="inject-item">
+            <div class="ij-comment">"MaxIdle should be lower than MaxActive — you're holding idle conns too long"</div>
+            <div class="ij-meta">
+              <span class="ij-badge">@devuser_99</span>
+              <span>⚡ injected → live now</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Claude Tool Usage -->
+      <div class="aside-card">
+        <div class="ac-head">
+          <span class="ac-title">Claude Tool Usage</span>
+        </div>
+        <div class="tool-list">
+          <div class="tool-row">
+            <span class="tool-name">Edit</span>
+            <div class="tool-bar-wrap"><div class="tool-bar" style="width:100%"></div></div>
+            <span class="tool-count">8,341</span>
+          </div>
+          <div class="tool-row">
+            <span class="tool-name">Read</span>
+            <div class="tool-bar-wrap"><div class="tool-bar" style="width:82%;background:var(--blue)"></div></div>
+            <span class="tool-count">6,821</span>
+          </div>
+          <div class="tool-row">
+            <span class="tool-name">Bash</span>
+            <div class="tool-bar-wrap"><div class="tool-bar" style="width:61%;background:var(--amber)"></div></div>
+            <span class="tool-count">5,104</span>
+          </div>
+          <div class="tool-row">
+            <span class="tool-name">Write</span>
+            <div class="tool-bar-wrap"><div class="tool-bar" style="width:41%"></div></div>
+            <span class="tool-count">3,401</span>
+          </div>
+          <div class="tool-row">
+            <span class="tool-name">Search</span>
+            <div class="tool-bar-wrap"><div class="tool-bar" style="width:22%;background:var(--purple)"></div></div>
+            <span class="tool-count">1,842</span>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /content-aside -->
+
+  </div><!-- /content-layout -->
+
+  <div class="page-footer">
+    <span class="footer-brand">LiveShortly</span>
+    <span>·</span>
+    <a href="#">RSS</a>
+    <span>·</span>
+    <a href="#">All Sessions</a>
+    <span>·</span>
+    <a href="#">Dev Stories</a>
+    <span>·</span>
+    <a href="#">Shorts</a>
+    <span style="margin-left:auto;">@mukulmalviya2 · 312 followers</span>
+  </div>
+
+</div><!-- /page -->
+
+<script>
+/* Generate heatmap — 52 weeks × 7 days */
+(function(){
+  const wrap = document.getElementById('heatmap');
+  const levels = [0,0,0,0,0,1,0,0,0,1,0,0,0,0,1,0,0,2,0,0,0,1,0,0,0,0,2,0,0,0,2,1,0,0,0,0,1,2,0,0,3,0,0,0,2,0,1,0,0,0,0,2,3,0,0,0,1,0,0,2,0,0,4,0,2,0,0,1,0,0,0,3,0,0,0,2,1,0,0,0,0,3,4,0,0,2,1,0,0,0,3,0,0,0,2,0,0,1,3,4,0,0,0,2,1,0,0,0,3,2,0,0,4,0,2,1,0,0,0,3,0,0,2,0,0,1,3,4,2,0,0,0,3,0,0,0,2,1,0,0,0,2,3,0,0,0,1,2,0,0,0,4,3,2,0,0,1,0,0,0,3,2,4,1,0,0,0,3,0,0,2,0,0,1,3,4,2,0,0,3,0,0,0,2,1,0,0,0,3,0,0,2,4,0,0,1,3,2,0,0,0,4,3,2,1,0,0,0,3,0,0,2,0,1,0,3,4,2,0,0,0,3,2,0,0,4,3,2,1,0,0,0,3,4,2,0,0,1,3,2,0,0,4,3,0,2,1,0,0,3,0,0,0,2,0,0,3,4,2,0,1,0,3,2,0,0,0,4,3,2,1,0,3,0,0,2,0,0,3,4,2,0,0,1,3,2,0,0,0,4,3,2,0,1,0,3,0,0,2,0,0,3,4,2,0,0,1,3,4,2,0,0,3,0,0,2,4,3,2,0,0,1,3,0,0,0,2,0,0,3,4,2,0,0,1,3,2,0,0,4,3,2,0,0,1,3,4,2,0,0,0,3,4,2,0,0,1,3,2,0,0,4];
+
+  for(let w=0;w<52;w++){
+    const col = document.createElement('div');
+    col.className='hm-week';
+    for(let d=0;d<7;d++){
+      const idx = w*7+d;
+      const lv = levels[idx%levels.length];
+      const cell = document.createElement('div');
+      cell.className = 'hm-cell'+(lv>0?' l'+lv:'');
+      const sessionCount = lv===4?3:lv===3?2:lv===2?1:0;
+      const dateOffset = (51-w)*7+(6-d);
+      const date = new Date();
+      date.setDate(date.getDate()-dateOffset);
+      const label = date.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+      cell.setAttribute('data-tip', lv===0 ? `No sessions · ${label}` : `${sessionCount} session${sessionCount>1?'s':''} · ${label}`);
+      col.appendChild(cell);
+    }
+    wrap.appendChild(col);
+  }
+})();
+</script>
+
+</body>
+</html>

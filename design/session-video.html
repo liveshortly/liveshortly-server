@@ -76,9 +76,29 @@ button,select{font-family:var(--font);cursor:pointer;}
 .tb-btn.green:hover{background:#5dc98c;}
 
 /* ═══════ PAGE LAYOUT ═══════ */
-.page{display:flex;gap:24px;padding:20px 20px 80px;max-width:1440px;margin:0 auto;}
-.main{flex:1;min-width:0;}
-.sidebar{width:340px;flex-shrink:0;}
+.page{display:block;max-width:1440px;margin:0 auto;padding:20px 20px 0;}
+
+/* player zone: video + suggestions side-by-side */
+.player-zone{display:flex;gap:20px;align-items:flex-start;}
+
+/* left: just the player */
+.player-col{flex:1;min-width:0;}
+
+/* right: suggestions — sticky, locked beside the player */
+.suggest-col{
+  width:310px;flex-shrink:0;
+  position:sticky;top:70px;
+  max-height:calc(100vh - 90px);
+  overflow-y:auto;
+  scrollbar-width:thin;
+}
+
+/* below the player+suggestions row: meta, actions, comments */
+.meta-zone{
+  padding:20px 0 80px;
+  /* constrained to only span under the player, not under suggestions */
+  max-width:calc(100% - 330px);
+}
 
 /* ═══════ PLAYER CONTAINER ═══════ */
 .player-container{
@@ -586,9 +606,10 @@ button,select{font-family:var(--font);cursor:pointer;}
 
 <div class="page">
 
-<!-- ══════════════════════ MAIN ══════════════════════ -->
-<div class="main">
+<!-- ══════ PLAYER ZONE: video + suggestions side by side ══════ -->
+<div class="player-zone">
 
+<div class="player-col">
   <!-- ── PLAYER ── -->
   <div class="player-container">
     <div class="player-aspect">
@@ -814,6 +835,151 @@ button,select{font-family:var(--font);cursor:pointer;}
       </div>
     </div>
   </div><!-- /player-container -->
+</div><!-- /player-col -->
+
+<!-- ══════ SUGGESTIONS (sticky, beside the player) ══════ -->
+<div class="suggest-col">
+
+  <!-- Currently playing indicator -->
+  <div class="playing-now">
+    <span class="live-dot"></span>
+    Replaying session A3F9
+  </div>
+
+  <!-- Autoplay toggle -->
+  <div class="sidebar-head">
+    <span class="sh-label">Up Next</span>
+    <div class="autoplay-row">
+      <span class="ap-label">Autoplay</span>
+      <div class="ap-toggle"></div>
+    </div>
+  </div>
+
+  <!-- Playlist -->
+  <div>
+
+    <!-- Item 1 — LIVE -->
+    <div class="playlist-item">
+      <div class="pi-thumb">
+        <div class="pi-thumb-code">
+<span style="color:var(--faint)">func</span> <span style="color:var(--green)">handler</span><span style="color:var(--muted)">(w, r) {</span>
+<span style="color:var(--muted)">  tok :=</span> <span style="color:var(--green)">extract</span><span style="color:var(--muted)">(r)</span>
+<span style="color:var(--muted)">  if tok == "" {</span>
+<span style="color:var(--muted)">    return 401</span>
+        </div>
+        <div class="pi-status live">● LIVE</div>
+        <div class="pi-duration">Live</div>
+      </div>
+      <div class="pi-meta">
+        <div class="pi-title">Fix React hydration mismatch in Next.js 15 App Router</div>
+        <div class="pi-owner">@devuser_99</div>
+        <div class="pi-stats">89 events · 6 watching</div>
+      </div>
+    </div>
+
+    <!-- Item 2 -->
+    <div class="playlist-item">
+      <div class="pi-thumb">
+        <div class="pi-thumb-code">
+<span style="color:var(--faint)">SELECT</span> <span style="color:var(--green)">s.*,</span>
+<span style="color:var(--faint)">COUNT</span><span style="color:var(--muted)">(e.id)</span>
+<span style="color:var(--faint)">FROM</span> <span style="color:var(--green)">sessions</span>
+<span style="color:var(--faint)">WHERE</span> <span style="color:var(--muted)">status = 'live'</span>
+        </div>
+        <div class="pi-status ended">◼ ENDED</div>
+        <div class="pi-duration">36:14</div>
+      </div>
+      <div class="pi-meta">
+        <div class="pi-title">Optimize session queries — composite indexes, EXPLAIN ANALYZE</div>
+        <div class="pi-owner">@alice_codes</div>
+        <div class="pi-stats">1,247 events · 31 views</div>
+      </div>
+    </div>
+
+    <!-- Item 3 -->
+    <div class="playlist-item">
+      <div class="pi-thumb">
+        <div class="pi-thumb-code">
+<span style="color:var(--faint)">w.Header</span><span style="color:var(--muted)">().</span>
+<span style="color:var(--green)">Set</span><span style="color:var(--muted)">(</span>
+<span style="color:var(--red)">"Content-Type"</span><span style="color:var(--muted)">,</span>
+<span style="color:var(--red)">"text/event-stream"</span><span style="color:var(--muted)">)</span>
+        </div>
+        <div class="pi-status ended">◼ ENDED</div>
+        <div class="pi-duration">28:51</div>
+      </div>
+      <div class="pi-meta">
+        <div class="pi-title">SSE streaming — Redis pub/sub fan-out, heartbeats, replay buffer</div>
+        <div class="pi-owner">@mukulmalviya2</div>
+        <div class="pi-stats">743 events · 18 views</div>
+      </div>
+    </div>
+
+    <!-- Item 4 -->
+    <div class="playlist-item">
+      <div class="pi-thumb">
+        <div class="pi-thumb-code">
+<span style="color:var(--faint)">use</span> <span style="color:var(--green)">axum</span><span style="color:var(--muted)">::{Router,</span>
+<span style="color:var(--green)">routing</span><span style="color:var(--muted)">::get};</span>
+<span style="color:var(--faint)">async fn</span> <span style="color:var(--green)">main</span><span style="color:var(--muted)">() {</span>
+<span style="color:var(--faint)">  let</span> <span style="color:var(--muted)">app = Router</span>
+        </div>
+        <div class="pi-status ended">◼ ENDED</div>
+        <div class="pi-duration">41:07</div>
+      </div>
+      <div class="pi-meta">
+        <div class="pi-title">Rust + Axum async server — tokio routing and middleware stack</div>
+        <div class="pi-owner">@rust_fan</div>
+        <div class="pi-stats">611 events · 29 views</div>
+      </div>
+    </div>
+
+    <!-- Item 5 -->
+    <div class="playlist-item">
+      <div class="pi-thumb">
+        <div class="pi-thumb-code">
+<span style="color:var(--faint)">docker</span> <span style="color:var(--green)">compose</span>
+<span style="color:var(--muted)">  up --build</span>
+<span style="color:var(--muted)">  --detach</span>
+<span style="color:var(--cm)"># nginx + CF</span>
+        </div>
+        <div class="pi-status ended">◼ ENDED</div>
+        <div class="pi-duration">22:38</div>
+      </div>
+      <div class="pi-meta">
+        <div class="pi-title">Production deploy — Docker Compose, nginx, Cloudflare TLS termination</div>
+        <div class="pi-owner">@sarah_dev</div>
+        <div class="pi-stats">389 events · 17 views</div>
+      </div>
+    </div>
+
+    <!-- Item 6 -->
+    <div class="playlist-item">
+      <div class="pi-thumb">
+        <div class="pi-thumb-code">
+<span style="color:var(--faint)">const</span> <span style="color:var(--muted)">[theme,</span>
+<span style="color:var(--green)">setTheme</span><span style="color:var(--muted)">] =</span>
+<span style="color:var(--green)">useState</span><span style="color:var(--muted)">(</span><span style="color:var(--red)">'dark'</span><span style="color:var(--muted)">)</span>
+<span style="color:var(--green)">useEffect</span><span style="color:var(--muted)">(() => {</span>
+        </div>
+        <div class="pi-status ended">◼ ENDED</div>
+        <div class="pi-duration">18:44</div>
+      </div>
+      <div class="pi-meta">
+        <div class="pi-title">Dark/light theme toggle with system preference detection</div>
+        <div class="pi-owner">@mukulmalviya2</div>
+        <div class="pi-stats">421 events · 9 views</div>
+      </div>
+    </div>
+
+  </div><!-- /playlist -->
+
+</div><!-- /suggest-col -->
+
+</div><!-- /player-zone -->
+
+<!-- ══════ BELOW: metadata + comments ══════ -->
+<div class="meta-zone">
 
   <!-- ── VIDEO METADATA ── -->
   <div class="video-meta">
@@ -1004,147 +1170,7 @@ button,select{font-family:var(--font);cursor:pointer;}
 
     </div><!-- /comments -->
 
-</div><!-- /main -->
-
-
-<!-- ══════════════════════ SIDEBAR ══════════════════════ -->
-<div class="sidebar">
-
-  <!-- Currently playing indicator -->
-  <div class="playing-now">
-    <span class="live-dot"></span>
-    Replaying session A3F9
-  </div>
-
-  <!-- Autoplay toggle -->
-  <div class="sidebar-head">
-    <span class="sh-label">Up Next</span>
-    <div class="autoplay-row">
-      <span class="ap-label">Autoplay</span>
-      <div class="ap-toggle"></div>
-    </div>
-  </div>
-
-  <!-- Playlist -->
-  <div>
-
-    <!-- Item 1 — LIVE -->
-    <div class="playlist-item">
-      <div class="pi-thumb">
-        <div class="pi-thumb-code">
-<span style="color:var(--faint)">func</span> <span style="color:var(--green)">handler</span><span style="color:var(--muted)">(w, r) {</span>
-<span style="color:var(--muted)">  tok :=</span> <span style="color:var(--green)">extract</span><span style="color:var(--muted)">(r)</span>
-<span style="color:var(--muted)">  if tok == "" {</span>
-<span style="color:var(--muted)">    return 401</span>
-        </div>
-        <div class="pi-status live">● LIVE</div>
-        <div class="pi-duration">Live</div>
-      </div>
-      <div class="pi-meta">
-        <div class="pi-title">Fix React hydration mismatch in Next.js 15 App Router</div>
-        <div class="pi-owner">@devuser_99</div>
-        <div class="pi-stats">89 events · 6 watching</div>
-      </div>
-    </div>
-
-    <!-- Item 2 -->
-    <div class="playlist-item">
-      <div class="pi-thumb">
-        <div class="pi-thumb-code">
-<span style="color:var(--faint)">SELECT</span> <span style="color:var(--green)">s.*,</span>
-<span style="color:var(--faint)">COUNT</span><span style="color:var(--muted)">(e.id)</span>
-<span style="color:var(--faint)">FROM</span> <span style="color:var(--green)">sessions</span>
-<span style="color:var(--faint)">WHERE</span> <span style="color:var(--muted)">status = 'live'</span>
-        </div>
-        <div class="pi-status ended">◼ ENDED</div>
-        <div class="pi-duration">36:14</div>
-      </div>
-      <div class="pi-meta">
-        <div class="pi-title">Optimize session queries — composite indexes, EXPLAIN ANALYZE</div>
-        <div class="pi-owner">@alice_codes</div>
-        <div class="pi-stats">1,247 events · 31 views</div>
-      </div>
-    </div>
-
-    <!-- Item 3 (self — related) -->
-    <div class="playlist-item">
-      <div class="pi-thumb">
-        <div class="pi-thumb-code">
-<span style="color:var(--faint)">w.Header</span><span style="color:var(--muted)">().</span>
-<span style="color:var(--green)">Set</span><span style="color:var(--muted)">(</span>
-<span style="color:var(--red)">"Content-Type"</span><span style="color:var(--muted)">,</span>
-<span style="color:var(--red)">"text/event-stream"</span><span style="color:var(--muted)">)</span>
-        </div>
-        <div class="pi-status ended">◼ ENDED</div>
-        <div class="pi-duration">28:51</div>
-      </div>
-      <div class="pi-meta">
-        <div class="pi-title">SSE streaming — Redis pub/sub fan-out, heartbeats, replay buffer</div>
-        <div class="pi-owner">@mukulmalviya2</div>
-        <div class="pi-stats">743 events · 18 views</div>
-      </div>
-    </div>
-
-    <!-- Item 4 -->
-    <div class="playlist-item">
-      <div class="pi-thumb">
-        <div class="pi-thumb-code">
-<span style="color:var(--faint)">use</span> <span style="color:var(--green)">axum</span><span style="color:var(--muted)">::{Router,</span>
-<span style="color:var(--green)">routing</span><span style="color:var(--muted)">::get};</span>
-<span style="color:var(--faint)">async fn</span> <span style="color:var(--green)">main</span><span style="color:var(--muted)">() {</span>
-<span style="color:var(--faint)">  let</span> <span style="color:var(--muted)">app = Router</span>
-        </div>
-        <div class="pi-status ended">◼ ENDED</div>
-        <div class="pi-duration">41:07</div>
-      </div>
-      <div class="pi-meta">
-        <div class="pi-title">Rust + Axum async server — tokio routing and middleware stack</div>
-        <div class="pi-owner">@rust_fan</div>
-        <div class="pi-stats">611 events · 29 views</div>
-      </div>
-    </div>
-
-    <!-- Item 5 -->
-    <div class="playlist-item">
-      <div class="pi-thumb">
-        <div class="pi-thumb-code">
-<span style="color:var(--faint)">docker</span> <span style="color:var(--green)">compose</span>
-<span style="color:var(--muted)">  up --build</span>
-<span style="color:var(--muted)">  --detach</span>
-<span style="color:var(--cm)"># nginx + CF</span>
-        </div>
-        <div class="pi-status ended">◼ ENDED</div>
-        <div class="pi-duration">22:38</div>
-      </div>
-      <div class="pi-meta">
-        <div class="pi-title">Production deploy — Docker Compose, nginx, Cloudflare TLS termination</div>
-        <div class="pi-owner">@sarah_dev</div>
-        <div class="pi-stats">389 events · 17 views</div>
-      </div>
-    </div>
-
-    <!-- Item 6 -->
-    <div class="playlist-item">
-      <div class="pi-thumb">
-        <div class="pi-thumb-code">
-<span style="color:var(--faint)">const</span> <span style="color:var(--muted)">[theme,</span>
-<span style="color:var(--green)">setTheme</span><span style="color:var(--muted)">] =</span>
-<span style="color:var(--green)">useState</span><span style="color:var(--muted)">(</span><span style="color:var(--red)">'dark'</span><span style="color:var(--muted)">)</span>
-<span style="color:var(--green)">useEffect</span><span style="color:var(--muted)">(() => {</span>
-        </div>
-        <div class="pi-status ended">◼ ENDED</div>
-        <div class="pi-duration">18:44</div>
-      </div>
-      <div class="pi-meta">
-        <div class="pi-title">Dark/light theme toggle with system preference detection</div>
-        <div class="pi-owner">@mukulmalviya2</div>
-        <div class="pi-stats">421 events · 9 views</div>
-      </div>
-    </div>
-
-  </div><!-- /playlist -->
-
-</div><!-- /sidebar -->
+</div><!-- /meta-zone -->
 
 </div><!-- /page -->
 
