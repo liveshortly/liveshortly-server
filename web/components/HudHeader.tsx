@@ -233,6 +233,7 @@ function HudTabs() {
   const tabs = [
     { href: "/", label: "▣ FEED", match: (p: string) => p === "/" || p === "/feed" },
     { href: "/hud", label: "⌂ MY HUD", match: (p: string) => p.startsWith("/hud") },
+    { href: "/profile", label: "◇ PROFILE", match: (p: string) => p.startsWith("/profile") },
   ];
   return (
     <nav

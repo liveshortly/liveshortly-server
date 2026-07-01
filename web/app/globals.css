@@ -222,6 +222,14 @@ a {
   -webkit-overflow-scrolling: touch;
 }
 
+/* Blog composer: collapse the 3-column editor to a single column on narrow
+   viewports so the source / editor / settings stack instead of squishing. */
+@media (max-width: 900px) {
+  .compose-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
+
 /* Columns/elements hidden on small screens to keep tables readable. */
 @media (max-width: 640px) {
   .app-main {

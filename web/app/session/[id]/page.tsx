@@ -495,6 +495,27 @@ export default function SessionViewer({
             #{meta.tags.join("  #")}
           </div>
         )}
+
+        {/* Alternate views of this session (new design). Replay/Story read the
+            same events; the Composer is owner-only. */}
+        {meta && (
+          <div
+            style={{
+              display: "flex",
+              gap: 8,
+              flexWrap: "wrap",
+              marginTop: 12,
+              paddingTop: 10,
+              borderTop: "1px dashed var(--hairline)",
+            }}
+          >
+            <ViewLink href={`/replay/${id}`}>▶ REPLAY</ViewLink>
+            <ViewLink href={`/story/${id}`}>✎ DEV STORY</ViewLink>
+            {meta.is_owner && (
+              <ViewLink href={`/compose/${id}`}>✎ COMPOSE</ViewLink>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Stream status line */}
@@ -845,6 +866,31 @@ function streamLabel(conn: Connection, isLive: boolean): string {
     default:
       return "◌ IDLE";
   }
+}
+
+/** A compact link to an alternate view of this session (replay / story / compose). */
+function ViewLink({
+  href,
+  children,
+}: {
+  href: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      className="label"
+      style={{
+        border: "1px solid var(--hairline)",
+        background: "var(--panel)",
+        color: "var(--ink)",
+        padding: "5px 10px",
+        fontSize: 10,
+      }}
+    >
+      {children}
+    </Link>
+  );
 }
 
 function MetaCell({
