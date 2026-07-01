@@ -16,7 +16,7 @@ export default function FeedTile({ session }: { session: Session }) {
   return (
     <Link
       href={`/session/${session.id}`}
-      className="feed-tile"
+      className="feed-tile lift"
       style={{
         display: "flex",
         flexDirection: "column",
