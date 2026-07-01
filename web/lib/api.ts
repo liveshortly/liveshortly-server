@@ -14,8 +14,12 @@ export type Actor = "agent" | "tool" | "viewer" | null;
 
 export type ShareRole = "viewer" | "commenter";
 
-/** Link-sharing reach: private (owner+grants), link (anyone signed in with URL). */
-export type Visibility = "private" | "link" | "public";
+/**
+ * Link-sharing reach: private (owner+grants), link (anyone signed in with the
+ * URL), public (published to the discoverable feed, still requires sign-in),
+ * open (anyone with the URL, including unauthenticated visitors — view-only).
+ */
+export type Visibility = "private" | "link" | "public" | "open";
 
 export interface Session {
   id: string;
@@ -54,7 +58,14 @@ export interface Session {
 
 /** True when the session's link is open to anyone signed in (not just owner/grants). */
 export function isPublicLink(s: Pick<Session, "visibility">): boolean {
-  return s.visibility === "link" || s.visibility === "public";
+  return (
+    s.visibility === "link" || s.visibility === "public" || s.visibility === "open"
+  );
+}
+
+/** True when the session's link needs no sign-in at all (anonymous visitors welcome). */
+export function isOpenLink(s: Pick<Session, "visibility">): boolean {
+  return s.visibility === "open";
 }
 
 /** True when the session is published to the discoverable feed. */
@@ -345,6 +356,11 @@ export async function stopSession(
 /** Open the session's link to anyone signed in (view-only). */
 export function enablePublicLink(id: string, signal?: AbortSignal) {
   return patchSession(id, { visibility: "link", link_role: "viewer" }, signal);
+}
+
+/** Open the session's link to anyone at all — no sign-in required (view-only). */
+export function enableOpenLink(id: string, signal?: AbortSignal) {
+  return patchSession(id, { visibility: "open", link_role: "viewer" }, signal);
 }
 
 /** Close the link back to owner + explicit grants only. */

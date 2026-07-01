@@ -4,12 +4,14 @@ import { use, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Badge from "@/components/Badge";
 import EventStream from "@/components/EventStream";
+import PublicLinkDialog from "@/components/PublicLinkDialog";
 import PublishAction from "@/components/PublishAction";
 import TypingIndicator from "@/components/TypingIndicator";
 import {
   ApiError,
   getSession,
   isPublished,
+  loginUrl,
   postComment,
   postTyping,
   renameSession,
@@ -33,7 +35,10 @@ export default function SessionViewer({
   const [events, setEvents] = useState<SessionEvent[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [noAccess, setNoAccess] = useState(false);
+  const [needsAuth, setNeedsAuth] = useState(false);
   const [conn, setConn] = useState<Connection>("idle");
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+  const linkBtnRef = useRef<HTMLButtonElement>(null);
   // Ephemeral "viewer is typing" presence (from SSE typing frames).
   const [viewerTyping, setViewerTyping] = useState<{
     who: string;
@@ -72,7 +77,9 @@ export default function SessionViewer({
         setErr(null);
       } catch (e) {
         if (!alive || (e as Error).name === "AbortError") return;
-        if (e instanceof ApiError && e.status === 403) {
+        if (e instanceof ApiError && e.status === 401) {
+          setNeedsAuth(true);
+        } else if (e instanceof ApiError && e.status === 403) {
           setNoAccess(true);
         } else {
           setErr("Could not load this session.");
@@ -253,6 +260,35 @@ export default function SessionViewer({
     }
   }, [inputPending, inputRequest, id, meta?.title]);
 
+  if (needsAuth) {
+    return (
+      <div>
+        <div
+          style={{
+            border: "1px solid var(--amber)",
+            background: "var(--panel)",
+            padding: "36px 20px",
+            textAlign: "center",
+          }}
+        >
+          <div className="label" style={{ fontSize: 13, color: "var(--amber)" }}>
+            ⚿ SIGN IN TO WATCH
+          </div>
+          <div
+            style={{ color: "var(--muted)", fontSize: 13, marginTop: 10 }}
+          >
+            THIS SESSION ISN&apos;T OPEN TO ANONYMOUS VIEWERS.
+          </div>
+          <div className="label" style={{ marginTop: 16 }}>
+            <a href={loginUrl()} style={{ color: "var(--green)" }}>
+              ◂ SIGN IN
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (noAccess) {
     return (
       <div>
@@ -400,6 +436,23 @@ export default function SessionViewer({
                 ⊞ SHARED · {meta.share_count}
               </span>
             )}
+            {meta && meta.visibility === "open" && (
+              <span
+                className="label"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 5,
+                  color: "var(--green)",
+                  border: "1px solid var(--green)",
+                  padding: "3px 8px",
+                  whiteSpace: "nowrap",
+                }}
+                title="Anyone with the link can watch — no sign-in required"
+              >
+                ◉ OPEN · NO SIGN-IN
+              </span>
+            )}
             {meta && <Badge status={meta.status} size="md" />}
             {/* Publish / Unpublish — owner only, beside the status badge. */}
             {meta?.is_owner && (
@@ -407,6 +460,39 @@ export default function SessionViewer({
                 session={meta}
                 onChanged={(u) => setMeta((m) => (m ? { ...m, ...u } : m))}
               />
+            )}
+            {meta?.is_owner && (
+              <span style={{ display: "inline-block" }}>
+                <button
+                  ref={linkBtnRef}
+                  type="button"
+                  onClick={() => setLinkDialogOpen((v) => !v)}
+                  className="label"
+                  aria-haspopup="dialog"
+                  aria-expanded={linkDialogOpen}
+                  style={{
+                    border: "1px solid var(--strong)",
+                    background: linkDialogOpen ? "var(--strong)" : "transparent",
+                    color: linkDialogOpen ? "var(--panel)" : "var(--ink)",
+                    padding: "5px 10px",
+                    fontSize: 10,
+                    cursor: "pointer",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  ⊕ SHARE LINK
+                </button>
+                {linkDialogOpen && (
+                  <PublicLinkDialog
+                    sessionId={id}
+                    title={meta.title}
+                    visibility={meta.visibility ?? "private"}
+                    anchorEl={linkBtnRef.current}
+                    onClose={() => setLinkDialogOpen(false)}
+                    onChanged={(u) => setMeta((m) => (m ? { ...m, ...u } : m))}
+                  />
+                )}
+              </span>
             )}
             {meta?.is_owner && meta.status === "live" && (
               <EndButton

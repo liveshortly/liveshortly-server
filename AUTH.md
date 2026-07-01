@@ -29,17 +29,24 @@ Resolve the principal for every `/api` request:
 1. `Authorization: Bearer X` → parse X as access JWT (`typ`=access, valid) → principal.
 2. else `ls_session` cookie JWT (`typ`=web) → principal.
 3. else **401**.
-Principal = `Identity{ID:users.id, Email, Name}`. All `/api` routes require a principal.
+Principal = `Identity{ID:users.id, Email, Name}`. All `/api` routes require a principal,
+**except** `GET /api/sessions/{id}` and `GET /api/sessions/{id}/stream`, which run behind
+`OptionalAuthn`: a missing/invalid credential is let through as an anonymous caller instead
+of a 401, so `visibility="open"` sessions (below) are watchable with no login at all. The
+handler still enforces authorization — an anonymous caller hitting a non-`open` session gets
+401 (private/link/public all require signing in first, then 403 if not permitted).
 
 ## Authorization
 Central `authorize(user, session, action)`:
 - **owner** (`session.owner_id == user.id`) → all actions.
 - **share grant** in `session_shares` (by `grantee_user_id` OR `grantee_email==user.email`): `viewer`→read; `commenter`→read+comment.
-- **link/public** (`session.visibility` in `link`,`public`): read (and comment if `link_role=commenter`).
+- **link/public** (`session.visibility` in `link`,`public`): read (and comment if `link_role=commenter`) — requires a signed-in principal.
+- **open** (`session.visibility`=`open`): read by **anyone, including an anonymous (unauthenticated) caller**. Comment always requires a signed-in principal even on `open` sessions (there is no anonymous commenting).
 Endpoints:
 - `GET /api/sessions?scope=mine|shared|all` (default `all`): `mine`=owner_id=me; `shared`=I have a grant; `all`=union. Plus existing `status`,`q`,`limit`,`offset`.
-- `GET /api/sessions/{id}` → `authorize(read)` else 403.
-- `POST /api/sessions/{id}/comments` → `authorize(comment)` (owner or commenter).
+- `GET /api/sessions/{id}` → `authorize(read)` else 401 (anonymous) or 403 (signed in, not permitted).
+- `GET /api/sessions/{id}/stream` → same authorization as above.
+- `POST /api/sessions/{id}/comments` → `authorize(comment)` (owner or commenter; always requires sign-in).
 - `POST /api/sessions`, `/events`, `/stop` → must be the **owner** (CLI token = owner).
 - `GET /api/sessions/{id}/comments/pending` → owner only (the capture client).
 - `GET /api/stats` → counts over my own + shared.
@@ -57,7 +64,7 @@ Endpoints:
 
 ## Schema additions (idempotent)
 - `users`: `email TEXT UNIQUE`, `google_sub TEXT UNIQUE`, `name TEXT`, `avatar_url TEXT`.
-- `sessions`: `visibility TEXT NOT NULL DEFAULT 'private'`, `link_role TEXT NOT NULL DEFAULT 'viewer'`.
+- `sessions`: `visibility TEXT NOT NULL DEFAULT 'private'` (`private`|`link`|`public`|`open`), `link_role TEXT NOT NULL DEFAULT 'viewer'`.
 - `refresh_tokens(id UUID pk, user_id FK, token_hash TEXT, label TEXT, created_at, last_used_at, revoked_at)`.
 - `session_shares(...)` as above.
 

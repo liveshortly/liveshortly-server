@@ -49,7 +49,7 @@ func (h *Handler) PostDecision(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Answering a permission prompt is a comment-level action.
-	allowed, err := h.canComment(r.Context(), s, p)
+	allowed, err := h.canComment(r.Context(), s, p, ok)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "failed to authorize")
 		return

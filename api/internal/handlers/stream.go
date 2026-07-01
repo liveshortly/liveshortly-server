@@ -50,11 +50,9 @@ func (h *Handler) Stream(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	p, ok := auth.Principal(r.Context())
-	if !ok {
-		httpx.Error(w, http.StatusUnauthorized, "no principal")
-		return
-	}
+	// Optional principal — see GetSession: visibility="open" sessions stream to
+	// anonymous callers too.
+	p, authed := auth.Principal(r.Context())
 
 	s, err := h.store.GetSession(r.Context(), id)
 	if err != nil {
@@ -66,13 +64,17 @@ func (h *Handler) Stream(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	allowed, err := h.canRead(r.Context(), s, p)
+	allowed, err := h.canRead(r.Context(), s, p, authed)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "failed to authorize")
 		return
 	}
 	if !allowed {
-		httpx.Error(w, http.StatusForbidden, "forbidden")
+		if !authed {
+			httpx.Error(w, http.StatusUnauthorized, "sign in required")
+		} else {
+			httpx.Error(w, http.StatusForbidden, "forbidden")
+		}
 		return
 	}
 

@@ -10,7 +10,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS users_email_idx      ON users (email)      WHE
 CREATE UNIQUE INDEX IF NOT EXISTS users_google_sub_idx ON users (google_sub) WHERE google_sub IS NOT NULL;
 
 -- sessions: sharing visibility
-ALTER TABLE sessions ADD COLUMN IF NOT EXISTS visibility TEXT NOT NULL DEFAULT 'private';  -- private | link | public
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS visibility TEXT NOT NULL DEFAULT 'private';  -- private | link | public | open
 ALTER TABLE sessions ADD COLUMN IF NOT EXISTS link_role  TEXT NOT NULL DEFAULT 'viewer';   -- viewer | commenter
 
 -- refresh tokens for the CLI device-flow login

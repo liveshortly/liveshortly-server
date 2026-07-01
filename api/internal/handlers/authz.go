@@ -9,9 +9,17 @@ import (
 	"liveshortly/internal/store"
 )
 
-// canRead reports whether p may view s: owner, any share grant, or a link/public
-// session.
-func (h *Handler) canRead(ctx context.Context, s *store.Session, p auth.Identity) (bool, error) {
+// canRead reports whether p may view s: anyone at all for visibility="open"
+// (including an anonymous caller, authed=false); otherwise owner, any share
+// grant, or a link/public session — all of which require an authenticated
+// principal.
+func (h *Handler) canRead(ctx context.Context, s *store.Session, p auth.Identity, authed bool) (bool, error) {
+	if s.Visibility == "open" {
+		return true, nil
+	}
+	if !authed {
+		return false, nil
+	}
 	if s.OwnerID == p.ID {
 		return true, nil
 	}
@@ -23,8 +31,13 @@ func (h *Handler) canRead(ctx context.Context, s *store.Session, p auth.Identity
 }
 
 // canComment reports whether p may comment on s: owner, a commenter grant, or a
-// link/public session whose link_role allows commenting.
-func (h *Handler) canComment(ctx context.Context, s *store.Session, p auth.Identity) (bool, error) {
+// link/public/open session whose link_role allows commenting. Always requires
+// an authenticated principal — commenting anonymously is not supported even on
+// visibility="open" sessions.
+func (h *Handler) canComment(ctx context.Context, s *store.Session, p auth.Identity, authed bool) (bool, error) {
+	if !authed {
+		return false, nil
+	}
 	if s.OwnerID == p.ID {
 		return true, nil
 	}
@@ -35,7 +48,7 @@ func (h *Handler) canComment(ctx context.Context, s *store.Session, p auth.Ident
 	if ok && role == "commenter" {
 		return true, nil
 	}
-	if (s.Visibility == "link" || s.Visibility == "public") && s.LinkRole == "commenter" {
+	if (s.Visibility == "link" || s.Visibility == "public" || s.Visibility == "open") && s.LinkRole == "commenter" {
 		return true, nil
 	}
 	return false, nil

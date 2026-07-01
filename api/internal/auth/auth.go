@@ -51,3 +51,27 @@ func Principal(ctx context.Context) (Identity, bool) {
 	p, ok := ctx.Value(ctxKey{}).(Identity)
 	return p, ok
 }
+
+// OptionalAuthn resolves the principal like Authn when a Bearer token or
+// ls_session cookie is present, but — unlike Authn — lets the request through
+// unauthenticated instead of rejecting it. Used on read routes that a session's
+// visibility may open up to anonymous viewers (visibility="open"); the handler
+// itself decides, via Principal's ok flag, whether anonymous access is allowed.
+func OptionalAuthn(mgr *websession.Manager) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			c, ok := mgr.FromRequest(r)
+			if !ok {
+				next.ServeHTTP(w, r)
+				return
+			}
+			handle := c.Name
+			if handle == "" {
+				handle = c.Email
+			}
+			id := Identity{ID: c.UserID, Email: c.Email, Name: c.Name, Handle: handle}
+			ctx := context.WithValue(r.Context(), ctxKey{}, id)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}

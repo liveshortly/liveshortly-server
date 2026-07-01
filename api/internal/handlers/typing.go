@@ -35,7 +35,7 @@ func (h *Handler) Typing(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Only those who could comment should appear as "typing".
-	allowed, err := h.canComment(r.Context(), s, p)
+	allowed, err := h.canComment(r.Context(), s, p, ok)
 	if err != nil || !allowed {
 		w.WriteHeader(http.StatusNoContent)
 		return

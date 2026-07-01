@@ -59,7 +59,7 @@ func (h *Handler) PostComment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Authorize: owner, a commenter grant, or a link/public session that allows it.
-	allowed, err := h.canComment(r.Context(), s, p)
+	allowed, err := h.canComment(r.Context(), s, p, ok)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "failed to authorize")
 		return

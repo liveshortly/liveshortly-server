@@ -118,11 +118,10 @@ func (h *Handler) ListSessions(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) GetSession(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
-	p, ok := auth.Principal(r.Context())
-	if !ok {
-		httpx.Error(w, http.StatusUnauthorized, "no principal")
-		return
-	}
+	// Optional principal: a visibility="open" session is readable anonymously,
+	// so a missing/invalid credential here is not itself a 401 — canRead below
+	// decides based on the session's actual visibility.
+	p, authed := auth.Principal(r.Context())
 
 	s, err := h.store.GetSession(r.Context(), id)
 	if err != nil {
@@ -134,13 +133,17 @@ func (h *Handler) GetSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	allowed, err := h.canRead(r.Context(), s, p)
+	allowed, err := h.canRead(r.Context(), s, p, authed)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "failed to authorize")
 		return
 	}
 	if !allowed {
-		httpx.Error(w, http.StatusForbidden, "forbidden")
+		if !authed {
+			httpx.Error(w, http.StatusUnauthorized, "sign in required")
+		} else {
+			httpx.Error(w, http.StatusForbidden, "forbidden")
+		}
 		return
 	}
 
@@ -152,7 +155,7 @@ func (h *Handler) GetSession(w http.ResponseWriter, r *http.Request) {
 
 	// Effective comment permission for this caller (owner / commenter grant /
 	// link_role=commenter). Best-effort: on error, fall back to read-only.
-	canComment, err := h.canComment(r.Context(), s, p)
+	canComment, err := h.canComment(r.Context(), s, p, authed)
 	if err != nil {
 		canComment = false
 	}
@@ -273,7 +276,7 @@ func (h *Handler) ReportUsage(w http.ResponseWriter, r *http.Request) {
 }
 
 func validVisibility(v string) bool {
-	return v == "private" || v == "link" || v == "public"
+	return v == "private" || v == "link" || v == "public" || v == "open"
 }
 
 func validRole(v string) bool {
