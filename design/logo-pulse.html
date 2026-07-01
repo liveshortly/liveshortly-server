@@ -1,0 +1,1088 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LiveShortly — Pulse Logo Study</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+
+:root {
+  --bg:       #16150f;
+  --panel:    #1e1d16;
+  --panel2:   #252419;
+  --panel3:   #2c2b22;
+  --hairline: #34322a;
+  --ink:      #ece8da;
+  --muted:    #a4a08f;
+  --faint:    #767365;
+  --green:    #4cae7a;
+  --amber:    #d6a94a;
+  --blue:     #5b9bd5;
+  --red:      #e06a5a;
+  --paper:    #f0ede3;
+  --paper-ink:#1a1814;
+  --font:     'JetBrains Mono','IBM Plex Mono',ui-monospace,monospace;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{font-family:var(--font);background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;}
+*{scrollbar-width:thin;scrollbar-color:var(--hairline) transparent;}
+
+@keyframes livePulse {
+  0%   { transform: scale(1);   opacity: 1; }
+  60%  { transform: scale(2.2); opacity: 0; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+@keyframes dotBeat {
+  0%,100% { r: 3.5; }
+  40%     { r: 4.5; }
+}
+@keyframes fadeUp {
+  from { opacity:0; transform: translateY(10px); }
+  to   { opacity:1; transform: none; }
+}
+@keyframes scan {
+  0%   { transform: translateY(-100%); }
+  100% { transform: translateY(200px); }
+}
+@keyframes drawLine {
+  from { stroke-dashoffset: 120; }
+  to   { stroke-dashoffset: 0; }
+}
+
+/* ═══════ NAV ═══════ */
+.nav {
+  position: sticky; top: 0; z-index: 100;
+  height: 48px; display: flex; align-items: center; padding: 0 32px; gap: 16px;
+  background: rgba(22,21,15,.96); backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--hairline);
+}
+.nav-brand { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; letter-spacing: -.02em; }
+.nav-sep   { width: 1px; height: 18px; background: var(--hairline); }
+.nav-crumb { font-size: 10px; color: var(--faint); letter-spacing: .1em; text-transform: uppercase; }
+.nav-tag   { margin-left: auto; font-size: 8px; text-transform: uppercase; letter-spacing: .14em; font-weight: 700; color: var(--green); border: 1px solid rgba(76,174,122,.3); padding: 3px 8px; }
+
+/* ═══════ HERO ═══════ */
+.hero {
+  display: flex; align-items: center; gap: 60px;
+  padding: 52px 40px 40px; border-bottom: 1px solid var(--hairline);
+}
+.hero-mark {
+  flex-shrink: 0; position: relative;
+  width: 200px; height: 96px;
+  display: flex; align-items: center; justify-content: center;
+}
+.hero-scanlines {
+  position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(to bottom, transparent 0, transparent 3px, rgba(0,0,0,.06) 3px, rgba(0,0,0,.06) 4px);
+}
+.hero-live-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid var(--green);
+  animation: livePulse 2s ease-out infinite;
+  transform-origin: center;
+}
+.hero-mark svg { position: relative; z-index: 1; }
+
+.hero-text { flex: 1; }
+.hero-eyebrow { font-size: 9px; text-transform: uppercase; letter-spacing: .18em; color: var(--faint); margin-bottom: 10px; font-weight: 700; }
+.hero-title   { font-size: 40px; font-weight: 700; letter-spacing: -.04em; line-height: 1; color: var(--ink); }
+.hero-title span { color: var(--green); }
+.hero-sub     { font-size: 11px; color: var(--muted); margin-top: 10px; line-height: 1.7; max-width: 480px; }
+.hero-tags    { display: flex; gap: 8px; margin-top: 18px; flex-wrap: wrap; }
+.htag {
+  font-size: 8px; text-transform: uppercase; letter-spacing: .12em; font-weight: 700;
+  border: 1px solid var(--hairline); color: var(--faint); padding: 3px 8px;
+}
+
+/* ═══════ SECTION HEADER ═══════ */
+.sec-head {
+  display: flex; align-items: baseline; gap: 14px;
+  padding: 28px 40px 16px; border-bottom: 1px solid var(--hairline);
+}
+.sec-title { font-size: 9px; text-transform: uppercase; letter-spacing: .18em; font-weight: 700; color: var(--faint); }
+.sec-sub   { font-size: 10px; color: var(--muted); }
+
+/* ═══════ VARIATIONS GRID ═══════ */
+.var-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  border-bottom: 2px solid var(--hairline);
+}
+.var-card {
+  border-right: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--hairline);
+  display: flex; flex-direction: column;
+  animation: fadeUp .45s ease both;
+}
+.var-card:nth-child(1){animation-delay:.04s}
+.var-card:nth-child(2){animation-delay:.08s}
+.var-card:nth-child(3){animation-delay:.12s}
+.var-card:nth-child(4){animation-delay:.16s}
+.var-card:nth-child(5){animation-delay:.20s}
+.var-card:nth-child(6){animation-delay:.24s}
+.var-card:nth-child(7){animation-delay:.28s}
+.var-card:nth-child(8){animation-delay:.32s}
+.var-card:nth-child(9){animation-delay:.36s}
+.var-card:nth-child(4n){border-right:none;}
+
+/* card top: dark preview */
+.vc-dark {
+  flex: 1; min-height: 140px;
+  background: var(--panel);
+  display: flex; align-items: center; justify-content: center;
+  position: relative; overflow: hidden; padding: 20px;
+}
+.vc-dark::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(to bottom, transparent 0, transparent 3px, rgba(0,0,0,.05) 3px, rgba(0,0,0,.05) 4px);
+}
+.vc-dark-num {
+  position: absolute; top: 10px; left: 12px;
+  font-size: 8px; text-transform: uppercase; letter-spacing: .12em; color: var(--faint);
+}
+.vc-dark-badge {
+  position: absolute; top: 8px; right: 10px;
+  font-size: 7px; text-transform: uppercase; letter-spacing: .1em; font-weight: 700;
+  padding: 2px 6px;
+}
+.badge-pick { border: 1px solid var(--green); color: var(--green); background: rgba(76,174,122,.08); }
+.badge-bold { border: 1px solid var(--amber); color: var(--amber); background: rgba(214,169,74,.06); }
+
+/* card bottom: light preview strip + meta */
+.vc-light {
+  height: 52px; background: var(--paper);
+  display: flex; align-items: center; justify-content: center;
+  border-top: 1px solid rgba(30,28,20,.1);
+}
+.vc-wordmark {
+  padding: 10px 14px; border-top: 1px solid var(--hairline);
+  display: flex; align-items: center; gap: 8px;
+  background: var(--panel2);
+}
+.vc-wm-text { font-size: 12px; font-weight: 700; letter-spacing: -.02em; }
+.vc-wm-text .g { color: var(--green); }
+.vc-sizes {
+  padding: 8px 14px; border-top: 1px solid var(--hairline);
+  display: flex; align-items: flex-end; gap: 12px;
+}
+.sz-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.sz-lbl  { font-size: 7px; color: var(--faint); letter-spacing: .08em; }
+.vc-meta { padding: 12px 14px 16px; }
+.vc-name { font-size: 12px; font-weight: 700; color: var(--ink); margin-bottom: 5px; }
+.vc-desc { font-size: 9.5px; color: var(--muted); line-height: 1.6; }
+.vc-tags { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 7px; }
+.tg { font-size: 7px; text-transform: uppercase; letter-spacing: .1em; font-weight: 700; padding: 2px 5px; }
+.tg-g { color: var(--green); border: 1px solid rgba(76,174,122,.3); background: rgba(76,174,122,.06); }
+.tg-a { color: var(--amber); border: 1px solid rgba(214,169,74,.3); background: rgba(214,169,74,.06); }
+.tg-n { color: var(--faint); border: 1px solid var(--hairline); }
+
+/* ═══════ COLOUR STUDY ═══════ */
+.color-study {
+  display: grid; grid-template-columns: repeat(5, 1fr);
+  border-bottom: 2px solid var(--hairline);
+}
+.cs-swatch {
+  padding: 28px 20px 20px;
+  display: flex; flex-direction: column; align-items: center; gap: 16px;
+  border-right: 1px solid var(--hairline);
+}
+.cs-swatch:last-child { border-right: none; }
+.cs-preview { width: 100%; height: 80px; display: flex; align-items: center; justify-content: center; }
+.cs-name { font-size: 8px; text-transform: uppercase; letter-spacing: .14em; color: var(--faint); text-align: center; }
+.cs-note { font-size: 8px; color: var(--faint); text-align: center; line-height: 1.5; }
+
+/* ═══════ SIZE STUDY ═══════ */
+.size-study {
+  padding: 28px 40px 32px;
+  display: flex; align-items: flex-end; gap: 32px; flex-wrap: wrap;
+  border-bottom: 2px solid var(--hairline);
+}
+.ss-item { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.ss-label { font-size: 8px; text-transform: uppercase; letter-spacing: .1em; color: var(--faint); }
+.ss-context { font-size: 7px; color: var(--panel3); letter-spacing: .08em; text-align: center; }
+
+/* ═══════ ICON STUDY ═══════ */
+.icon-study {
+  display: flex; align-items: flex-start; gap: 0;
+  border-bottom: 2px solid var(--hairline);
+}
+.is-cell {
+  flex: 1; padding: 28px 24px;
+  display: flex; flex-direction: column; align-items: center; gap: 14px;
+  border-right: 1px solid var(--hairline);
+}
+.is-cell:last-child { border-right: none; }
+.is-label { font-size: 8px; text-transform: uppercase; letter-spacing: .14em; color: var(--faint); text-align: center; }
+.is-sub   { font-size: 8px; color: var(--faint); text-align: center; line-height: 1.5; }
+
+/* ═══════ FOOTER ═══════ */
+.footer {
+  padding: 20px 40px;
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  font-size: 9px; color: var(--faint); letter-spacing: .08em; text-transform: uppercase;
+  border-top: 1px solid var(--hairline);
+}
+.f-rec { border: 1px solid var(--green); color: var(--green); background: rgba(76,174,122,.08); font-weight: 700; padding: 3px 8px; }
+
+/* Icon shape helpers */
+.icon-bg-dark  { background: var(--bg); }
+.icon-bg-green { background: var(--green); }
+.icon-bg-paper { background: var(--paper); }
+
+</style>
+</head>
+<body>
+
+<!-- ═══ NAV ═══ -->
+<nav class="nav">
+  <div class="nav-brand">
+    <!-- Current mark placeholder -->
+    <svg width="16" height="11" viewBox="0 0 22 15" fill="none" style="color:var(--green)">
+      <rect x="0"  y="9"  width="4" height="6"  fill="currentColor"/>
+      <rect x="6"  y="5"  width="4" height="10" fill="currentColor"/>
+      <rect x="12" y="2"  width="4" height="13" fill="currentColor"/>
+      <rect x="18" y="0"  width="4" height="15" fill="currentColor" opacity=".4"/>
+    </svg>
+    LiveShortly
+  </div>
+  <div class="nav-sep"></div>
+  <span class="nav-crumb">Logo Study / Pulse</span>
+  <span class="nav-tag">Direction 04 Expanded</span>
+</nav>
+
+
+<!-- ═══ HERO ═══ -->
+<div class="hero">
+
+  <div class="hero-mark">
+    <div class="hero-scanlines"></div>
+    <!-- Animated live dot origin for the pulse ring -->
+    <div class="hero-live-ring" style="width:12px;height:12px;right:8px;top:42px;"></div>
+    <svg width="190" height="80" viewBox="0 0 38 18" fill="none" style="color:var(--green)">
+      <!-- ECG line — draw animation -->
+      <path
+        d="M1 9 L6 9 L8.5 2 L11 16 L13.5 9 L20 9"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+        stroke-dasharray="120" stroke-dashoffset="0"
+        style="animation: drawLine 1.4s ease both .3s; stroke-dashoffset: 0;"
+      />
+      <!-- Trailing fade -->
+      <line x1="20" y1="9" x2="25" y2="9" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".25"/>
+      <!-- Live dot -->
+      <circle cx="32" cy="9" r="3.5" fill="currentColor"/>
+      <!-- Pulse ring -->
+      <circle cx="32" cy="9" r="6"   stroke="currentColor" stroke-width="1" opacity=".22"/>
+      <circle cx="32" cy="9" r="8.5" stroke="currentColor" stroke-width=".7" opacity=".1"/>
+    </svg>
+  </div>
+
+  <div class="hero-text">
+    <div class="hero-eyebrow">Logo Study · Pulse · Jul 2026</div>
+    <div class="hero-title">The <span>Pulse</span><br>Mark</div>
+    <div class="hero-sub">
+      An ECG heartbeat line — flat, spike, flat — ending with a live dot and pulse ring.
+      "This session is alive." 9 variations exploring ratio, containment, minimalism,
+      colour, and type integration.
+    </div>
+    <div class="hero-tags">
+      <span class="htag">9 Variations</span>
+      <span class="htag">5 Colourways</span>
+      <span class="htag">8 Sizes</span>
+      <span class="htag">3 Icon Formats</span>
+    </div>
+  </div>
+
+</div>
+
+
+<!-- ═══ VARIATIONS ═══ -->
+<div class="sec-head">
+  <span class="sec-title">Variations</span>
+  <span class="sec-sub">same concept, different form — ratio, containment, density, detail</span>
+</div>
+
+<div class="var-grid">
+
+
+  <!-- ─── 01: ORIGINAL ─── -->
+  <div class="var-card">
+    <div class="vc-dark">
+      <span class="vc-dark-num">01</span>
+      <span class="vc-dark-badge badge-pick">Benchmark</span>
+      <svg width="152" height="62" viewBox="0 0 38 18" fill="none" style="color:var(--green)">
+        <path d="M1 9 L6 9 L8.5 2 L11 16 L13.5 9 L20 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="20" y1="9" x2="25" y2="9" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".25"/>
+        <circle cx="32" cy="9" r="3.5" fill="currentColor"/>
+        <circle cx="32" cy="9" r="6"   stroke="currentColor" stroke-width="1" opacity=".22"/>
+        <circle cx="32" cy="9" r="8.5" stroke="currentColor" stroke-width=".7" opacity=".1"/>
+      </svg>
+    </div>
+    <div class="vc-light">
+      <svg width="76" height="31" viewBox="0 0 38 18" fill="none" style="color:var(--paper-ink)">
+        <path d="M1 9 L6 9 L8.5 2 L11 16 L13.5 9 L20 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="20" y1="9" x2="25" y2="9" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".25"/>
+        <circle cx="32" cy="9" r="3.5" fill="currentColor"/>
+        <circle cx="32" cy="9" r="6"   stroke="currentColor" stroke-width="1" opacity=".22"/>
+      </svg>
+    </div>
+    <div class="vc-wordmark">
+      <svg width="28" height="14" viewBox="0 0 38 18" fill="none" style="color:var(--green);flex-shrink:0">
+        <path d="M1 9 L6 9 L8.5 2 L11 16 L13.5 9 L20 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="20" y1="9" x2="25" y2="9" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".25"/>
+        <circle cx="32" cy="9" r="3.5" fill="currentColor"/>
+        <circle cx="32" cy="9" r="6"   stroke="currentColor" stroke-width="1" opacity=".22"/>
+      </svg>
+      <span class="vc-wm-text"><span class="g">Live</span>Shortly</span>
+    </div>
+    <div class="vc-sizes">
+      <div class="sz-wrap">
+        <svg width="14" height="7" viewBox="0 0 38 18" fill="none" style="color:var(--green)">
+          <path d="M1 9 L6 9 L8.5 2 L11 16 L13.5 9 L20 9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="30" cy="9" r="4" fill="currentColor"/>
+        </svg>
+        <span class="sz-lbl">14px</span>
+      </div>
+      <div class="sz-wrap">
+        <svg width="38" height="18" viewBox="0 0 38 18" fill="none" style="color:var(--green)">
+          <path d="M1 9 L6 9 L8.5 2 L11 16 L13.5 9 L20 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <line x1="20" y1="9" x2="25" y2="9" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".25"/>
+          <circle cx="32" cy="9" r="3.5" fill="currentColor"/>
+          <circle cx="32" cy="9" r="6" stroke="currentColor" stroke-width="1" opacity=".22"/>
+        </svg>
+        <span class="sz-lbl">38px</span>
+      </div>
+    </div>
+    <div class="vc-meta">
+      <div class="vc-name">Original</div>
+      <div class="vc-desc">The base form. Wide ECG trace — flat sections give the spike space to breathe. Two pulse rings decay outward from the live dot.</div>
+      <div class="vc-tags"><span class="tg tg-g">Clear concept</span><span class="tg tg-n">Wide ratio</span></div>
+    </div>
+  </div>
+
+
+  <!-- ─── 02: TIGHT / COMPACT ─── -->
+  <div class="var-card">
+    <div class="vc-dark">
+      <span class="vc-dark-num">02</span>
+      <span class="vc-dark-badge badge-pick">Recommended</span>
+      <svg width="120" height="100" viewBox="0 0 26 22" fill="none" style="color:var(--green)">
+        <path d="M1 11 L5 11 L7.5 3 L10 19 L12.5 11 L17 11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="17" y1="11" x2="20" y2="11" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".25"/>
+        <circle cx="24" cy="11" r="3.5" fill="currentColor"/>
+        <circle cx="24" cy="11" r="5.8" stroke="currentColor" stroke-width="1" opacity=".22"/>
+        <circle cx="24" cy="11" r="8" stroke="currentColor" stroke-width=".7" opacity=".1"/>
+      </svg>
+    </div>
+    <div class="vc-light">
+      <svg width="58" height="50" viewBox="0 0 26 22" fill="none" style="color:var(--paper-ink)">
+        <path d="M1 11 L5 11 L7.5 3 L10 19 L12.5 11 L17 11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="17" y1="11" x2="20" y2="11" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".25"/>
+        <circle cx="24" cy="11" r="3.5" fill="currentColor"/>
+        <circle cx="24" cy="11" r="5.8" stroke="currentColor" stroke-width="1" opacity=".22"/>
+      </svg>
+    </div>
+    <div class="vc-wordmark">
+      <svg width="22" height="19" viewBox="0 0 26 22" fill="none" style="color:var(--green);flex-shrink:0">
+        <path d="M1 11 L5 11 L7.5 3 L10 19 L12.5 11 L17 11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="17" y1="11" x2="20" y2="11" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".25"/>
+        <circle cx="24" cy="11" r="3.5" fill="currentColor"/>
+        <circle cx="24" cy="11" r="5.8" stroke="currentColor" stroke-width="1" opacity=".22"/>
+      </svg>
+      <span class="vc-wm-text"><span class="g">Live</span>Shortly</span>
+    </div>
+    <div class="vc-sizes">
+      <div class="sz-wrap">
+        <svg width="14" height="12" viewBox="0 0 26 22" fill="none" style="color:var(--green)">
+          <path d="M1 11 L5 11 L7.5 3 L10 19 L12.5 11 L17 11" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="22" cy="11" r="4" fill="currentColor"/>
+        </svg>
+        <span class="sz-lbl">14px</span>
+      </div>
+      <div class="sz-wrap">
+        <svg width="36" height="30" viewBox="0 0 26 22" fill="none" style="color:var(--green)">
+          <path d="M1 11 L5 11 L7.5 3 L10 19 L12.5 11 L17 11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <line x1="17" y1="11" x2="20" y2="11" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".25"/>
+          <circle cx="24" cy="11" r="3.5" fill="currentColor"/>
+          <circle cx="24" cy="11" r="5.8" stroke="currentColor" stroke-width="1" opacity=".22"/>
+        </svg>
+        <span class="sz-lbl">36px</span>
+      </div>
+    </div>
+    <div class="vc-meta">
+      <div class="vc-name">Compact</div>
+      <div class="vc-desc">Shorter flat sections, same spike height. The 26×22 ratio sits closer to square, making it natural as a favicon, avatar, and nav icon simultaneously.</div>
+      <div class="vc-tags"><span class="tg tg-g">Versatile</span><span class="tg tg-g">Scales best</span></div>
+    </div>
+  </div>
+
+
+  <!-- ─── 03: CIRCLE FRAME ─── -->
+  <div class="var-card">
+    <div class="vc-dark">
+      <span class="vc-dark-num">03</span>
+      <svg width="110" height="110" viewBox="0 0 36 36" fill="none" style="color:var(--green)">
+        <!-- outer ring -->
+        <circle cx="18" cy="18" r="16.5" stroke="currentColor" stroke-width="1.5"/>
+        <!-- ECG inside ring -->
+        <path d="M3 18 L9 18 L11.5 9 L14 27 L16.5 18 L22 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="22" y1="18" x2="25" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".25"/>
+        <!-- dot near right edge of circle -->
+        <circle cx="30" cy="18" r="3" fill="currentColor"/>
+        <circle cx="30" cy="18" r="5" stroke="currentColor" stroke-width=".8" opacity=".2"/>
+      </svg>
+    </div>
+    <div class="vc-light">
+      <svg width="54" height="54" viewBox="0 0 36 36" fill="none" style="color:var(--paper-ink)">
+        <circle cx="18" cy="18" r="16.5" stroke="currentColor" stroke-width="1.5"/>
+        <path d="M3 18 L9 18 L11.5 9 L14 27 L16.5 18 L22 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="22" y1="18" x2="25" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".25"/>
+        <circle cx="30" cy="18" r="3" fill="currentColor"/>
+      </svg>
+    </div>
+    <div class="vc-wordmark">
+      <svg width="22" height="22" viewBox="0 0 36 36" fill="none" style="color:var(--green);flex-shrink:0">
+        <circle cx="18" cy="18" r="16.5" stroke="currentColor" stroke-width="1.5"/>
+        <path d="M3 18 L9 18 L11.5 9 L14 27 L16.5 18 L22 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="30" cy="18" r="3" fill="currentColor"/>
+      </svg>
+      <span class="vc-wm-text"><span class="g">Live</span>Shortly</span>
+    </div>
+    <div class="vc-sizes">
+      <div class="sz-wrap">
+        <svg width="16" height="16" viewBox="0 0 36 36" fill="none" style="color:var(--green)">
+          <circle cx="18" cy="18" r="16.5" stroke="currentColor" stroke-width="2"/>
+          <path d="M3 18 L9 18 L11.5 9 L14 27 L16.5 18 L22 18" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="30" cy="18" r="4" fill="currentColor"/>
+        </svg>
+        <span class="sz-lbl">16px</span>
+      </div>
+      <div class="sz-wrap">
+        <svg width="36" height="36" viewBox="0 0 36 36" fill="none" style="color:var(--green)">
+          <circle cx="18" cy="18" r="16.5" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M3 18 L9 18 L11.5 9 L14 27 L16.5 18 L22 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <line x1="22" y1="18" x2="25" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".25"/>
+          <circle cx="30" cy="18" r="3" fill="currentColor"/>
+          <circle cx="30" cy="18" r="5" stroke="currentColor" stroke-width=".8" opacity=".2"/>
+        </svg>
+        <span class="sz-lbl">36px</span>
+      </div>
+    </div>
+    <div class="vc-meta">
+      <div class="vc-name">Circle Frame</div>
+      <div class="vc-desc">ECG contained in a thin ring. The flat sections of the trace reach the circle's edges, anchoring the line to the frame. The live dot sits just inside the right edge.</div>
+      <div class="vc-tags"><span class="tg tg-g">Distinctive</span><span class="tg tg-a">Ring drops at 16px</span></div>
+    </div>
+  </div>
+
+
+  <!-- ─── 04: DOUBLE SESSION ─── -->
+  <div class="var-card">
+    <div class="vc-dark">
+      <span class="vc-dark-num">04</span>
+      <svg width="152" height="62" viewBox="0 0 46 18" fill="none" style="color:var(--green)">
+        <!-- Past spike — faded, left -->
+        <path d="M1 9 L5 9 L7 4 L9 14 L11 9 L16 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity=".22"/>
+        <circle cx="16" cy="9" r="2" fill="currentColor" opacity=".22"/>
+        <!-- Active spike — right -->
+        <path d="M19 9 L24 9 L26.5 2 L29 16 L31.5 9 L37 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="37" y1="9" x2="40" y2="9" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".25"/>
+        <circle cx="44" cy="9" r="3" fill="currentColor"/>
+        <circle cx="44" cy="9" r="5.5" stroke="currentColor" stroke-width=".8" opacity=".2"/>
+      </svg>
+    </div>
+    <div class="vc-light">
+      <svg width="76" height="31" viewBox="0 0 46 18" fill="none" style="color:var(--paper-ink)">
+        <path d="M1 9 L5 9 L7 4 L9 14 L11 9 L16 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity=".25"/>
+        <circle cx="16" cy="9" r="2" fill="currentColor" opacity=".25"/>
+        <path d="M19 9 L24 9 L26.5 2 L29 16 L31.5 9 L37 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="44" cy="9" r="3" fill="currentColor"/>
+      </svg>
+    </div>
+    <div class="vc-wordmark">
+      <svg width="34" height="14" viewBox="0 0 46 18" fill="none" style="color:var(--green);flex-shrink:0">
+        <path d="M1 9 L5 9 L7 4 L9 14 L11 9 L16 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity=".22"/>
+        <circle cx="16" cy="9" r="2" fill="currentColor" opacity=".22"/>
+        <path d="M19 9 L24 9 L26.5 2 L29 16 L31.5 9 L37 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="44" cy="9" r="3" fill="currentColor"/>
+      </svg>
+      <span class="vc-wm-text"><span class="g">Live</span>Shortly</span>
+    </div>
+    <div class="vc-sizes">
+      <div class="sz-wrap">
+        <svg width="18" height="7" viewBox="0 0 46 18" fill="none" style="color:var(--green)">
+          <path d="M1 9 L5 9 L7 4 L9 14 L11 9 L16 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity=".22"/>
+          <circle cx="16" cy="9" r="2.5" fill="currentColor" opacity=".22"/>
+          <path d="M19 9 L24 9 L26.5 2 L29 16 L31.5 9 L37 9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="43" cy="9" r="4" fill="currentColor"/>
+        </svg>
+        <span class="sz-lbl">18px</span>
+      </div>
+      <div class="sz-wrap">
+        <svg width="46" height="18" viewBox="0 0 46 18" fill="none" style="color:var(--green)">
+          <path d="M1 9 L5 9 L7 4 L9 14 L11 9 L16 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity=".22"/>
+          <circle cx="16" cy="9" r="2" fill="currentColor" opacity=".22"/>
+          <path d="M19 9 L24 9 L26.5 2 L29 16 L31.5 9 L37 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <line x1="37" y1="9" x2="40" y2="9" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".25"/>
+          <circle cx="44" cy="9" r="3" fill="currentColor"/>
+          <circle cx="44" cy="9" r="5.5" stroke="currentColor" stroke-width=".8" opacity=".2"/>
+        </svg>
+        <span class="sz-lbl">46px</span>
+      </div>
+    </div>
+    <div class="vc-meta">
+      <div class="vc-name">Double Session</div>
+      <div class="vc-desc">A ghost spike (past session, 22% opacity) and an active spike on the same baseline. Reads as time scrolling right — the feed has history and present simultaneously.</div>
+      <div class="vc-tags"><span class="tg tg-g">Platform story</span><span class="tg tg-a">Needs 40px+</span></div>
+    </div>
+  </div>
+
+
+  <!-- ─── 05: MINIMAL SPIKE ─── -->
+  <div class="var-card">
+    <div class="vc-dark">
+      <span class="vc-dark-num">05</span>
+      <svg width="96" height="70" viewBox="0 0 20 16" fill="none" style="color:var(--green)">
+        <path d="M1 8 L4 8 L7 1 L10 15 L13 8 L19 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <!-- tiny live dot, almost a period -->
+        <circle cx="19" cy="8" r="1.8" fill="currentColor"/>
+      </svg>
+    </div>
+    <div class="vc-light">
+      <svg width="56" height="40" viewBox="0 0 20 16" fill="none" style="color:var(--paper-ink)">
+        <path d="M1 8 L4 8 L7 1 L10 15 L13 8 L19 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="19" cy="8" r="1.8" fill="currentColor"/>
+      </svg>
+    </div>
+    <div class="vc-wordmark">
+      <svg width="18" height="14" viewBox="0 0 20 16" fill="none" style="color:var(--green);flex-shrink:0">
+        <path d="M1 8 L4 8 L7 1 L10 15 L13 8 L19 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="19" cy="8" r="1.8" fill="currentColor"/>
+      </svg>
+      <span class="vc-wm-text"><span class="g">Live</span>Shortly</span>
+    </div>
+    <div class="vc-sizes">
+      <div class="sz-wrap">
+        <svg width="12" height="10" viewBox="0 0 20 16" fill="none" style="color:var(--green)">
+          <path d="M1 8 L4 8 L7 1 L10 15 L13 8 L19 8" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="19" cy="8" r="2" fill="currentColor"/>
+        </svg>
+        <span class="sz-lbl">12px</span>
+      </div>
+      <div class="sz-wrap">
+        <svg width="30" height="24" viewBox="0 0 20 16" fill="none" style="color:var(--green)">
+          <path d="M1 8 L4 8 L7 1 L10 15 L13 8 L19 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="19" cy="8" r="1.8" fill="currentColor"/>
+        </svg>
+        <span class="sz-lbl">30px</span>
+      </div>
+    </div>
+    <div class="vc-meta">
+      <div class="vc-name">Minimal Spike</div>
+      <div class="vc-desc">Strip to the essential shape: just the ECG spike with a period-sized dot. No flat section, no rings, no fade. Extremely compact — works as a superscript or inline glyph.</div>
+      <div class="vc-tags"><span class="tg tg-g">Ultra-compact</span><span class="tg tg-n">Context-dependent</span></div>
+    </div>
+  </div>
+
+
+  <!-- ─── 06: TERMINAL CURSOR ─── -->
+  <div class="var-card">
+    <div class="vc-dark">
+      <span class="vc-dark-num">06</span>
+      <svg width="136" height="62" viewBox="0 0 34 18" fill="none" style="color:var(--green)">
+        <path d="M1 9 L6 9 L8.5 2 L11 16 L13.5 9 L19 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="19" y1="9" x2="22" y2="9" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".25"/>
+        <!-- cursor block with subtle blink-style opacity -->
+        <rect x="23.5" y="5.5" width="5" height="7" fill="currentColor" rx=".5"/>
+        <!-- tiny indicator lines on cursor -->
+        <line x1="23.5" y1="9" x2="28.5" y2="9" stroke="var(--panel)" stroke-width=".8" opacity=".6"/>
+      </svg>
+    </div>
+    <div class="vc-light">
+      <svg width="68" height="31" viewBox="0 0 34 18" fill="none" style="color:var(--paper-ink)">
+        <path d="M1 9 L6 9 L8.5 2 L11 16 L13.5 9 L19 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="19" y1="9" x2="22" y2="9" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".25"/>
+        <rect x="23.5" y="5.5" width="5" height="7" fill="currentColor" rx=".5"/>
+      </svg>
+    </div>
+    <div class="vc-wordmark">
+      <svg width="25" height="14" viewBox="0 0 34 18" fill="none" style="color:var(--green);flex-shrink:0">
+        <path d="M1 9 L6 9 L8.5 2 L11 16 L13.5 9 L19 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="19" y1="9" x2="22" y2="9" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".25"/>
+        <rect x="23.5" y="5.5" width="5" height="7" fill="currentColor" rx=".5"/>
+      </svg>
+      <span class="vc-wm-text"><span class="g">Live</span>Shortly</span>
+    </div>
+    <div class="vc-sizes">
+      <div class="sz-wrap">
+        <svg width="14" height="7" viewBox="0 0 34 18" fill="none" style="color:var(--green)">
+          <path d="M1 9 L6 9 L8.5 2 L11 16 L13.5 9 L19 9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <rect x="20.5" y="5.5" width="6" height="7" fill="currentColor" rx=".5"/>
+        </svg>
+        <span class="sz-lbl">14px</span>
+      </div>
+      <div class="sz-wrap">
+        <svg width="34" height="18" viewBox="0 0 34 18" fill="none" style="color:var(--green)">
+          <path d="M1 9 L6 9 L8.5 2 L11 16 L13.5 9 L19 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <line x1="19" y1="9" x2="22" y2="9" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".25"/>
+          <rect x="23.5" y="5.5" width="5" height="7" fill="currentColor" rx=".5"/>
+        </svg>
+        <span class="sz-lbl">34px</span>
+      </div>
+    </div>
+    <div class="vc-meta">
+      <div class="vc-name">Terminal Cursor</div>
+      <div class="vc-desc">ECG ends with a blinking cursor block instead of a circle. The cursor says: this is live, and Claude is typing right now. Strongly terminal-coded, uniquely ownable.</div>
+      <div class="vc-tags"><span class="tg tg-g">Most dev-native</span><span class="tg tg-g">Ownable</span></div>
+    </div>
+  </div>
+
+
+  <!-- ─── 07: STACKED / THREE SESSIONS ─── -->
+  <div class="var-card">
+    <div class="vc-dark">
+      <span class="vc-dark-num">07</span>
+      <svg width="130" height="90" viewBox="0 0 32 22" fill="none" style="color:var(--green)">
+        <!-- Top line — faintest -->
+        <path d="M1 4 L5 4 L6.5 1 L8 7 L9.5 4 L14 4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" opacity=".18"/>
+        <circle cx="16" cy="4" r="1.5" fill="currentColor" opacity=".18"/>
+        <!-- Mid line — medium -->
+        <path d="M1 11 L5 11 L7 6 L9 16 L11 11 L16 11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" opacity=".5"/>
+        <circle cx="18" cy="11" r="2" fill="currentColor" opacity=".5"/>
+        <!-- Bottom line — active -->
+        <path d="M1 18 L5 18 L7.5 12 L10 24 L12.5 18 L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="18" y1="18" x2="21" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".25"/>
+        <circle cx="26" cy="18" r="3" fill="currentColor"/>
+        <circle cx="26" cy="18" r="5" stroke="currentColor" stroke-width=".8" opacity=".22"/>
+      </svg>
+    </div>
+    <div class="vc-light">
+      <svg width="58" height="40" viewBox="0 0 32 22" fill="none" style="color:var(--paper-ink)">
+        <path d="M1 4 L5 4 L6.5 1 L8 7 L9.5 4 L14 4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" opacity=".2"/>
+        <circle cx="16" cy="4" r="1.5" fill="currentColor" opacity=".2"/>
+        <path d="M1 11 L5 11 L7 6 L9 16 L11 11 L16 11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" opacity=".5"/>
+        <circle cx="18" cy="11" r="2" fill="currentColor" opacity=".5"/>
+        <path d="M1 18 L5 18 L7.5 12 L10 24 L12.5 18 L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="26" cy="18" r="3" fill="currentColor"/>
+      </svg>
+    </div>
+    <div class="vc-wordmark">
+      <svg width="24" height="18" viewBox="0 0 32 22" fill="none" style="color:var(--green);flex-shrink:0">
+        <path d="M1 4 L5 4 L6.5 1 L8 7 L9.5 4 L14 4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" opacity=".2"/>
+        <circle cx="16" cy="4" r="1.5" fill="currentColor" opacity=".2"/>
+        <path d="M1 11 L5 11 L7 6 L9 16 L11 11 L16 11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" opacity=".5"/>
+        <circle cx="18" cy="11" r="2" fill="currentColor" opacity=".5"/>
+        <path d="M1 18 L5 18 L7.5 12 L10 24 L12.5 18 L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="26" cy="18" r="3" fill="currentColor"/>
+      </svg>
+      <span class="vc-wm-text"><span class="g">Live</span>Shortly</span>
+    </div>
+    <div class="vc-sizes">
+      <div class="sz-wrap">
+        <svg width="14" height="10" viewBox="0 0 32 22" fill="none" style="color:var(--green)">
+          <path d="M1 4 L5 4 L6.5 1 L8 7 L9.5 4 L14 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity=".2"/>
+          <path d="M1 11 L5 11 L7 6 L9 16 L11 11 L16 11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" opacity=".5"/>
+          <path d="M1 18 L5 18 L7.5 12 L10 24 L12.5 18 L18 18" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="24" cy="18" r="4" fill="currentColor"/>
+        </svg>
+        <span class="sz-lbl">14px</span>
+      </div>
+      <div class="sz-wrap">
+        <svg width="32" height="22" viewBox="0 0 32 22" fill="none" style="color:var(--green)">
+          <path d="M1 4 L5 4 L6.5 1 L8 7 L9.5 4 L14 4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" opacity=".18"/>
+          <circle cx="16" cy="4" r="1.5" fill="currentColor" opacity=".18"/>
+          <path d="M1 11 L5 11 L7 6 L9 16 L11 11 L16 11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" opacity=".5"/>
+          <circle cx="18" cy="11" r="2" fill="currentColor" opacity=".5"/>
+          <path d="M1 18 L5 18 L7.5 12 L10 24 L12.5 18 L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="26" cy="18" r="3" fill="currentColor"/>
+        </svg>
+        <span class="sz-lbl">32px</span>
+      </div>
+    </div>
+    <div class="vc-meta">
+      <div class="vc-name">Stacked Feed</div>
+      <div class="vc-desc">Three ECG lines, stepping up in opacity and activity. Reads as: multiple sessions, the most active one at front. The feed has depth. Works best at 32px+.</div>
+      <div class="vc-tags"><span class="tg tg-g">Feed concept</span><span class="tg tg-a">Complex small</span></div>
+    </div>
+  </div>
+
+
+  <!-- ─── 08: JUST THE DOT (ULTRA-MIN) ─── -->
+  <div class="var-card">
+    <div class="vc-dark">
+      <span class="vc-dark-num">08</span>
+      <svg width="80" height="80" viewBox="0 0 24 24" fill="none" style="color:var(--green)">
+        <!-- Outer decay rings -->
+        <circle cx="12" cy="12" r="11"  stroke="currentColor" stroke-width=".7" opacity=".12"/>
+        <circle cx="12" cy="12" r="8"   stroke="currentColor" stroke-width="1"  opacity=".22"/>
+        <circle cx="12" cy="12" r="5.5" stroke="currentColor" stroke-width="1.2" opacity=".4"/>
+        <!-- Core dot -->
+        <circle cx="12" cy="12" r="3.5" fill="currentColor"/>
+        <!-- Tiny pulse line above -->
+        <path d="M6 12 L8.5 12 L9.5 8.5 L10.5 15.5 L11.5 12 L14 12" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" opacity=".6"/>
+      </svg>
+    </div>
+    <div class="vc-light">
+      <svg width="42" height="42" viewBox="0 0 24 24" fill="none" style="color:var(--paper-ink)">
+        <circle cx="12" cy="12" r="8"   stroke="currentColor" stroke-width="1"  opacity=".22"/>
+        <circle cx="12" cy="12" r="5.5" stroke="currentColor" stroke-width="1.2" opacity=".4"/>
+        <circle cx="12" cy="12" r="3.5" fill="currentColor"/>
+        <path d="M6 12 L8.5 12 L9.5 8.5 L10.5 15.5 L11.5 12 L14 12" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" opacity=".6"/>
+      </svg>
+    </div>
+    <div class="vc-wordmark">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style="color:var(--green);flex-shrink:0">
+        <circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="1" opacity=".22"/>
+        <circle cx="12" cy="12" r="5.5" stroke="currentColor" stroke-width="1.2" opacity=".4"/>
+        <circle cx="12" cy="12" r="3.5" fill="currentColor"/>
+        <path d="M6 12 L8.5 12 L9.5 8.5 L10.5 15.5 L11.5 12 L14 12" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" opacity=".6"/>
+      </svg>
+      <span class="vc-wm-text"><span class="g">Live</span>Shortly</span>
+    </div>
+    <div class="vc-sizes">
+      <div class="sz-wrap">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style="color:var(--green)">
+          <circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="1.2" opacity=".3"/>
+          <circle cx="12" cy="12" r="4" fill="currentColor"/>
+        </svg>
+        <span class="sz-lbl">12px</span>
+      </div>
+      <div class="sz-wrap">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style="color:var(--green)">
+          <circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="1" opacity=".22"/>
+          <circle cx="12" cy="12" r="5.5" stroke="currentColor" stroke-width="1.2" opacity=".4"/>
+          <circle cx="12" cy="12" r="3.5" fill="currentColor"/>
+          <path d="M6 12 L8.5 12 L9.5 8.5 L10.5 15.5 L11.5 12 L14 12" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" opacity=".6"/>
+        </svg>
+        <span class="sz-lbl">24px</span>
+      </div>
+    </div>
+    <div class="vc-meta">
+      <div class="vc-name">Dot Pulse</div>
+      <div class="vc-desc">Three concentric rings decaying outward from a filled dot. A micro-ECG trace sits across the center. The perfect favicon — an unmistakably live signal at any size.</div>
+      <div class="vc-tags"><span class="tg tg-g">Perfect favicon</span><span class="tg tg-g">Works at 12px</span></div>
+    </div>
+  </div>
+
+
+  <!-- ─── 09: SQUARE APP ICON ─── -->
+  <div class="var-card">
+    <div class="vc-dark">
+      <span class="vc-dark-num">09</span>
+      <span class="vc-dark-badge badge-bold">App icon</span>
+      <svg width="100" height="100" viewBox="0 0 32 32" fill="none">
+        <!-- Icon bg -->
+        <rect width="32" height="32" rx="7" fill="#1e1d16"/>
+        <rect width="32" height="32" rx="7" fill="none" stroke="rgba(76,174,122,.2)" stroke-width="1"/>
+        <!-- ECG mark in green -->
+        <path d="M3 16 L7.5 16 L10 8 L12.5 24 L15 16 L20 16" stroke="#4cae7a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="20" y1="16" x2="23" y2="16" stroke="#4cae7a" stroke-width="1.8" stroke-linecap="round" opacity=".28"/>
+        <circle cx="28" cy="16" r="2.5" fill="#4cae7a"/>
+        <circle cx="28" cy="16" r="4.5" stroke="#4cae7a" stroke-width=".8" opacity=".22"/>
+      </svg>
+    </div>
+    <div class="vc-light">
+      <!-- Inverted: green bg + dark mark -->
+      <svg width="52" height="52" viewBox="0 0 32 32" fill="none">
+        <rect width="32" height="32" rx="7" fill="#4cae7a"/>
+        <path d="M3 16 L7.5 16 L10 8 L12.5 24 L15 16 L20 16" stroke="#16150f" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="20" y1="16" x2="23" y2="16" stroke="#16150f" stroke-width="1.8" stroke-linecap="round" opacity=".35"/>
+        <circle cx="28" cy="16" r="2.5" fill="#16150f"/>
+      </svg>
+    </div>
+    <div class="vc-wordmark">
+      <svg width="20" height="20" viewBox="0 0 32 32" fill="none" style="flex-shrink:0">
+        <rect width="32" height="32" rx="6" fill="#1e1d16"/>
+        <path d="M3 16 L7.5 16 L10 8 L12.5 24 L15 16 L20 16" stroke="#4cae7a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="28" cy="16" r="2.8" fill="#4cae7a"/>
+      </svg>
+      <span class="vc-wm-text"><span class="g">Live</span>Shortly</span>
+    </div>
+    <div class="vc-sizes">
+      <div class="sz-wrap">
+        <svg width="16" height="16" viewBox="0 0 32 32" fill="none">
+          <rect width="32" height="32" rx="6" fill="#1e1d16"/>
+          <path d="M3 16 L7.5 16 L10 8 L12.5 24 L15 16 L20 16" stroke="#4cae7a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="27" cy="16" r="3.5" fill="#4cae7a"/>
+        </svg>
+        <span class="sz-lbl">16px</span>
+      </div>
+      <div class="sz-wrap">
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+          <rect width="32" height="32" rx="7" fill="#1e1d16"/>
+          <path d="M3 16 L7.5 16 L10 8 L12.5 24 L15 16 L20 16" stroke="#4cae7a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          <line x1="20" y1="16" x2="23" y2="16" stroke="#4cae7a" stroke-width="1.8" stroke-linecap="round" opacity=".28"/>
+          <circle cx="28" cy="16" r="2.5" fill="#4cae7a"/>
+          <circle cx="28" cy="16" r="4.5" stroke="#4cae7a" stroke-width=".8" opacity=".22"/>
+        </svg>
+        <span class="sz-lbl">32px</span>
+      </div>
+    </div>
+    <div class="vc-meta">
+      <div class="vc-name">App Icon</div>
+      <div class="vc-desc">The Compact mark inside a dark rounded square. Left: dark bg + green ECG (primary). Right: inverted — green bg + dark ECG. The two-tone icon for iOS, macOS, and Android.</div>
+      <div class="vc-tags"><span class="tg tg-g">Icon-ready</span><span class="tg tg-g">Both colorways</span></div>
+    </div>
+  </div>
+
+
+</div><!-- /var-grid -->
+
+
+<!-- ═══ COLOUR STUDY ═══ -->
+<div class="sec-head">
+  <span class="sec-title">Colour Study</span>
+  <span class="sec-sub">same Compact mark (02) · 5 colourways · all contexts</span>
+</div>
+
+<div class="color-study">
+
+  <!-- Green on dark (primary) -->
+  <div class="cs-swatch">
+    <div class="cs-preview" style="background:var(--panel);border:1px solid var(--hairline);">
+      <svg width="80" height="60" viewBox="0 0 26 22" fill="none" style="color:var(--green)">
+        <path d="M1 11 L5 11 L7.5 3 L10 19 L12.5 11 L17 11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="17" y1="11" x2="20" y2="11" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".25"/>
+        <circle cx="24" cy="11" r="3.5" fill="currentColor"/>
+        <circle cx="24" cy="11" r="5.8" stroke="currentColor" stroke-width="1" opacity=".22"/>
+      </svg>
+    </div>
+    <span class="cs-name">Green on Dark</span>
+    <span class="cs-note">Primary · #4cae7a<br>on #1e1d16</span>
+  </div>
+
+  <!-- White on dark -->
+  <div class="cs-swatch">
+    <div class="cs-preview" style="background:var(--panel);border:1px solid var(--hairline);">
+      <svg width="80" height="60" viewBox="0 0 26 22" fill="none" style="color:#ece8da">
+        <path d="M1 11 L5 11 L7.5 3 L10 19 L12.5 11 L17 11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="17" y1="11" x2="20" y2="11" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".25"/>
+        <circle cx="24" cy="11" r="3.5" fill="currentColor"/>
+        <circle cx="24" cy="11" r="5.8" stroke="currentColor" stroke-width="1" opacity=".22"/>
+      </svg>
+    </div>
+    <span class="cs-name">White on Dark</span>
+    <span class="cs-note">Monochrome · #ece8da<br>on #1e1d16 · embeds</span>
+  </div>
+
+  <!-- Dark on paper -->
+  <div class="cs-swatch">
+    <div class="cs-preview" style="background:var(--paper);border:1px solid rgba(30,28,20,.12);">
+      <svg width="80" height="60" viewBox="0 0 26 22" fill="none" style="color:#1a1814">
+        <path d="M1 11 L5 11 L7.5 3 L10 19 L12.5 11 L17 11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="17" y1="11" x2="20" y2="11" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".25"/>
+        <circle cx="24" cy="11" r="3.5" fill="currentColor"/>
+        <circle cx="24" cy="11" r="5.8" stroke="currentColor" stroke-width="1" opacity=".22"/>
+      </svg>
+    </div>
+    <span class="cs-name">Dark on Paper</span>
+    <span class="cs-note">Light mode · #1a1814<br>on #f0ede3 · print</span>
+  </div>
+
+  <!-- Green on green (subtle watermark) -->
+  <div class="cs-swatch">
+    <div class="cs-preview" style="background:var(--green);border:1px solid rgba(0,0,0,.08);">
+      <svg width="80" height="60" viewBox="0 0 26 22" fill="none" style="color:rgba(22,21,15,.85)">
+        <path d="M1 11 L5 11 L7.5 3 L10 19 L12.5 11 L17 11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="17" y1="11" x2="20" y2="11" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".4"/>
+        <circle cx="24" cy="11" r="3.5" fill="currentColor"/>
+        <circle cx="24" cy="11" r="5.8" stroke="currentColor" stroke-width="1" opacity=".3"/>
+      </svg>
+    </div>
+    <span class="cs-name">Dark on Green</span>
+    <span class="cs-note">Inverted · #16150f<br>on #4cae7a · app icon</span>
+  </div>
+
+  <!-- Amber — ended state -->
+  <div class="cs-swatch">
+    <div class="cs-preview" style="background:var(--panel);border:1px solid var(--hairline);">
+      <svg width="80" height="60" viewBox="0 0 26 22" fill="none" style="color:var(--amber)">
+        <path d="M1 11 L5 11 L7.5 3 L10 19 L12.5 11 L17 11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity=".6"/>
+        <line x1="17" y1="11" x2="20" y2="11" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".2"/>
+        <!-- flat line where dot was — session ended -->
+        <line x1="22" y1="11" x2="26" y2="11" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".3"/>
+        <circle cx="24" cy="11" r="1.5" fill="currentColor" opacity=".5"/>
+      </svg>
+    </div>
+    <span class="cs-name">Amber · Ended</span>
+    <span class="cs-note">State variant · faded dot<br>for ended sessions</span>
+  </div>
+
+</div>
+
+
+<!-- ═══ SIZE STUDY ═══ -->
+<div class="sec-head">
+  <span class="sec-title">Size Study</span>
+  <span class="sec-sub">Compact variant (02) at all real-world sizes</span>
+</div>
+
+<div class="size-study">
+
+  <div class="ss-item">
+    <svg width="512" height="430" viewBox="0 0 26 22" fill="none" style="color:var(--green)">
+      <path d="M1 11 L5 11 L7.5 3 L10 19 L12.5 11 L17 11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="17" y1="11" x2="20" y2="11" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".25"/>
+      <circle cx="24" cy="11" r="3.5" fill="currentColor"/>
+      <circle cx="24" cy="11" r="5.8" stroke="currentColor" stroke-width="1" opacity=".22"/>
+      <circle cx="24" cy="11" r="8" stroke="currentColor" stroke-width=".7" opacity=".1"/>
+    </svg>
+    <span class="ss-label">512px</span>
+    <span class="ss-context">App store / splash</span>
+  </div>
+
+  <div class="ss-item">
+    <svg width="128" height="108" viewBox="0 0 26 22" fill="none" style="color:var(--green)">
+      <path d="M1 11 L5 11 L7.5 3 L10 19 L12.5 11 L17 11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="17" y1="11" x2="20" y2="11" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".25"/>
+      <circle cx="24" cy="11" r="3.5" fill="currentColor"/>
+      <circle cx="24" cy="11" r="5.8" stroke="currentColor" stroke-width="1" opacity=".22"/>
+    </svg>
+    <span class="ss-label">128px</span>
+    <span class="ss-context">Dock icon / OG image</span>
+  </div>
+
+  <div class="ss-item">
+    <svg width="64" height="54" viewBox="0 0 26 22" fill="none" style="color:var(--green)">
+      <path d="M1 11 L5 11 L7.5 3 L10 19 L12.5 11 L17 11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="17" y1="11" x2="20" y2="11" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".25"/>
+      <circle cx="24" cy="11" r="3.5" fill="currentColor"/>
+      <circle cx="24" cy="11" r="5.8" stroke="currentColor" stroke-width="1" opacity=".22"/>
+    </svg>
+    <span class="ss-label">64px</span>
+    <span class="ss-context">Profile avatar</span>
+  </div>
+
+  <div class="ss-item">
+    <svg width="32" height="27" viewBox="0 0 26 22" fill="none" style="color:var(--green)">
+      <path d="M1 11 L5 11 L7.5 3 L10 19 L12.5 11 L17 11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="17" y1="11" x2="20" y2="11" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".25"/>
+      <circle cx="24" cy="11" r="3.5" fill="currentColor"/>
+      <circle cx="24" cy="11" r="5.8" stroke="currentColor" stroke-width="1" opacity=".22"/>
+    </svg>
+    <span class="ss-label">32px</span>
+    <span class="ss-context">Sidebar / tab icon</span>
+  </div>
+
+  <div class="ss-item">
+    <svg width="22" height="18" viewBox="0 0 26 22" fill="none" style="color:var(--green)">
+      <path d="M1 11 L5 11 L7.5 3 L10 19 L12.5 11 L17 11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="17" y1="11" x2="20" y2="11" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".25"/>
+      <circle cx="24" cy="11" r="3.5" fill="currentColor"/>
+    </svg>
+    <span class="ss-label">22px</span>
+    <span class="ss-context">Navbar mark</span>
+  </div>
+
+  <div class="ss-item">
+    <svg width="16" height="14" viewBox="0 0 26 22" fill="none" style="color:var(--green)">
+      <path d="M1 11 L5 11 L7.5 3 L10 19 L12.5 11 L17 11" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="23" cy="11" r="4" fill="currentColor"/>
+    </svg>
+    <span class="ss-label">16px</span>
+    <span class="ss-context">Favicon · retina</span>
+  </div>
+
+  <div class="ss-item">
+    <svg width="10" height="8" viewBox="0 0 26 22" fill="none" style="color:var(--green)">
+      <path d="M1 11 L5 11 L7.5 3 L10 19 L12.5 11 L17 11" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="22" cy="11" r="5" fill="currentColor"/>
+    </svg>
+    <span class="ss-label">10px</span>
+    <span class="ss-context">Inline / badge</span>
+  </div>
+
+</div>
+
+
+<!-- ═══ APP ICON FORMATS ═══ -->
+<div class="sec-head">
+  <span class="sec-title">Icon Formats</span>
+  <span class="sec-sub">dark · inverted · monochrome · at 96px equivalent</span>
+</div>
+
+<div class="icon-study">
+
+  <!-- Dark icon (primary) -->
+  <div class="is-cell">
+    <svg width="96" height="96" viewBox="0 0 32 32" fill="none">
+      <rect width="32" height="32" rx="7.5" fill="#16150f"/>
+      <rect width="32" height="32" rx="7.5" stroke="rgba(76,174,122,.15)" stroke-width="1" fill="none"/>
+      <path d="M3 16 L7.5 16 L10 8 L12.5 24 L15 16 L20 16" stroke="#4cae7a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="20" y1="16" x2="23" y2="16" stroke="#4cae7a" stroke-width="1.8" stroke-linecap="round" opacity=".28"/>
+      <circle cx="28.5" cy="16" r="2.5" fill="#4cae7a"/>
+      <circle cx="28.5" cy="16" r="4.2" stroke="#4cae7a" stroke-width=".8" opacity=".22"/>
+    </svg>
+    <span class="is-label">Dark Icon</span>
+    <span class="is-sub">#16150f bg<br>primary colourway</span>
+  </div>
+
+  <!-- Green icon (inverted) -->
+  <div class="is-cell">
+    <svg width="96" height="96" viewBox="0 0 32 32" fill="none">
+      <rect width="32" height="32" rx="7.5" fill="#4cae7a"/>
+      <path d="M3 16 L7.5 16 L10 8 L12.5 24 L15 16 L20 16" stroke="#16150f" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="20" y1="16" x2="23" y2="16" stroke="#16150f" stroke-width="1.8" stroke-linecap="round" opacity=".35"/>
+      <circle cx="28.5" cy="16" r="2.5" fill="#16150f"/>
+      <circle cx="28.5" cy="16" r="4.2" stroke="#16150f" stroke-width=".8" opacity=".2"/>
+    </svg>
+    <span class="is-label">Green Icon</span>
+    <span class="is-sub">#4cae7a bg<br>inverted · notification</span>
+  </div>
+
+  <!-- Paper / light -->
+  <div class="is-cell">
+    <svg width="96" height="96" viewBox="0 0 32 32" fill="none">
+      <rect width="32" height="32" rx="7.5" fill="#f0ede3"/>
+      <rect width="32" height="32" rx="7.5" stroke="rgba(30,28,20,.1)" stroke-width="1" fill="none"/>
+      <path d="M3 16 L7.5 16 L10 8 L12.5 24 L15 16 L20 16" stroke="#1a1814" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="20" y1="16" x2="23" y2="16" stroke="#1a1814" stroke-width="1.8" stroke-linecap="round" opacity=".25"/>
+      <circle cx="28.5" cy="16" r="2.5" fill="#1a1814"/>
+      <circle cx="28.5" cy="16" r="4.2" stroke="#1a1814" stroke-width=".8" opacity=".18"/>
+    </svg>
+    <span class="is-label">Paper Icon</span>
+    <span class="is-sub">#f0ede3 bg<br>light mode / macOS</span>
+  </div>
+
+  <!-- Monochrome white -->
+  <div class="is-cell">
+    <svg width="96" height="96" viewBox="0 0 32 32" fill="none">
+      <rect width="32" height="32" rx="7.5" fill="#2c2b22"/>
+      <path d="M3 16 L7.5 16 L10 8 L12.5 24 L15 16 L20 16" stroke="#ece8da" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="20" y1="16" x2="23" y2="16" stroke="#ece8da" stroke-width="1.8" stroke-linecap="round" opacity=".3"/>
+      <circle cx="28.5" cy="16" r="2.5" fill="#ece8da"/>
+      <circle cx="28.5" cy="16" r="4.2" stroke="#ece8da" stroke-width=".8" opacity=".22"/>
+    </svg>
+    <span class="is-label">Mono White</span>
+    <span class="is-sub">#2c2b22 bg<br>embeds / watermark</span>
+  </div>
+
+  <!-- Favicon preview -->
+  <div class="is-cell">
+    <div style="display:flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--hairline);padding:8px 12px;border-radius:4px;">
+      <svg width="16" height="16" viewBox="0 0 32 32" fill="none">
+        <rect width="32" height="32" rx="6" fill="#16150f"/>
+        <path d="M3 16 L7.5 16 L10 8 L12.5 24 L15 16 L20 16" stroke="#4cae7a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="27" cy="16" r="3.5" fill="#4cae7a"/>
+      </svg>
+      <span style="font-size:11px;color:var(--muted);">LiveShortly</span>
+      <span style="font-size:10px;color:var(--faint);margin-left:4px;">× 1</span>
+    </div>
+    <span class="is-label">Browser Tab</span>
+    <span class="is-sub">16×16 favicon<br>reads as ECG spike</span>
+  </div>
+
+</div>
+
+
+<!-- ═══ FOOTER ═══ -->
+<div class="footer">
+  <span class="f-rec">Best: 02 Compact + 08 Dot Pulse as favicon</span>
+  <span style="color:var(--hairline)">·</span>
+  <span>06 Terminal Cursor for when you want stronger dev identity</span>
+  <span style="margin-left:auto;color:var(--faint)">9 vars · 5 colourways · 7 sizes · 5 icon formats</span>
+</div>
+
+</body>
+</html>
