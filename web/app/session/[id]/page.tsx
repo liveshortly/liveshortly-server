@@ -18,7 +18,7 @@ import {
   type SessionDetail,
   type SessionEvent,
 } from "@/lib/api";
-import { fmtInt, shortId, timeAgo, utcTime } from "@/lib/utils";
+import { fmtInt, localTime, shortId, timeAgo, utcTime } from "@/lib/utils";
 
 type Connection = "idle" | "connecting" | "open" | "closed" | "ended";
 
@@ -41,8 +41,6 @@ export default function SessionViewer({
   } | null>(null);
 
   const seen = useRef<Set<string>>(new Set());
-  // The scrollable event-log viewport, so we can keep it pinned to the latest.
-  const streamRef = useRef<HTMLDivElement>(null);
 
   const addEvents = (incoming: SessionEvent[]) => {
     if (incoming.length === 0) return;
@@ -195,12 +193,6 @@ export default function SessionViewer({
       t,
     );
   }, [isLive, inputPending, events]);
-
-  // Keep the event log pinned to the newest entry as events/typing arrive.
-  useEffect(() => {
-    const el = streamRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [events.length, claudeTyping, viewerIsTyping]);
 
   // Notify the viewer (browser notification + soft chime) when input is newly
   // requested — so anyone watching knows it's their turn to answer.
@@ -518,93 +510,61 @@ export default function SessionViewer({
         )}
       </div>
 
-      {/* Stream status line */}
-      <div
-        className="label"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 8,
-          padding: "0 2px 8px",
-        }}
-      >
-        <span>EVENT LOG</span>
-        <span style={{ color: "var(--muted)" }}>{streamLabel(conn, isLive)}</span>
-      </div>
+      {/* ── Twitch-style split: event stream (left) + viewer chat (right) ── */}
+      <div className="viewer-body">
+        {/* LEFT — the event stream */}
+        <div className="stream-pane">
+          <div
+            className="label"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 8,
+              padding: "0 2px 8px",
+            }}
+          >
+            <span>EVENT LOG</span>
+            <span style={{ color: "var(--muted)" }}>
+              {streamLabel(conn, isLive)}
+            </span>
+          </div>
 
-      {/* The event log is the "chat window": it fills all remaining height and
-          scrolls internally, and its content is bottom-aligned (chat-style) so a
-          sparse session sits just above the composer instead of leaving a gap. */}
-      <div
-        ref={streamRef}
-        style={{
-          flex: 1,
-          minHeight: 240,
-          overflowY: "auto",
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
-        <div style={{ marginTop: "auto" }}>
           <EventStream
             events={events}
             live={isLive}
             ownerHandle={meta?.owner_handle ?? null}
+            fill
           />
-          {(claudeTyping || viewerIsTyping) && (
-            <div
-              style={{
-                display: "flex",
-                gap: 8,
-                flexWrap: "wrap",
-                padding: "10px 2px 2px",
-              }}
-            >
-              {claudeTyping && (
-                <TypingIndicator label="CLAUDE IS WORKING" tone="green" />
-              )}
-              {viewerIsTyping && viewerTyping && (
-                <TypingIndicator
-                  label={`@${viewerTyping.who} IS TYPING`}
-                  tone="amber"
-                />
-              )}
+
+          {/* Input-requested banner — CLI is waiting for input (non-blocking). */}
+          {inputPending && (
+            <InputRequestBanner
+              message={(inputRequest?.payload?.message as string) || ""}
+              kind={(inputRequest?.payload?.kind as string) || "input"}
+              canReply={isLive && meta?.can_comment !== false}
+            />
+          )}
+
+          {claudeTyping && (
+            <div style={{ padding: "8px 2px 0" }}>
+              <TypingIndicator label="CLAUDE IS WORKING" tone="green" />
             </div>
           )}
         </div>
-      </div>
 
-      {/* Input-requested banner — surfaces that the CLI is waiting for input so
-          a viewer can send a message (non-blocking; Claude never stalls on it). */}
-      {inputPending && (
-        <InputRequestBanner
-          message={(inputRequest?.payload?.message as string) || ""}
-          kind={(inputRequest?.payload?.kind as string) || "input"}
-          canReply={isLive && meta?.can_comment !== false}
+        {/* RIGHT — viewer chat sidebar */}
+        <ChatPane
+          id={id}
+          events={events}
+          isLive={isLive}
+          canComment={meta?.can_comment !== false}
+          emphasizeComposer={inputPending}
+          viewerCount={meta?.view_count ?? 0}
+          viewerTyping={viewerIsTyping ? viewerTyping : null}
+          ownerHandle={meta?.owner_handle ?? null}
         />
-      )}
-
-      {/* Composer — only while live AND the viewer is allowed to comment.
-          Read-only viewers (e.g. opened via a public link) get a quiet note. */}
-      {isLive &&
-        (meta?.can_comment !== false ? (
-          <Composer id={id} emphasize={inputPending} />
-        ) : (
-          <div
-            className="label"
-            style={{
-              marginTop: 10,
-              border: "1px dashed var(--hairline)",
-              background: "var(--panel)",
-              color: "var(--muted)",
-              padding: "11px 12px",
-              textAlign: "center",
-            }}
-          >
-            ◦ VIEW ONLY · READ-ONLY ACCESS
-          </div>
-        ))}
+      </div>
 
       <div
         className="label tnum"
@@ -616,6 +576,159 @@ export default function SessionViewer({
           : ""}
       </div>
     </div>
+  );
+}
+
+/** Right-hand viewer chat sidebar: viewer comments as a running chat, a live
+ *  typing indicator, and the composer (or a read-only note). */
+function ChatPane({
+  id,
+  events,
+  isLive,
+  canComment,
+  emphasizeComposer,
+  viewerCount,
+  viewerTyping,
+  ownerHandle,
+}: {
+  id: string;
+  events: SessionEvent[];
+  isLive: boolean;
+  canComment: boolean;
+  emphasizeComposer: boolean;
+  viewerCount: number;
+  viewerTyping: { who: string; until: number } | null;
+  ownerHandle: string | null;
+}) {
+  const chat = useMemo(
+    () => events.filter((e) => e.event_type === "viewer_comment"),
+    [events],
+  );
+  const endRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ block: "end" });
+  }, [chat.length, viewerTyping]);
+
+  const who = (e: SessionEvent): string => {
+    const u = (e.payload as Record<string, unknown>)?.username;
+    if (typeof u === "string" && u.trim()) return u.trim();
+    return e.actor && e.actor !== "agent" ? e.actor : "viewer";
+  };
+  const text = (e: SessionEvent): string => {
+    const p = (e.payload ?? {}) as Record<string, unknown>;
+    for (const k of ["message", "text", "content"]) {
+      const v = p[k];
+      if (typeof v === "string" && v.trim()) return v;
+    }
+    return "";
+  };
+
+  return (
+    <aside className="chat-pane">
+      {/* header */}
+      <div
+        className="label dashed-b"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 8,
+          padding: "10px 12px",
+          color: "var(--ink)",
+        }}
+      >
+        <span>✉ VIEWER CHAT</span>
+        <span className="tnum" style={{ color: "var(--muted)" }}>
+          ◔ {fmtInt(viewerCount)}
+        </span>
+      </div>
+
+      {/* messages */}
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "10px 12px" }}>
+        {chat.length === 0 ? (
+          <div
+            className="label"
+            style={{ color: "var(--faint)", padding: "12px 2px" }}
+          >
+            {isLive
+              ? "NO MESSAGES YET — SAY SOMETHING"
+              : "NO VIEWER CHAT ON THIS SESSION"}
+          </div>
+        ) : (
+          chat.map((e) => (
+            <div key={e.id} style={{ marginBottom: 12 }}>
+              <div
+                className="label tnum"
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: 8,
+                  color: "var(--amber)",
+                  fontSize: 10,
+                }}
+              >
+                <span
+                  style={{
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  @{who(e)}
+                  {who(e) === ownerHandle ? " · HOST" : ""}
+                </span>
+                <span style={{ color: "var(--faint)", flexShrink: 0 }}>
+                  {localTime(e.ts)}
+                </span>
+              </div>
+              <div
+                style={{
+                  fontSize: 13,
+                  color: "var(--ink)",
+                  marginTop: 3,
+                  whiteSpace: "pre-wrap",
+                  wordBreak: "break-word",
+                }}
+              >
+                {text(e)}
+              </div>
+            </div>
+          ))
+        )}
+        {viewerTyping && (
+          <TypingIndicator label={`@${viewerTyping.who} IS TYPING`} tone="amber" />
+        )}
+        <div ref={endRef} />
+      </div>
+
+      {/* composer / read-only note */}
+      <div style={{ borderTop: "1px solid var(--hairline)", padding: 10 }}>
+        {isLive ? (
+          canComment ? (
+            <Composer id={id} emphasize={emphasizeComposer} />
+          ) : (
+            <div
+              className="label"
+              style={{
+                border: "1px dashed var(--hairline)",
+                color: "var(--muted)",
+                padding: "10px 12px",
+                textAlign: "center",
+              }}
+            >
+              ◦ VIEW ONLY
+            </div>
+          )
+        ) : (
+          <div
+            className="label"
+            style={{ color: "var(--faint)", textAlign: "center", padding: "8px 4px" }}
+          >
+            ● SESSION ENDED · CHAT CLOSED
+          </div>
+        )}
+      </div>
+    </aside>
   );
 }
 
