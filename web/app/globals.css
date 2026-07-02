@@ -281,16 +281,22 @@ a {
   .session-page {
     height: auto;
     min-height: 0;
+    overflow: visible;
   }
   .viewer-body {
     flex-direction: column;
     flex: 0 1 auto;
   }
+  /* Reset flex-grow/shrink/basis so the explicit heights below actually win —
+     the desktop rules set flex-basis:0 (stream) and 340px (chat), which are
+     row-axis values; left as-is they clash with these column-axis heights and
+     the two panes end up fighting over space (chat overlapping the stream). */
   .stream-pane {
+    flex: 0 0 auto;
     height: 60vh;
   }
   .chat-pane {
-    flex: 1 1 auto;
+    flex: 0 0 auto;
     height: 46vh;
   }
 }
