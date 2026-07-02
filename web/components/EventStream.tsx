@@ -25,7 +25,7 @@ function markerFor(type: string): { color: string; glyph: string } {
     case "response":
       return { color: "var(--green)", glyph: "◆" };
     case "tool_call":
-      return { color: "var(--ink)", glyph: "⚙" };
+      return { color: "var(--amber)", glyph: "▸" };
     case "file_write":
       return { color: "var(--red)", glyph: "✎" };
     case "output":
@@ -479,7 +479,7 @@ function WorkBlock({
           <span style={{ color: "var(--green)" }}>◆ CLAUDE</span>
           <span>· {events.length} step{events.length === 1 ? "" : "s"}</span>
           {files > 0 && <Chip tone="red">{files} file{files === 1 ? "" : "s"}</Chip>}
-          {runs > 0 && <Chip tone="ink">{runs} run{runs === 1 ? "" : "s"}</Chip>}
+          {runs > 0 && <Chip tone="amber">{runs} run{runs === 1 ? "" : "s"}</Chip>}
           {dur > 0 && (
             <span style={{ marginLeft: "auto", color: "var(--faint)" }}>
               {dur < 1000 ? `${dur}ms` : `${(dur / 1000).toFixed(1)}s`}
@@ -540,12 +540,25 @@ function WorkBlock({
   );
 }
 
-function Chip({ children, tone }: { children: React.ReactNode; tone: "red" | "ink" }) {
+const CHIP_COLOR: Record<"red" | "amber" | "ink", string> = {
+  red: "var(--red)",
+  amber: "var(--amber)",
+  ink: "var(--muted)",
+};
+
+function Chip({
+  children,
+  tone,
+}: {
+  children: React.ReactNode;
+  tone: "red" | "amber" | "ink";
+}) {
+  const color = CHIP_COLOR[tone];
   return (
     <span
       style={{
-        border: `1px solid ${tone === "red" ? "var(--red)" : "var(--hairline)"}`,
-        color: tone === "red" ? "var(--red)" : "var(--muted)",
+        border: `1px solid ${tone === "ink" ? "var(--hairline)" : color}`,
+        color,
         padding: "1px 6px",
         fontSize: 9,
       }}
