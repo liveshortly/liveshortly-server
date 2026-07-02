@@ -39,6 +39,8 @@ var migrations = []string{
 	`CREATE INDEX IF NOT EXISTS sessions_feed_idx ON sessions (published_at DESC, id DESC) WHERE published_at IS NOT NULL`,
 	// Relevance search over published sessions.
 	`CREATE INDEX IF NOT EXISTS sessions_search_idx ON sessions USING GIN (search_vector)`,
+	// Last web sign-in, stamped on every Google login (for the admin user list).
+	`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ`,
 }
 
 // Migrate applies the additive, idempotent migrations above. It runs before the

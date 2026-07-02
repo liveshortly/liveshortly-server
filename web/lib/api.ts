@@ -179,6 +179,50 @@ export function adminStats(signal?: AbortSignal): Promise<AdminStats> {
   return getJSON<AdminStats>("/api/admin/stats", signal);
 }
 
+/** A user row in the admin directory (rollup activity, no session content). */
+export interface AdminUser {
+  id: string;
+  handle: string;
+  name: string;
+  email: string;
+  avatar_url: string;
+  created_at: string;
+  last_login_at: string | null;
+  last_active_at: string | null;
+  session_count: number;
+  live_count: number;
+}
+
+/** A session row in the admin session browser (metadata only). */
+export interface AdminSessionRow {
+  id: string;
+  title: string;
+  owner: string;
+  status: SessionStatus;
+  visibility: Visibility;
+  event_count: number;
+  view_count: number;
+  created_at: string;
+  ended_at: string | null;
+  published: boolean;
+}
+
+/** List all users (super-admin only). Throws ApiError(403) otherwise. */
+export function adminUsers(signal?: AbortSignal): Promise<{ results: AdminUser[] }> {
+  return getJSON<{ results: AdminUser[] }>("/api/admin/users", signal);
+}
+
+/** List sessions across all users, filtered (all | live | ended | public). */
+export function adminSessions(
+  filter: "all" | "live" | "ended" | "public" = "all",
+  signal?: AbortSignal,
+): Promise<{ results: AdminSessionRow[] }> {
+  return getJSON<{ results: AdminSessionRow[] }>(
+    `/api/admin/sessions?filter=${filter}`,
+    signal,
+  );
+}
+
 export interface ListParams {
   scope?: "mine" | "shared" | "all";
   status?: "live" | "ended" | "all";

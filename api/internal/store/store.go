@@ -103,6 +103,107 @@ type AdminStats struct {
 	SessionsLast7d  int `json:"sessions_last_7d"`
 }
 
+// AdminUser is a per-user row for the admin user directory (aggregate activity
+// only — never the user's session content).
+type AdminUser struct {
+	ID           string     `json:"id"`
+	Handle       string     `json:"handle"`
+	Name         string     `json:"name"`
+	Email        string     `json:"email"`
+	AvatarURL    string     `json:"avatar_url"`
+	CreatedAt    time.Time  `json:"created_at"`
+	LastLoginAt  *time.Time `json:"last_login_at"`
+	LastActiveAt *time.Time `json:"last_active_at"`
+	SessionCount int        `json:"session_count"`
+	LiveCount    int        `json:"live_count"`
+}
+
+// AdminUsers lists every user with rollup activity, most-recently-active first.
+func (st *Store) AdminUsers(ctx context.Context) ([]AdminUser, error) {
+	const q = `
+		SELECT u.id, u.handle, COALESCE(u.name, ''), COALESCE(u.email, ''),
+		       COALESCE(u.avatar_url, ''), u.created_at, u.last_login_at,
+		       GREATEST(u.last_login_at, max(s.created_at)) AS last_active,
+		       count(s.id), count(s.id) FILTER (WHERE s.status = 'live')
+		FROM users u
+		LEFT JOIN sessions s ON s.owner_id = u.id
+		GROUP BY u.id
+		ORDER BY last_active DESC NULLS LAST, u.created_at DESC`
+	rows, err := st.pool.Query(ctx, q)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []AdminUser{}
+	for rows.Next() {
+		var u AdminUser
+		if err := rows.Scan(&u.ID, &u.Handle, &u.Name, &u.Email, &u.AvatarURL,
+			&u.CreatedAt, &u.LastLoginAt, &u.LastActiveAt, &u.SessionCount, &u.LiveCount); err != nil {
+			return nil, err
+		}
+		out = append(out, u)
+	}
+	return out, rows.Err()
+}
+
+// AdminSessionRow is a per-session row for the admin session browser (metadata
+// only — no event content).
+type AdminSessionRow struct {
+	ID         string     `json:"id"`
+	Title      string     `json:"title"`
+	Owner      string     `json:"owner"`
+	Status     string     `json:"status"`
+	Visibility string     `json:"visibility"`
+	EventCount int        `json:"event_count"`
+	ViewCount  int        `json:"view_count"`
+	CreatedAt  time.Time  `json:"created_at"`
+	EndedAt    *time.Time `json:"ended_at"`
+	Published  bool       `json:"published"`
+}
+
+// adminSessionFilters maps a filter name to its WHERE clause (whitelist — never
+// interpolate caller input into SQL).
+var adminSessionFilters = map[string]string{
+	"all":    "TRUE",
+	"live":   "s.status = 'live'",
+	"ended":  "s.status = 'ended'",
+	"public": "s.visibility IN ('link','public','open')",
+}
+
+// AdminSessions lists sessions across ALL users for the given filter (all |
+// live | ended | public), newest first. Unknown filters fall back to "all".
+func (st *Store) AdminSessions(ctx context.Context, filter string) ([]AdminSessionRow, error) {
+	where, ok := adminSessionFilters[filter]
+	if !ok {
+		where = "TRUE"
+	}
+	q := `
+		SELECT s.id, s.title,
+		       COALESCE(NULLIF(u.name, ''), NULLIF(u.email, ''), u.handle) AS owner,
+		       s.status, s.visibility, s.event_count, s.view_count,
+		       s.created_at, s.ended_at, (s.published_at IS NOT NULL)
+		FROM sessions s
+		JOIN users u ON u.id = s.owner_id
+		WHERE ` + where + `
+		ORDER BY s.created_at DESC
+		LIMIT 200`
+	rows, err := st.pool.Query(ctx, q)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []AdminSessionRow{}
+	for rows.Next() {
+		var r AdminSessionRow
+		if err := rows.Scan(&r.ID, &r.Title, &r.Owner, &r.Status, &r.Visibility,
+			&r.EventCount, &r.ViewCount, &r.CreatedAt, &r.EndedAt, &r.Published); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
 // AdminStats computes application-wide aggregate metrics across ALL users and
 // sessions. Intended for the super-admin surface only (authz is enforced by the
 // handler). Returns counts/rollups exclusively — no session content.

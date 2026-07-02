@@ -194,8 +194,10 @@ func router(cfg config.Config, h *handlers.Handler, ga *handlers.GoogleAuth, mgr
 			r.Use(auth.Authn(mgr))
 
 			r.Get("/stats", h.Stats)
-			// Admin stats — the handler enforces the super-admin allowlist (403).
+			// Admin — the handlers enforce the super-admin allowlist (403).
 			r.Get("/admin/stats", h.AdminStats)
+			r.Get("/admin/users", h.AdminUsers)
+			r.Get("/admin/sessions", h.AdminSessions)
 
 			r.Get("/sessions", h.ListSessions)
 			r.Post("/sessions", h.CreateSession)

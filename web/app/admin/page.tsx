@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ApiError,
@@ -59,19 +60,26 @@ export default function AdminPage() {
     );
   }
 
-  const tiles: { label: string; value: number; hint?: string }[] = data
+  // Each tile drills into a detailed view (users directory / filtered session
+  // browser) so admins can see who's who and what's live/public.
+  const tiles: {
+    label: string;
+    value: number;
+    hint?: string;
+    href?: string;
+  }[] = data
     ? [
-        { label: "Total Users", value: data.total_users },
-        { label: "Active Owners", value: data.active_owners, hint: "own ≥1 session" },
-        { label: "Total Sessions", value: data.total_sessions },
-        { label: "Live Now", value: data.live_now },
-        { label: "Ended", value: data.ended },
-        { label: "Published", value: data.published, hint: "in the feed" },
-        { label: "Publicly Viewable", value: data.publicly_viewable, hint: "link / public / open" },
-        { label: "Total Events", value: data.total_events },
-        { label: "Total Views", value: data.total_views },
-        { label: "Sessions · 24h", value: data.sessions_last_24h },
-        { label: "Sessions · 7d", value: data.sessions_last_7d },
+        { label: "Total Users", value: data.total_users, href: "/admin/users" },
+        { label: "Active Owners", value: data.active_owners, hint: "own ≥1 session", href: "/admin/users" },
+        { label: "Total Sessions", value: data.total_sessions, href: "/admin/sessions" },
+        { label: "Live Now", value: data.live_now, href: "/admin/sessions?filter=live" },
+        { label: "Ended", value: data.ended, href: "/admin/sessions?filter=ended" },
+        { label: "Published", value: data.published, hint: "in the feed", href: "/admin/sessions?filter=public" },
+        { label: "Publicly Viewable", value: data.publicly_viewable, hint: "link / public / open", href: "/admin/sessions?filter=public" },
+        { label: "Total Events", value: data.total_events, href: "/admin/sessions" },
+        { label: "Total Views", value: data.total_views, href: "/admin/sessions" },
+        { label: "Sessions · 24h", value: data.sessions_last_24h, href: "/admin/sessions" },
+        { label: "Sessions · 7d", value: data.sessions_last_7d, href: "/admin/sessions" },
       ]
     : [];
 
@@ -114,35 +122,43 @@ export default function AdminPage() {
             gap: 14,
           }}
         >
-          {tiles.map((t) => (
-            <div
-              key={t.label}
-              style={{
-                border: "1px solid var(--hairline)",
-                borderTop: "3px solid var(--admin)",
-                background: "var(--panel)",
-                padding: "16px 16px 14px",
-              }}
-            >
-              <div
-                className="tnum"
-                style={{ fontSize: 30, fontWeight: 700, color: "var(--ink)" }}
-              >
-                {fmtInt(t.value)}
-              </div>
-              <div className="label" style={{ marginTop: 6, color: "var(--ink)" }}>
-                {t.label}
-              </div>
-              {t.hint && (
+          {tiles.map((t) => {
+            const body = (
+              <>
+                <div
+                  className="tnum"
+                  style={{ fontSize: 30, fontWeight: 700, color: "var(--ink)" }}
+                >
+                  {fmtInt(t.value)}
+                </div>
+                <div className="label" style={{ marginTop: 6, color: "var(--ink)" }}>
+                  {t.label}
+                </div>
                 <div
                   className="label"
                   style={{ marginTop: 3, color: "var(--faint)" }}
                 >
-                  {t.hint}
+                  {t.hint ?? (t.href ? "view details →" : " ")}
                 </div>
-              )}
-            </div>
-          ))}
+              </>
+            );
+            const style: React.CSSProperties = {
+              display: "block",
+              border: "1px solid var(--hairline)",
+              borderTop: "3px solid var(--admin)",
+              background: "var(--panel)",
+              padding: "16px 16px 14px",
+            };
+            return t.href ? (
+              <Link key={t.label} href={t.href} className="lift" style={style}>
+                {body}
+              </Link>
+            ) : (
+              <div key={t.label} style={style}>
+                {body}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
