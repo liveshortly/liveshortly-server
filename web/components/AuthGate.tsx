@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import BrandMark from "@/components/BrandMark";
 import HudHeader from "@/components/HudHeader";
 import Landing from "@/components/Landing";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -104,13 +105,21 @@ function GuestHeader() {
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          gap: 16,
+          gap: 12,
+          flexWrap: "wrap",
         }}
       >
         <span
-          className="label"
-          style={{ fontSize: 13, fontWeight: 700, letterSpacing: "-0.02em" }}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 9,
+            fontSize: 18,
+            fontWeight: 700,
+            letterSpacing: "-0.02em",
+          }}
         >
+          <BrandMark />
           LiveShortly
           <span className="blink" style={{ color: "var(--muted)" }}>
             _
@@ -126,6 +135,7 @@ function GuestHeader() {
               padding: "6px 12px",
               fontSize: 10,
               color: "var(--ink)",
+              whiteSpace: "nowrap",
             }}
           >
             SIGN IN
