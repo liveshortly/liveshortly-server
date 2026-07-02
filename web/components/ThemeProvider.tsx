@@ -15,8 +15,10 @@ const STORAGE_KEY = "ls-theme";
 /**
  * Inline script (string) run before paint in <head> to set the resolved theme on
  * <html> so there's no flash of the wrong palette. Mirrors resolve() below.
+ * First-time visitors (no saved preference) land on dark — only an explicit
+ * "system" choice falls back to following the OS preference.
  */
-export const themeInitScript = `(function(){try{var m=localStorage.getItem('${STORAGE_KEY}');if(m==='light'||m==='dark'){document.documentElement.setAttribute('data-theme',m);}else{document.documentElement.removeAttribute('data-theme');}}catch(e){}})();`;
+export const themeInitScript = `(function(){try{var m=localStorage.getItem('${STORAGE_KEY}');if(m==='light'||m==='dark'){document.documentElement.setAttribute('data-theme',m);}else if(m==='system'){document.documentElement.removeAttribute('data-theme');}else{document.documentElement.setAttribute('data-theme','dark');}}catch(e){}})();`;
 
 type Ctx = {
   mode: ThemeMode;
@@ -42,12 +44,14 @@ function apply(mode: ThemeMode) {
 }
 
 export default function ThemeProvider({ children }: { children: ReactNode }) {
-  const [mode, setModeState] = useState<ThemeMode>("system");
-  const [resolved, setResolved] = useState<"light" | "dark">("light");
+  // Default for first-time visitors is dark (mirrors themeInitScript below) —
+  // "system" is only used once a visitor explicitly picks it via the toggle.
+  const [mode, setModeState] = useState<ThemeMode>("dark");
+  const [resolved, setResolved] = useState<"light" | "dark">("dark");
 
   // Hydrate the saved preference once on mount.
   useEffect(() => {
-    let initial: ThemeMode = "system";
+    let initial: ThemeMode = "dark";
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved === "light" || saved === "dark" || saved === "system") {
