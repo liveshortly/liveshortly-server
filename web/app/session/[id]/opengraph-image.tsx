@@ -1,11 +1,30 @@
 import { ImageResponse } from "next/og";
-import { getSession } from "@/lib/api";
+import { getSession, type SessionEvent } from "@/lib/api";
 import { ogCard, OG_SIZE, OG_CONTENT_TYPE } from "@/lib/ogCard";
+import { ogFonts } from "@/lib/ogFonts";
+import { shortId, timeAgo, truncate } from "@/lib/utils";
 
-// Runs on the Node runtime so it can reach the internal API and fetch per-request.
+// Node runtime so it can reach the internal API and generate per-request.
 export const alt = "LiveShortly session card";
 export const size = OG_SIZE;
 export const contentType = OG_CONTENT_TYPE;
+
+/** Pull a real line from the session — the first prompt (what the human asked)
+ *  or, failing that, the first response — so the card shows genuine content. */
+function highlightFrom(events: SessionEvent[] | undefined): string | null {
+  if (!events?.length) return null;
+  const pick = (type: string) => {
+    const e = events.find((x) => x.event_type === type);
+    if (!e) return null;
+    const p = (e.payload ?? {}) as Record<string, unknown>;
+    for (const k of ["message", "text", "content"]) {
+      const v = p[k];
+      if (typeof v === "string" && v.trim()) return truncate(v, 150);
+    }
+    return null;
+  };
+  return pick("prompt") ?? pick("response") ?? null;
+}
 
 export default async function Image({
   params,
@@ -13,30 +32,33 @@ export default async function Image({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const fonts = ogFonts();
   try {
     const s = await getSession(id);
     return new ImageResponse(
       ogCard({
-        eyebrow: "LIVESHORTLY SESSION",
         title: s.title?.trim() || "Untitled session",
-        subtitle: `@${s.owner_handle}${s.model ? ` · ${s.model}` : ""}`,
         status: s.status,
-        stats: [
-          { label: "EVENTS", value: String(s.event_count ?? 0) },
-          { label: "VIEWS", value: String(s.view_count ?? 0) },
-        ],
+        model: s.model,
+        shortId: shortId(s.id),
+        snippet: s.hero ?? s.title ?? null,
+        highlight: highlightFrom(s.events),
+        owner: s.owner_handle,
+        age: timeAgo(s.ended_at ?? s.created_at),
+        events: s.event_count,
+        views: s.view_count,
+        published: !!s.published_at,
       }),
-      { ...OG_SIZE },
+      { ...OG_SIZE, fonts },
     );
   } catch {
-    // Private / not-found → generic brand card.
+    // Private / not-found → generic brand card in the same theme.
     return new ImageResponse(
       ogCard({
-        eyebrow: "LIVESHORTLY",
         title: "A live coding session",
-        subtitle: "liveshortly.com",
+        subtitle: "Stream your Claude Code sessions",
       }),
-      { ...OG_SIZE },
+      { ...OG_SIZE, fonts },
     );
   }
 }
