@@ -158,6 +158,27 @@ export function stats(signal?: AbortSignal): Promise<Stats> {
   return getJSON<Stats>("/api/stats", signal);
 }
 
+/** Application-wide aggregate metrics (super-admins only). Mirrors the Go
+ *  store.AdminStats — counts/rollups only, never any user's session content. */
+export interface AdminStats {
+  total_users: number;
+  total_sessions: number;
+  live_now: number;
+  ended: number;
+  published: number;
+  publicly_viewable: number;
+  total_events: number;
+  total_views: number;
+  active_owners: number;
+  sessions_last_24h: number;
+  sessions_last_7d: number;
+}
+
+/** Fetch admin stats. Throws ApiError(403) for non-admins. */
+export function adminStats(signal?: AbortSignal): Promise<AdminStats> {
+  return getJSON<AdminStats>("/api/admin/stats", signal);
+}
+
 export interface ListParams {
   scope?: "mine" | "shared" | "all";
   status?: "live" | "ended" | "all";
@@ -438,6 +459,8 @@ export interface Me {
   email?: string;
   name?: string;
   picture?: string;
+  /** True when the account is on the super-admin allowlist (server-resolved). */
+  is_admin?: boolean;
 }
 
 /** Check the current session. A 401 is normal (logged out) → not authenticated. */

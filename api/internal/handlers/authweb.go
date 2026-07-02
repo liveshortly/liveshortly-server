@@ -175,6 +175,7 @@ func (g *GoogleAuth) Me(w http.ResponseWriter, r *http.Request) {
 		"id":            c.UserID,
 		"email":         c.Email,
 		"name":          c.Name,
+		"is_admin":      g.cfg.IsSuperAdmin(c.Email),
 	})
 }
 

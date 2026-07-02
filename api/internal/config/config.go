@@ -24,6 +24,26 @@ type Config struct {
 	OAuthAllowedHosts []string
 	SessionSecret     string
 	WebBaseURL        string
+
+	// SuperAdminEmails is the allowlist of accounts that may reach the admin
+	// stats surface. Comma-separated via SUPER_ADMIN_EMAILS; defaults to the two
+	// founding admins. Stored lower-cased for case-insensitive matching.
+	SuperAdminEmails []string
+}
+
+// IsSuperAdmin reports whether the given email is on the super-admin allowlist
+// (case-insensitive). Empty email is never an admin.
+func (c Config) IsSuperAdmin(email string) bool {
+	e := strings.ToLower(strings.TrimSpace(email))
+	if e == "" {
+		return false
+	}
+	for _, a := range c.SuperAdminEmails {
+		if a == e {
+			return true
+		}
+	}
+	return false
 }
 
 // Load reads configuration from the environment, applying defaults from the
@@ -44,7 +64,24 @@ func Load() Config {
 		OAuthAllowedHosts:  oauthAllowedHosts(env("OAUTH_ALLOWED_HOSTS", ""), webBaseURL),
 		SessionSecret:      env("SESSION_SECRET", ""),
 		WebBaseURL:         webBaseURL,
+		SuperAdminEmails: lowerAll(splitCSV(env(
+			"SUPER_ADMIN_EMAILS",
+			"rohitsehgal1994@gmail.com,mukulmalviya2@gmail.com",
+		))),
 	}
+}
+
+// lowerAll lower-cases every entry (used for case-insensitive email matching).
+// Drops the splitCSV "*" sentinel so an empty list never matches everyone.
+func lowerAll(in []string) []string {
+	out := make([]string, 0, len(in))
+	for _, s := range in {
+		if s == "*" {
+			continue
+		}
+		out = append(out, strings.ToLower(s))
+	}
+	return out
 }
 
 // oauthAllowedHosts returns the parsed allowed-host list. If the env var is

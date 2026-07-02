@@ -17,6 +17,7 @@
   --green: #1f7a4d;
   --red: #c0392b;
   --amber: #a9810f;
+  --admin: #7c3aed; /* super-admin surface accent (violet) */
 
   --shadow: rgba(20, 22, 26, 0.16);
 
@@ -43,6 +44,7 @@
   --green: #54b885;
   --red: #e7705f;
   --amber: #d9ad52;
+  --admin: #b794f6; /* super-admin accent (dark) */
 
   --shadow: rgba(0, 0, 0, 0.45);
 
@@ -64,6 +66,7 @@
     --green: #54b885;
     --red: #e7705f;
     --amber: #d9ad52;
+    --admin: #b794f6;
     --shadow: rgba(0, 0, 0, 0.45);
     color-scheme: dark;
   }

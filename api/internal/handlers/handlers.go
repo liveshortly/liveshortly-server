@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"liveshortly/internal/bus"
+	"liveshortly/internal/config"
 	"liveshortly/internal/storage"
 	"liveshortly/internal/store"
 )
@@ -15,11 +16,12 @@ type Handler struct {
 	store *store.Store
 	bus   *bus.Bus
 	blob  *storage.Store
+	cfg   config.Config
 }
 
 // New constructs a Handler.
-func New(st *store.Store, b *bus.Bus, blob *storage.Store) *Handler {
-	return &Handler{store: st, bus: b, blob: blob}
+func New(st *store.Store, b *bus.Bus, blob *storage.Store, cfg config.Config) *Handler {
+	return &Handler{store: st, bus: b, blob: blob, cfg: cfg}
 }
 
 // sessionWithURL flattens a Session and adds the canonical web URL.

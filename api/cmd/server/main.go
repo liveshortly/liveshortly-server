@@ -70,7 +70,7 @@ func main() {
 
 	b := bus.New(rdb)
 	blob := storage.New(cfg.StoragePath)
-	h := handlers.New(st, b, blob)
+	h := handlers.New(st, b, blob, cfg)
 
 	// Reap idle live sessions: end any with no activity for idleTimeout so the CLI
 	// going away (without a clean stop) doesn't leave a session "live" forever.
@@ -194,6 +194,8 @@ func router(cfg config.Config, h *handlers.Handler, ga *handlers.GoogleAuth, mgr
 			r.Use(auth.Authn(mgr))
 
 			r.Get("/stats", h.Stats)
+			// Admin stats — the handler enforces the super-admin allowlist (403).
+			r.Get("/admin/stats", h.AdminStats)
 
 			r.Get("/sessions", h.ListSessions)
 			r.Post("/sessions", h.CreateSession)

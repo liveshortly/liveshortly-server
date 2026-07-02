@@ -222,18 +222,29 @@ export default function HudHeader({ user }: { user?: Me | null }) {
         </div>
       </div>
     </header>
-    <HudTabs />
+    <HudTabs admin={!!user?.is_admin} />
     </>
   );
 }
 
-/** The primary tab bar — sits on the header line like terminal tabs. */
-function HudTabs() {
+/** The primary tab bar — sits on the header line like terminal tabs. The ADMIN
+ *  tab appears only for super-admins and carries the distinct admin accent. */
+function HudTabs({ admin }: { admin?: boolean }) {
   const pathname = usePathname() || "/";
   const tabs = [
-    { href: "/", label: "▣ FEED", match: (p: string) => p === "/" || p === "/feed" },
-    { href: "/hud", label: "⌂ MY HUD", match: (p: string) => p.startsWith("/hud") },
-    { href: "/profile", label: "◇ PROFILE", match: (p: string) => p.startsWith("/profile") },
+    { href: "/", label: "▣ FEED", match: (p: string) => p === "/" || p === "/feed", accent: "var(--green)" },
+    { href: "/hud", label: "⌂ MY HUD", match: (p: string) => p.startsWith("/hud"), accent: "var(--green)" },
+    { href: "/profile", label: "◇ PROFILE", match: (p: string) => p.startsWith("/profile"), accent: "var(--green)" },
+    ...(admin
+      ? [
+          {
+            href: "/admin",
+            label: "★ ADMIN",
+            match: (p: string) => p.startsWith("/admin"),
+            accent: "var(--admin)",
+          },
+        ]
+      : []),
   ];
   return (
     <nav
@@ -264,11 +275,11 @@ function HudTabs() {
                 padding: "11px 16px",
                 fontSize: 11,
                 letterSpacing: "0.12em",
-                color: active ? "var(--green)" : "var(--muted)",
+                color: active ? t.accent : "var(--muted)",
                 background: active ? "var(--panel)" : "transparent",
                 border: active ? "1px solid var(--hairline)" : "1px solid transparent",
                 borderBottom: active
-                  ? "2px solid var(--green)"
+                  ? `2px solid ${t.accent}`
                   : "2px solid transparent",
                 fontWeight: active ? 700 : 500,
               }}

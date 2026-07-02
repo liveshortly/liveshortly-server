@@ -85,6 +85,59 @@ type Stats struct {
 	TotalEvents   int `json:"total_events"`
 }
 
+// AdminStats holds application-wide aggregate metrics for the admin surface.
+// Counts and rollups only — never any user's private session content.
+type AdminStats struct {
+	TotalUsers       int `json:"total_users"`
+	TotalSessions    int `json:"total_sessions"`
+	LiveNow          int `json:"live_now"`
+	Ended            int `json:"ended"`
+	Published        int `json:"published"`
+	PubliclyViewable int `json:"publicly_viewable"`
+	TotalEvents      int `json:"total_events"`
+	TotalViews       int `json:"total_views"`
+	// ActiveOwners is the number of distinct users who own at least one session.
+	ActiveOwners int `json:"active_owners"`
+	// Sessions started in the last 24h / 7d.
+	SessionsLast24h int `json:"sessions_last_24h"`
+	SessionsLast7d  int `json:"sessions_last_7d"`
+}
+
+// AdminStats computes application-wide aggregate metrics across ALL users and
+// sessions. Intended for the super-admin surface only (authz is enforced by the
+// handler). Returns counts/rollups exclusively — no session content.
+func (st *Store) AdminStats(ctx context.Context) (AdminStats, error) {
+	const q = `
+		SELECT
+			(SELECT count(*) FROM users),
+			count(*),
+			count(*) FILTER (WHERE s.status = 'live'),
+			count(*) FILTER (WHERE s.status = 'ended'),
+			count(*) FILTER (WHERE s.published_at IS NOT NULL),
+			count(*) FILTER (WHERE s.visibility IN ('link','public','open')),
+			COALESCE(sum(s.event_count), 0),
+			COALESCE(sum(s.view_count), 0),
+			count(DISTINCT s.owner_id),
+			count(*) FILTER (WHERE s.created_at >= now() - interval '24 hours'),
+			count(*) FILTER (WHERE s.created_at >= now() - interval '7 days')
+		FROM sessions s`
+	var a AdminStats
+	err := st.pool.QueryRow(ctx, q).Scan(
+		&a.TotalUsers,
+		&a.TotalSessions,
+		&a.LiveNow,
+		&a.Ended,
+		&a.Published,
+		&a.PubliclyViewable,
+		&a.TotalEvents,
+		&a.TotalViews,
+		&a.ActiveOwners,
+		&a.SessionsLast24h,
+		&a.SessionsLast7d,
+	)
+	return a, err
+}
+
 // sessionSelectExpr is the canonical session column projection (no FROM). The
 // owner handle prefers the display name, then email, then the legacy handle.
 // Column order must match scanSession.
