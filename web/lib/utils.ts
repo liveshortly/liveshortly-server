@@ -41,7 +41,7 @@ export function fmtInt(n: number | null | undefined): string {
  *  works in both light and dark. */
 export function tileBg(status: "live" | "ended"): string {
   return status === "live"
-    ? "color-mix(in srgb, var(--green) 8%, var(--panel))"
+    ? "color-mix(in srgb, var(--green) 4%, var(--panel))"
     : "color-mix(in srgb, var(--faint) 5%, var(--panel))";
 }
 
