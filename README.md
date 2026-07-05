@@ -4,7 +4,7 @@
 
 ### Share your coding session **live** — watch it stream, replay every past run, and talk back to the agent from the browser.
 
-A lean, self-hosted monorepo that turns any **Claude Code** session into a live, shareable, replayable stream — wrapped in a nerdy financial-terminal HUD.
+A lean monorepo that turns any **Claude Code** session into a live, shareable, replayable stream — wrapped in a nerdy financial-terminal HUD. Self-host it, or use the live instance at **[liveshortly.com](https://liveshortly.com)**.
 
 <br/>
 
@@ -13,7 +13,7 @@ A lean, self-hosted monorepo that turns any **Claude Code** session into a live,
 ![Postgres](https://img.shields.io/badge/db-Postgres%2016-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
 ![Redis](https://img.shields.io/badge/bus-Redis%207-DC382D?style=for-the-badge&logo=redis&logoColor=white)
 ![Docker](https://img.shields.io/badge/run-Docker%20Compose-2496ED?style=for-the-badge&logo=docker&logoColor=white)
-![Status](https://img.shields.io/badge/status-POC-1f7a4d?style=for-the-badge)
+![Status](https://img.shields.io/badge/live-liveshortly.com-1f7a4d?style=for-the-badge)
 
 <br/>
 
@@ -45,7 +45,7 @@ A lean, self-hosted monorepo that turns any **Claude Code** session into a live,
 - [Capture: wiring Claude Code](#-capture-wiring-claude-code)
 - [Design system](#-design-system)
 - [Project layout](#-project-layout)
-- [Auth — built for later](#-auth--built-for-later)
+- [Auth & access control](#-auth--access-control)
 - [Roadmap](#-roadmap)
 
 ---
@@ -60,9 +60,10 @@ happen, you can't nudge the agent mid-run, and they rot in a gist.
 - 🔴 **Live** — viewers watch prompts, responses, tool calls and file writes appear in real time.
 - 💬 **Two-way** — a viewer can type a message in the browser that gets **injected into the running Claude session**.
 - ⏯ **Replayable** — every ended session is archived and plays back event-by-event.
-- 🔎 **Discoverable** — a HUD of all sessions, live counts, and full-text-ish search.
+- 🔎 **Discoverable** — a public feed, live counts, and search.
+- 🔗 **Shareable** — sign in with Google, share a private link, or make a session public/open and **tweet it** — one click flips it public and drops a rich card in the timeline.
 
-No SaaS, no account. `docker compose up` and it's yours.
+Self-host with `docker compose up`, or watch the live instance at **[liveshortly.com](https://liveshortly.com)**.
 
 ---
 
@@ -72,11 +73,15 @@ No SaaS, no account. `docker compose up` and it's yours.
 |---|---|
 | 🎥 **Live streaming** | Server-Sent Events over a Redis pub/sub fan-out; late joiners replay the buffer and catch up instantly. |
 | 💬 **Viewer → agent injection** | Browser messages queue in Redis and are injected into Claude via hook `additionalContext` — delivered **exactly once**. |
-| 🖥️ **Terminal HUD** | A light, monospace, financial-terminal dashboard: live UTC clock, big counters, hairline panels, pulsing `● LIVE`. |
+| 🖥️ **Terminal HUD** | A monospace, financial-terminal dashboard (light **and** dark): live UTC clock, big counters, hairline panels, pulsing `● LIVE`. |
 | 🔁 **Replay** | Ended sessions persist their full event log and play back in order. |
-| 🔎 **Search + index** | `LIVE` and `SESSIONS` tabs, search by title/tag, live `TOTAL / LIVE NOW` stats. |
+| 🏠 **Public landing feed** | A public home feed of published sessions — activity ticker, featured hero, `LIVE NOW` / `TRENDING` / `RECENTLY PUBLISHED` grids, browse-by-tag. No sign-in to watch. |
+| 🔎 **Search + index** | Search the feed by title/snippet/tag; a signed-in HUD of your own + shared sessions with `TOTAL / LIVE NOW` stats. |
+| 🔐 **Google sign-in** | Real auth is live: Google OAuth for the web (`ls_session` cookie) + a CLI **device flow** minting bearer/refresh tokens. |
+| 🔗 **Sharing & visibility** | Per-session `private → link → public → open`: share to specific emails (viewer/commenter), a signed-in link, or an **open** link anyone can watch without an account. Publish to the discoverable feed. |
+| 🐦 **Share to X + OG cards** | One click makes a session public and opens a pre-filled tweet; dynamic **Open Graph / Twitter cards** render the session (title, author, a real prompt line, stats) in the app's own theme. |
+| 🛡️ **Admin portal** | A super-admin-only surface (email allowlist, gated at nav + route + API): app-wide stats, a user directory with last-login, and a filterable session browser. Aggregate metadata only. |
 | 🪝 **Zero-touch capture** | Claude Code hooks (stdlib Python) auto-open a session and stream every prompt/tool/file event. |
-| 🔐 **Auth-ready** | `owner_id` on every session + an unused `api_tokens` table + a single middleware seam. Flip it on without a migration. |
 | 🐳 **One command** | Postgres + Redis + Go API + Next.js web, all in `docker-compose.yml`. |
 
 ---
@@ -222,8 +227,19 @@ All via `.env` (see [`.env.example`](.env.example)). The defaults just work.
 | `NEXT_PUBLIC_API_URL` | `http://localhost:8000` | **baked into the browser bundle at build time** ⚠️ |
 | `API_INTERNAL_URL` | `http://api:8000` | SSR → API over the docker network |
 | `CORS_ORIGINS` | `*` | comma-separated; `*` allows all |
-| `DEFAULT_USER_HANDLE` | `you` | the principal until real auth lands |
+| `DEFAULT_USER_HANDLE` | `you` | fallback principal handle for unattributed capture |
 | `LIVESHORTLY_API_URL` | `http://localhost:8000` | where the capture hooks POST |
+
+**Auth & admin** (optional — omitting the Google vars just disables login wiring):
+
+| Var | Default | Notes |
+|---|---|---|
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | — | Google OAuth credentials; empty disables web/CLI login |
+| `SESSION_SECRET` | — | signs the `ls_session` cookie + bearer/refresh JWTs |
+| `WEB_BASE_URL` | — | canonical web origin (used for OAuth callback + share links) |
+| `OAUTH_ALLOWED_HOSTS` | host of `WEB_BASE_URL` | comma-separated hostnames allowed to start/receive the OAuth callback |
+| `SUPER_ADMIN_EMAILS` | two founders | comma-separated allowlist for the `/admin` surface |
+| `NEXT_PUBLIC_SITE_URL` | `https://liveshortly.com` | absolute base for OG/canonical URLs (web) |
 
 > ⚠️ **`NEXT_PUBLIC_*` is compile-time.** Change `NEXT_PUBLIC_API_URL` and you must
 > **rebuild** the web image — a restart reuses the old baked URL:
@@ -235,20 +251,36 @@ All via `.env` (see [`.env.example`](.env.example)). The defaults just work.
 
 ## ✦ API reference
 
-Base path `/api`. All writes pass through the auth middleware → the default principal.
+Base path `/api`. A single principal middleware resolves a **bearer JWT** or the **`ls_session`
+cookie**; `/api/me`, `GET /feed`, `GET /sessions/{id}` and its stream accept an **anonymous**
+caller (needed for `visibility="open"` sessions + the public feed), everything else requires a
+principal. Admin endpoints additionally enforce the super-admin allowlist (`403` otherwise).
 
 | Method | Endpoint | Body | Returns |
 |---|---|---|---|
 | `GET` | `/health` | — | `{ ok, ts }` |
+| `GET` | `/api/me` | — | `{ authenticated, id?, email?, name?, is_admin? }` |
 | `GET` | `/api/stats` | — | `{ total_sessions, live_now, ended, total_events }` |
+| `GET` | `/api/feed?q=&cursor=&limit=` | — | published sessions (public) |
 | `POST` | `/api/sessions` | `{ title?, model?, framework?, tags? }` | `201` `Session` + `url` |
-| `GET` | `/api/sessions?status=&q=&limit=&offset=` | — | `{ results: Session[], total }` |
+| `GET` | `/api/sessions?scope=&status=&q=&limit=&offset=` | — | `{ results: Session[], total }` |
 | `GET` | `/api/sessions/{id}` | — | `Session` + `events[]` (bumps `view_count`) |
+| `PATCH` | `/api/sessions/{id}` | `{ title?, visibility?, link_role? }` | `Session` *(owner)* |
 | `POST` | `/api/sessions/{id}/events` | `{ event_type, payload, actor? }` | `201` `Event` |
 | `GET` | `/api/sessions/{id}/stream` | — | **SSE** event stream |
 | `POST` | `/api/sessions/{id}/stop` | — | `Session` (`ended`) |
+| `POST` | `/api/sessions/{id}/{publish\|unpublish}` | — | `Session` *(owner — feed on/off)* |
 | `POST` | `/api/sessions/{id}/comments` | `{ message }` | `201` `Event` *(live only)* |
 | `GET` | `/api/sessions/{id}/comments/pending` | — | `{ comments[] }` *(drains once)* |
+| `POST` / `GET` | `/api/sessions/{id}/decision` | `{ decision }` | live allow/deny of a CLI permission prompt |
+| `POST` | `/api/sessions/{id}/typing` | — | viewer "is typing" presence ping |
+| `POST` `GET` `DELETE` | `/api/sessions/{id}/shares[/{shareId}]` | `{ email, role }` | share grants *(owner)* |
+| `GET` | `/api/admin/stats` | — | app-wide aggregate metrics *(super-admin)* |
+| `GET` | `/api/admin/users` | — | user directory + last-login *(super-admin)* |
+| `GET` | `/api/admin/sessions?filter=all\|live\|ended\|public` | — | all sessions, metadata only *(super-admin)* |
+
+Web-only auth routes live at the root (proxied by nginx): `/auth/google/{login,callback}`,
+`/auth/logout`, `/auth/token`, and the CLI device flow `/auth/device/{start,approve,poll}` + `/device`.
 
 <details>
 <summary><b>SSE frame protocol</b></summary>
@@ -281,13 +313,19 @@ Events are de-duplicated by `id`, so a buffered event is never delivered twice.
 ```mermaid
 erDiagram
   users ||--o{ sessions : owns
-  users ||--o{ api_tokens : "has (future auth)"
+  users ||--o{ refresh_tokens : "has (CLI)"
   sessions ||--o{ session_events : "has log"
+  sessions ||--o{ session_shares : "granted to"
 
   users {
     uuid id PK
     text handle UK
     text display_name
+    text email UK "Google"
+    text google_sub UK
+    text name
+    text avatar_url
+    timestamptz last_login_at "admin"
   }
   sessions {
     uuid id PK
@@ -297,10 +335,18 @@ erDiagram
     text framework
     text_array tags
     text status "live | ended"
+    text visibility "private | link | public | open"
+    text link_role "viewer | commenter"
     int event_count
     int view_count
+    int input_tokens
+    int output_tokens
+    text client_handle "user@host capture principal"
+    text git_remote
+    text git_branch
     timestamptz created_at
     timestamptz ended_at
+    timestamptz published_at "in the feed"
   }
   session_events {
     uuid id PK
@@ -311,15 +357,22 @@ erDiagram
     jsonb payload
     timestamptz ts
   }
-  api_tokens {
+  session_shares {
+    uuid id PK
+    uuid session_id FK
+    text grantee_email
+    text role "viewer | commenter"
+  }
+  refresh_tokens {
     uuid id PK
     uuid user_id FK
     text token_hash
-    text_array scopes
   }
 ```
 
-**Event types:** `prompt` · `response` · `tool_call` · `file_write` · `output` · `viewer_comment`
+**Event types:** `prompt` · `response` · `tool_call` · `file_write` · `output` · `viewer_comment` · `input_requested` · `viewer_decision`
+
+**Additive migrations** run at boot (`store.Migrate`) — the SQL entrypoint scripts only run on a fresh volume, so post-launch columns (visibility, tokens, git, `published_at`, `last_login_at`, …) are added there idempotently.
 
 ---
 
@@ -345,18 +398,22 @@ Make any real Claude Code session stream into LiveShortly. Merge
 
 ## ✦ Design system
 
-The web is a **light** financial-terminal HUD — monospace everything, hairline boxes,
-UPPERCASE tracked labels, big tabular numbers, a pulsing `● LIVE`, a live UTC clock.
+A financial-terminal HUD — monospace everything, hairline boxes, UPPERCASE tracked labels,
+big tabular numbers, a pulsing `● LIVE`, a live UTC clock. Fully **themeable** via CSS variables
+(`--bg`, `--panel`, `--ink`, `--green`, …) with **light** and **dark** palettes; new visitors
+default to dark, and the choice persists (light / dark / system).
 
-| Token | Value | | Token | Value |
-|---|---|---|---|---|
-| paper | `#f3f1e9` | | ink | `#1a1916` |
-| panel | `#faf9f4` | | muted | `#6c6a5e` |
-| hairline | `#d9d6c9` | | 🟢 live / up | `#1f7a4d` |
-| strong border | `#1c1b17` | | 🔴 ended / down | `#c0392b` |
+| Token | Light | Dark | | Token | Light | Dark |
+|---|---|---|---|---|---|---|
+| bg | `#e7e8ea` | `#1e2123` | | ink | `#1b1c1e` | `#e9ebed` |
+| panel | `#f3f4f5` | `#282c2f` | | 🟢 live | `#1f7a4d` | `#54b885` |
+| hairline | `#d0d2d5` | `#3d4247` | | 🔴 ended | `#c0392b` | `#e7705f` |
+| strong | `#1b1c1e` | `#edeff1` | | ★ admin | `#7c3aed` | `#b794f6` |
 
-Font: `'JetBrains Mono', 'IBM Plex Mono', ui-monospace, Menlo, monospace`.
-Tabs are deliberately minimal: **LIVE** · **SESSIONS** + search. Nothing else.
+Font: `'JetBrains Mono', 'IBM Plex Mono', ui-monospace, Menlo, monospace` (also base64-embedded
+for the server-rendered OG cards). Nav tabs: **FEED · MY HUD · PROFILE** (+ **ADMIN** in its own
+violet accent for super-admins). The admin surface reuses the HUD but carries the admin accent
+so it's always obvious you're in admin mode.
 
 ---
 
@@ -367,41 +424,59 @@ LiveShortly/
 ├── api/                    # Go · chi · pgx · go-redis
 │   ├── cmd/server/         #   entrypoint + router
 │   ├── internal/
-│   │   ├── auth/           #   principal middleware (auth seam)
-│   │   ├── handlers/       #   sessions · events · stream · stop · comments · stats
-│   │   ├── store/          #   pgx data access
+│   │   ├── config/         #   env config (incl. super-admin allowlist)
+│   │   ├── auth/           #   principal middleware (bearer / cookie / anon)
+│   │   ├── websession/     #   JWT issue/verify for cookie + bearer/refresh
+│   │   ├── handlers/       #   sessions · events · stream · comments · feed
+│   │   │                   #   · shares · authweb (Google) · device · stats · admin
+│   │   ├── store/          #   pgx data access + boot migrations
 │   │   ├── bus/            #   redis: seq · buffer · pub/sub · pending
 │   │   └── storage/        #   filesystem archive
-│   └── infra/postgres/init.sql
+│   └── infra/postgres/     #   init.sql + 002-auth.sql
 ├── web/                    # Next.js · App Router · Tailwind v4
-│   ├── app/                #   page (HUD + tabs) · session/[id] (viewer)
-│   ├── components/         #   HudHeader · Clock · TabNav · SessionTable · EventStream …
-│   └── lib/api.ts
+│   ├── app/                #   / (feed) · hud · profile · admin{,/users,/sessions}
+│   │   ├── session/[id]/   #   viewer (client) + server metadata + opengraph-image
+│   │   ├── replay|story|compose/[id]/   #   alternate session views
+│   │   └── opengraph-image · twitter-image
+│   ├── components/         #   HudHeader · EventStream · Feed · SessionCard
+│   │                       #   · ShareToTwitter · PublicLinkDialog · AuthGate …
+│   └── lib/                #   api.ts · ogCard/ogFonts · useAdminGuard
 ├── cli/                    # Claude Code capture hooks (Python, stdlib)
 │   ├── hooks/
 │   └── settings.example.json
-├── docker-compose.yml
-└── CONTRACT.md             # the binding API + design spec
+├── design/                 # offline HTML mockups (UI/UX reference)
+├── docker-compose.yml · docker-compose.prod.yml
+├── CONTRACT.md             # the binding API + design spec
+└── AUTH.md                 # auth endpoints, tokens, sharing model
 ```
 
 ---
 
-## ✦ Auth — built for later
+## ✦ Auth & access control
 
-There's no auth today: every request maps to `DEFAULT_USER_HANDLE`. But the seam is real,
-so turning it on is a code change, **not** a migration:
+Auth is **live** (see [`AUTH.md`](AUTH.md) for the binding spec). Every `/api` route except
+`/api/me`, the public feed, and open-session reads resolves a principal through one middleware:
 
-- 🧩 `sessions.owner_id` is populated from day one
-- 🧩 an unused `api_tokens` table (`token_hash`, `scopes`) is already in the schema
-- 🧩 a single `api/internal/auth` middleware resolves the principal — Bearer-token validation slots in there with a marked `TODO`
+- 🔑 **Web** — Google OAuth (`/auth/google/login` → callback) sets an `ls_session` HttpOnly cookie.
+- 🖥️ **CLI** — a device flow (`/auth/device/start` → poll) mints access + refresh JWTs written to `~/.liveshortly/credentials.json`; hooks auto-refresh on expiry.
+- 👁️ **Anonymous** — `visibility="open"` sessions and the published feed are readable with no account, so a shared link (or a Twitter card crawler) just works.
+
+**Authorization** (`handlers/authz.go`): owner → full access; a `session_shares` grant → viewer/commenter;
+`visibility=link|public` → any signed-in user with the URL; `visibility=open` → anyone at all.
+**Super-admins** are an email allowlist (`SUPER_ADMIN_EMAILS`) checked at the nav, the web route,
+and the API — the `/admin` endpoints return `403` to everyone else.
 
 ---
 
 ## ✦ Roadmap
 
-- [ ] Bearer-token auth (the seam is ready)
-- [ ] Per-session visibility (public / unlisted / private)
+- [x] Google sign-in + CLI device-flow bearer/refresh tokens
+- [x] Per-session visibility (private / link / public / open) + email sharing
+- [x] Public feed, Share-to-X, Open Graph / Twitter cards
+- [x] Super-admin portal (stats · user directory · session browser)
 - [ ] Semantic search over session content
+- [ ] Persisted Dev Story / blog composer (the UI shells exist)
+- [ ] Replay timeline + chapters (video-style scrubber)
 - [ ] Multi-agent rooms (presence, turn-taking)
 - [ ] A standalone CLI viewer (`liveshortly watch <id>`)
 
