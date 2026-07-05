@@ -29,6 +29,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Full history so we can diff the pushed range and rebuild only the
+          # service(s) that actually changed.
+          fetch-depth: 0
 
       - name: Configure SSH
         run: |
@@ -66,16 +70,37 @@ jobs:
           WEB_BASE_URL=https://server.liveshortly.com
           EOF
 
-      - name: Stop stack
+      - name: Decide which services to rebuild
+        id: changed
         run: |
-          ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes "${DEPLOY_USER}@${DEPLOY_HOST}" \
-            "cd ${DEPLOY_PATH} && docker compose -f docker-compose.prod.yml down"
+          BEFORE="${{ github.event.before }}"
+          # Rebuild everything when there's no valid base (manual run, first push,
+          # or the base commit isn't in history) — the safe fallback.
+          if [ -z "$BEFORE" ] \
+            || [ "$BEFORE" = "0000000000000000000000000000000000000000" ] \
+            || ! git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
+            echo "services=api web" >> "$GITHUB_OUTPUT"
+            echo "→ rebuild: api web (no valid diff base)"
+            exit 0
+          fi
+          FILES="$(git diff --name-only "$BEFORE" "${{ github.sha }}")"
+          echo "changed files:"; echo "$FILES"
+          SVCS=""
+          echo "$FILES" | grep -qE '^api/' && SVCS="$SVCS api"
+          echo "$FILES" | grep -qE '^web/' && SVCS="$SVCS web"
+          # Compose or deploy-plumbing changes → rebuild both, to be safe.
+          echo "$FILES" | grep -qE '^docker-compose|^deploy/' && SVCS="api web"
+          SVCS="$(echo $SVCS | xargs -n1 | sort -u | xargs)"
+          echo "services=$SVCS" >> "$GITHUB_OUTPUT"
+          echo "→ rebuild: '${SVCS:-<none — config-only up>}'"
 
       - name: Build & restart stack
         run: |
           # Pipe the remote build script over SSH (avoids fragile inline
-          # heredocs); it detaches the build and reports its exit code back.
-          ssh ${SSH_OPTS} "${DEPLOY_USER}@${DEPLOY_HOST}" 'bash -s' < deploy/remote-build.sh
+          # heredocs); it rebuilds only the changed services (no full-stack down)
+          # and reports its exit code back.
+          ssh ${SSH_OPTS} "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "bash -s -- ${{ steps.changed.outputs.services }}" < deploy/remote-build.sh
 
       - name: Health check (origin, over SSH)
         run: |
