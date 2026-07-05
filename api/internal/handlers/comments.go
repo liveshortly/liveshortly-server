@@ -24,6 +24,13 @@ type pendingComment struct {
 	TS       string `json:"ts"`
 }
 
+// agentFrame is a message on the Live shim agent channel (session:{id}:agent),
+// consumed by the agent stream. `comment` carries the raw pendingComment JSON.
+type agentFrame struct {
+	Type    string          `json:"type"`
+	Comment json.RawMessage `json:"comment,omitempty"`
+}
+
 // PostComment lets a viewer of a LIVE session post a message. It is emitted as a
 // normal "viewer_comment" event (so SSE subscribers and late-joiner replay both
 // see it) and additionally queued on session:{id}:pending for the capture hook.
@@ -105,6 +112,18 @@ func (h *Handler) PostComment(w http.ResponseWriter, r *http.Request) {
 		// Best-effort: the comment is already in the event stream; failing to
 		// queue it for injection should not fail the request.
 		_ = h.bus.PendingPush(r.Context(), id, string(queued))
+
+		// Push the same comment to the Live shim's agent channel for instant
+		// delivery. This does NOT remove anything from the pending queue — the
+		// shim acks by draining GET …/comments/pending after it handles the
+		// message, which is what makes replay-on-reconnect free. Duplicates
+		// between the live push and a later drain are the client's problem.
+		if agentMsg, aerr := json.Marshal(agentFrame{
+			Type:    "viewer_comment",
+			Comment: json.RawMessage(queued),
+		}); aerr == nil {
+			_ = h.bus.PublishAgent(r.Context(), id, agentMsg)
+		}
 	}
 
 	httpx.JSON(w, http.StatusCreated, ev)

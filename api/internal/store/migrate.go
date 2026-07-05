@@ -41,6 +41,13 @@ var migrations = []string{
 	`CREATE INDEX IF NOT EXISTS sessions_search_idx ON sessions USING GIN (search_vector)`,
 	// Last web sign-in, stamped on every Google login (for the admin user list).
 	`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ`,
+
+	// --- Live shim capture metadata ---
+	// How the session is captured, reported by the Live shim client. Nullable;
+	// no behavior depends on them yet. Mirrors infra/postgres/003-live-agent.sql
+	// (which only runs on a fresh volume — this reaches existing databases).
+	`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS agent        TEXT`,
+	`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS capture_mode TEXT`,
 }
 
 // Migrate applies the additive, idempotent migrations above. It runs before the

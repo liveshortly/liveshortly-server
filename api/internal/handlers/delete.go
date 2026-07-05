@@ -30,6 +30,14 @@ func (h *Handler) DeleteSession(w http.ResponseWriter, r *http.Request) {
 	}); err == nil {
 		_ = h.bus.Publish(r.Context(), id, ctrl)
 	}
+	// Close any attached Live-shim agent stream too (it treats session_ended as
+	// its close signal).
+	if ended, err := json.Marshal(map[string]string{
+		"type":       "session_ended",
+		"session_id": id,
+	}); err == nil {
+		_ = h.bus.PublishAgent(r.Context(), id, ended)
+	}
 
 	// Source of truth first: drop the DB rows (cascades events + shares) so the
 	// session immediately disappears from every list, the public feed, and the

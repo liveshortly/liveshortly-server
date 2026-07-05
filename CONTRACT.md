@@ -25,6 +25,8 @@ changes.
   "model": "claude-opus-4-8 | null",
   "framework": "claude-code | null",
   "status": "live | ended",
+  "agent": "claude-code | gemini-cli | codex | terminal | null",
+  "capture_mode": "hooks | pty | sdk | null",
   "tags": ["string"],
   "event_count": 0,
   "view_count": 0,
@@ -32,6 +34,10 @@ changes.
   "ended_at": "RFC3339 | null"
 }
 ```
+`agent` and `capture_mode` are optional capture metadata (how the session is
+captured, reported by the Live shim); no behavior depends on them yet.
+`GET /api/sessions/{id}` additionally returns `agent_connected: bool` — whether a
+Live-shim agent stream is currently attached (presence).
 
 ### Event
 ```json
@@ -51,7 +57,7 @@ changes.
 | Method | Path | Body | Response |
 |---|---|---|---|
 | GET  | `/health` | — | `{"ok":true,"ts":"RFC3339"}` |
-| POST | `/api/sessions` | `{"title"?,"model"?,"framework"?,"tags"?:[]}` | `201 {...Session,"url":"/session/{id}"}` |
+| POST | `/api/sessions` | `{"title"?,"model"?,"framework"?,"tags"?:[],"agent"?,"capture_mode"?}` | `201 {...Session,"url":"/session/{id}"}` |
 | GET  | `/api/sessions?status=live\|ended\|all&q=&limit=&offset=` | — | `200 {"results":[Session],"total":int}` |
 | GET  | `/api/feed?q=&cursor=&limit=` | — | `200 {"results":[Session],"next_cursor":string}` (public — anonymous OK; published only) |
 | POST | `/api/sessions/{id}/publish` | — | `200 Session` (owner; lists in feed + public) |
@@ -61,6 +67,7 @@ changes.
 | PATCH | `/api/sessions/{id}` | `{"title"?,"visibility"?,"link_role"?,"model"?}` | `200 Session` (owner only) |
 | POST | `/api/sessions/{id}/events` | `{"event_type":string,"payload":object,"actor"?:string}` | `201 Event` |
 | GET  | `/api/sessions/{id}/stream` | — | `200` SSE stream (see below) |
+| GET  | `/api/sessions/{id}/agent/stream` | — | `200` agent SSE stream (owner only, Bearer; see below) |
 | POST | `/api/sessions/{id}/stop` | — | `200 {...Session}` (status=ended) |
 | POST | `/api/sessions/{id}/comments` | `{"message":string}` | `201 Event` (viewer→session, live only) |
 | GET  | `/api/sessions/{id}/comments/pending` | — | `200 {"comments":[{"username","message","ts"}]}` (drains once) |
@@ -84,6 +91,27 @@ Content-Type `text/event-stream`. Frames are `data: <json>\n\n`. Sequence:
 5. If/when the session ends, emit `data: {"type":"session_ended","session_id":"..."}` then close.
 Dedupe by event `id` so a buffered event isn't sent twice.
 
+### SSE: `GET /api/sessions/{id}/agent/stream` (Live shim)
+The agent-facing push channel for the Live shim (`live claude`), so it no longer
+polls `/comments/pending`. **Owner only**, behind the auth middleware (Bearer
+access token `typ=access` or cookie — NOT anonymous). Content-Type
+`text/event-stream`. Sequence:
+1. `data: {"type":"connected","session_id":"..."}`
+2. Replay the pending viewer queue **without draining it** — each queued comment
+   as `data: {"type":"viewer_comment","comment":<pending JSON>}`.
+3. Then forward every message published to `session:{id}:agent`:
+   - `data: {"type":"viewer_comment","comment":{username,message,ts}}`
+   - `data: {"type":"viewer_decision","decision":"allow|deny","username":"..."}`
+4. Heartbeat comment `: hb\n\n` every 15s.
+5. On stop, `data: {"type":"session_ended","session_id":"..."}` then close.
+
+**Ack via drain.** Pushes do NOT remove anything from `session:{id}:pending`; the
+shim acks by calling `GET /api/sessions/{id}/comments/pending` (the existing
+atomic drain) after it has handled a message. So a reconnect replays anything
+not yet acked for free, and duplicates between a live push and a later drain are
+the client's problem. `POST …/comments` and `POST …/decision` publish to
+`session:{id}:agent` in addition to their existing queue/emit behavior.
+
 ## Live plumbing (Redis)
 - `session:{id}:seq` — `INCR` to allocate the next event seq atomically.
 - `session:{id}:buffer` — `RPUSH` each event JSON; `LRANGE 0 -1` to replay.
@@ -92,6 +120,16 @@ Dedupe by event `id` so a buffered event isn't sent twice.
   score=expiry ns); refreshed every heartbeat, pruned on read. `ZCARD` after
   prune = live watcher count. TTL ~40s so a dead tab clears quickly.
 - `session:{id}:decision` — viewer allow/deny queue (`RPUSH`/`LPOP`, TTL ~2m).
+- `session:{id}:agent` — pub/sub channel for the Live shim's agent stream;
+  `PUBLISH` viewer_comment/viewer_decision/session_ended frames. Separate from
+  `:events`; never touches the replay buffer or the `:pending` queue.
+- `session:{id}:agent_connected` — presence flag (`SET "1"` TTL ~45s, refreshed
+  each heartbeat, `DEL` on disconnect); exposed as `agent_connected` on the
+  session JSON.
+- `session:{id}:agent_seen` — durable marker (`SET "1"`, TTL ~30d) set on first
+  agent-stream connect. The abandoned-agent reaper only ends sessions that have
+  it, so legacy plugin/hook sessions (which never open an agent stream) are never
+  reaped.
 On stop: archive the buffer to storage as `sessions/{id}/raw.json`, persist events to
 `session_events`, set `status='ended'`, `ended_at=now()`, publish a `session_ended`
 control message, and delete the buffer key.
@@ -152,7 +190,9 @@ the model once known via `PATCH /api/sessions/{id}` `{"model":...}` (owner only)
 
 ## Env vars (api)
 `PORT` (8000), `DATABASE_URL`, `REDIS_URL`, `STORAGE_PATH` (/app/data/sessions),
-`CORS_ORIGINS` (*), `DEFAULT_USER_HANDLE` (you).
+`CORS_ORIGINS` (*), `DEFAULT_USER_HANDLE` (you),
+`LIVE_AGENT_GRACE` (`10m`) — how long a Live-shim session whose agent stream has
+gone away may stay idle before the abandoned-agent reaper ends it (Go duration).
 
 ## Web design — terminal HUD (light)
 Aesthetic: a nerdy financial/terminal HUD on a warm paper background. Monospace

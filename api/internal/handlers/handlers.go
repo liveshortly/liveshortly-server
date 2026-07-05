@@ -36,7 +36,9 @@ type sessionWithEvents struct {
 	store.Session
 	CanComment bool          `json:"can_comment"`
 	IsOwner    bool          `json:"is_owner"`
-	Events     []store.Event `json:"events"`
+	// AgentConnected is true while a Live-shim agent stream is attached (presence).
+	AgentConnected bool          `json:"agent_connected"`
+	Events         []store.Event `json:"events"`
 }
 
 // detach returns a copy of the request's context that is no longer tied to the

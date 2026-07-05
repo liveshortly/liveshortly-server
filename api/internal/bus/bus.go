@@ -26,6 +26,11 @@ func chanKey(id string) string     { return fmt.Sprintf("session:%s:events", id)
 func pendingKey(id string) string  { return fmt.Sprintf("session:%s:pending", id) }
 func watchersKey(id string) string { return fmt.Sprintf("session:%s:watchers", id) }
 func decisionKey(id string) string { return fmt.Sprintf("session:%s:decision", id) }
+
+// Live shim (agent-facing) channel + presence keys.
+func agentChanKey(id string) string { return fmt.Sprintf("session:%s:agent", id) }
+func agentConnKey(id string) string { return fmt.Sprintf("session:%s:agent_connected", id) }
+func agentSeenKey(id string) string { return fmt.Sprintf("session:%s:agent_seen", id) }
 func deviceKey(dc string) string   { return "device:" + dc }
 func userCodeKey(uc string) string { return "usercode:" + uc }
 
@@ -59,9 +64,9 @@ func (b *Bus) BufferDelete(ctx context.Context, sessionID string) error {
 }
 
 // DeleteSessionKeys removes every persistent Redis key for a session — seq,
-// replay buffer, pending viewer queue, watcher set, and pending decision — so
-// no trace of the session survives in Redis. The pub/sub channel is transient
-// and needs no cleanup. Used by hard session deletion.
+// replay buffer, pending viewer queue, watcher set, pending decision, and the
+// live-shim presence/seen markers — so no trace survives in Redis. The pub/sub
+// channels are transient and need no cleanup. Used by hard session deletion.
 func (b *Bus) DeleteSessionKeys(ctx context.Context, sessionID string) error {
 	return b.rdb.Del(ctx,
 		seqKey(sessionID),
@@ -69,6 +74,8 @@ func (b *Bus) DeleteSessionKeys(ctx context.Context, sessionID string) error {
 		pendingKey(sessionID),
 		watchersKey(sessionID),
 		decisionKey(sessionID),
+		agentConnKey(sessionID),
+		agentSeenKey(sessionID),
 	).Err()
 }
 
@@ -115,6 +122,63 @@ func (b *Bus) PendingDrain(ctx context.Context, sessionID string) ([]string, err
 		out = []string{}
 	}
 	return out, nil
+}
+
+// --- Live shim: agent-facing push channel + presence ---------------------
+
+// agentSeenTTL marks (for a long time) that a session has ever opened an agent
+// stream. The abandoned-agent reaper checks this so it NEVER touches legacy
+// plugin/hook sessions, which never open an agent stream.
+const agentSeenTTL = 30 * 24 * time.Hour
+
+// PublishAgent broadcasts a control/message JSON to the session's agent channel
+// (session:{id}:agent), consumed only by the Live shim's agent stream. This is
+// separate from the viewer events channel and never touches the replay buffer.
+func (b *Bus) PublishAgent(ctx context.Context, sessionID string, payload []byte) error {
+	return b.rdb.Publish(ctx, agentChanKey(sessionID), payload).Err()
+}
+
+// SubscribeAgent returns a PubSub on the session's agent channel. The caller
+// owns it and must Close it (typically when ctx is cancelled).
+func (b *Bus) SubscribeAgent(ctx context.Context, sessionID string) *redis.PubSub {
+	return b.rdb.Subscribe(ctx, agentChanKey(sessionID))
+}
+
+// PendingPeek returns the pending viewer-comment queue WITHOUT draining it, so
+// the agent stream can replay it on (re)connect. The shim acks by later calling
+// the existing drain (PendingDrain via GET …/comments/pending); until then the
+// entries stay put, which is what makes replay-on-reconnect free.
+func (b *Bus) PendingPeek(ctx context.Context, sessionID string) ([]string, error) {
+	return b.rdb.LRange(ctx, pendingKey(sessionID), 0, -1).Result()
+}
+
+// AgentConnectedTouch marks an agent stream as connected right now, with a TTL.
+// Refreshed on every heartbeat; the key lapsing means the shim went away.
+func (b *Bus) AgentConnectedTouch(ctx context.Context, sessionID string, ttl time.Duration) error {
+	return b.rdb.Set(ctx, agentConnKey(sessionID), "1", ttl).Err()
+}
+
+// AgentConnectedDrop clears the presence key on clean disconnect.
+func (b *Bus) AgentConnectedDrop(ctx context.Context, sessionID string) error {
+	return b.rdb.Del(ctx, agentConnKey(sessionID)).Err()
+}
+
+// AgentConnected reports whether a Live-shim agent stream is currently attached.
+func (b *Bus) AgentConnected(ctx context.Context, sessionID string) (bool, error) {
+	n, err := b.rdb.Exists(ctx, agentConnKey(sessionID)).Result()
+	return n > 0, err
+}
+
+// AgentSeenSet records (durably) that this session has opened an agent stream at
+// least once. Set on first agent-stream connect; gates the reaper.
+func (b *Bus) AgentSeenSet(ctx context.Context, sessionID string) error {
+	return b.rdb.Set(ctx, agentSeenKey(sessionID), "1", agentSeenTTL).Err()
+}
+
+// AgentSeen reports whether this session has ever opened an agent stream.
+func (b *Bus) AgentSeen(ctx context.Context, sessionID string) (bool, error) {
+	n, err := b.rdb.Exists(ctx, agentSeenKey(sessionID)).Result()
+	return n > 0, err
 }
 
 // --- Live viewer presence (watchers) -------------------------------------

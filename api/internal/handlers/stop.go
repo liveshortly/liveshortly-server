@@ -52,9 +52,11 @@ func (h *Handler) Stop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Tell live subscribers the session ended, then drop the replay buffer.
+	// Tell live subscribers (both the viewer stream and the Live-shim agent
+	// stream) the session ended, then drop the replay buffer.
 	if ctrl, err := json.Marshal(map[string]string{"type": "session_ended", "session_id": id}); err == nil {
 		_ = h.bus.Publish(r.Context(), id, ctrl)
+		_ = h.bus.PublishAgent(r.Context(), id, ctrl)
 	}
 	_ = h.bus.BufferDelete(r.Context(), id)
 

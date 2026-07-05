@@ -52,6 +52,13 @@ func Principal(ctx context.Context) (Identity, bool) {
 	return p, ok
 }
 
+// WithPrincipal returns a context carrying id as the resolved principal. Authn
+// does this from a token; it is also exported so tests (and any hand-rolled
+// middleware composition) can inject a principal directly.
+func WithPrincipal(ctx context.Context, id Identity) context.Context {
+	return context.WithValue(ctx, ctxKey{}, id)
+}
+
 // OptionalAuthn resolves the principal like Authn when a Bearer token or
 // ls_session cookie is present, but — unlike Authn — lets the request through
 // unauthenticated instead of rejecting it. Used on read routes that a session's

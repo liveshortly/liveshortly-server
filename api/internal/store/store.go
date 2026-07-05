@@ -41,6 +41,10 @@ type Session struct {
 	OwnerID     string     `json:"owner_id"`
 	Model       *string    `json:"model"`
 	Framework   *string    `json:"framework"`
+	// Agent + CaptureMode describe how the session is captured, reported by the
+	// Live shim. Optional; no behavior depends on them yet.
+	Agent       *string    `json:"agent"`        // claude-code | gemini-cli | codex | terminal
+	CaptureMode *string    `json:"capture_mode"` // hooks | pty | sdk
 	Status      string     `json:"status"`
 	Tags        []string   `json:"tags"`
 	Visibility  string     `json:"visibility"`
@@ -247,7 +251,7 @@ const sessionSelectExpr = `s.id, s.title,
 	s.owner_id, s.model, s.framework, s.status, s.tags, s.visibility, s.link_role,
 	s.event_count, s.view_count, s.created_at, s.ended_at,
 	s.client_handle, s.git_remote, s.git_branch, s.input_tokens, s.output_tokens,
-	s.published_at, s.hero,
+	s.published_at, s.hero, s.agent, s.capture_mode,
 	(SELECT count(*) FROM session_shares ssc WHERE ssc.session_id = s.id) AS share_count`
 
 const sessionFrom = ` FROM sessions s JOIN users u ON u.id = s.owner_id`
@@ -266,7 +270,7 @@ func scanSession(row pgx.Row) (Session, error) {
 		&s.Status, &s.Tags, &s.Visibility, &s.LinkRole,
 		&s.EventCount, &s.ViewCount, &s.CreatedAt, &s.EndedAt,
 		&s.ClientHandle, &s.GitRemote, &s.GitBranch, &s.InputTokens, &s.OutputTokens,
-		&s.PublishedAt, &s.Hero,
+		&s.PublishedAt, &s.Hero, &s.Agent, &s.CaptureMode,
 		&s.ShareCount,
 	)
 	if s.Tags == nil {
@@ -283,7 +287,7 @@ func scanSessionShared(row pgx.Row) (Session, error) {
 		&s.Status, &s.Tags, &s.Visibility, &s.LinkRole,
 		&s.EventCount, &s.ViewCount, &s.CreatedAt, &s.EndedAt,
 		&s.ClientHandle, &s.GitRemote, &s.GitBranch, &s.InputTokens, &s.OutputTokens,
-		&s.PublishedAt, &s.Hero,
+		&s.PublishedAt, &s.Hero, &s.Agent, &s.CaptureMode,
 		&s.ShareCount, &s.SharedRole,
 	)
 	if s.Tags == nil {
@@ -316,6 +320,8 @@ type NewSessionInput struct {
 	ClientHandle *string // user@hostname reported by the CLI
 	GitRemote    *string
 	GitBranch    *string
+	Agent        *string // capture agent (claude-code | gemini-cli | codex | terminal)
+	CaptureMode  *string // capture mode (hooks | pty | sdk)
 }
 
 // CreateSession inserts a new live session owned by ownerID and returns it.
@@ -331,13 +337,13 @@ func (st *Store) CreateSession(ctx context.Context, ownerID string, in NewSessio
 	}
 	const ins = `
 		INSERT INTO sessions (owner_id, title, custom_title, model, framework, tags,
-			client_handle, git_remote, git_branch, status)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'live')
+			client_handle, git_remote, git_branch, agent, capture_mode, status)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'live')
 		RETURNING id`
 	var id string
 	if err := st.pool.QueryRow(ctx, ins,
 		ownerID, title, custom, in.Model, in.Framework, tags,
-		in.ClientHandle, in.GitRemote, in.GitBranch,
+		in.ClientHandle, in.GitRemote, in.GitBranch, in.Agent, in.CaptureMode,
 	).Scan(&id); err != nil {
 		return Session{}, err
 	}
@@ -673,6 +679,36 @@ func (st *Store) scanFeed(ctx context.Context, query string, args ...any) ([]Ses
 // EndIdleSessions marks live sessions ended when their most recent activity
 // (latest event, else created_at) is older than idle. It returns the ids it
 // ended so the caller can notify subscribers and drop their replay buffers.
+// ListIdleLiveSessions returns the ids of live sessions whose last activity
+// (latest event, or created_at if none) is older than idle — WITHOUT ending
+// them. The abandoned-agent reaper uses this to find candidates, then filters
+// by Redis presence/seen markers before stopping any.
+func (st *Store) ListIdleLiveSessions(ctx context.Context, idle time.Duration) ([]string, error) {
+	cutoff := time.Now().Add(-idle)
+	const q = `
+		SELECT s.id
+		FROM sessions s
+		WHERE s.status = 'live'
+		  AND COALESCE(
+		        (SELECT max(e.ts) FROM session_events e WHERE e.session_id = s.id),
+		        s.created_at
+		      ) < $1`
+	rows, err := st.pool.Query(ctx, q, cutoff)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
 func (st *Store) EndIdleSessions(ctx context.Context, idle time.Duration) ([]string, error) {
 	cutoff := time.Now().Add(-idle)
 	const q = `

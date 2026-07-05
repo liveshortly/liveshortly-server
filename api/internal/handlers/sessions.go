@@ -14,12 +14,14 @@ import (
 )
 
 type createSessionReq struct {
-	Title     string   `json:"title"`
-	Model     *string  `json:"model"`
-	Framework *string  `json:"framework"`
-	Tags      []string `json:"tags"`
-	GitRemote *string  `json:"git_remote"`
-	GitBranch *string  `json:"git_branch"`
+	Title       string   `json:"title"`
+	Model       *string  `json:"model"`
+	Framework   *string  `json:"framework"`
+	Tags        []string `json:"tags"`
+	GitRemote   *string  `json:"git_remote"`
+	GitBranch   *string  `json:"git_branch"`
+	Agent       *string  `json:"agent"`        // claude-code | gemini-cli | codex | terminal
+	CaptureMode *string  `json:"capture_mode"` // hooks | pty | sdk
 }
 
 // CreateSession creates a new live session owned by the principal.
@@ -51,6 +53,8 @@ func (h *Handler) CreateSession(w http.ResponseWriter, r *http.Request) {
 		ClientHandle: clientHandle,
 		GitRemote:    normStr(req.GitRemote),
 		GitBranch:    normStr(req.GitBranch),
+		Agent:        normStr(req.Agent),
+		CaptureMode:  normStr(req.CaptureMode),
 	})
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "failed to create session")
@@ -163,11 +167,16 @@ func (h *Handler) GetSession(w http.ResponseWriter, r *http.Request) {
 	// view_count bump is best-effort and must not block the response.
 	go func() { _ = h.store.IncViewCount(detach(r), id) }()
 
+	// Live-shim presence: whether an agent stream is currently attached. Cheap
+	// Redis EXISTS; best-effort (false on error).
+	agentConnected, _ := h.bus.AgentConnected(r.Context(), id)
+
 	httpx.JSON(w, http.StatusOK, sessionWithEvents{
-		Session:    *s,
-		CanComment: canComment,
-		IsOwner:    s.OwnerID == p.ID,
-		Events:     events,
+		Session:        *s,
+		CanComment:     canComment,
+		IsOwner:        s.OwnerID == p.ID,
+		AgentConnected: agentConnected,
+		Events:         events,
 	})
 }
 

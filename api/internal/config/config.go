@@ -4,6 +4,7 @@ package config
 import (
 	"os"
 	"strings"
+	"time"
 )
 
 // Config holds all runtime configuration for the API service.
@@ -14,6 +15,11 @@ type Config struct {
 	StoragePath       string
 	CORSOrigins       []string
 	DefaultUserHandle string
+
+	// LiveAgentGrace is how long a live session whose Live-shim agent stream has
+	// gone away may sit idle before the abandoned-agent reaper ends it. Only
+	// applies to sessions that have opened an agent stream at least once.
+	LiveAgentGrace time.Duration
 
 	// Google sign-in (web authN). All optional; empty disables login wiring.
 	GoogleClientID     string
@@ -68,7 +74,19 @@ func Load() Config {
 			"SUPER_ADMIN_EMAILS",
 			"rohitsehgal1994@gmail.com,mukulmalviya2@gmail.com",
 		))),
+		LiveAgentGrace: envDuration("LIVE_AGENT_GRACE", 10*time.Minute),
 	}
+}
+
+// envDuration reads a Go duration string (e.g. "10m", "45s") from the
+// environment, falling back to def on an empty or unparseable value.
+func envDuration(key string, def time.Duration) time.Duration {
+	if v := os.Getenv(key); v != "" {
+		if d, err := time.ParseDuration(v); err == nil {
+			return d
+		}
+	}
+	return def
 }
 
 // lowerAll lower-cases every entry (used for case-insensitive email matching).

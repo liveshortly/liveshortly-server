@@ -25,6 +25,7 @@ import (
 	"liveshortly/internal/bus"
 	"liveshortly/internal/config"
 	"liveshortly/internal/handlers"
+	"liveshortly/internal/reaper"
 	"liveshortly/internal/storage"
 	"liveshortly/internal/store"
 	"liveshortly/internal/websession"
@@ -72,9 +73,18 @@ func main() {
 	blob := storage.New(cfg.StoragePath)
 	h := handlers.New(st, b, blob, cfg)
 
+	// Background workers share a cancelable context so they stop on shutdown.
+	bgCtx, bgCancel := context.WithCancel(context.Background())
+	defer bgCancel()
+
 	// Reap idle live sessions: end any with no activity for idleTimeout so the CLI
 	// going away (without a clean stop) doesn't leave a session "live" forever.
-	go reapIdleSessions(ctx, st, b)
+	go reapIdleSessions(bgCtx, st, b)
+
+	// Reap sessions abandoned by the Live shim: their agent stream opened at
+	// least once, then went away, and there's been no activity for the grace
+	// window. Never touches legacy plugin sessions (they lack the agent marker).
+	go reaper.RunAbandonedAgents(bgCtx, st, b, blob, cfg.LiveAgentGrace, agentReapInterval)
 
 	// Auth layer: Google web login + CLI device flow, both minting app tokens.
 	webSessions := websession.NewManager(cfg.SessionSecret, cfg.WebBaseURL)
@@ -107,6 +117,9 @@ func main() {
 	case sig := <-stop:
 		log.Printf("received %s, shutting down", sig)
 	}
+
+	// Stop background workers, then drain in-flight HTTP.
+	bgCancel()
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -151,6 +164,9 @@ func reapIdleSessions(ctx context.Context, st *store.Store, b *bus.Bus) {
 		}
 	}
 }
+
+// agentReapInterval is how often the abandoned-agent reaper scans.
+const agentReapInterval = time.Minute
 
 // router builds the full HTTP router: CORS, /health, the root /auth + /device
 // endpoints, and the /api tree behind a single unified principal middleware.
@@ -203,6 +219,9 @@ func router(cfg config.Config, h *handlers.Handler, ga *handlers.GoogleAuth, mgr
 			r.Post("/sessions", h.CreateSession)
 			r.Patch("/sessions/{id}", h.PatchSession)
 			r.Delete("/sessions/{id}", h.DeleteSession)
+			// Live shim agent stream — owner-only real-time push channel. Behind
+			// auth.Authn (NOT OptionalAuthn) so anonymous callers get 401.
+			r.Get("/sessions/{id}/agent/stream", h.AgentStream)
 			r.Post("/sessions/{id}/events", h.EmitEvent)
 			r.Post("/sessions/{id}/stop", h.Stop)
 			r.Post("/sessions/{id}/usage", h.ReportUsage)

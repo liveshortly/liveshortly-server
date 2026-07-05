@@ -87,6 +87,15 @@ func (h *Handler) PostDecision(w http.ResponseWriter, r *http.Request) {
 	// Queue it for the waiting hook. Best-effort: the event is already out.
 	_ = h.bus.DecisionPush(r.Context(), id, req.Decision)
 
+	// Push the decision to the Live shim's agent channel for instant delivery.
+	if agentMsg, aerr := json.Marshal(map[string]string{
+		"type":     "viewer_decision",
+		"decision": req.Decision,
+		"username": username,
+	}); aerr == nil {
+		_ = h.bus.PublishAgent(r.Context(), id, agentMsg)
+	}
+
 	httpx.JSON(w, http.StatusCreated, ev)
 }
 
