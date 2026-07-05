@@ -25,6 +25,10 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<Me | null>(null);
   const pathname = usePathname();
   const isSessionRoute = pathname?.startsWith("/session/") ?? false;
+  // Routes an anonymous visitor may see directly (with a guest header) instead
+  // of the marketing landing page — session watch + the public install page.
+  const isPublicRoute =
+    isSessionRoute || (pathname?.startsWith("/install") ?? false);
 
   useEffect(() => {
     let alive = true;
@@ -69,7 +73,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   }
 
   if (phase === "anon" || !user) {
-    if (isSessionRoute) {
+    if (isPublicRoute) {
       return (
         <>
           <GuestHeader />
