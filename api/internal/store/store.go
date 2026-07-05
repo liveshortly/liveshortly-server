@@ -500,6 +500,14 @@ func (st *Store) StopSession(ctx context.Context, id, storageKey string) (*Sessi
 	return st.GetSession(ctx, id)
 }
 
+// DeleteSession permanently removes a session row. Its event log
+// (session_events) and share grants (session_shares) are removed automatically
+// via ON DELETE CASCADE. Irreversible — the caller must confirm ownership.
+func (st *Store) DeleteSession(ctx context.Context, id string) error {
+	_, err := st.pool.Exec(ctx, `DELETE FROM sessions WHERE id = $1`, id)
+	return err
+}
+
 // RenameSession sets a session's title and marks it as user-named so the
 // auto-generated name is never reapplied. Returns the updated row.
 func (st *Store) RenameSession(ctx context.Context, id, title string) (*Session, error) {

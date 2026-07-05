@@ -202,6 +202,7 @@ func router(cfg config.Config, h *handlers.Handler, ga *handlers.GoogleAuth, mgr
 			r.Get("/sessions", h.ListSessions)
 			r.Post("/sessions", h.CreateSession)
 			r.Patch("/sessions/{id}", h.PatchSession)
+			r.Delete("/sessions/{id}", h.DeleteSession)
 			r.Post("/sessions/{id}/events", h.EmitEvent)
 			r.Post("/sessions/{id}/stop", h.Stop)
 			r.Post("/sessions/{id}/usage", h.ReportUsage)

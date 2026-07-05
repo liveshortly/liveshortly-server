@@ -58,6 +58,20 @@ func (b *Bus) BufferDelete(ctx context.Context, sessionID string) error {
 	return b.rdb.Del(ctx, bufferKey(sessionID), seqKey(sessionID)).Err()
 }
 
+// DeleteSessionKeys removes every persistent Redis key for a session — seq,
+// replay buffer, pending viewer queue, watcher set, and pending decision — so
+// no trace of the session survives in Redis. The pub/sub channel is transient
+// and needs no cleanup. Used by hard session deletion.
+func (b *Bus) DeleteSessionKeys(ctx context.Context, sessionID string) error {
+	return b.rdb.Del(ctx,
+		seqKey(sessionID),
+		bufferKey(sessionID),
+		pendingKey(sessionID),
+		watchersKey(sessionID),
+		decisionKey(sessionID),
+	).Err()
+}
+
 // Publish broadcasts an event (or control) JSON blob to the session channel.
 func (b *Bus) Publish(ctx context.Context, sessionID string, payload []byte) error {
 	return b.rdb.Publish(ctx, chanKey(sessionID), payload).Err()

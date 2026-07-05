@@ -40,6 +40,16 @@ func (s *Store) Put(sessionID, filename string, data []byte) (string, error) {
 	return key, nil
 }
 
+// Delete permanently removes every stored blob for a session (the whole
+// sessions/{sessionID} directory). A missing directory is not an error, so
+// this is safe to call for sessions that were never archived. Irreversible.
+func (s *Store) Delete(sessionID string) error {
+	if err := safeName(sessionID); err != nil {
+		return fmt.Errorf("session id: %w", err)
+	}
+	return os.RemoveAll(filepath.Join(s.root, "sessions", sessionID))
+}
+
 // safeName rejects empty names, absolute paths, and any ".." traversal segment.
 func safeName(name string) error {
 	if name == "" {

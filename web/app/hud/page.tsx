@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import SessionCard from "@/components/SessionCard";
 import ShareDialog from "@/components/ShareDialog";
 import PublishAction from "@/components/PublishAction";
+import DeleteSessionButton from "@/components/DeleteSessionButton";
 import { listSessions, type Session } from "@/lib/api";
 import { fmtInt } from "@/lib/utils";
 
@@ -32,6 +33,10 @@ function Dashboard() {
     setMine((cur) =>
       cur ? cur.map((s) => (s.id === u.id ? { ...s, ...u } : s)) : cur,
     );
+
+  // Drop a session from MY SESSIONS after it is permanently deleted.
+  const removeMine = (id: string) =>
+    setMine((cur) => (cur ? cur.filter((s) => s.id !== id) : cur));
 
   // Reflect the search query into the URL (shallow), preserving the status filter.
   useEffect(() => {
@@ -113,6 +118,7 @@ function Dashboard() {
         onToggle={() => setShareFor((cur) => (cur?.id === s.id ? null : s))}
         onClose={() => setShareFor(null)}
       />
+      <DeleteSessionButton id={s.id} onDeleted={() => removeMine(s.id)} compact />
     </>
   );
 

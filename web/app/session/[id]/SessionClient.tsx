@@ -2,7 +2,9 @@
 
 import { use, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Badge from "@/components/Badge";
+import DeleteSessionButton from "@/components/DeleteSessionButton";
 import EventStream from "@/components/EventStream";
 import PublicLinkDialog from "@/components/PublicLinkDialog";
 import PublishAction from "@/components/PublishAction";
@@ -31,12 +33,14 @@ export default function SessionViewer({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
+  const router = useRouter();
 
   const [meta, setMeta] = useState<SessionDetail | null>(null);
   const [events, setEvents] = useState<SessionEvent[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [noAccess, setNoAccess] = useState(false);
   const [needsAuth, setNeedsAuth] = useState(false);
+  const [deleted, setDeleted] = useState(false);
   const [conn, setConn] = useState<Connection>("idle");
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const linkBtnRef = useRef<HTMLButtonElement>(null);
@@ -117,6 +121,12 @@ export default function SessionViewer({
           setMeta((m) =>
             m ? { ...m, status: "ended", ended_at: new Date().toISOString() } : m,
           );
+          es.close();
+          return;
+        }
+        if (t === "session_deleted") {
+          // The owner deleted the session out from under a live viewer.
+          setDeleted(true);
           es.close();
           return;
         }
@@ -260,6 +270,33 @@ export default function SessionViewer({
       // audio is best-effort (autoplay policies, etc.)
     }
   }, [inputPending, inputRequest, id, meta?.title]);
+
+  if (deleted) {
+    return (
+      <div>
+        <div
+          style={{
+            border: "1px solid var(--red)",
+            background: "var(--panel)",
+            padding: "36px 20px",
+            textAlign: "center",
+          }}
+        >
+          <div className="label" style={{ fontSize: 13, color: "var(--red)" }}>
+            ⌫ SESSION DELETED
+          </div>
+          <div style={{ color: "var(--muted)", fontSize: 13, marginTop: 10 }}>
+            THE OWNER PERMANENTLY DELETED THIS SESSION. IT NO LONGER EXISTS.
+          </div>
+          <div className="label" style={{ marginTop: 16 }}>
+            <Link href="/" style={{ color: "var(--green)" }}>
+              ◂ BACK TO FEED
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (needsAuth) {
     return (
@@ -512,6 +549,12 @@ export default function SessionViewer({
                       : m,
                   )
                 }
+              />
+            )}
+            {meta?.is_owner && (
+              <DeleteSessionButton
+                id={id}
+                onDeleted={() => router.push("/hud")}
               />
             )}
           </div>

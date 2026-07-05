@@ -418,6 +418,25 @@ export async function stopSession(
   return (await res.json()) as Session;
 }
 
+/** Permanently delete a session and every trace of it — DB rows, Redis keys and
+ *  the blob archive. Owner only, IRREVERSIBLE. Resolves on success (204); a 404
+ *  is treated as already-gone. */
+export async function deleteSession(
+  id: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const res = await fetch(
+    `${browserBase()}/api/sessions/${encodeURIComponent(id)}`,
+    { method: "DELETE", signal, credentials: "include" },
+  );
+  if (!res.ok && res.status !== 404) {
+    throw new ApiError(
+      res.status,
+      `Could not delete session: ${res.status} ${res.statusText}`,
+    );
+  }
+}
+
 /** Open the session's link to anyone signed in (view-only). */
 export function enablePublicLink(id: string, signal?: AbortSignal) {
   return patchSession(id, { visibility: "link", link_role: "viewer" }, signal);
