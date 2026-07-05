@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Badge from "@/components/Badge";
 import type { Session } from "@/lib/api";
-import { fmtInt, timeAgo } from "@/lib/utils";
+import { fmtInt, tileBg, timeAgo } from "@/lib/utils";
 
 /**
  * A single rectangular feed tile — a synthesized, on-theme "thumbnail" for a
@@ -21,7 +21,7 @@ export default function FeedTile({ session }: { session: Session }) {
         display: "flex",
         flexDirection: "column",
         border: "1px solid var(--hairline)",
-        background: "var(--panel)",
+        background: tileBg(session.status),
         minHeight: 188,
         overflow: "hidden",
       }}

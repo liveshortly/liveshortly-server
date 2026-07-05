@@ -36,6 +36,15 @@ export function fmtInt(n: number | null | undefined): string {
   return n.toLocaleString("en-US");
 }
 
+/** A very subtle status tint for session tiles: a faint green wash for live,
+ *  a barely-there gray wash for ended. Theme-aware — mixes over --panel so it
+ *  works in both light and dark. */
+export function tileBg(status: "live" | "ended"): string {
+  return status === "live"
+    ? "color-mix(in srgb, var(--green) 8%, var(--panel))"
+    : "color-mix(in srgb, var(--faint) 5%, var(--panel))";
+}
+
 /** HH:MM:SS UTC clock string for a given Date. */
 export function utcClock(d: Date = new Date()): string {
   return `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(

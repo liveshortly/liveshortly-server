@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Badge from "@/components/Badge";
 import type { Session } from "@/lib/api";
-import { fmtInt, shortId, timeAgo } from "@/lib/utils";
+import { fmtInt, shortId, tileBg, timeAgo } from "@/lib/utils";
 
 /**
  * A dashboard session card — the card-grid counterpart to a SessionTable row.
@@ -32,7 +32,7 @@ export default function SessionCard({
         display: "flex",
         flexDirection: "column",
         border: "1px solid var(--hairline)",
-        background: "var(--panel)",
+        background: tileBg(session.status),
         minHeight: 172,
       }}
     >
