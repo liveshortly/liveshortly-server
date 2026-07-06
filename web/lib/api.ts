@@ -290,7 +290,7 @@ export async function postComment(
  *  decision while the capture hook is waiting on it. */
 export async function postDecision(
   id: string,
-  decision: "allow" | "deny",
+  decision: "allow" | "deny" | "always",
   signal?: AbortSignal,
 ): Promise<void> {
   const res = await fetch(

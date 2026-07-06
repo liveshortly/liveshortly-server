@@ -11,7 +11,7 @@ import (
 )
 
 type postDecisionReq struct {
-	Decision string `json:"decision"` // "allow" | "deny"
+	Decision string `json:"decision"` // "allow" | "deny" | "always"
 }
 
 // PostDecision records a viewer's answer to a live permission request so the
@@ -33,8 +33,8 @@ func (h *Handler) PostDecision(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusBadRequest, "invalid JSON body")
 		return
 	}
-	if req.Decision != "allow" && req.Decision != "deny" {
-		httpx.Error(w, http.StatusBadRequest, "decision must be allow or deny")
+	if req.Decision != "allow" && req.Decision != "deny" && req.Decision != "always" {
+		httpx.Error(w, http.StatusBadRequest, "decision must be allow, deny, or always")
 		return
 	}
 

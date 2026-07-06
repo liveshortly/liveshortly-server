@@ -872,11 +872,13 @@ function InputRequestBanner({
   canReply: boolean;
   canDecide: boolean;
 }) {
-  const [verdict, setVerdict] = useState<"allow" | "deny" | null>(null);
+  const [verdict, setVerdict] = useState<"allow" | "deny" | "always" | null>(
+    null,
+  );
   const [busy, setBusy] = useState(false);
   const showDecide = kind === "permission" && canDecide && verdict === null;
 
-  const decide = async (decision: "allow" | "deny") => {
+  const decide = async (decision: "allow" | "deny" | "always") => {
     if (busy) return;
     setBusy(true);
     try {
@@ -950,6 +952,24 @@ function InputRequestBanner({
           <button
             type="button"
             disabled={busy}
+            onClick={() => decide("always")}
+            title="Allow this, and don't ask again for the same command/tool this session"
+            className="label"
+            style={{
+              border: "1px solid var(--green)",
+              background: "transparent",
+              color: "var(--green)",
+              padding: "5px 14px",
+              fontWeight: 700,
+              cursor: busy ? "default" : "pointer",
+              opacity: busy ? 0.6 : 1,
+            }}
+          >
+            ✓✓ ALLOW ALWAYS
+          </button>
+          <button
+            type="button"
+            disabled={busy}
             onClick={() => decide("deny")}
             className="label"
             style={{
@@ -970,12 +990,18 @@ function InputRequestBanner({
         <span
           className="label"
           style={{
-            color: verdict === "allow" ? "var(--green)" : "var(--red)",
+            color: verdict === "deny" ? "var(--red)" : "var(--green)",
             textTransform: "none",
             letterSpacing: 0,
           }}
         >
-          You answered: {verdict === "allow" ? "allowed" : "denied"}.
+          You answered:{" "}
+          {verdict === "deny"
+            ? "denied"
+            : verdict === "always"
+              ? "allowed — won't ask again"
+              : "allowed"}
+          .
         </span>
       )}
       {canReply && kind !== "permission" && (
