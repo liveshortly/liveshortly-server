@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import BrandMark from "@/components/BrandMark";
 import InstallCommand from "@/components/InstallCommand";
+import LandingDemo from "@/components/LandingDemo";
 import ThemeToggle from "@/components/ThemeToggle";
 import { loginUrl } from "@/lib/api";
 
@@ -144,6 +145,16 @@ function Hero({ onSignIn }: { onSignIn: () => void }) {
         marginBottom: 8,
       }}
     >
+      <div
+        style={{
+          display: "flex",
+          gap: 32,
+          flexWrap: "wrap",
+          alignItems: "center",
+        }}
+      >
+        {/* Left — pitch + CTA */}
+        <div style={{ flex: "1 1 340px", minWidth: 0 }}>
       <div className="label" style={{ color: "var(--green)" }}>
         ◉ LIVESHORTLY
       </div>
@@ -206,6 +217,20 @@ function Hero({ onSignIn }: { onSignIn: () => void }) {
         <span className="label" style={{ color: "var(--faint)" }}>
           free · sign in with Google
         </span>
+      </div>
+        </div>
+
+        {/* Right — the playable ASCII demo of the whole flow */}
+        <div
+          style={{
+            flex: "1 1 360px",
+            minWidth: 280,
+            maxWidth: 520,
+            width: "100%",
+          }}
+        >
+          <LandingDemo />
+        </div>
       </div>
     </section>
   );
