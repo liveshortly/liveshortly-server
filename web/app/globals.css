@@ -458,12 +458,13 @@ a {
     align-items: center;
     justify-content: center;
   }
+  /* Lives inside .stream-pane (a fixed-height flex column) as its last
+     child, so it's pinned to the bottom of that box — same mechanism the
+     desktop chat-pane's composer already uses, just a different box. */
   .mobile-composer-bar {
     display: flex;
     flex-direction: column;
-    position: sticky;
-    bottom: 0;
-    background: var(--bg);
+    flex: 0 0 auto;
     padding-top: 8px;
     padding-bottom: max(8px, env(safe-area-inset-bottom));
   }

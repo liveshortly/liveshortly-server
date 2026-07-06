@@ -705,6 +705,37 @@ export default function SessionViewer({
               <TypingIndicator label="CLAUDE IS WORKING" tone="green" />
             </div>
           )}
+
+          {/* Mobile-only: composer pinned to the bottom of THIS box (same
+              pattern as the desktop chat-pane's composer below), not the
+              page — a page-level sticky element would float over whatever
+              stream content hadn't scrolled past yet. */}
+          <div className="mobile-composer-bar">
+            {isLive ? (
+              meta?.can_comment !== false ? (
+                <Composer id={id} emphasize={inputPending} />
+              ) : (
+                <div
+                  className="label"
+                  style={{
+                    border: "1px dashed var(--hairline)",
+                    color: "var(--muted)",
+                    padding: "10px 12px",
+                    textAlign: "center",
+                  }}
+                >
+                  ◦ VIEW ONLY
+                </div>
+              )
+            ) : (
+              <div
+                className="label"
+                style={{ color: "var(--faint)", textAlign: "center", padding: "8px 4px" }}
+              >
+                ● SESSION ENDED · CHAT CLOSED
+              </div>
+            )}
+          </div>
         </div>
 
         {/* RIGHT — viewer chat sidebar */}
@@ -718,35 +749,6 @@ export default function SessionViewer({
           viewerTyping={viewerIsTyping ? viewerTyping : null}
           ownerHandle={meta?.owner_handle ?? null}
         />
-      </div>
-
-      {/* Mobile-only: composer pinned below the unified stream, since the
-          desktop composer (inside .chat-pane) is hidden at this width. */}
-      <div className="mobile-composer-bar">
-        {isLive ? (
-          meta?.can_comment !== false ? (
-            <Composer id={id} emphasize={inputPending} />
-          ) : (
-            <div
-              className="label"
-              style={{
-                border: "1px dashed var(--hairline)",
-                color: "var(--muted)",
-                padding: "10px 12px",
-                textAlign: "center",
-              }}
-            >
-              ◦ VIEW ONLY
-            </div>
-          )
-        ) : (
-          <div
-            className="label"
-            style={{ color: "var(--faint)", textAlign: "center", padding: "8px 4px" }}
-          >
-            ● SESSION ENDED · CHAT CLOSED
-          </div>
-        )}
       </div>
 
       {/* Mobile-only actions sheet, opened by the ⚙ button in the header —
