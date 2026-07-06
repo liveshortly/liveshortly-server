@@ -9,24 +9,6 @@ import LandingDemo from "@/components/LandingDemo";
 import ThemeToggle from "@/components/ThemeToggle";
 import { loginUrl } from "@/lib/api";
 
-const FEATURES: [string, string, string][] = [
-  [
-    "◉",
-    "LIVE",
-    "Stream a Claude Code session as it runs — every prompt, tool call and diff, in real time.",
-  ],
-  [
-    "↺",
-    "REPLAYABLE",
-    "Every session is captured. Come back later and replay the whole thing event-by-event.",
-  ],
-  [
-    "⊕",
-    "SHAREABLE",
-    "Send a private link, share with specific people, or publish to the public feed.",
-  ],
-];
-
 function LandingInner() {
   const params = useSearchParams();
   const failed = params.has("auth_error");
@@ -57,7 +39,6 @@ function LandingInner() {
 
         <Hero onSignIn={signIn} />
         <HowItWorks />
-        <Features />
       </main>
     </div>
   );
@@ -117,9 +98,9 @@ function LandingHeader({ onSignIn }: { onSignIn: () => void }) {
             onClick={onSignIn}
             className="label"
             style={{
-              border: "1px solid var(--strong)",
-              background: "transparent",
-              color: "var(--ink)",
+              border: "1px solid var(--green)",
+              background: "var(--green)",
+              color: "var(--panel)",
               padding: "7px 14px",
               fontSize: 11,
               cursor: "pointer",
@@ -361,53 +342,6 @@ function Step({
         {body}
       </div>
       {children}
-    </div>
-  );
-}
-
-function Features() {
-  return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-        gap: 14,
-        marginTop: 20,
-      }}
-    >
-      {FEATURES.map(([glyph, title, desc]) => (
-        <div
-          key={title}
-          style={{
-            border: "1px solid var(--hairline)",
-            background: "var(--panel)",
-            padding: "16px 16px 18px",
-          }}
-        >
-          <div
-            aria-hidden
-            style={{ color: "var(--green)", fontSize: 18, lineHeight: 1 }}
-          >
-            {glyph}
-          </div>
-          <div
-            className="label"
-            style={{ fontWeight: 700, marginTop: 10, color: "var(--ink)" }}
-          >
-            {title}
-          </div>
-          <div
-            style={{
-              fontSize: 12.5,
-              lineHeight: 1.55,
-              color: "var(--muted)",
-              marginTop: 6,
-            }}
-          >
-            {desc}
-          </div>
-        </div>
-      ))}
     </div>
   );
 }
