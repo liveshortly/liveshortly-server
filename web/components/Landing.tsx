@@ -3,7 +3,6 @@
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import BrandMark from "@/components/BrandMark";
-import Feed from "@/components/Feed";
 import ThemeToggle from "@/components/ThemeToggle";
 import { loginUrl } from "@/lib/api";
 
@@ -21,7 +20,7 @@ const FEATURES: [string, string, string][] = [
   [
     "⊕",
     "SHAREABLE",
-    "Send a private link, share with specific people, or publish to the public feed below.",
+    "Send a private link, share with specific people, or publish to the public feed.",
   ],
 ];
 
@@ -55,18 +54,6 @@ function LandingInner() {
 
         <Hero onSignIn={signIn} />
         <Features />
-
-        <div
-          className="label dashed-b"
-          style={{
-            paddingBottom: 8,
-            margin: "40px 0 16px",
-            color: "var(--green)",
-          }}
-        >
-          ▣ LIVE ON LIVESHORTLY
-        </div>
-        <Feed showPlaceholderHero={false} />
       </main>
     </div>
   );
@@ -214,7 +201,7 @@ function Hero({ onSignIn }: { onSignIn: () => void }) {
           GET STARTED — SIGN UP FREE
         </button>
         <span className="label" style={{ color: "var(--faint)" }}>
-          or browse the public feed below ↓
+          free · sign in with Google
         </span>
       </div>
     </section>
