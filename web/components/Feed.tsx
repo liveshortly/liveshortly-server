@@ -147,9 +147,6 @@ export default function Feed({
 
   return (
     <div>
-      {/* ── Activity ticker — real recent sessions, only if any exist ── */}
-      {!searching && items.length > 0 && <Ticker items={items} />}
-
       {/* ── Hero — featured live/top session, or the value-prop placeholder ── */}
       {!searching &&
         (featured || (firstLoaded && showPlaceholderHero)) && (
@@ -282,90 +279,6 @@ export default function Feed({
 /* ────────────────────────────────────────────────────────────────────────
    Sub-components
    ──────────────────────────────────────────────────────────────────────── */
-
-/** Scrolling marquee of real recent activity. Duplicated track = seamless loop. */
-function Ticker({ items }: { items: Session[] }) {
-  const cells = items.slice(0, 16).map((s) => ({
-    id: s.id,
-    handle: s.owner_handle,
-    title: s.title,
-    live: s.status === "live",
-    detail:
-      s.status === "live"
-        ? "is live"
-        : `${fmtInt(s.event_count)} events · ${timeAgo(
-            s.ended_at ?? s.created_at,
-          )}`,
-  }));
-  const Item = ({ c }: { c: (typeof cells)[number] }) => (
-    <Link
-      href={`/session/${c.id}`}
-      className="label"
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 8,
-        padding: "0 20px",
-        color: "var(--muted)",
-        borderRight: "1px solid var(--hairline)",
-      }}
-    >
-      <span
-        className={c.live ? "live-dot" : undefined}
-        style={
-          c.live
-            ? undefined
-            : {
-                width: 6,
-                height: 6,
-                borderRadius: 9999,
-                background: "var(--faint)",
-                display: "inline-block",
-              }
-        }
-      />
-      <span style={{ color: "var(--ink)" }}>@{c.handle}</span>
-      <span style={{ color: "var(--faint)" }}>·</span>
-      <span
-        style={{
-          maxWidth: 240,
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
-        }}
-      >
-        {c.title || "untitled session"}
-      </span>
-      <span style={{ color: "var(--faint)" }}>·</span>
-      <span style={{ color: c.live ? "var(--green)" : "var(--faint)" }}>
-        {c.detail}
-      </span>
-    </Link>
-  );
-  return (
-    <div
-      className="ticker-wrap"
-      style={{
-        border: "1px solid var(--hairline)",
-        background: "var(--panel)",
-        overflow: "hidden",
-        marginBottom: 18,
-        height: 38,
-        display: "flex",
-        alignItems: "center",
-      }}
-    >
-      <div className="ticker-track">
-        {cells.map((c, i) => (
-          <Item key={`a${i}`} c={c} />
-        ))}
-        {cells.map((c, i) => (
-          <Item key={`b${i}`} c={c} />
-        ))}
-      </div>
-    </div>
-  );
-}
 
 /** The featured hero. With no session to feature, renders the value-prop
  *  placeholder — never fabricated session data. */
