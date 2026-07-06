@@ -163,31 +163,31 @@ export default async function InstallPage() {
           NO RELEASES PUBLISHED YET
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {releases.map((r) => {
             const isLatest = r.version === latest;
             const pinned = `${installBase} -s -- --version ${r.version}`;
             return (
-              <section
+              <div
                 key={r.version}
                 style={{
-                  border: "1px solid var(--hairline)",
-                  borderLeft: `3px solid ${isLatest ? "var(--green)" : "var(--hairline)"}`,
-                  background: "var(--panel)",
-                  padding: "16px 16px 18px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  flexWrap: "wrap",
                 }}
               >
-                <div
+                <span
                   style={{
-                    display: "flex",
+                    display: "inline-flex",
                     alignItems: "center",
-                    gap: 10,
-                    marginBottom: 12,
+                    gap: 8,
+                    minWidth: 118,
                   }}
                 >
                   <span
                     className="tnum"
-                    style={{ fontSize: 18, fontWeight: 700, color: "var(--ink)" }}
+                    style={{ fontSize: 15, fontWeight: 700, color: "var(--ink)" }}
                   >
                     {r.version}
                   </span>
@@ -197,67 +197,18 @@ export default async function InstallPage() {
                       style={{
                         border: "1px solid var(--green)",
                         color: "var(--green)",
-                        padding: "2px 8px",
+                        padding: "1px 6px",
                         fontSize: 9,
                       }}
                     >
-                      ● LATEST
+                      LATEST
                     </span>
                   )}
+                </span>
+                <div style={{ flex: 1, minWidth: 240 }}>
+                  <InstallCommand command={pinned} />
                 </div>
-
-                <InstallCommand command={pinned} />
-
-                {/* Direct downloads per platform */}
-                <div
-                  className="label"
-                  style={{ color: "var(--faint)", margin: "14px 0 8px" }}
-                >
-                  DIRECT DOWNLOAD
-                </div>
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
-                    gap: 8,
-                  }}
-                >
-                  {r.targets.map((t) => (
-                    <div
-                      key={t}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        gap: 8,
-                        border: "1px solid var(--hairline)",
-                        background: "var(--bg)",
-                        padding: "8px 10px",
-                      }}
-                    >
-                      <span className="label" style={{ color: "var(--ink)" }}>
-                        {t}
-                      </span>
-                      <span style={{ display: "inline-flex", gap: 8 }}>
-                        <a
-                          href={`/install/live-${r.version}-${t}.gz`}
-                          className="label"
-                          style={{ color: "var(--green)" }}
-                        >
-                          .gz
-                        </a>
-                        <a
-                          href={`/install/live-${r.version}-${t}.sha256`}
-                          className="label"
-                          style={{ color: "var(--muted)" }}
-                        >
-                          sha256
-                        </a>
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </section>
+              </div>
             );
           })}
         </div>
