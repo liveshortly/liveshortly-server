@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import Badge from "@/components/Badge";
+import { useAuth } from "@/components/AuthContext";
+import BrandMark from "@/components/BrandMark";
 import { listSessions, type Session } from "@/lib/api";
 import { timeAgo } from "@/lib/utils";
 
@@ -20,6 +21,7 @@ export default function WorkspaceSidebar() {
   const activeId = pathname.startsWith("/session/")
     ? decodeURIComponent(pathname.split("/")[2] ?? "")
     : null;
+  const user = useAuth();
 
   const [mine, setMine] = useState<Session[] | null>(null);
   const [shared, setShared] = useState<Session[] | null>(null);
@@ -93,6 +95,11 @@ export default function WorkspaceSidebar() {
 
   return (
     <div className="ws-sidebar-inner">
+      <Link href="/feed" className="ws-brand" aria-label="Go to the feed">
+        <BrandMark />
+        LiveShortly
+      </Link>
+
       {/* Search */}
       <div style={{ padding: "10px 10px 6px" }}>
         <div
@@ -191,6 +198,23 @@ export default function WorkspaceSidebar() {
           </>
         )}
       </div>
+
+      <Link href="/profile" className="ws-profile-footer">
+        <span className="ws-profile-avatar" aria-hidden>
+          {(user?.name ?? user?.email ?? "?").slice(0, 1).toUpperCase()}
+        </span>
+        <span className="ws-profile-info">
+          <span className="ws-profile-name">
+            {user?.name ?? user?.email ?? "Account"}
+          </span>
+          {user?.email && (
+            <span className="ws-profile-email">{user.email}</span>
+          )}
+        </span>
+        <span className="ws-profile-arrow" aria-hidden>
+          ›
+        </span>
+      </Link>
     </div>
   );
 }

@@ -249,6 +249,65 @@ a {
   width: 100%;
   min-height: 0;
 }
+.ws-brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-shrink: 0;
+  padding: 14px 12px 10px;
+  border-bottom: 1px solid var(--hairline);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+.ws-profile-footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  padding: 10px 12px;
+  border-top: 1px solid var(--hairline);
+  color: var(--ink);
+}
+.ws-profile-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--strong);
+  color: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+}
+.ws-profile-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+.ws-profile-name {
+  font-size: 12px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ws-profile-email {
+  font-size: 10px;
+  color: var(--faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ws-profile-arrow {
+  flex-shrink: 0;
+  color: var(--faint);
+  font-size: 14px;
+}
 .ws-main {
   flex: 1;
   min-width: 0;
@@ -349,6 +408,25 @@ a {
   border: 1px solid var(--hairline);
   background: var(--panel);
 }
+
+/* Mobile-only gear button (opens the actions sheet) and composer bar (the
+   desktop composer normally lives inside .chat-pane, which is hidden below
+   860px since EventStream already renders viewer chat inline). Hidden on
+   desktop by default; the media query below turns them on. */
+.session-gear-btn {
+  display: none;
+  flex-shrink: 0;
+  border: 1px solid var(--hairline);
+  background: transparent;
+  color: var(--ink);
+  font-size: 15px;
+  padding: 5px 9px;
+  cursor: pointer;
+}
+.mobile-composer-bar {
+  display: none;
+}
+
 @media (max-width: 860px) {
   .session-page {
     height: auto;
@@ -365,12 +443,60 @@ a {
      the two panes end up fighting over space (chat overlapping the stream). */
   .stream-pane {
     flex: 0 0 auto;
-    height: 60vh;
+    height: 66vh;
   }
+  /* EventStream already interleaves viewer chat inline (bubble types include
+     "viewer_comment"), so the dedicated chat sidebar is redundant here. */
   .chat-pane {
-    flex: 0 0 auto;
-    height: 46vh;
+    display: none;
   }
+  .session-actions {
+    display: none;
+  }
+  .session-gear-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .mobile-composer-bar {
+    display: flex;
+    flex-direction: column;
+    position: sticky;
+    bottom: 0;
+    background: var(--bg);
+    padding-top: 8px;
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+  }
+}
+
+/* Mobile actions sheet (session viewer ⚙ button) — a bottom sheet reusing the
+   real ShareToTwitter / PublishAction / EndButton / DeleteSessionButton
+   components, just stacked full-width instead of a wrapping button row. */
+.msheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: flex-end;
+}
+.msheet {
+  width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
+  background: var(--panel);
+  border-top: 1px solid var(--hairline);
+  padding: 6px 0 max(14px, env(safe-area-inset-bottom));
+}
+.msheet-handle {
+  width: 34px;
+  height: 4px;
+  background: var(--hairline);
+  border-radius: 2px;
+  margin: 8px auto 10px;
+}
+.msheet-row-wrap {
+  padding: 6px 14px;
 }
 
 /* Columns/elements hidden on small screens to keep tables readable. */

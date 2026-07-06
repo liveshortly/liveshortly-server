@@ -45,6 +45,12 @@ export default function SessionViewer({
   const [conn, setConn] = useState<Connection>("idle");
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const linkBtnRef = useRef<HTMLButtonElement>(null);
+  // Mobile-only: the ⚙ actions sheet, and its own Share Link trigger (kept
+  // separate from the desktop one above since both can be simultaneously
+  // mounted — the desktop button just sits hidden via CSS on narrow screens).
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [mobileLinkOpen, setMobileLinkOpen] = useState(false);
+  const mobileLinkBtnRef = useRef<HTMLButtonElement>(null);
   // Ephemeral "viewer is typing" presence (from SSE typing frames).
   const [viewerTyping, setViewerTyping] = useState<{
     who: string;
@@ -493,70 +499,87 @@ export default function SessionViewer({
               </span>
             )}
             {meta && <Badge status={meta.status} size="md" />}
-            {/* Share to X — makes it public (owner) + opens a pre-filled tweet. */}
+            <div
+              className="session-actions"
+              style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}
+            >
+              {/* Share to X — makes it public (owner) + opens a pre-filled tweet. */}
+              {meta && (
+                <ShareToTwitter
+                  session={meta}
+                  onChanged={(u) => setMeta((m) => (m ? { ...m, ...u } : m))}
+                />
+              )}
+              {/* Publish / Unpublish — owner only, beside the status badge. */}
+              {meta?.is_owner && (
+                <PublishAction
+                  session={meta}
+                  onChanged={(u) => setMeta((m) => (m ? { ...m, ...u } : m))}
+                />
+              )}
+              {meta?.is_owner && (
+                <span style={{ display: "inline-block" }}>
+                  <button
+                    ref={linkBtnRef}
+                    type="button"
+                    onClick={() => setLinkDialogOpen((v) => !v)}
+                    className="label"
+                    aria-haspopup="dialog"
+                    aria-expanded={linkDialogOpen}
+                    style={{
+                      border: "1px solid var(--strong)",
+                      background: linkDialogOpen ? "var(--strong)" : "transparent",
+                      color: linkDialogOpen ? "var(--panel)" : "var(--ink)",
+                      padding: "5px 10px",
+                      fontSize: 10,
+                      cursor: "pointer",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    ⊕ SHARE LINK
+                  </button>
+                  {linkDialogOpen && (
+                    <PublicLinkDialog
+                      sessionId={id}
+                      title={meta.title}
+                      visibility={meta.visibility ?? "private"}
+                      anchorEl={linkBtnRef.current}
+                      onClose={() => setLinkDialogOpen(false)}
+                      onChanged={(u) => setMeta((m) => (m ? { ...m, ...u } : m))}
+                    />
+                  )}
+                </span>
+              )}
+              {meta?.is_owner && meta.status === "live" && (
+                <EndButton
+                  id={id}
+                  onEnded={() =>
+                    setMeta((m) =>
+                      m
+                        ? { ...m, status: "ended", ended_at: new Date().toISOString() }
+                        : m,
+                    )
+                  }
+                />
+              )}
+              {meta?.is_owner && (
+                <DeleteSessionButton
+                  id={id}
+                  onDeleted={() => router.push("/hud")}
+                />
+              )}
+            </div>
+            {/* Mobile-only: collapses the row above into a single ⚙ button. */}
             {meta && (
-              <ShareToTwitter
-                session={meta}
-                onChanged={(u) => setMeta((m) => (m ? { ...m, ...u } : m))}
-              />
-            )}
-            {/* Publish / Unpublish — owner only, beside the status badge. */}
-            {meta?.is_owner && (
-              <PublishAction
-                session={meta}
-                onChanged={(u) => setMeta((m) => (m ? { ...m, ...u } : m))}
-              />
-            )}
-            {meta?.is_owner && (
-              <span style={{ display: "inline-block" }}>
-                <button
-                  ref={linkBtnRef}
-                  type="button"
-                  onClick={() => setLinkDialogOpen((v) => !v)}
-                  className="label"
-                  aria-haspopup="dialog"
-                  aria-expanded={linkDialogOpen}
-                  style={{
-                    border: "1px solid var(--strong)",
-                    background: linkDialogOpen ? "var(--strong)" : "transparent",
-                    color: linkDialogOpen ? "var(--panel)" : "var(--ink)",
-                    padding: "5px 10px",
-                    fontSize: 10,
-                    cursor: "pointer",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  ⊕ SHARE LINK
-                </button>
-                {linkDialogOpen && (
-                  <PublicLinkDialog
-                    sessionId={id}
-                    title={meta.title}
-                    visibility={meta.visibility ?? "private"}
-                    anchorEl={linkBtnRef.current}
-                    onClose={() => setLinkDialogOpen(false)}
-                    onChanged={(u) => setMeta((m) => (m ? { ...m, ...u } : m))}
-                  />
-                )}
-              </span>
-            )}
-            {meta?.is_owner && meta.status === "live" && (
-              <EndButton
-                id={id}
-                onEnded={() =>
-                  setMeta((m) =>
-                    m
-                      ? { ...m, status: "ended", ended_at: new Date().toISOString() }
-                      : m,
-                  )
-                }
-              />
-            )}
-            {meta?.is_owner && (
-              <DeleteSessionButton
-                id={id}
-                onDeleted={() => router.push("/hud")}
-              />
+              <button
+                type="button"
+                className="session-gear-btn label"
+                onClick={() => setMoreOpen(true)}
+                aria-label="Session actions"
+                title="Session actions"
+              >
+                ⚙
+              </button>
             )}
           </div>
         </div>
@@ -696,6 +719,137 @@ export default function SessionViewer({
           ownerHandle={meta?.owner_handle ?? null}
         />
       </div>
+
+      {/* Mobile-only: composer pinned below the unified stream, since the
+          desktop composer (inside .chat-pane) is hidden at this width. */}
+      <div className="mobile-composer-bar">
+        {isLive ? (
+          meta?.can_comment !== false ? (
+            <Composer id={id} emphasize={inputPending} />
+          ) : (
+            <div
+              className="label"
+              style={{
+                border: "1px dashed var(--hairline)",
+                color: "var(--muted)",
+                padding: "10px 12px",
+                textAlign: "center",
+              }}
+            >
+              ◦ VIEW ONLY
+            </div>
+          )
+        ) : (
+          <div
+            className="label"
+            style={{ color: "var(--faint)", textAlign: "center", padding: "8px 4px" }}
+          >
+            ● SESSION ENDED · CHAT CLOSED
+          </div>
+        )}
+      </div>
+
+      {/* Mobile-only actions sheet, opened by the ⚙ button in the header —
+          reuses the same owner-action components as the desktop row above. */}
+      {moreOpen && meta && (
+        <div
+          className="msheet-backdrop"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setMoreOpen(false);
+          }}
+        >
+          <div className="msheet" role="dialog" aria-label="Session actions">
+            <div className="msheet-handle" />
+            <div className="msheet-row-wrap">
+              <ShareToTwitter
+                session={meta}
+                onChanged={(u) => setMeta((m) => (m ? { ...m, ...u } : m))}
+              />
+            </div>
+            {meta.is_owner && (
+              <div className="msheet-row-wrap">
+                <PublishAction
+                  session={meta}
+                  onChanged={(u) => setMeta((m) => (m ? { ...m, ...u } : m))}
+                />
+              </div>
+            )}
+            {meta.is_owner && (
+              <div className="msheet-row-wrap">
+                <button
+                  ref={mobileLinkBtnRef}
+                  type="button"
+                  onClick={() => setMobileLinkOpen((v) => !v)}
+                  className="label"
+                  aria-haspopup="dialog"
+                  aria-expanded={mobileLinkOpen}
+                  style={{
+                    border: "1px solid var(--strong)",
+                    background: mobileLinkOpen ? "var(--strong)" : "transparent",
+                    color: mobileLinkOpen ? "var(--panel)" : "var(--ink)",
+                    padding: "5px 10px",
+                    fontSize: 10,
+                    cursor: "pointer",
+                  }}
+                >
+                  ⊕ SHARE LINK
+                </button>
+              </div>
+            )}
+            {meta.is_owner && meta.status === "live" && (
+              <div className="msheet-row-wrap">
+                <EndButton
+                  id={id}
+                  onEnded={() => {
+                    setMeta((m) =>
+                      m
+                        ? { ...m, status: "ended", ended_at: new Date().toISOString() }
+                        : m,
+                    );
+                    setMoreOpen(false);
+                  }}
+                />
+              </div>
+            )}
+            {meta.is_owner && (
+              <div className="msheet-row-wrap">
+                <DeleteSessionButton
+                  id={id}
+                  onDeleted={() => router.push("/hud")}
+                />
+              </div>
+            )}
+            <div className="msheet-row-wrap">
+              <button
+                type="button"
+                className="label"
+                onClick={() => setMoreOpen(false)}
+                style={{
+                  width: "100%",
+                  border: "1px solid var(--hairline)",
+                  background: "transparent",
+                  color: "var(--muted)",
+                  padding: "9px 10px",
+                  fontSize: 11,
+                  cursor: "pointer",
+                }}
+              >
+                CLOSE
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {mobileLinkOpen && meta && (
+        <PublicLinkDialog
+          sessionId={id}
+          title={meta.title}
+          visibility={meta.visibility ?? "private"}
+          anchorEl={mobileLinkBtnRef.current}
+          onClose={() => setMobileLinkOpen(false)}
+          onChanged={(u) => setMeta((m) => (m ? { ...m, ...u } : m))}
+        />
+      )}
     </div>
   );
 }
