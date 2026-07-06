@@ -31,7 +31,9 @@ export default function InstallCommand({
         border: "1px solid var(--hairline)",
         background: "var(--bg)",
         padding: "12px 14px",
-        overflowX: "auto",
+        // Never let this box push its container wider than available.
+        minWidth: 0,
+        maxWidth: "100%",
       }}
     >
       <span style={{ color: "var(--green)", flexShrink: 0 }} aria-hidden>
@@ -43,6 +45,10 @@ export default function InstallCommand({
           color: "var(--ink)",
           whiteSpace: "nowrap",
           flex: 1,
+          // The command itself is the scroll box: a too-long command scrolls
+          // HERE (inside the cell) instead of the whole page, and COPY stays put.
+          minWidth: 0,
+          overflowX: "auto",
         }}
       >
         {command}

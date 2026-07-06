@@ -62,7 +62,7 @@ export default async function InstallPage() {
   const installBase = `curl -fsSL ${SITE_URL}/install.sh | bash`;
 
   return (
-    <div style={{ maxWidth: 820, margin: "0 auto" }}>
+    <div style={{ maxWidth: 1080, margin: "0 auto" }}>
       {/* Header */}
       <div style={{ marginBottom: 22 }}>
         <div className="label" style={{ color: "var(--green)" }}>
@@ -240,7 +240,7 @@ export default async function InstallPage() {
                     </span>
                   )}
                 </span>
-                <div style={{ flex: 1, minWidth: 240 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
                   <InstallCommand command={pinned} />
                 </div>
               </div>
