@@ -20,6 +20,16 @@ export default function HudHeader({ user }: { user?: Me | null }) {
   const [data, setData] = useState<Stats | null>(null);
   const [ok, setOk] = useState<boolean>(true);
   const [signingOut, setSigningOut] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  // Collapse the header into a slim bar once the page is scrolled a little,
+  // so the wordmark + tabs stay pinned while the stats/status make way.
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 20);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   const signOut = async () => {
     setSigningOut(true);
@@ -56,22 +66,25 @@ export default function HudHeader({ user }: { user?: Me | null }) {
   const liveNow = data?.live_now ?? 0;
 
   return (
-    <>
+    <div style={{ position: "sticky", top: 0, zIndex: 50 }}>
     <header
       style={{
         borderBottom: "1px solid var(--strong)",
         background: "var(--panel)",
+        boxShadow: scrolled ? "0 6px 20px -12px rgba(0,0,0,0.35)" : "none",
+        transition: "box-shadow 0.25s ease",
       }}
     >
       <div
         style={{
           maxWidth: 1180,
           margin: "0 auto",
-          padding: "12px 16px",
+          padding: scrolled ? "7px 16px" : "12px 16px",
           display: "flex",
-          alignItems: "stretch",
+          alignItems: "center",
           gap: 16,
           flexWrap: "wrap",
+          transition: "padding 0.25s ease",
         }}
       >
         {/* Wordmark + status */}
@@ -84,31 +97,64 @@ export default function HudHeader({ user }: { user?: Me | null }) {
             minWidth: 220,
           }}
         >
-          <Link
-            href="/"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 9,
-              fontSize: 18,
-              fontWeight: 700,
-              letterSpacing: "-0.02em",
-            }}
-          >
-            <BrandMark />
-            LiveShortly
-            <span className="blink" style={{ color: "var(--muted)" }}>
-              _
-            </span>
-          </Link>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <Link
+              href="/"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 9,
+                fontSize: scrolled ? 15 : 18,
+                fontWeight: 700,
+                letterSpacing: "-0.02em",
+                transition: "font-size 0.25s ease",
+              }}
+            >
+              <BrandMark />
+              LiveShortly
+              <span className="blink" style={{ color: "var(--muted)" }}>
+                _
+              </span>
+            </Link>
+            {/* Compact live badge — only while collapsed, so status is never lost. */}
+            {scrolled && (
+              <span
+                className="label"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  color: liveNow > 0 ? "var(--green)" : "var(--faint)",
+                }}
+              >
+                {liveNow > 0 ? (
+                  <span className="live-dot" />
+                ) : (
+                  <span
+                    style={{
+                      width: 6,
+                      height: 6,
+                      background: "var(--faint)",
+                      display: "inline-block",
+                    }}
+                  />
+                )}
+                {liveNow > 0 ? `${fmtInt(liveNow)} LIVE` : "IDLE"}
+              </span>
+            )}
+          </div>
           <div
             className="label"
             style={{
-              marginTop: 6,
               display: "flex",
               alignItems: "center",
               gap: 8,
               color: ok ? "var(--muted)" : "var(--red)",
+              overflow: "hidden",
+              marginTop: scrolled ? 0 : 6,
+              maxHeight: scrolled ? 0 : 24,
+              opacity: scrolled ? 0 : 1,
+              transition: "max-height 0.25s ease, opacity 0.2s ease, margin-top 0.25s ease",
             }}
           >
             <span
@@ -144,13 +190,19 @@ export default function HudHeader({ user }: { user?: Me | null }) {
           </div>
         </div>
 
-        {/* Stat panels — clicking filters the session list by status. */}
+        {/* Stat panels — clicking filters the session list by status.
+            Collapse away once scrolled; the compact live badge covers status. */}
         <div
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(2, minmax(120px, 1fr))",
             gap: 12,
-            flex: "1 1 320px",
+            flex: scrolled ? "0 1 0" : "1 1 320px",
+            maxWidth: scrolled ? 0 : 480,
+            opacity: scrolled ? 0 : 1,
+            overflow: "hidden",
+            pointerEvents: scrolled ? "none" : "auto",
+            transition: "flex-basis 0.25s ease, max-width 0.25s ease, opacity 0.2s ease",
           }}
         >
           <StatTile
@@ -166,15 +218,19 @@ export default function HudHeader({ user }: { user?: Me | null }) {
           />
         </div>
 
-        {/* Theme stacked above user + sign-out for a leaner column. */}
+        {/* Theme + user: stacked when open, inline when collapsed so the slim
+            bar stays a single row. */}
         <div
           style={{
             display: "flex",
-            flexDirection: "column",
-            alignItems: "flex-end",
-            gap: 8,
+            flexDirection: scrolled ? "row" : "column",
+            alignItems: "center",
+            justifyContent: "flex-end",
+            gap: scrolled ? 12 : 8,
+            marginLeft: "auto",
             borderLeft: "1px solid var(--hairline)",
             paddingLeft: 14,
+            transition: "gap 0.25s ease",
           }}
         >
           <ThemeToggle />
@@ -224,7 +280,7 @@ export default function HudHeader({ user }: { user?: Me | null }) {
       </div>
     </header>
     <HudTabs admin={!!user?.is_admin} />
-    </>
+    </div>
   );
 }
 
