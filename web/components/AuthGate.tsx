@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import BrandMark from "@/components/BrandMark";
 import HudHeader from "@/components/HudHeader";
@@ -113,7 +114,9 @@ function GuestHeader() {
           flexWrap: "wrap",
         }}
       >
-        <span
+        <Link
+          href="/"
+          aria-label="LiveShortly home"
           style={{
             display: "flex",
             alignItems: "center",
@@ -128,7 +131,7 @@ function GuestHeader() {
           <span className="blink" style={{ color: "var(--muted)" }}>
             _
           </span>
-        </span>
+        </Link>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <ThemeToggle />
           <a
