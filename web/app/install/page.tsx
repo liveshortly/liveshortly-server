@@ -170,11 +170,11 @@ export default async function InstallPage() {
         </div>
       </section>
 
-      {/* Experimental / preview */}
+      {/* Permission control (new in v0.3.0) */}
       <section
         style={{
-          border: "1px dashed var(--amber)",
-          background: "color-mix(in srgb, var(--amber) 8%, var(--panel))",
+          border: "1px solid var(--hairline)",
+          background: "var(--panel)",
           padding: "18px 18px 20px",
           marginBottom: 20,
         }}
@@ -188,12 +188,12 @@ export default async function InstallPage() {
             gap: 10,
             paddingBottom: 8,
             marginBottom: 14,
-            color: "var(--amber)",
+            color: "var(--ink)",
           }}
         >
-          <span>🧪 EXPERIMENTAL — PREVIEW</span>
-          <span className="label" style={{ color: "var(--faint)" }}>
-            OFF THE STABLE CHANNEL
+          <span>⌐ PERMISSION CONTROL</span>
+          <span className="label" style={{ color: "var(--green)" }}>
+            NEW IN v0.3.0
           </span>
         </div>
         <p
@@ -204,20 +204,21 @@ export default async function InstallPage() {
             margin: "0 0 12px",
           }}
         >
-          Answer Claude&apos;s tool-permission prompts from the web (or a clean
-          tmux popup). Preview builds are pinned — <code>live update</code>{" "}
-          won&apos;t pull them, so your normal install stays put.
+          Approve Claude&apos;s tool runs from the web — or a clean tmux popup —
+          instead of the terminal. Both opt-in; plain <code>live claude</code> is
+          unchanged.
         </p>
-        <InstallCommand command="live update --version v0.3.0-experimental.0.0.3" />
-        <div className="label" style={{ color: "var(--faint)", marginTop: 12, lineHeight: 1.8 }}>
-          THEN, PER SESSION (both off by default):
+        <div className="label" style={{ color: "var(--faint)", lineHeight: 1.9 }}>
+          <code>LIVE_WEB_PERMS=1 live claude</code> — allow / deny / allow-always
+          from the session page
           <br />
-          <code>LIVE_WEB_PERMS=1 live claude</code> — approve from the session page
-          <br />
-          <code>LIVE_TMUX=1 live claude</code> — + a CLI popup to answer at the
-          keyboard (needs tmux)
-          <br />
-          BACK TO STABLE · <code>live update</code>
+          <code>LIVE_TMUX=1 live claude</code> — + a CLI popup you answer at the
+          keyboard
+        </div>
+        <div className="label" style={{ color: "var(--amber)", marginTop: 12 }}>
+          🪄 install <code>tmux</code> for the best experience —{" "}
+          <code>brew install tmux</code> / your package manager (optional; the
+          web path works without it)
         </div>
       </section>
 
