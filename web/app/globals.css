@@ -409,6 +409,17 @@ a {
   background: var(--panel);
 }
 
+/* NOTE: this must stay a plain className rule (no inline style on the
+   element) — an inline style would beat the mobile media query below no
+   matter its specificity, since inline styles always win over stylesheet
+   rules. That was a real bug here once already. */
+.session-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 /* Mobile-only gear button (opens the actions sheet) and composer bar (the
    desktop composer normally lives inside .chat-pane, which is hidden below
    860px since EventStream already renders viewer chat inline). Hidden on

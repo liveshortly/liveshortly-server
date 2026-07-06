@@ -499,10 +499,7 @@ export default function SessionViewer({
               </span>
             )}
             {meta && <Badge status={meta.status} size="md" />}
-            <div
-              className="session-actions"
-              style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}
-            >
+            <div className="session-actions">
               {/* Share to X — makes it public (owner) + opens a pre-filled tweet. */}
               {meta && (
                 <ShareToTwitter
