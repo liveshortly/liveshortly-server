@@ -170,6 +170,57 @@ export default async function InstallPage() {
         </div>
       </section>
 
+      {/* Experimental / preview */}
+      <section
+        style={{
+          border: "1px dashed var(--amber)",
+          background: "color-mix(in srgb, var(--amber) 8%, var(--panel))",
+          padding: "18px 18px 20px",
+          marginBottom: 20,
+        }}
+      >
+        <div
+          className="label dashed-b"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 10,
+            paddingBottom: 8,
+            marginBottom: 14,
+            color: "var(--amber)",
+          }}
+        >
+          <span>🧪 EXPERIMENTAL — PREVIEW</span>
+          <span className="label" style={{ color: "var(--faint)" }}>
+            OFF THE STABLE CHANNEL
+          </span>
+        </div>
+        <p
+          style={{
+            color: "var(--muted)",
+            fontSize: 13.5,
+            lineHeight: 1.6,
+            margin: "0 0 12px",
+          }}
+        >
+          Answer Claude&apos;s tool-permission prompts from the web (or a clean
+          tmux popup). Preview builds are pinned — <code>live update</code>{" "}
+          won&apos;t pull them, so your normal install stays put.
+        </p>
+        <InstallCommand command="live update --version v0.3.0-experimental.0.0.3" />
+        <div className="label" style={{ color: "var(--faint)", marginTop: 12, lineHeight: 1.8 }}>
+          THEN, PER SESSION (both off by default):
+          <br />
+          <code>LIVE_WEB_PERMS=1 live claude</code> — approve from the session page
+          <br />
+          <code>LIVE_TMUX=1 live claude</code> — + a CLI popup to answer at the
+          keyboard (needs tmux)
+          <br />
+          BACK TO STABLE · <code>live update</code>
+        </div>
+      </section>
+
       {/* All versions */}
       <div
         className="label dashed-b"
