@@ -193,7 +193,7 @@ export default async function InstallPage() {
         >
           <span>⌐ PERMISSION CONTROL</span>
           <span className="label" style={{ color: "var(--green)" }}>
-            NEW IN v0.3.0
+            ON BY DEFAULT
           </span>
         </div>
         <p
@@ -204,16 +204,19 @@ export default async function InstallPage() {
             margin: "0 0 12px",
           }}
         >
-          Approve Claude&apos;s tool runs from the web — or a clean tmux popup —
-          instead of the terminal. Both opt-in; plain <code>live claude</code> is
-          unchanged.
+          <code>live claude</code> now lets you approve Claude&apos;s tool runs
+          from a tmux popup (if tmux is installed) or the session page — allow /
+          deny / allow-always, owner only.
         </p>
         <div className="label" style={{ color: "var(--faint)", lineHeight: 1.9 }}>
-          <code>LIVE_WEB_PERMS=1 live claude</code> — allow / deny / allow-always
-          from the session page
+          <code>live claude</code> — permission control on (tmux popup if
+          present)
           <br />
-          <code>LIVE_TMUX=1 live claude</code> — + a CLI popup you answer at the
-          keyboard
+          <code>LIVE_WEB_PERMS=0 live claude</code> — turn it off (native
+          behavior)
+          <br />
+          <code>LIVE_TMUX=0 live claude</code> — gate, but answer only from the
+          web
         </div>
         <div className="label" style={{ color: "var(--amber)", marginTop: 12 }}>
           🪄 install <code>tmux</code> for the best experience —{" "}

@@ -1,7 +1,6 @@
 "use client";
 
 import { Suspense, useEffect, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
 import SessionCard from "@/components/SessionCard";
 import ShareDialog from "@/components/ShareDialog";
 import PublishAction from "@/components/PublishAction";
@@ -10,57 +9,29 @@ import { listSessions, type Session } from "@/lib/api";
 import { fmtInt } from "@/lib/utils";
 
 const POLL_MS = 5000;
-const SEARCH_DEBOUNCE_MS = 300;
 
 function Dashboard() {
-  const router = useRouter();
-  const params = useSearchParams();
-
-  const [query, setQuery] = useState<string>(params.get("q") ?? "");
-  const statusParam = params.get("status");
-  const status: "all" | "live" | "ended" =
-    statusParam === "live" || statusParam === "ended" ? statusParam : "all";
   const [mine, setMine] = useState<Session[] | null>(null);
-  const [shared, setShared] = useState<Session[] | null>(null);
   const [mineErr, setMineErr] = useState<string | null>(null);
-  const [sharedErr, setSharedErr] = useState<string | null>(null);
 
   // Which owned session has its invite (share) popover open (at most one).
   const [shareFor, setShareFor] = useState<Session | null>(null);
 
-  // Merge an updated session (e.g. after toggling its link) into MY SESSIONS.
   const updateMine = (u: Session) =>
     setMine((cur) =>
       cur ? cur.map((s) => (s.id === u.id ? { ...s, ...u } : s)) : cur,
     );
-
-  // Drop a session from MY SESSIONS after it is permanently deleted.
   const removeMine = (id: string) =>
     setMine((cur) => (cur ? cur.filter((s) => s.id !== id) : cur));
 
-  // Reflect the search query into the URL (shallow), preserving the status filter.
-  useEffect(() => {
-    const qs = new URLSearchParams();
-    if (query) qs.set("q", query);
-    if (status !== "all") qs.set("status", status);
-    const s = qs.toString();
-    router.replace(s ? `/hud?${s}` : "/hud", { scroll: false });
-  }, [query, status, router]);
-
-  // MY SESSIONS — scope=mine, debounced search, polled, filtered by status.
-  const mineReq = useRef(0);
+  // Poll my sessions. The main window only surfaces LIVE ones now — the full
+  // archive lives in the sidebar — so we just track the current live set.
   useEffect(() => {
     let alive = true;
-    let ctrl = new AbortController();
     const run = async () => {
-      const my = ++mineReq.current;
-      ctrl = new AbortController();
       try {
-        const r = await listSessions(
-          { scope: "mine", status, q: query, limit: 100 },
-          ctrl.signal,
-        );
-        if (alive && my === mineReq.current) {
+        const r = await listSessions({ scope: "mine", status: "all", limit: 100 });
+        if (alive) {
           setMine(r.results);
           setMineErr(null);
         }
@@ -69,41 +40,10 @@ function Dashboard() {
           setMineErr("Could not load your sessions.");
       }
     };
-    const t = setTimeout(run, query ? SEARCH_DEBOUNCE_MS : 0);
-    const id = setInterval(run, POLL_MS);
-    return () => {
-      alive = false;
-      ctrl.abort();
-      clearTimeout(t);
-      clearInterval(id);
-    };
-  }, [query, status]);
-
-  // SHARED WITH ME — scope=shared, polled.
-  useEffect(() => {
-    let alive = true;
-    let ctrl = new AbortController();
-    const run = async () => {
-      ctrl = new AbortController();
-      try {
-        const r = await listSessions(
-          { scope: "shared", status: "all", limit: 100 },
-          ctrl.signal,
-        );
-        if (alive) {
-          setShared(r.results);
-          setSharedErr(null);
-        }
-      } catch (e) {
-        if (alive && (e as Error).name !== "AbortError")
-          setSharedErr("Could not load shared sessions.");
-      }
-    };
     run();
     const id = setInterval(run, POLL_MS);
     return () => {
       alive = false;
-      ctrl.abort();
       clearInterval(id);
     };
   }, []);
@@ -122,52 +62,13 @@ function Dashboard() {
     </>
   );
 
-  // Split owned sessions so live ones headline their own grid.
-  const liveMine = mine?.filter((s) => s.status === "live") ?? [];
-  const restMine = mine?.filter((s) => s.status !== "live") ?? [];
-  const restLabel = status === "ended" ? "ENDED SESSIONS" : "RECENT SESSIONS";
+  const liveMine = (mine ?? []).filter((s) => s.status === "live");
 
+  // The HUD main window now surfaces ONLY live sessions as tiles; everything
+  // else (archived + shared) is in the persistent sidebar.
   return (
     <>
-      <SearchBox query={query} onQuery={setQuery} />
-
-      {/* Filter breadcrumb — mirrors the ?status= chip from the header tiles. */}
-      {status !== "all" && (
-        <div
-          className="label"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            marginBottom: 14,
-            color: "var(--muted)",
-          }}
-        >
-          <span>FILTER · {status} only</span>
-          <button
-            type="button"
-            onClick={() =>
-              router.replace(
-                query ? `/hud?q=${encodeURIComponent(query)}` : "/hud",
-                { scroll: false },
-              )
-            }
-            className="label"
-            style={{
-              border: "none",
-              background: "transparent",
-              cursor: "pointer",
-              color: "var(--red)",
-              padding: 0,
-            }}
-          >
-            ✕ CLEAR
-          </button>
-        </div>
-      )}
-
-      {/* ◉ LIVE NOW — owned live sessions, highlighted */}
-      {liveMine.length > 0 && (
+      {liveMine.length > 0 ? (
         <Section title="◉ LIVE NOW" count={liveMine.length} tone="green">
           <CardGrid>
             {liveMine.map((s) => (
@@ -175,74 +76,16 @@ function Dashboard() {
             ))}
           </CardGrid>
         </Section>
+      ) : mineErr ? (
+        <ErrorBar text={mineErr} />
+      ) : mine == null ? (
+        <Loading what="LIVE SESSIONS" />
+      ) : (
+        <Empty
+          title="NO LIVE SESSIONS RIGHT NOW"
+          sub="Run `live claude` to start streaming — it shows up here the moment it goes live. Every session, live or archived, is in the sidebar ←"
+        />
       )}
-
-      {liveMine.length > 0 && <div style={{ height: 24 }} />}
-
-      {/* ▣ MY SESSIONS — the rest (or the filtered set) */}
-      <Section
-        title={status === "live" ? "◉ MY LIVE SESSIONS" : `▣ ${restLabel}`}
-        count={status === "live" ? undefined : restMine.length}
-        hint={query ? `filter "${query}"` : undefined}
-      >
-        {mineErr ? (
-          <ErrorBar text={mineErr} />
-        ) : mine == null ? (
-          <Loading what="MY SESSIONS" />
-        ) : mine.length === 0 ? (
-          <Empty
-            title="NO SESSIONS YET"
-            sub={
-              query
-                ? `Nothing matched "${query}".`
-                : "Start a Claude Code session to capture one here."
-            }
-          />
-        ) : status === "live" ? (
-          // Live-only filter: everything already shown in LIVE NOW above.
-          liveMine.length === 0 && (
-            <Empty title="NO LIVE SESSIONS" sub="Nothing is streaming right now." />
-          )
-        ) : restMine.length === 0 ? (
-          <Empty
-            title={liveMine.length > 0 ? "NOTHING ELSE YET" : "NO SESSIONS YET"}
-            sub={
-              liveMine.length > 0
-                ? "Your only sessions are live right now."
-                : "Start a Claude Code session to capture one here."
-            }
-          />
-        ) : (
-          <CardGrid>
-            {restMine.map((s) => (
-              <SessionCard key={s.id} session={s} actions={ownerActions(s)} />
-            ))}
-          </CardGrid>
-        )}
-      </Section>
-
-      <div style={{ height: 28 }} />
-
-      {/* 🔗 SHARED WITH ME */}
-      <Section title="🔗 SHARED WITH ME" count={shared?.length}>
-        {sharedErr ? (
-          <ErrorBar text={sharedErr} />
-        ) : shared == null ? (
-          <Loading what="SHARED SESSIONS" />
-        ) : shared.length === 0 ? (
-          <Empty title="NOTHING SHARED" sub="No sessions shared with you yet." />
-        ) : (
-          <CardGrid>
-            {shared.map((s) => (
-              <SessionCard
-                key={s.id}
-                session={s}
-                accessRole={s.shared_role ?? "viewer"}
-              />
-            ))}
-          </CardGrid>
-        )}
-      </Section>
     </>
   );
 }
@@ -304,67 +147,6 @@ function ShareAction({
         />
       )}
     </span>
-  );
-}
-
-function SearchBox({
-  query,
-  onQuery,
-}: {
-  query: string;
-  onQuery: (q: string) => void;
-}) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 8,
-        border: "1px solid var(--hairline)",
-        background: "var(--panel)",
-        padding: "0 10px",
-        marginBottom: 20,
-      }}
-    >
-      <span className="label" aria-hidden>
-        /
-      </span>
-      <input
-        value={query}
-        onChange={(e) => onQuery(e.target.value)}
-        placeholder="SEARCH MY SESSIONS — TITLE OR TAG"
-        aria-label="Search my sessions"
-        spellCheck={false}
-        className="label"
-        style={{
-          border: "none",
-          outline: "none",
-          background: "transparent",
-          color: "var(--ink)",
-          padding: "11px 0",
-          width: "100%",
-          fontSize: 12,
-          letterSpacing: "0.06em",
-        }}
-      />
-      {query && (
-        <button
-          type="button"
-          onClick={() => onQuery("")}
-          aria-label="Clear search"
-          className="label"
-          style={{
-            border: "none",
-            background: "transparent",
-            cursor: "pointer",
-            color: "var(--faint)",
-            fontSize: 13,
-          }}
-        >
-          ✕
-        </button>
-      )}
-    </div>
   );
 }
 
