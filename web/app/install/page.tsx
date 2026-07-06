@@ -135,6 +135,41 @@ export default async function InstallPage() {
         </div>
       </section>
 
+      {/* Homebrew */}
+      <section
+        style={{
+          border: "1px solid var(--hairline)",
+          background: "var(--panel)",
+          padding: "18px 18px 20px",
+          marginBottom: 20,
+        }}
+      >
+        <div
+          className="label dashed-b"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 10,
+            paddingBottom: 8,
+            marginBottom: 14,
+            color: "var(--ink)",
+          }}
+        >
+          <span>▸ HOMEBREW — macOS / LINUX</span>
+          <span className="label" style={{ color: "var(--faint)" }}>
+            NO GO NEEDED
+          </span>
+        </div>
+        <InstallCommand command="brew install resapce/tap/live" />
+        <div className="label" style={{ color: "var(--faint)", marginTop: 12, lineHeight: 1.7 }}>
+          FIRST TIME? · TAP IT ONCE:{" "}
+          <code>brew tap resapce/tap</code>
+          <br />
+          UPDATE LATER · <code>brew upgrade resapce/tap/live</code>
+        </div>
+      </section>
+
       {/* All versions */}
       <div
         className="label dashed-b"
