@@ -1,8 +1,10 @@
 "use client";
 
 import { Suspense } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import BrandMark from "@/components/BrandMark";
+import InstallCommand from "@/components/InstallCommand";
 import ThemeToggle from "@/components/ThemeToggle";
 import { loginUrl } from "@/lib/api";
 
@@ -53,6 +55,7 @@ function LandingInner() {
         )}
 
         <Hero onSignIn={signIn} />
+        <HowItWorks />
         <Features />
       </main>
     </div>
@@ -205,6 +208,135 @@ function Hero({ onSignIn }: { onSignIn: () => void }) {
         </span>
       </div>
     </section>
+  );
+}
+
+/** The concrete getting-started flow with the new `live` CLI: install → run →
+ *  share. Steps 1–2 carry the real, copyable commands; step 3 shows the reach. */
+function HowItWorks() {
+  return (
+    <section style={{ marginTop: 20 }}>
+      <div
+        className="label dashed-b"
+        style={{ color: "var(--ink)", paddingBottom: 8, marginBottom: 14 }}
+      >
+        ⌥ HOW IT WORKS · THREE STEPS
+      </div>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+          gap: 14,
+        }}
+      >
+        {/* 01 — install */}
+        <Step
+          n="01"
+          title="INSTALL LIVE"
+          body="One command drops the live CLI onto your PATH. Idempotent — rerun any time to update."
+        >
+          <InstallCommand command="curl -fsSL https://liveshortly.com/install.sh | bash" />
+          <Link
+            href="/install"
+            className="label"
+            style={{ color: "var(--muted)", marginTop: 10, display: "inline-block" }}
+          >
+            all versions →
+          </Link>
+        </Step>
+
+        {/* 02 — run */}
+        <Step
+          n="02"
+          title="RUN LIVE CLAUDE"
+          body="live wraps Claude Code and opens a session, printing your share URL the moment it starts streaming."
+        >
+          <InstallCommand command="live claude" />
+          <div
+            className="label tnum"
+            style={{ color: "var(--green)", marginTop: 10 }}
+          >
+            ▸ streaming · liveshortly.com/session/…
+          </div>
+        </Step>
+
+        {/* 03 — share / publish */}
+        <Step
+          n="03"
+          title="SHARE OR PUBLISH"
+          body="Open the URL to watch live from the browser, send a private link to a teammate, or publish it to the public feed."
+        >
+          <div
+            style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 4 }}
+          >
+            {["PRIVATE LINK", "PUBLIC FEED", "OPEN · NO LOGIN"].map((c) => (
+              <span
+                key={c}
+                className="label"
+                style={{
+                  border: "1px solid var(--hairline)",
+                  color: "var(--muted)",
+                  padding: "4px 9px",
+                  fontSize: 9,
+                }}
+              >
+                {c}
+              </span>
+            ))}
+          </div>
+        </Step>
+      </div>
+    </section>
+  );
+}
+
+/** One numbered step card in the terminal-HUD style. */
+function Step({
+  n,
+  title,
+  body,
+  children,
+}: {
+  n: string;
+  title: string;
+  body: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        border: "1px solid var(--hairline)",
+        background: "var(--panel)",
+        padding: "16px 16px 18px",
+        minWidth: 0,
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+        <span
+          className="tnum"
+          style={{ color: "var(--green)", fontSize: 22, fontWeight: 700 }}
+        >
+          {n}
+        </span>
+        <span className="label" style={{ color: "var(--ink)", fontWeight: 700 }}>
+          {title}
+        </span>
+      </div>
+      <div
+        style={{
+          fontSize: 12.5,
+          lineHeight: 1.55,
+          color: "var(--muted)",
+          margin: "8px 0 12px",
+          flex: 1,
+        }}
+      >
+        {body}
+      </div>
+      {children}
+    </div>
   );
 }
 
