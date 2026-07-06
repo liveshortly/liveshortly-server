@@ -16,6 +16,7 @@ import {
   isPublished,
   loginUrl,
   postComment,
+  postDecision,
   postTyping,
   renameSession,
   stopSession,
@@ -668,9 +669,11 @@ export default function SessionViewer({
           {/* Input-requested banner — CLI is waiting for input (non-blocking). */}
           {inputPending && (
             <InputRequestBanner
+              id={id}
               message={(inputRequest?.payload?.message as string) || ""}
               kind={(inputRequest?.payload?.kind as string) || "input"}
               canReply={isLive && meta?.can_comment !== false}
+              canDecide={isLive && meta?.is_owner === true}
             />
           )}
 
@@ -857,14 +860,33 @@ type SendState = "idle" | "sending" | "sent" | "error";
  *  below. It does NOT block the CLI: Claude is answered in the terminal (or by a
  *  viewer message injected on the next turn), never by the web stalling it. */
 function InputRequestBanner({
+  id,
   message,
   kind,
   canReply,
+  canDecide,
 }: {
+  id: string;
   message: string;
   kind: string;
   canReply: boolean;
+  canDecide: boolean;
 }) {
+  const [verdict, setVerdict] = useState<"allow" | "deny" | null>(null);
+  const [busy, setBusy] = useState(false);
+  const showDecide = kind === "permission" && canDecide && verdict === null;
+
+  const decide = async (decision: "allow" | "deny") => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await postDecision(id, decision);
+      setVerdict(decision);
+    } catch {
+      setBusy(false); // let the owner retry
+    }
+  };
+
   return (
     <div
       role="status"
@@ -906,7 +928,57 @@ function InputRequestBanner({
           {message || "Claude is waiting for input in the CLI."}
         </span>
       </div>
-      {canReply && (
+      {showDecide && (
+        <div style={{ display: "flex", gap: 8, marginTop: 2 }}>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => decide("allow")}
+            className="label"
+            style={{
+              border: "1px solid var(--green)",
+              background: "var(--green)",
+              color: "var(--panel)",
+              padding: "5px 14px",
+              fontWeight: 700,
+              cursor: busy ? "default" : "pointer",
+              opacity: busy ? 0.6 : 1,
+            }}
+          >
+            ✓ ALLOW
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => decide("deny")}
+            className="label"
+            style={{
+              border: "1px solid var(--red)",
+              background: "transparent",
+              color: "var(--red)",
+              padding: "5px 14px",
+              fontWeight: 700,
+              cursor: busy ? "default" : "pointer",
+              opacity: busy ? 0.6 : 1,
+            }}
+          >
+            ✕ DENY
+          </button>
+        </div>
+      )}
+      {verdict !== null && (
+        <span
+          className="label"
+          style={{
+            color: verdict === "allow" ? "var(--green)" : "var(--red)",
+            textTransform: "none",
+            letterSpacing: 0,
+          }}
+        >
+          You answered: {verdict === "allow" ? "allowed" : "denied"}.
+        </span>
+      )}
+      {canReply && kind !== "permission" && (
         <span
           className="label"
           style={{
