@@ -161,12 +161,12 @@ export default async function InstallPage() {
             NO GO NEEDED
           </span>
         </div>
-        <InstallCommand command="brew install resapce/tap/live" />
+        {/* Two clear steps: tap the formula once, then install it. */}
+        <InstallCommand command="brew tap resapce/tap" />
+        <div style={{ height: 10 }} />
+        <InstallCommand command="brew install live" />
         <div className="label" style={{ color: "var(--faint)", marginTop: 12, lineHeight: 1.7 }}>
-          FIRST TIME? · TAP IT ONCE:{" "}
-          <code>brew tap resapce/tap</code>
-          <br />
-          UPDATE LATER · <code>brew upgrade resapce/tap/live</code>
+          UPDATE LATER · <code>brew upgrade live</code>
         </div>
       </section>
 
