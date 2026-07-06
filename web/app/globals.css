@@ -224,6 +224,106 @@ a {
   padding-inline: max(16px, calc(50vw - 720px));
 }
 
+/* ── Workspace shell (ChatGPT-style): persistent session sidebar + main pane.
+   Fills the viewport below the HudHeader (~148px), full-bleed, and cancels the
+   .app-main padding it's nested inside so it sits flush under the header. */
+.workspace {
+  display: flex;
+  height: calc(100vh - 148px);
+  min-height: 480px;
+  overflow: hidden;
+  position: relative;
+  margin: -20px calc(50% - 50vw) -56px; /* cancel .app-main 20/16/56 pad + full-bleed */
+}
+.ws-sidebar {
+  flex: 0 0 288px;
+  min-width: 0;
+  display: flex;
+  border-right: 1px solid var(--hairline);
+  background: var(--panel);
+  overflow: hidden;
+}
+.ws-sidebar-inner {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 0;
+}
+.ws-main {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+}
+/* The HUD tiles centre themselves inside the main pane. */
+.ws-content {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 22px 20px 40px;
+}
+.ws-row {
+  transition: background-color 100ms;
+}
+.ws-row:hover {
+  background: var(--panel);
+}
+/* When the session viewer lives inside the workspace, fill the main pane rather
+   than full-bleeding the whole viewport (the shell already owns the width). */
+.ws-main .session-page {
+  height: 100%;
+  min-height: 0;
+  margin-inline: 0;
+  padding-inline: max(16px, calc((100% - 1440px) / 2));
+}
+/* Mobile: sidebar becomes a slide-in drawer with a toggle + backdrop. */
+.ws-toggle,
+.ws-backdrop {
+  display: none;
+}
+@media (max-width: 820px) {
+  .workspace {
+    height: calc(100vh - 128px);
+    margin: -14px calc(50% - 50vw) -48px;
+  }
+  .ws-toggle {
+    display: inline-flex;
+    position: absolute;
+    top: 8px;
+    left: 10px;
+    z-index: 46;
+    align-items: center;
+    border: 1px solid var(--strong);
+    background: var(--panel);
+    color: var(--ink);
+    padding: 6px 10px;
+    cursor: pointer;
+  }
+  .ws-sidebar {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 45;
+    width: 280px;
+    transform: translateX(-100%);
+    transition: transform 180ms ease;
+    box-shadow: 4px 0 16px var(--shadow);
+  }
+  .workspace[data-drawer="open"] .ws-sidebar {
+    transform: none;
+  }
+  .workspace[data-drawer="open"] .ws-backdrop {
+    display: block;
+    position: absolute;
+    inset: 0;
+    z-index: 44;
+    background: rgba(0, 0, 0, 0.4);
+  }
+  /* Leave room for the toggle button above the main content. */
+  .ws-content {
+    padding-top: 48px;
+  }
+}
+
 /* Twitch-style split: stream on the left, viewer chat on the right. The body
    flexes to fill all remaining height; each pane scrolls internally. */
 .viewer-body {

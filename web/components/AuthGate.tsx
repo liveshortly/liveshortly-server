@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { AuthContext } from "@/components/AuthContext";
 import BrandMark from "@/components/BrandMark";
 import HudHeader from "@/components/HudHeader";
 import Landing from "@/components/Landing";
@@ -76,20 +77,20 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   if (phase === "anon" || !user) {
     if (isPublicRoute) {
       return (
-        <>
+        <AuthContext.Provider value={null}>
           <GuestHeader />
           <main className="app-main">{children}</main>
-        </>
+        </AuthContext.Provider>
       );
     }
     return <Landing />;
   }
 
   return (
-    <>
+    <AuthContext.Provider value={user}>
       <HudHeader user={user} />
       <main className="app-main">{children}</main>
-    </>
+    </AuthContext.Provider>
   );
 }
 

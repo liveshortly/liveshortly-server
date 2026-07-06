@@ -480,8 +480,10 @@ function Empty({ title, sub }: { title: string; sub: string }) {
 
 export default function Page() {
   return (
-    <Suspense fallback={<Loading what="HUD" />}>
-      <Dashboard />
-    </Suspense>
+    <div className="ws-content">
+      <Suspense fallback={<Loading what="HUD" />}>
+        <Dashboard />
+      </Suspense>
+    </div>
   );
 }
