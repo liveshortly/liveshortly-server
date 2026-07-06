@@ -39,8 +39,56 @@ function LandingInner() {
 
         <Hero onSignIn={signIn} />
         <HowItWorks />
+        <LandingFooter />
       </main>
     </div>
+  );
+}
+
+/** Footer: authorship credits (with a LiveShortly-green heart) + copyright. */
+function LandingFooter() {
+  const year = new Date().getFullYear();
+  return (
+    <footer
+      className="label"
+      style={{
+        borderTop: "1px solid var(--hairline)",
+        marginTop: 28,
+        paddingTop: 18,
+        display: "flex",
+        flexWrap: "wrap",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 10,
+        color: "var(--faint)",
+      }}
+    >
+      <span>
+        MADE WITH{" "}
+        <span style={{ color: "var(--green)" }} aria-label="love">
+          ♥
+        </span>{" "}
+        BY{" "}
+        <a
+          href="https://x.com/ironfisto/"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: "var(--muted)", textDecoration: "underline" }}
+        >
+          @ironfisto
+        </a>{" "}
+        ·{" "}
+        <a
+          href="https://x.com/sec_r0"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: "var(--muted)", textDecoration: "underline" }}
+        >
+          @sec_r0
+        </a>
+      </span>
+      <span>© {year} LIVESHORTLY · ALL RIGHTS RESERVED</span>
+    </footer>
   );
 }
 
@@ -195,9 +243,6 @@ function Hero({ onSignIn }: { onSignIn: () => void }) {
           <GoogleMark />
           GET STARTED — SIGN UP FREE
         </button>
-        <span className="label" style={{ color: "var(--faint)" }}>
-          free · sign in with Google
-        </span>
       </div>
         </div>
 
