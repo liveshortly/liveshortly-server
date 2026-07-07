@@ -427,6 +427,16 @@ a {
   flex-direction: column;
   min-height: 0;
 }
+/* "EVENT LOG … status" strip above the feed. Layout is here (not inline on the
+   element) so the mobile media query can hide it wholesale — an inline
+   display would win over the query. */
+.stream-log-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 2px 8px;
+}
 .chat-pane {
   flex: 0 0 340px;
   display: flex;
@@ -540,6 +550,36 @@ a {
     min-height: 0;
     overflow-y: auto;
     padding: 2px 2px 4px;
+  }
+  /* Full-screen the signed-in mobile session viewer. The global header is
+     hidden on session pages (see the .hud-header rule below), so reclaim the
+     ~128px it reserved: let the workspace own the whole viewport and the thread
+     fill it, with the composer / "session ended" line pinned to the bottom —
+     instead of a fixed-height 66vh pane leaving dead grey space beneath it.
+     Scoped to .ws-main / :has(.session-page) so the anonymous viewer (no
+     workspace, page scrolls) keeps its current behaviour. */
+  body:has(.session-page) .workspace {
+    height: 100vh; /* fallback if the minifier drops dvh */
+    height: 100dvh; /* excludes mobile browser chrome so nothing hides behind it */
+    min-height: 0;
+  }
+  .ws-main .session-page {
+    overflow: hidden; /* the page never scrolls — only the feed does */
+  }
+  .ws-main .viewer-body {
+    flex: 1;
+    min-height: 0;
+  }
+  .ws-main .stream-pane {
+    flex: 1 1 auto;
+    height: auto; /* override the 66vh anonymous fallback above */
+    min-height: 0;
+  }
+  /* The "EVENT LOG … ● ARCHIVED · REPLAY" strip is redundant on mobile — the
+     topbar already carries status (● ENDED · model · views) and the mockup has
+     no such row. Drop it to reclaim a line of vertical space. */
+  .stream-log-head {
+    display: none;
   }
   .session-actions {
     display: none;

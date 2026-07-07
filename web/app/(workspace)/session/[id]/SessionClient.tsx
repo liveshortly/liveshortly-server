@@ -727,16 +727,10 @@ export default function SessionViewer({
       <div className="viewer-body">
         {/* LEFT — the event stream */}
         <div className="stream-pane">
-          <div
-            className="label"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 8,
-              padding: "0 2px 8px",
-            }}
-          >
+          {/* Layout lives in the .stream-log-head CSS rule (not inline) so the
+              mobile media query can hide this whole strip — an inline
+              display:flex would beat the query. */}
+          <div className="label stream-log-head">
             <span>EVENT LOG</span>
             <span style={{ color: "var(--muted)" }}>
               {streamLabel(conn, isLive)}
