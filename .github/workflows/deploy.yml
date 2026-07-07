@@ -66,8 +66,8 @@ jobs:
           GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
           SESSION_SECRET=${{ secrets.SESSION_SECRET }}
-          OAUTH_ALLOWED_HOSTS=server.liveshortly.com,liveshortly.com
-          WEB_BASE_URL=https://server.liveshortly.com
+          OAUTH_ALLOWED_HOSTS=liveshortly.com,server.liveshortly.com
+          WEB_BASE_URL=https://liveshortly.com
           EOF
 
       - name: Decide which services to rebuild
