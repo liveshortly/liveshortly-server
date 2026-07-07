@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"liveshortly/internal/auth"
+	"liveshortly/internal/handoff"
 	"liveshortly/internal/httpx"
 	"liveshortly/internal/store"
 )
@@ -22,6 +23,13 @@ type createSessionReq struct {
 	GitBranch   *string  `json:"git_branch"`
 	Agent       *string  `json:"agent"`        // claude-code | gemini-cli | codex | terminal
 	CaptureMode *string  `json:"capture_mode"` // hooks | pty | sdk
+
+	// Handoff/fork: continue an existing session the caller can read as a NEW
+	// session they own. Provide exactly one of ForkedFrom (a signed handoff code)
+	// or ForkedFromSessionID (+ optional ForkedFromSeq snapshot; default latest).
+	ForkedFrom          *string `json:"forked_from"`
+	ForkedFromSessionID *string `json:"forked_from_session_id"`
+	ForkedFromSeq       *int    `json:"forked_from_seq"`
 }
 
 // CreateSession creates a new live session owned by the principal.
@@ -46,7 +54,7 @@ func (h *Handler) CreateSession(w http.ResponseWriter, r *http.Request) {
 		clientHandle = &hdr
 	}
 
-	s, err := h.store.CreateSession(r.Context(), p.ID, store.NewSessionInput{
+	in := store.NewSessionInput{
 		Model:        req.Model,
 		Framework:    req.Framework,
 		Tags:         req.Tags,
@@ -55,7 +63,49 @@ func (h *Handler) CreateSession(w http.ResponseWriter, r *http.Request) {
 		GitBranch:    normStr(req.GitBranch),
 		Agent:        normStr(req.Agent),
 		CaptureMode:  normStr(req.CaptureMode),
-	})
+		// Title is deliberately left empty for normal creates: the store generates
+		// a friendly codename regardless of the client's directory (owner renames
+		// later). Only a fork sets an explicit title (below).
+	}
+
+	// Forked create: resolve + authorize the source, then seed the new session
+	// with its lineage and hand back the reconstructed briefing.
+	var bundle *handoff.Bundle
+	if req.ForkedFrom != nil || req.ForkedFromSessionID != nil {
+		code := ""
+		if req.ForkedFrom != nil {
+			code = strings.TrimSpace(*req.ForkedFrom)
+		}
+		src, snapshot, ok := h.resolveFork(w, r, p, true, code, req.ForkedFromSessionID, req.ForkedFromSeq)
+		if !ok {
+			return // resolveFork already wrote the error
+		}
+		b, err := h.buildBundle(r, src, snapshot)
+		if err != nil {
+			httpx.Error(w, http.StatusInternalServerError, "failed to build handoff briefing")
+			return
+		}
+		bundle = &b
+		in.ForkedFromSessionID = &src.ID
+		in.ForkedFromSeq = &snapshot
+		// A fork gets an explicit title: the client's if it sent one, else
+		// "Fork of <source>".
+		if t := strings.TrimSpace(req.Title); t != "" {
+			in.Title = t
+		} else {
+			in.Title = "Fork of " + src.Title
+		}
+		// Inherit the source's repo context as a hint when the client didn't send
+		// its own (the fork usually runs in the same project).
+		if in.GitRemote == nil {
+			in.GitRemote = src.GitRemote
+		}
+		if in.GitBranch == nil {
+			in.GitBranch = src.GitBranch
+		}
+	}
+
+	s, err := h.store.CreateSession(r.Context(), p.ID, in)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "failed to create session")
 		return
@@ -64,6 +114,7 @@ func (h *Handler) CreateSession(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusCreated, sessionWithURL{
 		Session: s,
 		URL:     "/session/" + s.ID,
+		Handoff: bundle,
 	})
 }
 
@@ -170,6 +221,13 @@ func (h *Handler) GetSession(w http.ResponseWriter, r *http.Request) {
 	// Live-shim presence: whether an agent stream is currently attached. Cheap
 	// Redis EXISTS; best-effort (false on error).
 	agentConnected, _ := h.bus.AgentConnected(r.Context(), id)
+
+	// Fork lineage enrichments (detail-only): distinct forker count + source ref.
+	// Best-effort — never block the read on it.
+	if fc, from, ferr := h.store.ForkStats(r.Context(), s); ferr == nil {
+		s.ForkerCount = fc
+		s.ForkedFrom = from
+	}
 
 	httpx.JSON(w, http.StatusOK, sessionWithEvents{
 		Session:        *s,

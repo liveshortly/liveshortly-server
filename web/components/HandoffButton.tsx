@@ -1,0 +1,133 @@
+"use client";
+
+import { useState } from "react";
+import { generateHandoff, type Handoff } from "@/lib/api";
+
+/**
+ * "Continue this session" — mints a handoff code and reveals a copyable
+ * `live <agent> --handoff <code>` command. Available to anyone who can read the
+ * session (the fork is authorized again server-side at redeem time and becomes a
+ * NEW session owned by whoever runs the command). The original is untouched.
+ */
+export default function HandoffButton({ sessionId }: { sessionId: string }) {
+  const [ho, setHo] = useState<Handoff | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const open = async () => {
+    if (ho) {
+      setHo(null); // toggle closed
+      return;
+    }
+    setBusy(true);
+    setErr(false);
+    try {
+      setHo(await generateHandoff(sessionId));
+    } catch {
+      setErr(true);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const copy = async () => {
+    if (!ho) return;
+    try {
+      await navigator.clipboard.writeText(ho.command);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
+    } catch {
+      /* clipboard blocked — the field is selectable as a fallback */
+    }
+  };
+
+  return (
+    <div style={{ position: "relative", display: "inline-flex" }}>
+      <button
+        type="button"
+        onClick={open}
+        disabled={busy}
+        className="label"
+        title="Continue this session as a new session you own (any agent)"
+        style={{
+          border: `1px solid ${err ? "var(--red)" : "var(--strong)"}`,
+          background: "transparent",
+          color: err ? "var(--red)" : ho ? "var(--green)" : "var(--ink)",
+          padding: "5px 10px",
+          fontSize: 10,
+          cursor: busy ? "default" : "pointer",
+          whiteSpace: "nowrap",
+          opacity: busy ? 0.6 : 1,
+        }}
+      >
+        {busy ? "…" : err ? "⚠ RETRY" : "⑃ CONTINUE"}
+      </button>
+
+      {ho && (
+        <div
+          role="dialog"
+          aria-label="Handoff command"
+          style={{
+            position: "absolute",
+            top: "calc(100% + 6px)",
+            right: 0,
+            zIndex: 40,
+            width: "min(92vw, 420px)",
+            border: "1px solid var(--strong)",
+            background: "var(--panel)",
+            padding: 12,
+            boxShadow: "0 6px 24px rgba(0,0,0,0.18)",
+          }}
+        >
+          <div
+            className="label"
+            style={{ color: "var(--muted)", marginBottom: 8, letterSpacing: "0.06em" }}
+          >
+            RUN TO CONTINUE THIS SESSION
+          </div>
+          <div style={{ display: "flex", gap: 6, alignItems: "stretch" }}>
+            <input
+              readOnly
+              value={ho.command}
+              onFocus={(e) => e.currentTarget.select()}
+              style={{
+                flex: 1,
+                minWidth: 0,
+                fontFamily: "var(--mono, monospace)",
+                fontSize: 12,
+                border: "1px solid var(--hairline)",
+                background: "var(--bg)",
+                color: "var(--ink)",
+                padding: "6px 8px",
+              }}
+            />
+            <button
+              type="button"
+              onClick={copy}
+              className="label"
+              style={{
+                border: "1px solid var(--strong)",
+                background: "transparent",
+                color: copied ? "var(--green)" : "var(--ink)",
+                padding: "0 10px",
+                fontSize: 10,
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {copied ? "✓ COPIED" : "COPY"}
+            </button>
+          </div>
+          <div
+            className="label"
+            style={{ color: "var(--muted)", marginTop: 8, fontSize: 9, lineHeight: 1.5 }}
+          >
+            Swap <code>claude</code> for any agent (<code>gemini</code>, <code>codex</code>…).
+            Becomes a new session you own · code expires in 7 days.
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

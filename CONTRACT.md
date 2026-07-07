@@ -31,13 +31,21 @@ changes.
   "event_count": 0,
   "view_count": 0,
   "created_at": "RFC3339",
-  "ended_at": "RFC3339 | null"
+  "ended_at": "RFC3339 | null",
+  "fork_count": 0,
+  "forked_from_id": "uuid | null",
+  "forked_from_seq": "int | null",
+  "forked_at": "RFC3339 | null"
 }
 ```
 `agent` and `capture_mode` are optional capture metadata (how the session is
 captured, reported by the Live shim); no behavior depends on them yet.
 `GET /api/sessions/{id}` additionally returns `agent_connected: bool` — whether a
-Live-shim agent stream is currently attached (presence).
+Live-shim agent stream is currently attached (presence) — plus fork lineage
+enrichments: `forker_count: int` (distinct users who forked this session) and
+`forked_from: {id,title,owner_handle,seq} | null` (the source when this session
+is itself a fork). `fork_count` is the denormalised total of forks made from a
+session and is present on every row (feed/list included).
 
 ### Event
 ```json
@@ -57,7 +65,8 @@ Live-shim agent stream is currently attached (presence).
 | Method | Path | Body | Response |
 |---|---|---|---|
 | GET  | `/health` | — | `{"ok":true,"ts":"RFC3339"}` |
-| POST | `/api/sessions` | `{"title"?,"model"?,"framework"?,"tags"?:[],"agent"?,"capture_mode"?}` | `201 {...Session,"url":"/session/{id}"}` |
+| POST | `/api/sessions` | `{"title"?,"model"?,"framework"?,"tags"?:[],"agent"?,"capture_mode"?, "forked_from"?, "forked_from_session_id"?, "forked_from_seq"?}` | `201 {...Session,"url":"/session/{id}","handoff"?:Bundle}` |
+| POST | `/api/sessions/{id}/handoff` | `{"seq"?:int}` | `200 {"code","session_id","snapshot_seq","expires_at","command"}` (auth: any reader) |
 | GET  | `/api/sessions?status=live\|ended\|all&q=&limit=&offset=` | — | `200 {"results":[Session],"total":int}` |
 | GET  | `/api/feed?q=&cursor=&limit=` | — | `200 {"results":[Session],"next_cursor":string}` (public — anonymous OK; published only) |
 | POST | `/api/sessions/{id}/publish` | — | `200 Session` (owner; lists in feed + public) |
@@ -174,6 +183,38 @@ doubles as the anonymous landing page).
   opaque base64 token; empty = end of feed.
 - Feed tiles are synthesized from Session fields + `hero` (no image); `published_at`
   and `hero` are part of the Session shape.
+
+## Handoff / fork (continue a session as a new one)
+A handoff lets a user continue any session **they can read** (live or archived,
+possibly someone else's) as a **new session they own**, with any agent. The
+source session is never modified; only its denormalised `fork_count` is bumped.
+
+- **Fidelity.** The server never stored the raw agent transcript — only the feed
+  (truncated `prompt`/`response` content + tool/edit summaries). So a handoff is a
+  **reconstructed briefing**, not a byte-exact resume. The server assembles it
+  deterministically (no LLM); the forking user's own agent does the comprehension.
+- `POST /api/sessions/{id}/handoff` (auth: any reader — owner, share, or
+  link/public/open) mints a **signed handoff code** pinned at a snapshot seq
+  (default = current max seq, "the moment the handoff is generated"). Returns
+  `{code, session_id, snapshot_seq, expires_at, command}` where `command` is the
+  ready-to-copy `live <agent> --handoff <code>`. Codes are stateless (HMAC over
+  `session_id|seq|exp` with `SESSION_SECRET`, 7-day TTL) — **not** a capability;
+  authorization is always re-checked at fork time.
+- **Redeem** via `POST /api/sessions` with **one of** `forked_from` (a code) or
+  `forked_from_session_id` (+ optional `forked_from_seq`; default latest). The
+  server re-checks `canRead` for the **redeeming** principal (403 otherwise),
+  creates the new session owned by them with lineage columns set
+  (`forked_from_session_id`, `forked_from_seq`, `forked_at`), increments the
+  source's `fork_count`, and returns the new Session plus a `handoff` **Bundle**:
+  ```json
+  {
+    "markdown": "string (ready to seed the agent)",
+    "turns": [{"seq":int,"role":"user|assistant|tool","text":"string","tool"?:"string","file"?:"string"}],
+    "source": {"id","title","owner_handle","agent","git_remote","git_branch","model","status","created_at","ended_at","snapshot_seq"},
+    "truncated": false
+  }
+  ```
+  The client writes `markdown` to a file and launches its agent seeded with it.
 
 ## Typing presence (ephemeral)
 `POST …/typing` (commenter, live only) publishes a control frame

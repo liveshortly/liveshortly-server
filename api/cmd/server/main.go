@@ -232,6 +232,7 @@ func router(cfg config.Config, h *handlers.Handler, ga *handlers.GoogleAuth, mgr
 			r.Post("/sessions/{id}/typing", h.Typing)
 			r.Post("/sessions/{id}/publish", h.Publish)
 			r.Post("/sessions/{id}/unpublish", h.Unpublish)
+			r.Post("/sessions/{id}/handoff", h.GenerateHandoff)
 
 			r.Post("/sessions/{id}/shares", h.CreateShare)
 			r.Get("/sessions/{id}/shares", h.ListShares)

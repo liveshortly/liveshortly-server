@@ -54,6 +54,22 @@ export interface Session {
   published_at?: string | null;
   /** Precomputed preview snippet shown on the feed tile. */
   hero?: string | null;
+  /** Total number of sessions forked (handed off) from this one. */
+  fork_count?: number;
+  /** Set when this session is itself a fork: the source session id. */
+  forked_from_id?: string | null;
+  /** Snapshot seq of the source this session was forked at. */
+  forked_from_seq?: number | null;
+  /** When this fork was created (RFC3339). */
+  forked_at?: string | null;
+}
+
+/** Light reference to a fork source, for the lineage badge (detail only). */
+export interface ForkRef {
+  id: string;
+  title: string;
+  owner_handle: string;
+  seq: number;
 }
 
 /** True when the session's link is open to anyone signed in (not just owner/grants). */
@@ -109,6 +125,10 @@ export interface SessionDetail extends Session {
   can_comment?: boolean;
   /** Whether the calling viewer owns this session (can rename / end it). */
   is_owner?: boolean;
+  /** Distinct users who have forked (handed off) this session. */
+  forker_count?: number;
+  /** Source reference when this session is itself a fork. */
+  forked_from?: ForkRef | null;
   events: SessionEvent[];
 }
 
@@ -466,6 +486,40 @@ export async function unpublishSession(
   signal?: AbortSignal,
 ): Promise<Session> {
   return postAction(`/api/sessions/${encodeURIComponent(id)}/unpublish`, signal);
+}
+
+/** A minted handoff code + the ready-to-copy `live` command to continue a session. */
+export interface Handoff {
+  code: string;
+  session_id: string;
+  snapshot_seq: number;
+  expires_at: string;
+  command: string;
+}
+
+/** Mint a handoff code so anyone with read access can continue this session as
+ *  a new session they own. POST /api/sessions/{id}/handoff. */
+export async function generateHandoff(
+  id: string,
+  signal?: AbortSignal,
+): Promise<Handoff> {
+  const res = await fetch(
+    `${browserBase()}/api/sessions/${encodeURIComponent(id)}/handoff`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+      signal,
+      credentials: "same-origin",
+    },
+  );
+  if (!res.ok) {
+    throw new ApiError(
+      res.status,
+      `Could not create handoff: ${res.status} ${res.statusText}`,
+    );
+  }
+  return res.json() as Promise<Handoff>;
 }
 
 async function postAction(path: string, signal?: AbortSignal): Promise<Session> {

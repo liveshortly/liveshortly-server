@@ -7,6 +7,7 @@ import (
 
 	"liveshortly/internal/bus"
 	"liveshortly/internal/config"
+	"liveshortly/internal/handoff"
 	"liveshortly/internal/storage"
 	"liveshortly/internal/store"
 )
@@ -24,10 +25,12 @@ func New(st *store.Store, b *bus.Bus, blob *storage.Store, cfg config.Config) *H
 	return &Handler{store: st, bus: b, blob: blob, cfg: cfg}
 }
 
-// sessionWithURL flattens a Session and adds the canonical web URL.
+// sessionWithURL flattens a Session and adds the canonical web URL. On a forked
+// create it also carries the handoff briefing the client seeds the agent with.
 type sessionWithURL struct {
 	store.Session
-	URL string `json:"url"`
+	URL     string          `json:"url"`
+	Handoff *handoff.Bundle `json:"handoff,omitempty"`
 }
 
 // sessionWithEvents flattens a Session and adds its event log plus the caller's

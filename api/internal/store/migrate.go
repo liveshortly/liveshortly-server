@@ -48,6 +48,17 @@ var migrations = []string{
 	// (which only runs on a fresh volume — this reaches existing databases).
 	`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS agent        TEXT`,
 	`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS capture_mode TEXT`,
+
+	// --- Session handoff / fork lineage ---
+	// A forked session is a new session (owned by the forking user) seeded from a
+	// source session's feed up to a snapshot seq; the source is untouched.
+	// Mirrors infra/postgres/004-handoff.sql (fresh-volume only — this reaches
+	// existing databases).
+	`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS forked_from_session_id UUID REFERENCES sessions(id) ON DELETE SET NULL`,
+	`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS forked_from_seq        INT`,
+	`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS forked_at              TIMESTAMPTZ`,
+	`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS fork_count             INT NOT NULL DEFAULT 0`,
+	`CREATE INDEX IF NOT EXISTS sessions_forked_from_idx ON sessions (forked_from_session_id) WHERE forked_from_session_id IS NOT NULL`,
 }
 
 // Migrate applies the additive, idempotent migrations above. It runs before the

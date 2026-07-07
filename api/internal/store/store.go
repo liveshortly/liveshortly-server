@@ -68,6 +68,28 @@ type Session struct {
 	ShareCount int `json:"share_count"`
 	// SharedRole is set only on list rows that the caller reaches via a share.
 	SharedRole *string `json:"shared_role,omitempty"`
+
+	// --- Handoff / fork lineage ---
+	// ForkCount is the total number of sessions forked from this one (denormalised,
+	// always present so feed/list tiles can show "forked ×N").
+	ForkCount int `json:"fork_count"`
+	// ForkedFromID/Seq/At describe this session's own origin when it is itself a
+	// fork; nil otherwise. Populated on every row.
+	ForkedFromID *string    `json:"forked_from_id,omitempty"`
+	ForkedFromSeq *int      `json:"forked_from_seq,omitempty"`
+	ForkedAt      *time.Time `json:"forked_at,omitempty"`
+	// ForkerCount (distinct users who forked) and ForkedFrom (source ref) are
+	// detail-only enrichments set by GetSession, not by list/feed queries.
+	ForkerCount int      `json:"forker_count,omitempty"`
+	ForkedFrom  *ForkRef `json:"forked_from,omitempty"`
+}
+
+// ForkRef is a light reference to a session's fork source, for the lineage badge.
+type ForkRef struct {
+	ID          string `json:"id"`
+	Title       string `json:"title"`
+	OwnerHandle string `json:"owner_handle"`
+	Seq         int    `json:"seq"`
 }
 
 // Event matches the JSON shape in CONTRACT.md.
@@ -252,7 +274,8 @@ const sessionSelectExpr = `s.id, s.title,
 	s.event_count, s.view_count, s.created_at, s.ended_at,
 	s.client_handle, s.git_remote, s.git_branch, s.input_tokens, s.output_tokens,
 	s.published_at, s.hero, s.agent, s.capture_mode,
-	(SELECT count(*) FROM session_shares ssc WHERE ssc.session_id = s.id) AS share_count`
+	(SELECT count(*) FROM session_shares ssc WHERE ssc.session_id = s.id) AS share_count,
+	s.fork_count, s.forked_from_session_id, s.forked_from_seq, s.forked_at`
 
 const sessionFrom = ` FROM sessions s JOIN users u ON u.id = s.owner_id`
 
@@ -272,6 +295,7 @@ func scanSession(row pgx.Row) (Session, error) {
 		&s.ClientHandle, &s.GitRemote, &s.GitBranch, &s.InputTokens, &s.OutputTokens,
 		&s.PublishedAt, &s.Hero, &s.Agent, &s.CaptureMode,
 		&s.ShareCount,
+		&s.ForkCount, &s.ForkedFromID, &s.ForkedFromSeq, &s.ForkedAt,
 	)
 	if s.Tags == nil {
 		s.Tags = []string{}
@@ -288,7 +312,9 @@ func scanSessionShared(row pgx.Row) (Session, error) {
 		&s.EventCount, &s.ViewCount, &s.CreatedAt, &s.EndedAt,
 		&s.ClientHandle, &s.GitRemote, &s.GitBranch, &s.InputTokens, &s.OutputTokens,
 		&s.PublishedAt, &s.Hero, &s.Agent, &s.CaptureMode,
-		&s.ShareCount, &s.SharedRole,
+		&s.ShareCount,
+		&s.ForkCount, &s.ForkedFromID, &s.ForkedFromSeq, &s.ForkedAt,
+		&s.SharedRole,
 	)
 	if s.Tags == nil {
 		s.Tags = []string{}
@@ -322,6 +348,15 @@ type NewSessionInput struct {
 	GitBranch    *string
 	Agent        *string // capture agent (claude-code | gemini-cli | codex | terminal)
 	CaptureMode  *string // capture mode (hooks | pty | sdk)
+
+	// Handoff lineage: when set, this session is a fork of ForkedFromSessionID
+	// snapshotted at ForkedFromSeq. CreateSession records the lineage and bumps
+	// the source's fork_count in one transaction.
+	ForkedFromSessionID *string
+	ForkedFromSeq       *int
+	// Title, when non-empty, overrides the generated codename (used so a fork can
+	// be titled "Fork of <source>").
+	Title string
 }
 
 // CreateSession inserts a new live session owned by ownerID and returns it.
@@ -331,22 +366,57 @@ type NewSessionInput struct {
 func (st *Store) CreateSession(ctx context.Context, ownerID string, in NewSessionInput) (Session, error) {
 	title := GenerateSessionName()
 	custom := false
+	if strings.TrimSpace(in.Title) != "" {
+		title = strings.TrimSpace(in.Title)
+		custom = true
+	}
 	tags := in.Tags
 	if tags == nil {
 		tags = []string{}
 	}
 	const ins = `
 		INSERT INTO sessions (owner_id, title, custom_title, model, framework, tags,
-			client_handle, git_remote, git_branch, agent, capture_mode, status)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'live')
+			client_handle, git_remote, git_branch, agent, capture_mode, status,
+			forked_from_session_id, forked_from_seq, forked_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'live',
+			$12, $13, CASE WHEN $12 IS NULL THEN NULL ELSE now() END)
 		RETURNING id`
+
+	// A plain (non-forked) create is a single INSERT. A forked create additionally
+	// bumps the source's fork_count, so both happen atomically in a transaction.
+	forked := in.ForkedFromSessionID != nil
 	var id string
-	if err := st.pool.QueryRow(ctx, ins,
-		ownerID, title, custom, in.Model, in.Framework, tags,
-		in.ClientHandle, in.GitRemote, in.GitBranch, in.Agent, in.CaptureMode,
-	).Scan(&id); err != nil {
-		return Session{}, err
+	if !forked {
+		if err := st.pool.QueryRow(ctx, ins,
+			ownerID, title, custom, in.Model, in.Framework, tags,
+			in.ClientHandle, in.GitRemote, in.GitBranch, in.Agent, in.CaptureMode,
+			nil, nil,
+		).Scan(&id); err != nil {
+			return Session{}, err
+		}
+	} else {
+		tx, err := st.pool.Begin(ctx)
+		if err != nil {
+			return Session{}, err
+		}
+		defer tx.Rollback(ctx)
+		if err := tx.QueryRow(ctx, ins,
+			ownerID, title, custom, in.Model, in.Framework, tags,
+			in.ClientHandle, in.GitRemote, in.GitBranch, in.Agent, in.CaptureMode,
+			in.ForkedFromSessionID, in.ForkedFromSeq,
+		).Scan(&id); err != nil {
+			return Session{}, err
+		}
+		if _, err := tx.Exec(ctx,
+			`UPDATE sessions SET fork_count = fork_count + 1 WHERE id = $1`,
+			*in.ForkedFromSessionID); err != nil {
+			return Session{}, err
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return Session{}, err
+		}
 	}
+
 	s, err := st.GetSession(ctx, id)
 	if err != nil {
 		return Session{}, err
@@ -355,6 +425,66 @@ func (st *Store) CreateSession(ctx context.Context, ownerID string, in NewSessio
 		return Session{}, errors.New("created session vanished")
 	}
 	return *s, nil
+}
+
+// MaxSeq returns the highest event seq recorded for a session (0 if none).
+func (st *Store) MaxSeq(ctx context.Context, sessionID string) (int, error) {
+	var seq int
+	err := st.pool.QueryRow(ctx,
+		`SELECT COALESCE(max(seq), 0) FROM session_events WHERE session_id = $1`,
+		sessionID).Scan(&seq)
+	return seq, err
+}
+
+// GetEventsUpTo returns a session's events with seq <= snapshot, ascending.
+func (st *Store) GetEventsUpTo(ctx context.Context, sessionID string, snapshot int) ([]Event, error) {
+	const q = `
+		SELECT id, session_id, seq, actor, event_type, payload, ts
+		FROM session_events WHERE session_id = $1 AND seq <= $2 ORDER BY seq ASC`
+	rows, err := st.pool.Query(ctx, q, sessionID, snapshot)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []Event{}
+	for rows.Next() {
+		var e Event
+		var payload []byte
+		if err := rows.Scan(&e.ID, &e.SessionID, &e.Seq, &e.Actor, &e.EventType, &payload, &e.TS); err != nil {
+			return nil, err
+		}
+		e.Payload = json.RawMessage(payload)
+		out = append(out, e)
+	}
+	return out, rows.Err()
+}
+
+// ForkStats returns detail-only lineage enrichments for a session: the number
+// of distinct users who forked it, and a reference to its own fork source (nil
+// when it is not a fork).
+func (st *Store) ForkStats(ctx context.Context, s *Session) (forkerCount int, from *ForkRef, err error) {
+	if err = st.pool.QueryRow(ctx,
+		`SELECT count(DISTINCT owner_id) FROM sessions WHERE forked_from_session_id = $1`,
+		s.ID).Scan(&forkerCount); err != nil {
+		return 0, nil, err
+	}
+	if s.ForkedFromID != nil {
+		var ref ForkRef
+		ref.ID = *s.ForkedFromID
+		if s.ForkedFromSeq != nil {
+			ref.Seq = *s.ForkedFromSeq
+		}
+		// Best-effort: the source may have been deleted (FK set null won't fire
+		// here since we read the stored id) — tolerate no-rows.
+		e := st.pool.QueryRow(ctx,
+			`SELECT s.title, COALESCE(NULLIF(u.name,''), NULLIF(u.email,''), u.handle)
+			 FROM sessions s JOIN users u ON u.id = s.owner_id WHERE s.id = $1`,
+			*s.ForkedFromID).Scan(&ref.Title, &ref.OwnerHandle)
+		if e == nil {
+			from = &ref
+		}
+	}
+	return forkerCount, from, nil
 }
 
 // GetSession returns the session with id, or (nil, nil) if it does not exist.

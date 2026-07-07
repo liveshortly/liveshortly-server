@@ -9,6 +9,7 @@ import EventStream from "@/components/EventStream";
 import MobileEventFeed from "@/components/MobileEventFeed";
 import PublicLinkDialog from "@/components/PublicLinkDialog";
 import PublishAction from "@/components/PublishAction";
+import HandoffButton from "@/components/HandoffButton";
 import ShareToTwitter from "@/components/ShareToTwitter";
 import TypingIndicator from "@/components/TypingIndicator";
 import { useWorkspaceDrawer } from "@/components/WorkspaceDrawerContext";
@@ -559,9 +560,51 @@ export default function SessionViewer({
                 ◉ OPEN · NO SIGN-IN
               </span>
             )}
+            {/* Lineage: this session is itself a fork of another. */}
+            {meta?.forked_from && (
+              <a
+                href={`/session/${meta.forked_from.id}`}
+                className="label"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 5,
+                  color: "var(--muted)",
+                  border: "1px solid var(--hairline)",
+                  padding: "3px 8px",
+                  whiteSpace: "nowrap",
+                  textDecoration: "none",
+                }}
+                title={`Forked from “${meta.forked_from.title}” by ${meta.forked_from.owner_handle}`}
+              >
+                ⑃ FORKED FROM {meta.forked_from.owner_handle}
+              </a>
+            )}
+            {/* How many times this session has been handed off / forked. */}
+            {meta && (meta.fork_count ?? 0) > 0 && (
+              <span
+                className="label"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 5,
+                  color: "var(--muted)",
+                  border: "1px solid var(--hairline)",
+                  padding: "3px 8px",
+                  whiteSpace: "nowrap",
+                }}
+                title={`${meta.forker_count ?? meta.fork_count} ${
+                  (meta.forker_count ?? meta.fork_count) === 1 ? "user has" : "users have"
+                } continued this session`}
+              >
+                ⑃ FORKED · {meta.fork_count}
+              </span>
+            )}
             {meta && <Badge status={meta.status} size="md" />}
             </div>
             <div className="session-actions">
+              {/* Continue this session (handoff) — available to anyone who can read it. */}
+              {meta && <HandoffButton sessionId={meta.id} />}
               {/* Share to X — makes it public (owner) + opens a pre-filled tweet. */}
               {meta && (
                 <ShareToTwitter
