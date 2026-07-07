@@ -249,8 +249,12 @@ a {
   width: 100%;
   min-height: 0;
 }
+/* Only shown when the sidebar is acting as the mobile drawer (see the
+   820px breakpoint below) — on desktop it's a permanent panel sitting
+   right next to HudHeader, which already has the logo and profile/sign-out,
+   so repeating them here would just duplicate both. */
 .ws-brand {
-  display: flex;
+  display: none;
   align-items: center;
   gap: 9px;
   flex-shrink: 0;
@@ -262,7 +266,7 @@ a {
   color: var(--ink);
 }
 .ws-profile-footer {
-  display: flex;
+  display: none;
   align-items: center;
   gap: 10px;
   flex-shrink: 0;
@@ -367,6 +371,13 @@ a {
     transform: translateX(-100%);
     transition: transform 180ms ease;
     box-shadow: 4px 0 16px var(--shadow);
+  }
+  /* Now that the sidebar is a drawer instead of a permanent panel next to
+     HudHeader, it's the only nav visible while the drawer is open — so the
+     logo and profile row earn their keep here. */
+  .ws-brand,
+  .ws-profile-footer {
+    display: flex;
   }
   .workspace[data-drawer="open"] .ws-sidebar {
     transform: none;
