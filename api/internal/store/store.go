@@ -374,23 +374,32 @@ func (st *Store) CreateSession(ctx context.Context, ownerID string, in NewSessio
 	if tags == nil {
 		tags = []string{}
 	}
+	// Explicit casts on the fork params so Postgres can infer their types even
+	// when the values are NULL (untyped nil otherwise errors 42P08 "could not
+	// determine data type of parameter"). forked_at is passed as a value, not a
+	// SQL CASE, to avoid reusing a param across type contexts.
 	const ins = `
 		INSERT INTO sessions (owner_id, title, custom_title, model, framework, tags,
 			client_handle, git_remote, git_branch, agent, capture_mode, status,
 			forked_from_session_id, forked_from_seq, forked_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'live',
-			$12, $13, CASE WHEN $12 IS NULL THEN NULL ELSE now() END)
+			$12::uuid, $13::int, $14::timestamptz)
 		RETURNING id`
 
 	// A plain (non-forked) create is a single INSERT. A forked create additionally
 	// bumps the source's fork_count, so both happen atomically in a transaction.
 	forked := in.ForkedFromSessionID != nil
+	var forkedAt *time.Time
+	if forked {
+		now := time.Now()
+		forkedAt = &now
+	}
 	var id string
 	if !forked {
 		if err := st.pool.QueryRow(ctx, ins,
 			ownerID, title, custom, in.Model, in.Framework, tags,
 			in.ClientHandle, in.GitRemote, in.GitBranch, in.Agent, in.CaptureMode,
-			nil, nil,
+			nil, nil, nil,
 		).Scan(&id); err != nil {
 			return Session{}, err
 		}
@@ -403,7 +412,7 @@ func (st *Store) CreateSession(ctx context.Context, ownerID string, in NewSessio
 		if err := tx.QueryRow(ctx, ins,
 			ownerID, title, custom, in.Model, in.Framework, tags,
 			in.ClientHandle, in.GitRemote, in.GitBranch, in.Agent, in.CaptureMode,
-			in.ForkedFromSessionID, in.ForkedFromSeq,
+			in.ForkedFromSessionID, in.ForkedFromSeq, forkedAt,
 		).Scan(&id); err != nil {
 			return Session{}, err
 		}
