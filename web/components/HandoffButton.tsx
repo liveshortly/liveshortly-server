@@ -9,7 +9,17 @@ import { generateHandoff, type Handoff } from "@/lib/api";
  * session (the fork is authorized again server-side at redeem time and becomes a
  * NEW session owned by whoever runs the command). The original is untouched.
  */
-export default function HandoffButton({ sessionId }: { sessionId: string }) {
+export default function HandoffButton({
+  sessionId,
+  placement = "down",
+  fullWidth = false,
+}: {
+  sessionId: string;
+  /** Which way the command popover opens. Use "up" inside the bottom sheet. */
+  placement?: "down" | "up";
+  /** Stretch the trigger to fill its row (mobile sheet). */
+  fullWidth?: boolean;
+}) {
   const [ho, setHo] = useState<Handoff | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(false);
@@ -42,8 +52,15 @@ export default function HandoffButton({ sessionId }: { sessionId: string }) {
     }
   };
 
+  const up = placement === "up";
   return (
-    <div style={{ position: "relative", display: "inline-flex" }}>
+    <div
+      style={{
+        position: "relative",
+        display: fullWidth ? "block" : "inline-flex",
+        width: fullWidth ? "100%" : undefined,
+      }}
+    >
       <button
         type="button"
         onClick={open}
@@ -59,6 +76,7 @@ export default function HandoffButton({ sessionId }: { sessionId: string }) {
           cursor: busy ? "default" : "pointer",
           whiteSpace: "nowrap",
           opacity: busy ? 0.6 : 1,
+          width: fullWidth ? "100%" : undefined,
         }}
       >
         {busy ? "…" : err ? "⚠ RETRY" : "⑃ CONTINUE"}
@@ -70,7 +88,8 @@ export default function HandoffButton({ sessionId }: { sessionId: string }) {
           aria-label="Handoff command"
           style={{
             position: "absolute",
-            top: "calc(100% + 6px)",
+            top: up ? undefined : "calc(100% + 6px)",
+            bottom: up ? "calc(100% + 6px)" : undefined,
             right: 0,
             zIndex: 40,
             width: "min(92vw, 420px)",

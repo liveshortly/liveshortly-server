@@ -878,6 +878,10 @@ export default function SessionViewer({
         >
           <div className="msheet" role="dialog" aria-label="Session actions">
             <div className="msheet-handle" />
+            {/* Continue this session (handoff) — available to anyone who can read it. */}
+            <div className="msheet-row-wrap">
+              <HandoffButton sessionId={meta.id} placement="up" fullWidth />
+            </div>
             <div className="msheet-row-wrap">
               <ShareToTwitter
                 session={meta}
