@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LiveShortly — Session Viewer (Mobile)</title>
+<style>
+  /* ── Tokens — copied verbatim from web/app/globals.css so this preview
+     matches the real app's theme exactly. ── */
+  :root, :root[data-theme="light"] {
+    --bg: #e7e8ea;
+    --panel: #f3f4f5;
+    --hairline: #d0d2d5;
+    --strong: #1b1c1e;
+    --ink: #1b1c1e;
+    --muted: #63666b;
+    --faint: #94979c;
+    --green: #1f7a4d;
+    --red: #c0392b;
+    --amber: #a9810f;
+    --shadow: rgba(20, 22, 26, 0.16);
+    color-scheme: light;
+  }
+  :root[data-theme="dark"] {
+    --bg: #1e2123;
+    --panel: #282c2f;
+    --hairline: #3d4247;
+    --strong: #edeff1;
+    --ink: #e9ebed;
+    --muted: #a6abb1;
+    --faint: #797f86;
+    --green: #54b885;
+    --red: #e7705f;
+    --amber: #d9ad52;
+    --shadow: rgba(0, 0, 0, 0.45);
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: "JetBrains Mono", "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+    background: #0b0c0d;
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+  }
+  .label {
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 10px;
+    color: var(--muted);
+  }
+  .tnum { font-variant-numeric: tabular-nums; }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: .35; transform: scale(.75); }
+  }
+  .live-dot {
+    display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+    background: var(--green); animation: pulse 1.2s ease-in-out infinite; flex-shrink: 0;
+  }
+  @keyframes dotwave {
+    0%, 60%, 100% { opacity: .25; }
+    30% { opacity: 1; }
+  }
+  .typing-dots span {
+    display: inline-block; width: 4px; height: 4px; border-radius: 50%;
+    background: currentColor; margin-right: 3px; animation: dotwave 1.1s infinite;
+  }
+  .typing-dots span:nth-child(2) { animation-delay: .15s; }
+  .typing-dots span:nth-child(3) { animation-delay: .3s; }
+
+  /* ── Preview chrome (not part of the real screen) ── */
+  .stage {
+    min-height: 100vh;
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 18px; padding: 32px 16px;
+  }
+  .toolbar {
+    display: flex; align-items: center; gap: 10px;
+  }
+  .toolbtn {
+    font-family: inherit; font-size: 10px; text-transform: uppercase; letter-spacing: .1em;
+    color: #9aa0a6; background: #1a1b1d; border: 1px solid #33363a;
+    padding: 7px 14px; cursor: pointer; border-radius: 3px; transition: all .12s;
+  }
+  .toolbtn.active { background: #e9ebed; color: #111; border-color: #e9ebed; }
+  .toolbtn:hover:not(.active) { border-color: #55585c; color: #e9ebed; }
+  .stage-note { font-size: 10px; letter-spacing: .08em; color: #6b6e72; text-transform: uppercase; }
+
+  /* ── Device frame ── */
+  .device {
+    width: 393px; height: 852px;
+    border-radius: 46px; border: 10px solid #000;
+    background: var(--bg); overflow: hidden; position: relative;
+    box-shadow: 0 40px 100px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.04);
+    transition: background-color 200ms ease;
+  }
+  .notch {
+    position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+    width: 120px; height: 26px; background: #000; border-radius: 14px; z-index: 50;
+  }
+  @media (max-width: 480px) {
+    .stage { padding: 0; gap: 0; }
+    .toolbar { position: fixed; top: 8px; right: 8px; z-index: 999; }
+    .device {
+      width: 100vw; height: 100dvh; border-radius: 0; border: 0;
+      box-shadow: none;
+    }
+    .notch { display: none; }
+  }
+
+  /* ── The actual screen (this is the part meant to be ported into
+     web/app/(workspace)/session/[id]/) ── */
+  .screen {
+    display: flex; flex-direction: column; height: 100%; position: relative;
+  }
+
+  .topbar {
+    flex: 0 0 auto;
+    display: flex; align-items: center; gap: 10px;
+    padding: 40px 14px 10px;
+    border-bottom: 1px solid var(--hairline);
+    background: var(--bg);
+  }
+  .backbtn {
+    flex-shrink: 0; width: 30px; height: 30px; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; color: var(--ink);
+    background: none; border: none; cursor: pointer;
+  }
+  .backbtn span { display: block; width: 16px; height: 2px; background: currentColor; margin: 2px 0; }
+  .titleblock { min-width: 0; flex: 1; }
+  .sessionid { margin-bottom: 2px; }
+  .title {
+    font-size: 14.5px; font-weight: 700; line-height: 1.3; margin: 0 0 5px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .statusline {
+    display: flex; align-items: center; gap: 7px;
+    overflow-x: auto; white-space: nowrap; scrollbar-width: none;
+  }
+  .statusline::-webkit-scrollbar { display: none; }
+  .livepill {
+    display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0;
+    font-size: 9px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--green); border: 1px solid var(--green); padding: 2px 7px;
+  }
+  .modeltxt { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; flex-shrink: 0; }
+  .dot-sep { color: var(--hairline); font-size: 10px; flex-shrink: 0; }
+  .viewers { font-size: 10.5px; color: var(--muted); flex-shrink: 0; }
+  .morebtn {
+    flex-shrink: 0; width: 30px; height: 30px; display: flex; align-items: center;
+    justify-content: center; color: var(--ink); font-size: 20px;
+    background: none; border: none; cursor: pointer;
+  }
+
+  .sw { width: 6px; height: 6px; border-radius: 1px; flex-shrink: 0; }
+  .sw-tool { background: var(--amber); }
+  .sw-write { background: var(--muted); }
+
+  .content { flex: 1; min-height: 0; overflow-y: auto; position: relative; background: var(--bg); }
+  .pane { padding: 12px 14px 16px; }
+
+  /* ── Unified feed: Claude, the host, and viewers all post into one thread.
+     Tool/write activity renders as small legend-swatched lines under the
+     turn that produced them, instead of a separate event log. ── */
+  .msg { display: flex; gap: 9px; align-items: flex-start; margin-bottom: 14px; }
+  .msg-avatar {
+    width: 24px; height: 24px; border-radius: 5px; flex-shrink: 0; margin-top: 1px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9.5px; font-weight: 700;
+  }
+  .msg-avatar.claude { background: var(--green); color: var(--bg); }
+  .msg-avatar.host { background: var(--strong); color: var(--bg); }
+  .msg-avatar.viewer { background: var(--panel); border: 1px solid var(--hairline); color: var(--muted); }
+  .msg-body { min-width: 0; flex: 1; }
+  .msg-head { display: flex; align-items: baseline; gap: 6px; margin-bottom: 4px; }
+  .msg-name { font-size: 11px; font-weight: 700; }
+  .msg-name.claude { color: var(--green); }
+  .msg-name.host { color: var(--ink); }
+  .msg-name.viewer { color: var(--amber); }
+  .msg-tag {
+    font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+    color: var(--muted); border: 1px solid var(--hairline); padding: 1px 5px;
+  }
+  .msg-time { font-size: 9.5px; color: var(--faint); margin-left: auto; flex-shrink: 0; }
+  .msg-bubble {
+    font-size: 12.5px; color: var(--ink); line-height: 1.45; word-break: break-word;
+    background: var(--panel); border: 1px solid var(--hairline); padding: 8px 10px;
+  }
+  .msg-bubble code { font-size: .92em; background: var(--bg); border: 1px solid var(--hairline); padding: 0 4px; }
+
+  .toolrow {
+    display: flex; align-items: center; gap: 7px; margin: 5px 0 0 1px;
+    font-size: 10.5px; color: var(--muted);
+  }
+
+  .typing-indicator {
+    display: inline-flex; align-items: center; gap: 7px; margin: 2px 0 0 33px;
+    font-size: 9.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--green);
+  }
+
+  /* Input-request banner (pinned above composer, both tabs) */
+  .banner {
+    flex: 0 0 auto; margin: 0 14px 8px; padding: 9px 11px;
+    border: 1px solid var(--amber); background: rgba(169,129,15,.09);
+    display: flex; flex-direction: column; gap: 7px;
+  }
+  :root[data-theme="dark"] .banner { background: rgba(217,173,82,.10); }
+  .banner-head { display: flex; align-items: center; gap: 7px; }
+  .banner-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--amber); }
+  .banner-msg { font-size: 11.5px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .banner-actions { display: flex; gap: 6px; }
+  .bbtn {
+    flex: 1; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+    padding: 8px 4px; border-radius: 2px; cursor: pointer; font-family: inherit;
+  }
+  .bbtn-allow { background: var(--green); color: var(--bg); border: 1px solid var(--green); }
+  .bbtn-always { background: transparent; color: var(--green); border: 1px solid var(--green); }
+  .bbtn-deny { background: transparent; color: var(--red); border: 1px solid var(--red); }
+  .banner-answered { font-size: 10.5px; color: var(--green); text-align: center; }
+
+  /* Composer */
+  .composer {
+    flex: 0 0 auto; display: flex; align-items: stretch; gap: 0;
+    margin: 0 14px; margin-bottom: max(12px, env(safe-area-inset-bottom));
+    border: 1px solid var(--strong); background: var(--panel);
+  }
+  .composer-input {
+    flex: 1; min-width: 0; border: none; outline: none; background: transparent;
+    color: var(--ink); padding: 12px 11px; font-family: inherit; font-size: 12.5px;
+  }
+  .composer-input::placeholder { color: var(--faint); text-transform: uppercase; font-size: 10px; letter-spacing: .06em; }
+  .composer-send {
+    flex-shrink: 0; border: none; border-left: 1px solid var(--strong);
+    background: var(--strong); color: var(--bg); padding: 0 16px; font-size: 10.5px;
+    font-weight: 700; text-transform: uppercase; letter-spacing: .06em; cursor: pointer;
+    font-family: inherit;
+  }
+  .readonly-note {
+    flex: 0 0 auto; margin: 0 14px; margin-bottom: max(12px, env(safe-area-inset-bottom));
+    text-align: center; font-size: 10px; color: var(--faint); text-transform: uppercase;
+    letter-spacing: .08em; border: 1px dashed var(--hairline); padding: 10px;
+  }
+
+  /* Left drawer — chat/session history */
+  .drawer-backdrop {
+    position: absolute; inset: 0; background: rgba(0,0,0,.4); z-index: 70;
+    opacity: 0; pointer-events: none; transition: opacity 160ms ease;
+  }
+  .drawer-backdrop.open { opacity: 1; pointer-events: auto; }
+  .drawer {
+    position: absolute; top: 0; bottom: 0; left: 0; z-index: 71;
+    width: 82%; max-width: 300px;
+    background: var(--panel); border-right: 1px solid var(--hairline);
+    display: flex; flex-direction: column;
+    transform: translateX(-100%); transition: transform 200ms ease;
+    box-shadow: 6px 0 20px var(--shadow);
+  }
+  .drawer-backdrop.open .drawer { transform: translateX(0); }
+  .drawer-head {
+    flex: 0 0 auto; padding: 40px 14px 10px; border-bottom: 1px solid var(--hairline);
+  }
+  .drawer-brand-row { display: flex; align-items: center; justify-content: space-between; }
+  .drawer-brand {
+    display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700;
+    letter-spacing: -.01em; color: var(--ink); background: none; border: none;
+    padding: 0; cursor: pointer; font-family: inherit;
+  }
+  .brandmark { width: 22px; height: 22px; border-radius: 5px; background: var(--green); position: relative; flex-shrink: 0; }
+  .brandmark::before {
+    content: ''; position: absolute; left: 5px; top: 5.5px; width: 5px; height: 11px;
+    background: var(--panel); border-radius: 1px;
+  }
+  .brandmark::after {
+    content: ''; position: absolute; left: 12px; top: 5.5px; width: 6.5px; height: 11px;
+    border: 1.5px solid var(--panel); background: var(--green); border-radius: 1px;
+  }
+  .drawer-title { margin-top: 10px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--faint); }
+  .drawer-close {
+    width: 26px; height: 26px; display: flex; align-items: center; justify-content: center;
+    background: none; border: none; color: var(--muted); font-size: 15px; cursor: pointer;
+  }
+  .drawer-search {
+    flex: 0 0 auto; margin: 10px 12px; padding: 8px 10px;
+    border: 1px solid var(--hairline); background: var(--bg);
+    color: var(--faint); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em;
+  }
+  .drawer-list { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 0 10px; }
+  .drawer-item {
+    display: flex; flex-direction: column; gap: 3px; width: 100%; text-align: left;
+    padding: 10px 14px; border: none; border-left: 3px solid transparent;
+    background: none; cursor: pointer; font-family: inherit;
+  }
+  .drawer-item:active { background: var(--hairline); }
+  .drawer-item.current { border-left-color: var(--green); background: rgba(31,122,77,.07); }
+  :root[data-theme="dark"] .drawer-item.current { background: rgba(84,184,133,.09); }
+  .drawer-item-top { display: flex; align-items: center; gap: 6px; }
+  .drawer-item-title {
+    font-size: 12px; color: var(--ink); font-weight: 600; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;
+  }
+  .drawer-item-meta { font-size: 9.5px; color: var(--faint); padding-left: 13px; }
+  .drawer-item-meta .live { color: var(--green); }
+  .drawer-footer {
+    flex: 0 0 auto; display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px; border-top: 1px solid var(--hairline);
+    background: none; border-left: none; border-right: none; border-bottom: none;
+    width: 100%; text-align: left; cursor: pointer; font-family: inherit;
+  }
+  .drawer-footer:active { background: var(--hairline); }
+  .drawer-avatar {
+    width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+    background: var(--strong); color: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700;
+  }
+  .drawer-profile-info { min-width: 0; flex: 1; }
+  .drawer-profile-name {
+    font-size: 12px; font-weight: 700; color: var(--ink);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .drawer-profile-handle { font-size: 10px; color: var(--faint); }
+  .drawer-profile-arrow { color: var(--faint); font-size: 13px; flex-shrink: 0; }
+  .drawer-section-label {
+    padding: 12px 14px 6px; font-size: 9.5px; text-transform: uppercase;
+    letter-spacing: .1em; color: var(--faint); font-weight: 700;
+  }
+  .drawer-div { height: 1px; background: var(--hairline); margin: 2px 0; }
+
+  /* Feed screen — full-screen overlay, slides in from the LEFT (it's "up" the
+     nav hierarchy from a single session) when the drawer logo is tapped. */
+  .feed-screen {
+    position: absolute; inset: 0; z-index: 60; background: var(--bg);
+    display: flex; flex-direction: column;
+    transform: translateX(-100%); transition: transform 200ms ease;
+  }
+  .feed-screen.open { transform: translateX(0); }
+  .feed-topbar {
+    flex: 0 0 auto; display: flex; align-items: center; gap: 10px;
+    padding: 40px 14px 10px; border-bottom: 1px solid var(--hairline);
+  }
+  .feed-topbar .title { font-size: 15px; font-weight: 700; flex: 1; margin: 0; }
+  .feed-icon-btn {
+    width: 30px; height: 30px; flex-shrink: 0; display: flex; align-items: center;
+    justify-content: center; background: none; border: none; color: var(--ink);
+    font-size: 15px; cursor: pointer;
+  }
+  .feed-avatar-btn {
+    width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+    background: var(--strong); color: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; font-weight: 700; border: none; cursor: pointer;
+  }
+  .feed-filters {
+    flex: 0 0 auto; display: flex; gap: 8px; padding: 10px 14px;
+    overflow-x: auto; white-space: nowrap; scrollbar-width: none;
+    border-bottom: 1px solid var(--hairline); background: var(--panel);
+  }
+  .feed-filters::-webkit-scrollbar { display: none; }
+  .filter-chip {
+    flex-shrink: 0; font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .06em; padding: 6px 12px; border: 1px solid var(--hairline);
+    color: var(--muted); background: var(--bg); cursor: pointer; font-family: inherit;
+  }
+  .filter-chip.active { background: var(--strong); color: var(--bg); border-color: var(--strong); }
+  .feed-body { flex: 1; min-height: 0; overflow-y: auto; padding: 12px 0 16px; }
+
+  .feedcard {
+    border: 1px solid var(--hairline); background: var(--panel);
+    margin: 0 14px 12px; cursor: pointer;
+  }
+  .feedcard-preview {
+    height: 60px; background: var(--bg); border-bottom: 1px solid var(--hairline);
+    padding: 8px 10px; position: relative; overflow: hidden;
+  }
+  .feedcard-preview .pline { height: 4px; border-radius: 1px; margin-bottom: 4px; opacity: .85; }
+  .feedcard-badge {
+    position: absolute; top: 6px; left: 8px; display: inline-flex; align-items: center; gap: 4px;
+    font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; padding: 2px 6px;
+  }
+  .feedcard-badge.live { background: var(--green); color: var(--bg); }
+  .feedcard-badge.ended { background: var(--panel); color: var(--muted); border: 1px solid var(--hairline); }
+  .feedcard-events {
+    position: absolute; top: 6px; right: 8px; font-size: 8px; color: var(--muted);
+    background: var(--panel); border: 1px solid var(--hairline); padding: 2px 6px;
+  }
+  .feedcard-body { padding: 10px 12px; }
+  .feedcard-tag { font-size: 9px; text-transform: uppercase; letter-spacing: .06em; color: var(--green); display: block; margin-bottom: 4px; }
+  .feedcard-title {
+    font-size: 12.5px; font-weight: 700; color: var(--ink); line-height: 1.35; margin-bottom: 8px;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .feedcard-foot { display: flex; align-items: center; gap: 7px; }
+  .feedcard-avatar {
+    width: 18px; height: 18px; border-radius: 50%; background: var(--strong); color: var(--bg);
+    display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 700; flex-shrink: 0;
+  }
+  .feedcard-owner { font-size: 10px; color: var(--green); font-weight: 600; }
+  .feedcard-time { font-size: 9.5px; color: var(--faint); margin-left: auto; }
+
+  /* Profile screen — full-screen overlay, slides in from the right over
+     everything (drawer included) when the drawer footer is tapped. */
+  .profile-screen {
+    position: absolute; inset: 0; z-index: 90; background: var(--bg);
+    display: flex; flex-direction: column;
+    transform: translateX(100%); transition: transform 200ms ease;
+  }
+  .profile-screen.open { transform: translateX(0); }
+  .profile-topbar {
+    flex: 0 0 auto; display: flex; align-items: center; gap: 10px;
+    padding: 40px 14px 12px; border-bottom: 1px solid var(--hairline);
+  }
+  .profile-topbar .title { margin: 0; font-size: 14.5px; }
+  .profile-body { flex: 1; min-height: 0; overflow-y: auto; padding: 22px 18px; }
+  .profile-hero { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-bottom: 26px; }
+  .profile-avatar {
+    width: 68px; height: 68px; border-radius: 50%;
+    background: var(--strong); color: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; font-weight: 700;
+  }
+  .profile-name { font-size: 16px; font-weight: 700; color: var(--ink); }
+  .profile-handle { font-size: 11.5px; color: var(--muted); }
+  .profile-email { font-size: 10.5px; color: var(--faint); }
+  .profile-stats {
+    display: flex; border: 1px solid var(--hairline); margin-bottom: 22px;
+  }
+  .profile-stat { flex: 1; text-align: center; padding: 12px 6px; }
+  .profile-stat + .profile-stat { border-left: 1px solid var(--hairline); }
+  .profile-stat-val { font-size: 17px; font-weight: 700; color: var(--ink); }
+  .profile-stat-lbl { font-size: 8.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--faint); margin-top: 2px; }
+  .profile-section-label {
+    font-size: 9.5px; text-transform: uppercase; letter-spacing: .1em;
+    color: var(--faint); font-weight: 700; margin: 0 0 6px;
+  }
+  .profile-list { border: 1px solid var(--hairline); margin-bottom: 22px; }
+  .profile-row {
+    display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+    padding: 12px 14px; border: none; border-bottom: 1px solid var(--hairline);
+    background: none; cursor: pointer; font-family: inherit; font-size: 12.5px; color: var(--ink);
+  }
+  .profile-row:last-child { border-bottom: none; }
+  .profile-row:active { background: var(--hairline); }
+  .profile-row-icon { width: 18px; flex-shrink: 0; text-align: center; color: var(--muted); }
+  .profile-row-val { margin-left: auto; color: var(--faint); font-size: 11px; flex-shrink: 0; }
+  .profile-row.danger { color: var(--red); }
+  .profile-row.danger .profile-row-icon { color: var(--red); }
+
+  /* Bottom sheet (kebab menu) */
+  .sheet-backdrop {
+    position: absolute; inset: 0; background: rgba(0,0,0,.4); z-index: 60;
+    opacity: 0; pointer-events: none; transition: opacity 160ms ease;
+  }
+  .sheet-backdrop.open { opacity: 1; pointer-events: auto; }
+  .sheet {
+    position: absolute; left: 0; right: 0; bottom: 0; z-index: 61;
+    background: var(--panel); border-top: 1px solid var(--hairline);
+    padding: 6px 0 max(10px, env(safe-area-inset-bottom));
+    transform: translateY(100%); transition: transform 200ms ease;
+  }
+  .sheet-backdrop.open .sheet { transform: translateY(0); }
+  .sheet-handle { width: 34px; height: 4px; background: var(--hairline); border-radius: 2px; margin: 8px auto 6px; }
+  .sheet-row {
+    display: flex; align-items: center; gap: 12px; padding: 13px 20px;
+    font-size: 12.5px; color: var(--ink); cursor: pointer; background: none; border: none;
+    width: 100%; text-align: left; font-family: inherit;
+  }
+  .sheet-row:active { background: var(--hairline); }
+  .sheet-row.danger { color: var(--red); }
+  .sheet-icon { width: 18px; flex-shrink: 0; text-align: center; color: var(--muted); }
+  .sheet-row.danger .sheet-icon { color: var(--red); }
+  .sheet-div { height: 1px; background: var(--hairline); margin: 4px 0; }
+</style>
+</head>
+<body>
+
+<div class="stage">
+  <div class="toolbar">
+    <button class="toolbtn active" id="btn-light" onclick="setTheme('light')">☀ Light</button>
+    <button class="toolbtn" id="btn-dark" onclick="setTheme('dark')">◐ Dark</button>
+  </div>
+
+  <div class="device" id="device">
+    <div class="notch"></div>
+    <div class="screen">
+
+      <!-- Top bar -->
+      <div class="topbar">
+        <button class="backbtn" aria-label="Session history" onclick="toggleDrawer(true)">
+          <span></span><span></span><span></span>
+        </button>
+        <div class="titleblock">
+          <div class="title">Building a multi-tenant auth system with JWT refresh rotation</div>
+          <div class="statusline">
+            <span class="livepill"><span class="live-dot"></span>LIVE</span>
+            <span class="dot-sep">·</span>
+            <span class="modeltxt">claude-sonnet-5</span>
+            <span class="dot-sep">·</span>
+            <span class="viewers tnum">◔ 42 watching</span>
+          </div>
+        </div>
+        <button class="morebtn" aria-label="Session settings" onclick="toggleSheet(true)">⚙</button>
+      </div>
+
+      <!-- One combined thread -->
+      <div class="content">
+        <div class="pane" id="pane-feed">
+
+          <div class="msg">
+            <div class="msg-avatar viewer">A</div>
+            <div class="msg-body">
+              <div class="msg-head"><span class="msg-name viewer">@alice</span><span class="msg-time tnum">14:21:40</span></div>
+              <div class="msg-bubble">can you also add refresh token rotation?</div>
+            </div>
+          </div>
+
+          <div class="msg">
+            <div class="msg-avatar host">RS</div>
+            <div class="msg-body">
+              <div class="msg-head"><span class="msg-name host">@rsehgal</span><span class="msg-time tnum">14:21:52</span></div>
+              <div class="msg-bubble">yep, doing that right after the device flow lands</div>
+            </div>
+          </div>
+
+          <div class="msg">
+            <div class="msg-avatar host">RS</div>
+            <div class="msg-body">
+              <div class="msg-head">
+                <span class="msg-name host">@rsehgal</span>
+                <span class="msg-tag">Prompt</span>
+                <span class="msg-time tnum">14:22:01</span>
+              </div>
+              <div class="msg-bubble">Implement Google OAuth device flow for the CLI</div>
+              <div class="toolrow"><span class="sw sw-tool"></span>Read api/internal/handlers/authweb.go</div>
+              <div class="toolrow"><span class="sw sw-write"></span>Write api/internal/handlers/device.go</div>
+              <div class="toolrow"><span class="sw sw-tool"></span>Bash: go build ./...</div>
+            </div>
+          </div>
+
+          <div class="msg">
+            <div class="msg-avatar claude">⌐</div>
+            <div class="msg-body">
+              <div class="msg-head"><span class="msg-name claude">Claude</span><span class="msg-time tnum">14:22:18</span></div>
+              <div class="msg-bubble">Device flow implemented. Start with <code>POST /auth/device</code> — polling and refresh rotation are wired up.</div>
+            </div>
+          </div>
+
+          <div class="msg">
+            <div class="msg-avatar viewer">D</div>
+            <div class="msg-body">
+              <div class="msg-head"><span class="msg-name viewer">@devon</span><span class="msg-time tnum">14:22:30</span></div>
+              <div class="msg-bubble">nice, clean diff so far 👀</div>
+            </div>
+          </div>
+
+          <div class="typing-indicator"><span class="typing-dots"><span></span><span></span><span></span></span> CLAUDE IS WORKING</div>
+        </div>
+      </div>
+
+      <!-- Input-requested banner (permission decision demo) -->
+      <div class="banner" id="banner">
+        <div class="banner-head">
+          <span class="live-dot" style="background:var(--amber)"></span>
+          <span class="banner-title">Permission Requested</span>
+        </div>
+        <div class="banner-msg">Bash: rm -rf ./tmp/cache</div>
+        <div class="banner-actions" id="banner-actions">
+          <button class="bbtn bbtn-allow" onclick="decide('allow')">✓ Allow</button>
+          <button class="bbtn bbtn-always" onclick="decide('always')">✓✓ Always</button>
+          <button class="bbtn bbtn-deny" onclick="decide('deny')">✕ Deny</button>
+        </div>
+      </div>
+
+      <!-- Composer -->
+      <div class="composer">
+        <input class="composer-input" placeholder="MESSAGE THE SESSION" />
+        <button class="composer-send">Send ▸</button>
+      </div>
+
+      <!-- Feed screen -->
+      <div class="feed-screen" id="feed-screen">
+        <div class="feed-topbar">
+          <button class="feed-icon-btn" aria-label="Session history" onclick="toggleDrawer(true)">
+            <span style="display:flex;flex-direction:column;align-items:center;gap:3px">
+              <span style="width:16px;height:2px;background:currentColor"></span>
+              <span style="width:16px;height:2px;background:currentColor"></span>
+              <span style="width:16px;height:2px;background:currentColor"></span>
+            </span>
+          </button>
+          <div class="title">Feed</div>
+          <button class="feed-icon-btn" aria-label="Search">⌕</button>
+          <button class="feed-avatar-btn" aria-label="Profile" onclick="openProfile()">RS</button>
+        </div>
+
+        <div class="feed-filters">
+          <button class="filter-chip active">All</button>
+          <button class="filter-chip">Live</button>
+          <button class="filter-chip">Ended</button>
+          <button class="filter-chip">Following</button>
+        </div>
+
+        <div class="feed-body">
+          <div class="feedcard" onclick="closeFeed()">
+            <div class="feedcard-preview">
+              <div class="feedcard-badge live"><span class="live-dot" style="width:5px;height:5px;background:var(--bg)"></span>Live</div>
+              <div class="feedcard-events tnum">147 ev</div>
+              <div class="pline" style="background:var(--green);width:60%;margin-top:22px"></div>
+              <div class="pline" style="background:var(--hairline);width:85%"></div>
+              <div class="pline" style="background:var(--amber);width:45%"></div>
+            </div>
+            <div class="feedcard-body">
+              <span class="feedcard-tag">#auth</span>
+              <div class="feedcard-title">Building a multi-tenant auth system with JWT refresh rotation</div>
+              <div class="feedcard-foot">
+                <span class="feedcard-avatar">RS</span>
+                <span class="feedcard-owner">@rsehgal</span>
+                <span class="feedcard-time tnum">◔ 42 · 3m ago</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="feedcard" onclick="closeFeed()">
+            <div class="feedcard-preview">
+              <div class="feedcard-badge ended">Ended</div>
+              <div class="feedcard-events tnum">89 ev</div>
+              <div class="pline" style="background:var(--amber);width:50%;margin-top:22px"></div>
+              <div class="pline" style="background:var(--hairline);width:78%"></div>
+              <div class="pline" style="background:var(--hairline);width:66%"></div>
+            </div>
+            <div class="feedcard-body">
+              <span class="feedcard-tag">#python</span>
+              <div class="feedcard-title">Debugging a memory leak in FastAPI async endpoints</div>
+              <div class="feedcard-foot">
+                <span class="feedcard-avatar">MK</span>
+                <span class="feedcard-owner">@mkumar</span>
+                <span class="feedcard-time tnum">1h 24m · 2h ago</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="feedcard" onclick="closeFeed()">
+            <div class="feedcard-preview">
+              <div class="feedcard-badge live"><span class="live-dot" style="width:5px;height:5px;background:var(--bg)"></span>Live</div>
+              <div class="feedcard-events tnum">56 ev</div>
+              <div class="pline" style="background:var(--green);width:70%;margin-top:22px"></div>
+              <div class="pline" style="background:var(--amber);width:40%"></div>
+              <div class="pline" style="background:var(--hairline);width:90%"></div>
+            </div>
+            <div class="feedcard-body">
+              <span class="feedcard-tag">#nextjs</span>
+              <div class="feedcard-title">Migrating a CRA app to Next.js 15 App Router</div>
+              <div class="feedcard-foot">
+                <span class="feedcard-avatar">JL</span>
+                <span class="feedcard-owner">@jliang</span>
+                <span class="feedcard-time tnum">◔ 18 · 12m ago</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="feedcard" onclick="closeFeed()">
+            <div class="feedcard-preview">
+              <div class="feedcard-badge ended">Ended</div>
+              <div class="feedcard-events tnum">203 ev</div>
+              <div class="pline" style="background:var(--hairline);width:80%;margin-top:22px"></div>
+              <div class="pline" style="background:var(--green);width:55%"></div>
+              <div class="pline" style="background:var(--hairline);width:70%"></div>
+            </div>
+            <div class="feedcard-body">
+              <span class="feedcard-tag">#rust</span>
+              <div class="feedcard-title">Writing a zero-copy HTTP parser with nom combinators</div>
+              <div class="feedcard-foot">
+                <span class="feedcard-avatar">TW</span>
+                <span class="feedcard-owner">@twang</span>
+                <span class="feedcard-time tnum">42m · 45m ago</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="feedcard" onclick="closeFeed()">
+            <div class="feedcard-preview">
+              <div class="feedcard-badge live"><span class="live-dot" style="width:5px;height:5px;background:var(--bg)"></span>Live</div>
+              <div class="feedcard-events tnum">31 ev</div>
+              <div class="pline" style="background:var(--amber);width:48%;margin-top:22px"></div>
+              <div class="pline" style="background:var(--hairline);width:82%"></div>
+              <div class="pline" style="background:var(--green);width:60%"></div>
+            </div>
+            <div class="feedcard-body">
+              <span class="feedcard-tag">#go</span>
+              <div class="feedcard-title">Optimizing Redis pub/sub fan-out for 10k concurrent SSE connections</div>
+              <div class="feedcard-foot">
+                <span class="feedcard-avatar">AP</span>
+                <span class="feedcard-owner">@apatel</span>
+                <span class="feedcard-time tnum">◔ 9 · 8m ago</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="feedcard" onclick="closeFeed()">
+            <div class="feedcard-preview">
+              <div class="feedcard-badge ended">Ended</div>
+              <div class="feedcard-events tnum">178 ev</div>
+              <div class="pline" style="background:var(--green);width:65%;margin-top:22px"></div>
+              <div class="pline" style="background:var(--hairline);width:88%"></div>
+              <div class="pline" style="background:var(--amber);width:50%"></div>
+            </div>
+            <div class="feedcard-body">
+              <span class="feedcard-tag">#react</span>
+              <div class="feedcard-title">Real-time collaborative code editor with CRDT and Yjs state sync</div>
+              <div class="feedcard-foot">
+                <span class="feedcard-avatar">SC</span>
+                <span class="feedcard-owner">@schoi</span>
+                <span class="feedcard-time tnum">2h 05m · 3h ago</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Left drawer: chat / session history -->
+      <div class="drawer-backdrop" id="drawer-backdrop" onclick="if(event.target===this) toggleDrawer(false)">
+        <div class="drawer">
+          <div class="drawer-head">
+            <div class="drawer-brand-row">
+              <button class="drawer-brand" onclick="goFeed()"><span class="brandmark"></span>LiveShortly</button>
+              <button class="drawer-close" aria-label="Close" onclick="toggleDrawer(false)">✕</button>
+            </div>
+            <div class="drawer-title">Session History</div>
+          </div>
+          <div class="drawer-search">⌕ Search sessions…</div>
+
+          <div class="drawer-list">
+            <div class="drawer-section-label">Live Chat</div>
+            <button class="drawer-item current">
+              <div class="drawer-item-top"><span class="live-dot"></span><span class="drawer-item-title">Multi-tenant auth system with JWT rotation</span></div>
+              <div class="drawer-item-meta"><span class="live">LIVE</span> · 147 events</div>
+            </button>
+            <button class="drawer-item">
+              <div class="drawer-item-top"><span class="live-dot"></span><span class="drawer-item-title">Migrating CRA app to Next.js 15</span></div>
+              <div class="drawer-item-meta"><span class="live">LIVE</span> · 56 events</div>
+            </button>
+            <button class="drawer-item">
+              <div class="drawer-item-top"><span class="live-dot"></span><span class="drawer-item-title">Optimizing Redis pub/sub fan-out</span></div>
+              <div class="drawer-item-meta"><span class="live">LIVE</span> · 31 events</div>
+            </button>
+
+            <div class="drawer-div"></div>
+            <div class="drawer-section-label">Archived</div>
+            <button class="drawer-item">
+              <div class="drawer-item-top"><span class="drawer-item-title">Debugging FastAPI async memory leak</span></div>
+              <div class="drawer-item-meta">ended · 2h ago</div>
+            </button>
+            <button class="drawer-item">
+              <div class="drawer-item-top"><span class="drawer-item-title">Zero-copy HTTP parser in Rust</span></div>
+              <div class="drawer-item-meta">ended · 45m ago</div>
+            </button>
+            <button class="drawer-item">
+              <div class="drawer-item-top"><span class="drawer-item-title">CRDT collaborative editor with Yjs</span></div>
+              <div class="drawer-item-meta">ended · 3d ago</div>
+            </button>
+            <button class="drawer-item">
+              <div class="drawer-item-top"><span class="drawer-item-title">Complete Postgres query optimization</span></div>
+              <div class="drawer-item-meta">ended · 2d ago</div>
+            </button>
+          </div>
+
+          <button class="drawer-footer" onclick="openProfile()">
+            <span class="drawer-avatar">RS</span>
+            <span class="drawer-profile-info">
+              <div class="drawer-profile-name">Rohan Sehgal</div>
+              <div class="drawer-profile-handle">@rsehgal</div>
+            </span>
+            <span class="drawer-profile-arrow">›</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Profile screen -->
+      <div class="profile-screen" id="profile-screen">
+        <div class="profile-topbar">
+          <button class="backbtn" aria-label="Back" onclick="closeProfile()" style="flex-direction:row;font-size:20px;">‹</button>
+          <div class="title">Profile</div>
+        </div>
+        <div class="profile-body">
+          <div class="profile-hero">
+            <div class="profile-avatar">RS</div>
+            <div class="profile-name">Rohan Sehgal</div>
+            <div class="profile-handle">@rsehgal</div>
+            <div class="profile-email">rsehgal@liveshortly.dev</div>
+          </div>
+
+          <div class="profile-stats">
+            <div class="profile-stat"><div class="profile-stat-val tnum">38</div><div class="profile-stat-lbl">Sessions</div></div>
+            <div class="profile-stat"><div class="profile-stat-val tnum">6.2k</div><div class="profile-stat-lbl">Events</div></div>
+            <div class="profile-stat"><div class="profile-stat-val tnum">1.1k</div><div class="profile-stat-lbl">Views</div></div>
+          </div>
+
+          <div class="profile-section-label">Account</div>
+          <div class="profile-list">
+            <button class="profile-row"><span class="profile-row-icon">✉</span>Email<span class="profile-row-val">rsehgal@…</span></button>
+            <button class="profile-row"><span class="profile-row-icon">⚿</span>Change Password</button>
+            <button class="profile-row" onclick="toggleThemeFromSheet()"><span class="profile-row-icon">✦</span>Theme<span class="profile-row-val" id="profile-theme-label">Light</span></button>
+          </div>
+
+          <div class="profile-section-label">More</div>
+          <div class="profile-list">
+            <button class="profile-row"><span class="profile-row-icon">▤</span>My Sessions</button>
+            <button class="profile-row"><span class="profile-row-icon">⊞</span>Shared With Me</button>
+            <button class="profile-row danger"><span class="profile-row-icon">⏻</span>Sign Out</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- More sheet -->
+      <div class="sheet-backdrop" id="sheet-backdrop" onclick="if(event.target===this) toggleSheet(false)">
+        <div class="sheet">
+          <div class="sheet-handle"></div>
+          <button class="sheet-row"><span class="sheet-icon">▶</span>Replay</button>
+          <button class="sheet-row"><span class="sheet-icon">✎</span>Dev Story</button>
+          <button class="sheet-row"><span class="sheet-icon">✎</span>Compose</button>
+          <div class="sheet-div"></div>
+          <button class="sheet-row" id="sheet-theme-row" onclick="toggleThemeFromSheet()"><span class="sheet-icon">✦</span><span id="sheet-theme-label">Theme: Light</span></button>
+          <div class="sheet-div"></div>
+          <button class="sheet-row"><span class="sheet-icon">⊕</span>Share Link</button>
+          <button class="sheet-row"><span class="sheet-icon">▣</span>Publish</button>
+          <div class="sheet-div"></div>
+          <button class="sheet-row danger"><span class="sheet-icon">⊘</span>End Session</button>
+          <button class="sheet-row danger"><span class="sheet-icon">⌫</span>Delete Session</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="stage-note">Mock phone frame for preview only — not part of the shipped screen</div>
+</div>
+
+<script>
+  function setTheme(mode) {
+    document.documentElement.setAttribute('data-theme', mode);
+    document.getElementById('btn-light').classList.toggle('active', mode === 'light');
+    document.getElementById('btn-dark').classList.toggle('active', mode === 'dark');
+    document.getElementById('sheet-theme-label').textContent =
+      'Theme: ' + (mode === 'light' ? 'Light' : 'Dark');
+    document.getElementById('profile-theme-label').textContent =
+      mode === 'light' ? 'Light' : 'Dark';
+  }
+  function toggleThemeFromSheet() {
+    const current = document.documentElement.getAttribute('data-theme');
+    setTheme(current === 'light' ? 'dark' : 'light');
+  }
+  function toggleDrawer(open) {
+    document.getElementById('drawer-backdrop').classList.toggle('open', open);
+  }
+  function goFeed() {
+    toggleDrawer(false);
+    document.getElementById('feed-screen').classList.add('open');
+  }
+  function closeFeed() {
+    // Tapping a card in the real app would route to that session;
+    // here it just returns to this mock session screen.
+    document.getElementById('feed-screen').classList.remove('open');
+  }
+  function openProfile() {
+    document.getElementById('profile-screen').classList.add('open');
+  }
+  function closeProfile() {
+    document.getElementById('profile-screen').classList.remove('open');
+  }
+  function toggleSheet(open) {
+    document.getElementById('sheet-backdrop').classList.toggle('open', open);
+  }
+  function decide(verdict) {
+    const actions = document.getElementById('banner-actions');
+    const labels = { allow: 'Allowed', always: 'Allowed — won’t ask again', deny: 'Denied' };
+    actions.outerHTML = '<div class="banner-answered" id="banner-actions">You answered: ' + labels[verdict] + '.</div>';
+  }
+</script>
+</body>
+</html>
