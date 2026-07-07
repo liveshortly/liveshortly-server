@@ -90,6 +90,7 @@ export default function HudHeader({ user }: { user?: Me | null }) {
       >
         {/* Wordmark + status */}
         <div
+          className="hud-wordmark"
           style={{
             display: "flex",
             flexDirection: "column",
@@ -167,7 +168,7 @@ export default function HudHeader({ user }: { user?: Me | null }) {
             )}
           </div>
           <div
-            className="label"
+            className="label hud-statusline"
             style={{
               display: "flex",
               alignItems: "center",
@@ -216,6 +217,7 @@ export default function HudHeader({ user }: { user?: Me | null }) {
         {/* Stat panels — clicking filters the session list by status.
             Collapse away once scrolled; the compact live badge covers status. */}
         <div
+          className="hud-stats"
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(2, minmax(120px, 1fr))",

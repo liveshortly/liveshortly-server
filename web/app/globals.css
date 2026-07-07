@@ -204,6 +204,21 @@ a {
   }
 }
 
+/* Slim the global HudHeader on mobile — the stat tiles + status/clock line
+   stack it to 4+ rows and eat the viewport (worst behind the session viewer).
+   Drop them and let the wordmark + user block sit on one compact strip.
+   !important overrides the inline display/flex styles the header sets. */
+@media (max-width: 720px) {
+  .hud-stats,
+  .hud-statusline {
+    display: none !important;
+  }
+  .hud-wordmark {
+    min-width: 0 !important;
+    flex: 1 1 auto !important;
+  }
+}
+
 /* Session viewer — full-height, widened column. Breaks out of the 1180px
    .app-main to use more horizontal real estate (capped at 1440), and fills the
    viewport below the global header so the split window is full height. */
