@@ -409,6 +409,7 @@ export default function SessionViewer({
 
       {/* Session header / meta strip */}
       <div
+        className="session-meta-card"
         style={{
           border: "1px solid var(--strong)",
           background: "var(--panel)",
@@ -426,7 +427,10 @@ export default function SessionViewer({
           }}
         >
           <div style={{ minWidth: 0, flex: "1 1 auto" }}>
-            <div className="label" style={{ color: "var(--faint)" }}>
+            <div
+              className="label session-hide-mobile"
+              style={{ color: "var(--faint)" }}
+            >
               SESSION {shortId(id)}
             </div>
             <TitleBlock
@@ -436,6 +440,24 @@ export default function SessionViewer({
                 setMeta((m) => (m ? { ...m, title } : m))
               }
             />
+            {/* Mobile-only compact meta line — replaces the full grid below,
+                mirroring design/session-viewer-mobile.html's slim header. */}
+            {meta && (
+              <div className="session-mobile-meta label">
+                <span
+                  className={
+                    meta.status === "live" ? "session-mm-live" : undefined
+                  }
+                >
+                  {meta.status === "live" ? "● LIVE" : "● ENDED"}
+                </span>
+                {meta.model && <span>· {meta.model}</span>}
+                <span>
+                  · ◔ {fmtInt(meta.view_count ?? 0)}{" "}
+                  {meta.status === "live" ? "watching" : "views"}
+                </span>
+              </div>
+            )}
           </div>
           <div
             style={{
@@ -446,6 +468,7 @@ export default function SessionViewer({
               justifyContent: "flex-end",
             }}
           >
+            <div className="session-badges">
             {meta && isPublished(meta) && (
               <span
                 className="label"
@@ -500,6 +523,7 @@ export default function SessionViewer({
               </span>
             )}
             {meta && <Badge status={meta.status} size="md" />}
+            </div>
             <div className="session-actions">
               {/* Share to X — makes it public (owner) + opens a pre-filled tweet. */}
               {meta && (
@@ -582,6 +606,7 @@ export default function SessionViewer({
           </div>
         </div>
 
+        <div className="session-meta-detail">
         <div
           className="dashed-b"
           style={{ height: 1, margin: "12px 0" }}
@@ -658,6 +683,7 @@ export default function SessionViewer({
             )}
           </div>
         )}
+        </div>
       </div>
 
       {/* ── Twitch-style split: event stream (left) + viewer chat (right) ── */}

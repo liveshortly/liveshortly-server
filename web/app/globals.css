@@ -464,6 +464,19 @@ a {
   display: none;
 }
 
+/* Meta-strip badges (published/shared/open/status) grouped so the mobile
+   media query can hide them wholesale — display lives here (not inline) so the
+   query can win. The compact mobile meta line is desktop-hidden by default. */
+.session-badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.session-mobile-meta {
+  display: none;
+}
+
 @media (max-width: 860px) {
   .session-page {
     height: auto;
@@ -504,6 +517,38 @@ a {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+  }
+  /* Compact mobile header (matches design/session-viewer-mobile.html): drop the
+     full meta grid, tags, view-links, session-id and badge cluster; surface a
+     slim "● LIVE · model · ◔ watching" line under the title instead. */
+  .session-meta-card {
+    position: relative;
+    padding: 12px;
+    margin-bottom: 10px;
+  }
+  /* Pin the actions gear to the top-right of the card (mockup places it there),
+     so the title can use the full width instead of the gear wrapping below. */
+  .session-gear-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+  }
+  .session-hide-mobile,
+  .session-meta-detail,
+  .session-badges {
+    display: none;
+  }
+  .session-mobile-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+    color: var(--muted);
+    font-size: 11px;
+  }
+  .session-mm-live {
+    color: var(--green);
   }
   /* Lives inside .stream-pane (a fixed-height flex column) as its last
      child, so it's pinned to the bottom of that box — same mechanism the

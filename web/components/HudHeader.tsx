@@ -7,6 +7,7 @@ import BrandMark from "@/components/BrandMark";
 import Clock from "@/components/Clock";
 import Panel from "@/components/Panel";
 import ThemeToggle from "@/components/ThemeToggle";
+import { APP_VERSION } from "@/lib/version";
 import {
   stats as fetchStats,
   logout as apiLogout,
@@ -111,9 +112,31 @@ export default function HudHeader({ user }: { user?: Me | null }) {
               }}
             >
               <BrandMark />
-              LiveShortly
-              <span className="blink" style={{ color: "var(--muted)" }}>
-                _
+              <span
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "center",
+                  lineHeight: 1,
+                }}
+              >
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  LiveShortly
+                  <span className="blink" style={{ color: "var(--muted)" }}>
+                    _
+                  </span>
+                </span>
+                <span
+                  style={{
+                    fontSize: 9,
+                    fontWeight: 500,
+                    letterSpacing: "0.05em",
+                    color: "var(--faint)",
+                    marginTop: 3,
+                  }}
+                >
+                  v{APP_VERSION}
+                </span>
               </span>
             </Link>
             {/* Compact live badge — only while collapsed, so status is never lost. */}
