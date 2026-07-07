@@ -67,7 +67,7 @@ export default function HudHeader({ user }: { user?: Me | null }) {
   const liveNow = data?.live_now ?? 0;
 
   return (
-    <div style={{ position: "sticky", top: 0, zIndex: 50 }}>
+    <div className="hud-header" style={{ position: "sticky", top: 0, zIndex: 50 }}>
     <header
       style={{
         borderBottom: "1px solid var(--strong)",

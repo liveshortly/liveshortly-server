@@ -569,6 +569,18 @@ a {
   .session-backlink {
     display: none;
   }
+  /* On the mobile session viewer the page has its OWN topbar (☰ hamburger +
+     title + ⚙ gear) and the left drawer already carries every nav target
+     (Feed, HUD, Profile, session history, sign-out). So the global HudHeader
+     that AuthGate stacks ABOVE the workspace — the brand row (LiveShortly +
+     theme toggle + user + sign-out) and the FEED/HUD/PROFILE/ADMIN tab nav —
+     is redundant chrome here; hide it. The header lives OUTSIDE .workspace (a
+     sibling before <main>), so this is scoped via body:has(.session-page),
+     which is true only on the session viewer, and only inside this mobile
+     query — desktop and the HUD/feed/profile pages keep the full header. */
+  body:has(.session-page) .hud-header {
+    display: none;
+  }
   .session-hamburger {
     display: flex;
     flex-direction: column;
