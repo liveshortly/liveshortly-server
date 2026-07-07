@@ -1,7 +1,10 @@
 "use client";
 
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import type { SessionEvent } from "@/lib/api";
 import { localTime } from "@/lib/utils";
+import TypingIndicator from "@/components/TypingIndicator";
 
 // Same boundary/work-type rules as EventStream — kept in sync deliberately
 // rather than shared, since the two renderers group events differently
@@ -14,26 +17,32 @@ const BUBBLE_TYPES = new Set(["prompt", "response", "viewer_comment"]);
 type Turn = { event: SessionEvent; work: SessionEvent[] };
 
 /** Groups events into chat turns, attaching any tool/file/output activity to
- *  the turn that follows it (Claude's work leading into its own response). */
+ *  the turn that PRECEDED it — i.e. the prompt that triggered the work, which
+ *  then leads into Claude's response (matching design/session-viewer-mobile.html:
+ *  the work rows nest under the host's "Prompt" turn, and the response bubble
+ *  stays clean). Work seen before any turn (rare) is returned as `leadingWork`. */
 function buildTurns(events: SessionEvent[]): {
   turns: Turn[];
-  trailingWork: SessionEvent[];
+  leadingWork: SessionEvent[];
 } {
   const turns: Turn[] = [];
-  let pending: SessionEvent[] = [];
+  const leadingWork: SessionEvent[] = [];
   for (const e of events) {
     if (WORK_TYPES.has(e.event_type)) {
-      pending.push(e);
+      // Attach to the current (most recent) turn — the prompt this work
+      // belongs to. Trailing work in a live session (response not in yet)
+      // therefore also nests under its prompt rather than floating loose.
+      if (turns.length > 0) turns[turns.length - 1].work.push(e);
+      else leadingWork.push(e);
       continue;
     }
     if (BUBBLE_TYPES.has(e.event_type)) {
-      turns.push({ event: e, work: pending });
-      pending = [];
+      turns.push({ event: e, work: [] });
     }
     // input_requested / viewer_decision / unknown types are surfaced
     // elsewhere (InputRequestBanner) and don't get their own turn here.
   }
-  return { turns, trailingWork: pending };
+  return { turns, leadingWork };
 }
 
 function initials(name: string): string {
@@ -100,16 +109,21 @@ export default function MobileEventFeed({
   events: rawEvents,
   live,
   ownerHandle,
+  claudeWorking,
 }: {
   events: SessionEvent[];
   live?: boolean;
   ownerHandle?: string | null;
+  /** When true, append the mockup's light "CLAUDE IS WORKING" line as the last
+   *  item in the thread (indented under the avatar column). Debounced upstream
+   *  so it doesn't strobe on every SSE frame. */
+  claudeWorking?: boolean;
 }) {
   const events = rawEvents.filter((e) => !HIDDEN_EVENT_TYPES.has(e.event_type));
-  const { turns, trailingWork } = buildTurns(events);
+  const { turns, leadingWork } = buildTurns(events);
   const owner = ownerHandle && ownerHandle.trim() ? ownerHandle.trim() : "you";
 
-  if (turns.length === 0 && trailingWork.length === 0) {
+  if (turns.length === 0 && leadingWork.length === 0) {
     return (
       <div className="label" style={{ padding: "24px 16px", color: "var(--faint)" }}>
         {live ? "WAITING FOR EVENTS…" : "NO EVENTS RECORDED FOR THIS SESSION."}
@@ -119,6 +133,20 @@ export default function MobileEventFeed({
 
   return (
     <div>
+      {leadingWork.length > 0 && (
+        <div className="mfeed-msg">
+          <div className="mfeed-avatar mfeed-avatar-claude" aria-hidden>
+            ⌐
+          </div>
+          <div className="mfeed-body">
+            <div className="mfeed-head">
+              <span className="mfeed-name mfeed-name-claude">Claude</span>
+            </div>
+            <WorkRows events={leadingWork} />
+          </div>
+        </div>
+      )}
+
       {turns.map(({ event: e, work }) => {
         const isPrompt = e.event_type === "prompt";
         const isResponse = e.event_type === "response";
@@ -142,25 +170,32 @@ export default function MobileEventFeed({
                 {isPrompt && <span className="mfeed-tag">Prompt</span>}
                 <span className="mfeed-time tnum">{localTime(e.ts)}</span>
               </div>
-              {role === "claude" && <WorkRows events={work} />}
-              <div className="mfeed-bubble">{bodyText(e)}</div>
+              <div className="mfeed-bubble">
+                {role === "claude" ? (
+                  // Claude responses carry markdown (headings, lists, code,
+                  // tables) — render it via the shared `.md` typography, same as
+                  // desktop EventStream. `.md pre`/`table` already scroll
+                  // horizontally so long content can't blow out the bubble.
+                  <div className="md" style={{ fontSize: 12.5, color: "var(--ink)" }}>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {bodyText(e)}
+                    </ReactMarkdown>
+                  </div>
+                ) : (
+                  // User-typed prompts / viewer comments stay literal text.
+                  bodyText(e)
+                )}
+              </div>
+              {/* Tool/file activity nests under the turn that triggered it
+                  (the prompt), below its bubble — per the mockup. */}
+              <WorkRows events={work} />
             </div>
           </div>
         );
       })}
 
-      {trailingWork.length > 0 && (
-        <div className="mfeed-msg">
-          <div className="mfeed-avatar mfeed-avatar-claude" aria-hidden>
-            ⌐
-          </div>
-          <div className="mfeed-body">
-            <div className="mfeed-head">
-              <span className="mfeed-name mfeed-name-claude">Claude</span>
-            </div>
-            <WorkRows events={trailingWork} />
-          </div>
-        </div>
+      {claudeWorking && (
+        <TypingIndicator label="CLAUDE IS WORKING" tone="green" variant="inline" />
       )}
     </div>
   );

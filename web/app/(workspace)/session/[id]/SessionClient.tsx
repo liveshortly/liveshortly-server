@@ -756,6 +756,7 @@ export default function SessionViewer({
               events={events}
               live={isLive}
               ownerHandle={meta?.owner_handle ?? null}
+              claudeWorking={showClaudeWorking}
             />
           </div>
 
@@ -770,9 +771,17 @@ export default function SessionViewer({
             />
           )}
 
+          {/* Desktop: the bordered chip sits below the stream feed. On mobile the
+              same signal renders as the mockup's light inline line inside
+              MobileEventFeed (last item in the thread), so hide this one there. */}
           {showClaudeWorking && (
-            <div style={{ padding: "8px 2px 0" }}>
+            <div className="ls-desktop-typing" style={{ padding: "8px 2px 0" }}>
               <TypingIndicator label="CLAUDE IS WORKING" tone="green" />
+              <style>{`
+                @media (max-width: 860px) {
+                  .ls-desktop-typing { display: none; }
+                }
+              `}</style>
             </div>
           )}
 
