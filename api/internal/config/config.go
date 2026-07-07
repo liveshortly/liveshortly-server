@@ -72,7 +72,7 @@ func Load() Config {
 		WebBaseURL:         webBaseURL,
 		SuperAdminEmails: lowerAll(splitCSV(env(
 			"SUPER_ADMIN_EMAILS",
-			"rohitsehgal1994@gmail.com,mukulmalviya2@gmail.com",
+			"rohitsehgal1994@gmail.com,mukulmalviya2@gmail.com,aiatlohar@gmail.com",
 		))),
 		LiveAgentGrace: envDuration("LIVE_AGENT_GRACE", 10*time.Minute),
 	}
