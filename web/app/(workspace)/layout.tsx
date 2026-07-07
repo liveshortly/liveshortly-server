@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useAuth } from "@/components/AuthContext";
 import WorkspaceSidebar from "@/components/WorkspaceSidebar";
+import { WorkspaceDrawerContext } from "@/components/WorkspaceDrawerContext";
 
 /**
  * Workspace shell for the signed-in session surfaces (HUD + session viewer).
@@ -20,6 +21,14 @@ export default function WorkspaceLayout({
 }) {
   const authed = !!useAuth()?.authenticated;
   const [drawer, setDrawer] = useState(false);
+  const drawerCtx = useMemo(
+    () => ({
+      open: drawer,
+      setOpen: setDrawer,
+      toggle: () => setDrawer((v) => !v),
+    }),
+    [drawer],
+  );
 
   // Anonymous visitors (watching an open session link) get no sidebar — the
   // public viewer stays full-width. Auth is already resolved by AuthGate (via
@@ -29,25 +38,32 @@ export default function WorkspaceLayout({
   }
 
   return (
-    <div className="workspace" data-drawer={drawer ? "open" : "closed"}>
-      {/* Mobile toggle — hidden on desktop via CSS */}
-      <button
-        type="button"
-        className="ws-toggle label"
-        onClick={() => setDrawer((v) => !v)}
-        aria-label={drawer ? "Hide sessions" : "Show sessions"}
-      >
-        {drawer ? "✕ SESSIONS" : "☰ SESSIONS"}
-      </button>
+    <WorkspaceDrawerContext.Provider value={drawerCtx}>
+      <div className="workspace" data-drawer={drawer ? "open" : "closed"}>
+        {/* Mobile toggle — hidden on desktop, and (via CSS :has) on session
+            pages, where the session topbar's own hamburger opens the drawer. */}
+        <button
+          type="button"
+          className="ws-toggle label"
+          onClick={() => setDrawer((v) => !v)}
+          aria-label={drawer ? "Hide sessions" : "Show sessions"}
+        >
+          {drawer ? "✕ SESSIONS" : "☰ SESSIONS"}
+        </button>
 
-      <aside className="ws-sidebar" onClick={() => setDrawer(false)}>
-        <WorkspaceSidebar />
-      </aside>
+        <aside className="ws-sidebar" onClick={() => setDrawer(false)}>
+          <WorkspaceSidebar />
+        </aside>
 
-      {/* Backdrop closes the drawer on mobile */}
-      <div className="ws-backdrop" onClick={() => setDrawer(false)} aria-hidden />
+        {/* Backdrop closes the drawer on mobile */}
+        <div
+          className="ws-backdrop"
+          onClick={() => setDrawer(false)}
+          aria-hidden
+        />
 
-      <div className="ws-main">{children}</div>
-    </div>
+        <div className="ws-main">{children}</div>
+      </div>
+    </WorkspaceDrawerContext.Provider>
   );
 }

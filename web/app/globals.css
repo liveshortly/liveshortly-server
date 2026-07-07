@@ -129,44 +129,37 @@ a {
   font-variant-numeric: tabular-nums;
 }
 
-/* Pulsing live dot */
-@keyframes ls-pulse {
-  0% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.35;
-    transform: scale(0.78);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
+/* Live status dot — deliberately static (steady, no pulse). "LIVE" is carried
+   by the green fill + the LIVE label, not by perpetual motion, to keep the
+   surface calm. See the reduced-motion / near-static note at the top of the
+   animation section. */
 .live-dot {
   display: inline-block;
   width: 8px;
   height: 8px;
   border-radius: 9999px;
   background: var(--green);
-  animation: ls-pulse 1.2s ease-in-out infinite;
 }
 
-@keyframes ls-blink {
-  0%,
-  49% {
-    opacity: 1;
-  }
-  50%,
-  100% {
-    opacity: 0;
-  }
-}
-
+/* Loading cursor — a steady underscore. Kept static (was a 1s blink) so the
+   only motion in the app is state-change transitions, never an idle loop. */
 .blink {
-  animation: ls-blink 1s step-end infinite;
+  /* no animation — retained as a class so the many LOADING_ call sites and the
+     terminal-style carets render a steady block instead of a blinking one. */
+}
+
+/* Accessibility: for viewers who ask the OS to reduce motion, neutralise even
+   the state-change transitions (drawer/sheet slides, hover lifts). Everything
+   else is already static per the near-static design. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 .dashed-b {
@@ -410,6 +403,14 @@ a {
   }
 }
 
+/* On session pages the mobile drawer is opened by the session topbar's own
+   hamburger, so suppress the workspace's floating ☰ SESSIONS toggle there to
+   avoid two hamburgers. Scoped via :has to only when a session viewer is
+   mounted; the toggle is display:none above 820px regardless. */
+.workspace:has(.session-page) .ws-toggle {
+  display: none;
+}
+
 /* Twitch-style split: stream on the left, viewer chat on the right. The body
    flexes to fill all remaining height; each pane scrolls internally. */
 .viewer-body {
@@ -492,6 +493,21 @@ a {
   display: none;
 }
 
+/* Desktop look of the header card — moved off the element's inline style so the
+   mobile media query below can restyle it into a borderless topbar. */
+.session-meta-card {
+  border: 1px solid var(--strong);
+  background: var(--panel);
+  padding: 14px;
+  margin-bottom: 14px;
+}
+
+/* Mobile-only topbar hamburger (opens the session-history drawer). Hidden on
+   desktop; the 860px query below turns it into a 30px tap target. */
+.session-hamburger {
+  display: none;
+}
+
 @media (max-width: 860px) {
   .session-page {
     height: auto;
@@ -536,17 +552,58 @@ a {
   /* Compact mobile header (matches design/session-viewer-mobile.html): drop the
      full meta grid, tags, view-links, session-id and badge cluster; surface a
      slim "● LIVE · model · ◔ watching" line under the title instead. */
+  /* The header card becomes a clean, borderless topbar pinned to the top of the
+     scrolling pane: [☰ hamburger] [title + statusline] [⚙ kebab]. Matches
+     design/session-viewer-mobile.html's .topbar. */
   .session-meta-card {
-    position: relative;
-    padding: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    border: none;
+    border-bottom: 1px solid var(--hairline);
+    background: var(--bg);
+    padding: 10px 2px;
     margin-bottom: 10px;
   }
-  /* Pin the actions gear to the top-right of the card (mockup places it there),
-     so the title can use the full width instead of the gear wrapping below. */
+  /* The back link is replaced on mobile by the hamburger inside the topbar. */
+  .session-backlink {
+    display: none;
+  }
+  .session-hamburger {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    flex-shrink: 0;
+    width: 30px;
+    height: 30px;
+    margin-top: 1px;
+    border: none;
+    background: none;
+    color: var(--ink);
+    cursor: pointer;
+    text-decoration: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .session-hamburger span {
+    display: block;
+    width: 16px;
+    height: 2px;
+    background: currentColor;
+  }
+  .session-hamburger-back {
+    font-size: 22px;
+    line-height: 30px;
+  }
+  /* Pin the actions gear to the top-right of the topbar (mockup places it
+     there), so the title can use the full width instead of the gear wrapping. */
   .session-gear-btn {
     position: absolute;
-    top: 10px;
-    right: 10px;
+    top: 8px;
+    right: 6px;
+    border: none;
+    font-size: 19px;
   }
   .session-hide-mobile,
   .session-meta-detail,
@@ -555,15 +612,33 @@ a {
   }
   .session-mobile-meta {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: center;
-    gap: 6px;
+    gap: 7px;
     margin-top: 6px;
     color: var(--muted);
-    font-size: 11px;
+    font-size: 10.5px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    white-space: nowrap;
   }
+  .session-mobile-meta::-webkit-scrollbar {
+    display: none;
+  }
+  .session-mobile-meta > span {
+    flex-shrink: 0;
+  }
+  /* LIVE reads as a bordered pill (static dot + label), matching the mockup's
+     .livepill — no pulse, per the near-static design. */
   .session-mm-live {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
     color: var(--green);
+    border: 1px solid var(--green);
+    padding: 1px 6px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
   }
   /* Lives inside .stream-pane (a fixed-height flex column) as its last
      child, so it's pinned to the bottom of that box — same mechanism the

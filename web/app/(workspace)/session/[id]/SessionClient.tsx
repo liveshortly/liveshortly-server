@@ -11,6 +11,7 @@ import PublicLinkDialog from "@/components/PublicLinkDialog";
 import PublishAction from "@/components/PublishAction";
 import ShareToTwitter from "@/components/ShareToTwitter";
 import TypingIndicator from "@/components/TypingIndicator";
+import { useWorkspaceDrawer } from "@/components/WorkspaceDrawerContext";
 import {
   ApiError,
   getSession,
@@ -36,6 +37,10 @@ export default function SessionViewer({
 }) {
   const { id } = use(params);
   const router = useRouter();
+  // Present only for signed-in viewers inside the workspace shell; the mobile
+  // topbar's hamburger toggles the session-history drawer through it. Null for
+  // anonymous viewers (no drawer) — the topbar shows a back link instead.
+  const drawer = useWorkspaceDrawer();
 
   const [meta, setMeta] = useState<SessionDetail | null>(null);
   const [events, setEvents] = useState<SessionEvent[]>([]);
@@ -220,6 +225,20 @@ export default function SessionViewer({
     );
   }, [isLive, inputPending, events]);
 
+  // Debounce the raw "working" signal: the last-event-type flips on nearly every
+  // SSE frame, so rendering `claudeTyping` directly makes the indicator strobe
+  // (mount/unmount rapidly). Turn it on instantly, but linger ~1.4s before
+  // turning off, so a steady stream of activity reads as one calm indicator.
+  const [showClaudeWorking, setShowClaudeWorking] = useState(false);
+  useEffect(() => {
+    if (claudeTyping) {
+      setShowClaudeWorking(true);
+      return;
+    }
+    const t = setTimeout(() => setShowClaudeWorking(false), 1400);
+    return () => clearTimeout(t);
+  }, [claudeTyping]);
+
   // Notify the viewer (browser notification + soft chime) when input is newly
   // requested — so anyone watching knows it's their turn to answer.
   const notifiedFor = useRef<string | null>(null);
@@ -381,7 +400,7 @@ export default function SessionViewer({
     <div className="session-page">
       <Link
         href="/"
-        className="label"
+        className="label session-backlink"
         style={{
           display: "inline-flex",
           alignItems: "center",
@@ -407,16 +426,10 @@ export default function SessionViewer({
         </div>
       )}
 
-      {/* Session header / meta strip */}
-      <div
-        className="session-meta-card"
-        style={{
-          border: "1px solid var(--strong)",
-          background: "var(--panel)",
-          padding: 14,
-          marginBottom: 14,
-        }}
-      >
+      {/* Session header / meta strip. Border/background/padding live in CSS
+          (not inline) so the mobile media query can restyle this into a clean
+          topbar — inline styles would beat the query. */}
+      <div className="session-meta-card">
         <div
           style={{
             display: "flex",
@@ -426,6 +439,30 @@ export default function SessionViewer({
             flexWrap: "wrap",
           }}
         >
+          {/* Mobile-only hamburger → opens the session-history drawer (or, for
+              anonymous viewers with no drawer, links back home). Sits at the
+              head of the topbar per design/session-viewer-mobile.html. */}
+          {drawer ? (
+            <button
+              type="button"
+              className="session-hamburger"
+              onClick={() => drawer.toggle()}
+              aria-label="Session history"
+              aria-expanded={drawer.open}
+            >
+              <span />
+              <span />
+              <span />
+            </button>
+          ) : (
+            <Link
+              href="/"
+              className="session-hamburger session-hamburger-back"
+              aria-label="Back"
+            >
+              ‹
+            </Link>
+          )}
           <div style={{ minWidth: 0, flex: "1 1 auto" }}>
             <div
               className="label session-hide-mobile"
@@ -733,7 +770,7 @@ export default function SessionViewer({
             />
           )}
 
-          {claudeTyping && (
+          {showClaudeWorking && (
             <div style={{ padding: "8px 2px 0" }}>
               <TypingIndicator label="CLAUDE IS WORKING" tone="green" />
             </div>
