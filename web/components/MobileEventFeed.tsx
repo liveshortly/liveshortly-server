@@ -1,0 +1,167 @@
+"use client";
+
+import type { SessionEvent } from "@/lib/api";
+import { localTime } from "@/lib/utils";
+
+// Same boundary/work-type rules as EventStream — kept in sync deliberately
+// rather than shared, since the two renderers group events differently
+// (EventStream folds work into its own collapsible row; this nests it
+// under the turn that produced it, matching design/session-viewer-mobile.html).
+const HIDDEN_EVENT_TYPES = new Set(["stream_start", "stream_end"]);
+const WORK_TYPES = new Set(["tool_call", "file_write", "output"]);
+const BUBBLE_TYPES = new Set(["prompt", "response", "viewer_comment"]);
+
+type Turn = { event: SessionEvent; work: SessionEvent[] };
+
+/** Groups events into chat turns, attaching any tool/file/output activity to
+ *  the turn that follows it (Claude's work leading into its own response). */
+function buildTurns(events: SessionEvent[]): {
+  turns: Turn[];
+  trailingWork: SessionEvent[];
+} {
+  const turns: Turn[] = [];
+  let pending: SessionEvent[] = [];
+  for (const e of events) {
+    if (WORK_TYPES.has(e.event_type)) {
+      pending.push(e);
+      continue;
+    }
+    if (BUBBLE_TYPES.has(e.event_type)) {
+      turns.push({ event: e, work: pending });
+      pending = [];
+    }
+    // input_requested / viewer_decision / unknown types are surfaced
+    // elsewhere (InputRequestBanner) and don't get their own turn here.
+  }
+  return { turns, trailingWork: pending };
+}
+
+function initials(name: string): string {
+  const trimmed = name.trim();
+  if (!trimmed) return "?";
+  const parts = trimmed.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return trimmed.slice(0, 2).toUpperCase();
+}
+
+function bodyText(e: SessionEvent): string {
+  const p = (e.payload ?? {}) as Record<string, unknown>;
+  for (const k of ["message", "text", "content"]) {
+    const v = p[k];
+    if (typeof v === "string" && v.trim()) return v;
+  }
+  return "";
+}
+
+function handleOf(e: SessionEvent, fallback: string): string {
+  const u = (e.payload as Record<string, unknown>)?.username;
+  if (typeof u === "string" && u.trim()) return u.trim();
+  if (e.actor && e.actor !== "agent") return e.actor;
+  return fallback;
+}
+
+function workLine(e: SessionEvent): { swatch: "tool" | "write"; text: string } {
+  const p = (e.payload ?? {}) as Record<string, unknown>;
+  const str = (k: string) => (typeof p[k] === "string" ? (p[k] as string) : undefined);
+  if (e.event_type === "file_write") {
+    const path = str("file_path") ?? str("path") ?? str("file") ?? "file";
+    return { swatch: "write", text: `Write ${path}` };
+  }
+  const tool = str("tool_name") ?? str("tool") ?? str("name");
+  const detail = str("file_path") ?? str("path") ?? str("command");
+  return {
+    swatch: "tool",
+    text: [tool, detail].filter(Boolean).join(": ") || e.event_type,
+  };
+}
+
+function WorkRows({ events }: { events: SessionEvent[] }) {
+  if (events.length === 0) return null;
+  return (
+    <div className="mfeed-work">
+      {events.map((e) => {
+        const { swatch, text } = workLine(e);
+        return (
+          <div key={e.id} className="mfeed-toolrow" title={text}>
+            <span className={`mfeed-sw mfeed-sw-${swatch}`} aria-hidden />
+            <span className="mfeed-toolrow-text">{text}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Mobile-only unified feed: Claude, the host, and viewers all post into one
+ *  thread — tool/write activity renders as small swatched lines nested under
+ *  the turn that produced it instead of a separate event log. Desktop keeps
+ *  the richer EventStream (collapsible work blocks, reply quoting, markdown). */
+export default function MobileEventFeed({
+  events: rawEvents,
+  live,
+  ownerHandle,
+}: {
+  events: SessionEvent[];
+  live?: boolean;
+  ownerHandle?: string | null;
+}) {
+  const events = rawEvents.filter((e) => !HIDDEN_EVENT_TYPES.has(e.event_type));
+  const { turns, trailingWork } = buildTurns(events);
+  const owner = ownerHandle && ownerHandle.trim() ? ownerHandle.trim() : "you";
+
+  if (turns.length === 0 && trailingWork.length === 0) {
+    return (
+      <div className="label" style={{ padding: "24px 16px", color: "var(--faint)" }}>
+        {live ? "WAITING FOR EVENTS…" : "NO EVENTS RECORDED FOR THIS SESSION."}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {turns.map(({ event: e, work }) => {
+        const isPrompt = e.event_type === "prompt";
+        const isResponse = e.event_type === "response";
+        const role: "claude" | "host" | "viewer" = isResponse
+          ? "claude"
+          : isPrompt
+            ? "host"
+            : "viewer";
+        const name =
+          role === "claude" ? "Claude" : `@${handleOf(e, role === "host" ? owner : "viewer")}`;
+        const avatarText = role === "claude" ? "⌐" : initials(name.replace(/^@/, ""));
+
+        return (
+          <div key={e.id} className="mfeed-msg">
+            <div className={`mfeed-avatar mfeed-avatar-${role}`} aria-hidden>
+              {avatarText}
+            </div>
+            <div className="mfeed-body">
+              <div className="mfeed-head">
+                <span className={`mfeed-name mfeed-name-${role}`}>{name}</span>
+                {isPrompt && <span className="mfeed-tag">Prompt</span>}
+                <span className="mfeed-time tnum">{localTime(e.ts)}</span>
+              </div>
+              {role === "claude" && <WorkRows events={work} />}
+              <div className="mfeed-bubble">{bodyText(e)}</div>
+            </div>
+          </div>
+        );
+      })}
+
+      {trailingWork.length > 0 && (
+        <div className="mfeed-msg">
+          <div className="mfeed-avatar mfeed-avatar-claude" aria-hidden>
+            ⌐
+          </div>
+          <div className="mfeed-body">
+            <div className="mfeed-head">
+              <span className="mfeed-name mfeed-name-claude">Claude</span>
+            </div>
+            <WorkRows events={trailingWork} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

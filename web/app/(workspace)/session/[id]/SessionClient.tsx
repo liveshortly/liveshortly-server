@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Badge from "@/components/Badge";
 import DeleteSessionButton from "@/components/DeleteSessionButton";
 import EventStream from "@/components/EventStream";
+import MobileEventFeed from "@/components/MobileEventFeed";
 import PublicLinkDialog from "@/components/PublicLinkDialog";
 import PublishAction from "@/components/PublishAction";
 import ShareToTwitter from "@/components/ShareToTwitter";
@@ -679,12 +680,21 @@ export default function SessionViewer({
             </span>
           </div>
 
-          <EventStream
-            events={events}
-            live={isLive}
-            ownerHandle={meta?.owner_handle ?? null}
-            fill
-          />
+          <div className="desktop-feed-wrap">
+            <EventStream
+              events={events}
+              live={isLive}
+              ownerHandle={meta?.owner_handle ?? null}
+              fill
+            />
+          </div>
+          <div className="mobile-feed-wrap">
+            <MobileEventFeed
+              events={events}
+              live={isLive}
+              ownerHandle={meta?.owner_handle ?? null}
+            />
+          </div>
 
           {/* Input-requested banner — CLI is waiting for input (non-blocking). */}
           {inputPending && (
