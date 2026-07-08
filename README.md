@@ -14,6 +14,7 @@ A lean monorepo that turns any **Claude Code** session into a live, shareable, r
 ![Redis](https://img.shields.io/badge/bus-Redis%207-DC382D?style=for-the-badge&logo=redis&logoColor=white)
 ![Docker](https://img.shields.io/badge/run-Docker%20Compose-2496ED?style=for-the-badge&logo=docker&logoColor=white)
 ![Status](https://img.shields.io/badge/live-liveshortly.com-1f7a4d?style=for-the-badge)
+![Version](https://img.shields.io/badge/release-v4.0.0-1a1916?style=for-the-badge)
 
 <br/>
 
@@ -38,6 +39,7 @@ A lean monorepo that turns any **Claude Code** session into a live, shareable, r
 - [Features](#-features)
 - [Architecture](#-architecture)
 - [The live loop (viewer ⇄ agent)](#-the-live-loop-viewer--agent)
+- [Handoff & fork](#-handoff--fork)
 - [Quickstart](#-quickstart)
 - [Configuration](#-configuration)
 - [API reference](#-api-reference)
@@ -75,6 +77,9 @@ Self-host with `docker compose up`, or watch the live instance at **[liveshortly
 | 💬 **Viewer → agent injection** | Browser messages queue in Redis and are injected into Claude via hook `additionalContext` — delivered **exactly once**. |
 | 🖥️ **Terminal HUD** | A monospace, financial-terminal dashboard (light **and** dark): live UTC clock, big counters, hairline panels, pulsing `● LIVE`. |
 | 🔁 **Replay** | Ended sessions persist their full event log and play back in order. |
+| ⑃ **Handoff & fork** | Continue **any** session you can read — live or archived, even someone else's — as a **new session you own**, with any agent. A 7-day signed handoff code or a fork-by-id; the server hands back a deterministic digest that seeds the continuing agent. The original is untouched. |
+| 🧬 **Prior-context view** | A forked session shows its source's **entire** prior history inline — a virtual, copy-on-write view (nothing is copied), rendered as a distinct **PRIOR CONTEXT** block above the fork's own feed. Access is re-checked on both fork and source. |
+| 🤖 **Multi-agent capture** | First-class capture for **Claude Code** and **Codex** (plus Gemini / raw terminal), each labelled in the viewer. |
 | 🏠 **Public landing feed** | A public home feed of published sessions — activity ticker, featured hero, `LIVE NOW` / `TRENDING` / `RECENTLY PUBLISHED` grids, browse-by-tag. No sign-in to watch. |
 | 🔎 **Search + index** | Search the feed by title/snippet/tag; a signed-in HUD of your own + shared sessions with `TOTAL / LIVE NOW` stats. |
 | 🔐 **Google sign-in** | Real auth is live: Google OAuth for the web (`ls_session` cookie) + a CLI **device flow** minting bearer/refresh tokens. |
@@ -177,6 +182,52 @@ stateDiagram-v2
 
 ---
 
+## ✦ Handoff & fork
+
+*New in v4.0.0.* Pick up **any** session you can read — your own, a teammate's,
+or an archived one — and continue it as a **brand-new session you own**, with any
+agent. The original is never touched. Two ways in:
+
+- **Handoff code** — `POST /api/sessions/{id}/handoff` mints a 7-day signed code
+  (`ho_…`) pinned to a snapshot seq. Anyone who can read the session can mint one.
+- **Fork by id** — redeem at `POST /api/sessions` with `forked_from` (a code) **or**
+  `forked_from_session_id` (`+ forked_from_seq`, default latest).
+
+The server re-checks read access for the **redeeming** principal, records the
+lineage (`forked_from_session_id`, `forked_from_seq`, `forked_at`), bumps the
+source's `fork_count`, and returns a deterministic **digest** (assembled from the
+event log — **no LLM**) that seeds the continuing agent. The clone's own agent does
+the comprehension.
+
+```mermaid
+flowchart LR
+  SRC[("Source session<br/>(readable: yours,<br/>shared, or public)")]
+  SRC -- "POST /handoff · any reader" --> CODE["signed handoff code<br/>ho_… · 7-day TTL<br/>pinned @ snapshot seq"]
+  CODE -- "POST /sessions · forked_from" --> NEW
+  SRC -. "POST /sessions · forked_from_session_id (+seq)" .-> NEW["🆕 New session — YOU own it<br/>lineage set · fork_count++<br/>+ digest seeds the agent"]
+  NEW -- "GET /lineage (re-checks source access)" --> PC["PRIOR CONTEXT block<br/>source events ≤ seq<br/>(virtual — nothing copied)"]
+  NEW --> FEED["the fork's own live feed<br/>continues from here"]
+
+  classDef box fill:#faf9f4,stroke:#1c1b17,color:#1a1916;
+  classDef store fill:#f3f1e9,stroke:#1f7a4d,color:#1a1916;
+  class CODE,NEW,PC,FEED box;
+  class SRC store;
+```
+
+**Prior context is a virtual, copy-on-write view.** `GET /api/sessions/{id}/lineage`
+returns the source's events up to the pinned snapshot; the web renders them as a
+distinct, collapsible **PRIOR CONTEXT** block **above** the fork's own feed —
+nothing is physically duplicated. It's a human/replay surface; the agent is seeded
+by the compact digest, not by replaying every prior turn into its context window.
+
+> Each session numbers its own `seq` from 1, and the live feed is sorted by `seq`,
+> so lineage is a **separate block** — never merged into the fork's timeline (that
+> would scramble the order). RBAC is re-checked on **both** the fork and the
+> source: no source access → events withheld (`restricted: true`); a deleted
+> source → reference only.
+
+---
+
 ## ✦ Quickstart
 
 ```bash
@@ -258,13 +309,15 @@ principal. Admin endpoints additionally enforce the super-admin allowlist (`403`
 
 | Method | Endpoint | Body | Returns |
 |---|---|---|---|
-| `GET` | `/health` | — | `{ ok, ts }` |
+| `GET` | `/health` | — | `{ ok, version, ts }` |
 | `GET` | `/api/me` | — | `{ authenticated, id?, email?, name?, is_admin? }` |
 | `GET` | `/api/stats` | — | `{ total_sessions, live_now, ended, total_events }` |
 | `GET` | `/api/feed?q=&cursor=&limit=` | — | published sessions (public) |
-| `POST` | `/api/sessions` | `{ title?, model?, framework?, tags? }` | `201` `Session` + `url` |
+| `POST` | `/api/sessions` | `{ title?, model?, framework?, tags?, forked_from?, forked_from_session_id?, forked_from_seq? }` | `201` `Session` + `url` (+ `handoff` digest on a fork) |
 | `GET` | `/api/sessions?scope=&status=&q=&limit=&offset=` | — | `{ results: Session[], total }` |
-| `GET` | `/api/sessions/{id}` | — | `Session` + `events[]` (bumps `view_count`) |
+| `GET` | `/api/sessions/{id}` | — | `Session` + `events[]` + `forked_from` + `forker_count` (bumps `view_count`) |
+| `POST` | `/api/sessions/{id}/handoff` | `{ seq? }` | `{ code, session_id, snapshot_seq, expires_at, command }` *(any reader)* |
+| `GET` | `/api/sessions/{id}/lineage` | — | `{ source, snapshot_seq, events[], restricted }` — a fork's prior context *(any reader)* |
 | `PATCH` | `/api/sessions/{id}` | `{ title?, visibility?, link_role? }` | `Session` *(owner)* |
 | `POST` | `/api/sessions/{id}/events` | `{ event_type, payload, actor? }` | `201` `Event` |
 | `GET` | `/api/sessions/{id}/stream` | — | **SSE** event stream |
@@ -316,6 +369,7 @@ erDiagram
   users ||--o{ refresh_tokens : "has (CLI)"
   sessions ||--o{ session_events : "has log"
   sessions ||--o{ session_shares : "granted to"
+  sessions ||--o{ sessions : "forked into"
 
   users {
     uuid id PK
@@ -344,6 +398,10 @@ erDiagram
     text client_handle "user@host capture principal"
     text git_remote
     text git_branch
+    int fork_count "times forked"
+    uuid forked_from_session_id FK "fork source"
+    int forked_from_seq "pinned snapshot"
+    timestamptz forked_at
     timestamptz created_at
     timestamptz ended_at
     timestamptz published_at "in the feed"
@@ -474,11 +532,15 @@ and the API — the `/admin` endpoints return `403` to everyone else.
 - [x] Per-session visibility (private / link / public / open) + email sharing
 - [x] Public feed, Share-to-X, Open Graph / Twitter cards
 - [x] Super-admin portal (stats · user directory · session browser)
+- [x] Session **handoff & fork** — continue any readable session as a new owned one
+- [x] **Prior-context** full-history view for forks (virtual, copy-on-write)
+- [x] Multi-agent capture (Claude Code · **Codex** · Gemini · terminal)
+- [ ] Per-user **quotas** (storage + concurrent live sessions) — launch-blocking
+- [ ] `live lineage <id>` — CLI scrollback of a fork's prior context
 - [ ] Semantic search over session content
 - [ ] Persisted Dev Story / blog composer (the UI shells exist)
 - [ ] Replay timeline + chapters (video-style scrubber)
 - [ ] Multi-agent rooms (presence, turn-taking)
-- [ ] A standalone CLI viewer (`liveshortly watch <id>`)
 
 ---
 

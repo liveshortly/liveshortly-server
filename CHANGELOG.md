@@ -1,7 +1,41 @@
 # Changelog
 
 All notable changes to LiveShortly (API + web + capture hooks) are recorded here.
-Dates are when the work landed on `main`.
+Dates are when the work landed on `main`. The web (`web/package.json`) and API
+(`api/internal/version`) ship as one version and are bumped together; the running
+server reports it at `GET /health`.
+
+## 2026-07-08 — v4.0.0
+
+The **handoff & fork** major release. Bumps the app to **4.0.0** and consolidates
+the handoff/fork work (below) with the following:
+
+- **Prior-context full-history view (virtual, copy-on-write).** A forked session
+  now shows its source's entire prior history. `GET /api/sessions/{id}/lineage`
+  returns the source events up to the pinned snapshot seq; the web renders them as
+  a distinct, collapsible **PRIOR CONTEXT** block above the fork's own feed —
+  nothing is physically copied. RBAC is re-checked on **both** the fork and the
+  source (never a capability bypass): no source access → events withheld
+  (`restricted: true`); deleted source → reference only. Because each session
+  numbers its own `seq` from 1, lineage is a separate block, never merged into the
+  fork's seq-sorted feed. It's a human/replay surface — the agent is still seeded
+  by the compact digest, not by replaying every prior turn.
+- **Codex support.** Codex is a first-class capture framework; the viewer shows a
+  human-friendly **Framework** label (Claude Code / Codex / Gemini / Terminal).
+- **Server version surface.** `GET /health` now returns `version` (single source of
+  truth in `api/internal/version`).
+
+## 2026-07-07 — Session handoff / fork
+
+- **Handoff / fork.** Continue any readable session (live or archived, even someone
+  else's) as a **new session you own**, with any agent — the original is untouched.
+  Mint a 7-day signed handoff code (`POST /api/sessions/{id}/handoff`) or fork by id
+  (`POST /api/sessions` with `forked_from` / `forked_from_session_id` [`+ forked_from_seq`]).
+  The server returns a deterministic **digest** (no LLM) that seeds the continuing
+  agent. Lineage columns (`forked_from_session_id`, `forked_from_seq`, `forked_at`)
+  are recorded on the fork and the source's `fork_count` is bumped in one tx.
+  Session-detail responses carry `forked_from` (source ref) + `forker_count`.
+- **Admin.** Super-admin grant by email allowlist.
 
 ## 2026-06-30
 - **Publish → Feed.** "Share to all" is replaced by **Publish**: a session becomes
