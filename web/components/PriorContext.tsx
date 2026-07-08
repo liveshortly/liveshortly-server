@@ -1,17 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import EventStream from "@/components/EventStream";
 import { getLineage, type ForkRef, type Lineage } from "@/lib/api";
 
 /**
  * PriorContext renders the source session's history for a fork — the virtual
- * full-history view (approach B). It's a distinct, collapsible block ABOVE the
- * fork's own EVENT LOG: the source keeps its own `seq` numbering (each session
- * numbers from 1), so it must never be merged into the fork's seq-sorted feed.
+ * full-history view (approach B). It's a distinct block ABOVE the fork's own
+ * EVENT LOG: the source keeps its own `seq` numbering (each session numbers from
+ * 1), so it must never be merged into the fork's seq-sorted feed.
  *
- * Lazily fetches /lineage on first expand so a normal fork page load stays cheap.
+ * On a fork the full prior history is what the operator wants to see, so it
+ * loads eagerly and shows expanded by default (still collapsible).
  */
 export default function PriorContext({
   id,
@@ -20,26 +21,26 @@ export default function PriorContext({
   id: string;
   source: ForkRef;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
   const [lineage, setLineage] = useState<Lineage | null>(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  const toggle = async () => {
-    const next = !open;
-    setOpen(next);
-    if (next && !lineage && !loading) {
-      setLoading(true);
-      setErr(null);
-      try {
-        setLineage(await getLineage(id));
-      } catch {
-        setErr("could not load prior context");
-      } finally {
-        setLoading(false);
-      }
-    }
-  };
+  // Eager-load the prior context on mount — on a fork it's the point of the page.
+  useEffect(() => {
+    let alive = true;
+    setLoading(true);
+    setErr(null);
+    getLineage(id)
+      .then((l) => alive && setLineage(l))
+      .catch(() => alive && setErr("could not load prior context"))
+      .finally(() => alive && setLoading(false));
+    return () => {
+      alive = false;
+    };
+  }, [id]);
+
+  const toggle = () => setOpen((o) => !o);
 
   const count = lineage?.events.length ?? 0;
 
