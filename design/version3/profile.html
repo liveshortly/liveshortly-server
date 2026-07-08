@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LiveShortly v3 — Profile</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root, :root[data-theme="light"] {
+  --bg: #e7e8ea; --panel: #f3f4f5; --panel2: #ffffff; --hairline: #d0d2d5; --strong: #1b1c1e;
+  --ink: #1b1c1e; --muted: #63666b; --faint: #94979c;
+  --green: #1f7a4d; --red: #c0392b; --amber: #a9810f; --admin: #7c3aed;
+  --shadow: rgba(20,22,26,0.16);
+  --r-card: 0px; --r-pill: 0px; --r-avatar: 2px; --r-sm: 0px;
+  --grad-hero: linear-gradient(135deg, #cfd3d8, #e7e8ea);
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --bg: #1e2123; --panel: #282c2f; --panel2: #2d3236; --hairline: #3d4247; --strong: #edeff1;
+  --ink: #e9ebed; --muted: #a6abb1; --faint: #797f86;
+  --green: #54b885; --red: #e7705f; --amber: #d9ad52; --admin: #b794f6;
+  --shadow: rgba(0,0,0,0.45);
+  --r-card: 0px; --r-pill: 0px; --r-avatar: 2px; --r-sm: 0px;
+  --grad-hero: var(--panel2);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; font-family: 'JetBrains Mono','IBM Plex Mono',ui-monospace,'SFMono-Regular',Menlo,monospace;
+  background: var(--bg); color: var(--ink); line-height: 1.45; -webkit-font-smoothing: antialiased;
+  transition: background-color 200ms ease, color 200ms ease;
+}
+a { color: inherit; text-decoration: none; }
+*{scrollbar-width:thin;scrollbar-color:var(--hairline) transparent;}
+::-webkit-scrollbar{width:6px;height:6px;}
+::-webkit-scrollbar-thumb{background:var(--hairline); border-radius: var(--r-sm);}
+.label { text-transform: uppercase; letter-spacing: .1em; font-size: 10.5px; color: var(--muted); }
+.tnum { font-variant-numeric: tabular-nums; }
+@keyframes ls-pulse { 0%{opacity:1;transform:scale(1)} 50%{opacity:.35;transform:scale(.78)} 100%{opacity:1;transform:scale(1)} }
+.live-dot { display:inline-block; width:7px; height:7px; border-radius:9999px; background:var(--green); animation: ls-pulse 1.2s ease-in-out infinite; flex-shrink:0; }
+
+.shell { display: grid; grid-template-columns: 232px 1fr 264px; grid-template-rows: 56px 1fr; height: 100vh; gap: 1px; background: var(--hairline); }
+:root[data-theme="light"] .shell { gap: 0; }
+.topbar, .sidebar, .main, .rightpanel { background: var(--bg); }
+.topbar { grid-column: 1 / 4; grid-row: 1; display: flex; align-items: center; gap: 16px; padding: 0 18px; border-bottom: 1px solid var(--hairline); background: var(--panel); }
+.sidebar { grid-column: 1; grid-row: 2; overflow-y: auto; border-right: 1px solid var(--hairline); background: var(--panel); }
+.main { grid-column: 2; grid-row: 2; overflow-y: auto; }
+.rightpanel { grid-column: 3; grid-row: 2; overflow-y: auto; border-left: 1px solid var(--hairline); background: var(--panel); padding: 18px; }
+
+@media (max-width: 1080px) { .shell { grid-template-columns: 220px 1fr; } .rightpanel { display: none; } }
+@media (max-width: 760px) { .shell { grid-template-columns: 1fr; grid-template-rows: 52px 1fr; } .sidebar { display: none; } }
+
+.brand { display: flex; align-items: center; gap: 9px; font-size: 15px; font-weight: 700; letter-spacing: -.02em; flex-shrink: 0; }
+.brand .mark { width: 24px; height: 24px; border-radius: var(--r-sm); background: var(--green); position: relative; flex-shrink: 0; }
+.brand .mark::before { content:''; position:absolute; left:5px; top:6px; width:5px; height:12px; background:var(--panel); border-radius:1px; }
+.brand .mark::after { content:''; position:absolute; left:13px; top:6px; width:6px; height:12px; border:2px solid var(--panel); background:var(--green); border-radius:1px; }
+.searchpill { flex: 1; max-width: 480px; margin: 0 auto; display: flex; align-items: center; gap: 10px; border: 1px solid var(--hairline); background: var(--bg); border-radius: var(--r-pill); padding: 9px 16px; color: var(--faint); font-size: 12px; }
+.searchpill input { border: none; outline: none; background: transparent; color: var(--ink); font: inherit; width: 100%; }
+.top-actions { display: flex; align-items: center; gap: 14px; margin-left: auto; flex-shrink: 0; }
+.top-icon { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border: 1px solid transparent; border-radius: var(--r-sm); color: var(--muted); cursor: pointer; font-size: 14px; }
+.top-icon:hover { color: var(--ink); border-color: var(--hairline); }
+.avatar { width: 30px; height: 30px; border-radius: var(--r-avatar); background: var(--admin); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
+
+.sb-head { padding: 16px 14px 10px; display: flex; align-items: center; justify-content: space-between; }
+.sb-title { font-size: 11px; text-transform: uppercase; letter-spacing: .1em; font-weight: 700; color: var(--ink); }
+.sb-tabs { display: flex; gap: 6px; padding: 0 10px 10px; flex-wrap: wrap; }
+.sb-tab { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; padding: 5px 10px; border: 1px solid var(--hairline); border-radius: var(--r-pill); color: var(--muted); }
+.sb-tab.active { color: var(--green); border-color: var(--green); }
+.sb-search { margin: 4px 10px 8px; display: flex; align-items: center; gap: 7px; border: 1px solid var(--hairline); background: var(--bg); border-radius: var(--r-sm); padding: 7px 10px; color: var(--faint); font-size: 10.5px; }
+.sb-group-label { padding: 12px 14px 4px; font-size: 9px; text-transform: uppercase; letter-spacing: .1em; color: var(--faint); font-weight: 700; }
+.sb-group-label.live { color: var(--green); }
+.sb-row { display: flex; align-items: center; gap: 9px; padding: 7px 14px; margin: 0 6px; border-radius: var(--r-sm); cursor: pointer; }
+.sb-row:hover { background: var(--panel2); }
+.sb-row.active { background: var(--panel2); border-left: 2px solid var(--green); padding-left: 12px; }
+.sb-swatch { width: 26px; height: 26px; border-radius: var(--r-sm); flex-shrink: 0; background: var(--grad-hero); }
+.sb-row-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--ink); }
+.sb-row-meta { font-size: 9px; color: var(--faint); text-transform: uppercase; flex-shrink: 0; }
+.sb-foot { margin-top: auto; padding: 12px 14px; border-top: 1px dashed var(--hairline); display: flex; align-items: center; gap: 10px; }
+
+/* ── artist-page style profile hero ── */
+.phero { position: relative; padding: 54px 30px 26px; background: var(--grad-hero); display: flex; align-items: flex-end; gap: 22px; border-bottom: 1px solid var(--hairline); }
+:root[data-theme="light"] .phero { background: var(--panel2); border-bottom: 1px solid var(--hairline); padding-top: 34px; }
+.phero-avatar { width: 128px; height: 128px; border-radius: var(--r-avatar); background: var(--admin); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 44px; font-weight: 800; flex-shrink: 0; box-shadow: 0 18px 40px -12px rgba(0,0,0,.5); border: 4px solid rgba(255,255,255,.15); }
+:root[data-theme="light"] .phero-avatar { box-shadow: none; border: 1px solid var(--hairline); }
+.phero-verified { font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: rgba(255,255,255,.8); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+:root[data-theme="light"] .phero-verified { color: var(--muted); }
+.phero-name { font-size: 40px; font-weight: 800; color: #fff; letter-spacing: -.03em; line-height: 1; }
+:root[data-theme="light"] .phero-name { color: var(--ink); font-weight: 700; font-size: 30px; }
+.phero-meta { margin-top: 10px; font-size: 12px; color: rgba(255,255,255,.82); display: flex; gap: 10px; flex-wrap: wrap; }
+:root[data-theme="light"] .phero-meta { color: var(--muted); }
+
+.main-body { padding: 24px 30px 40px; }
+.section-head { display: flex; align-items: baseline; justify-content: space-between; margin: 30px 0 14px; }
+.section-head:first-child { margin-top: 0; }
+.section-title { font-size: 13px; text-transform: uppercase; letter-spacing: .1em; font-weight: 700; }
+.section-link { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--faint); }
+
+.stat-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.stat-card { border: 1px solid var(--hairline); background: var(--panel2); border-radius: var(--r-card); padding: 16px; }
+.stat-card .v { font-size: 26px; font-weight: 800; }
+.stat-card .l { font-size: 9.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--faint); margin-top: 4px; }
+
+/* heatmap */
+.heatwrap { border: 1px solid var(--hairline); background: var(--panel2); border-radius: var(--r-card); padding: 18px; overflow-x: auto; }
+.heatgrid { display: grid; grid-auto-flow: column; grid-template-rows: repeat(7, 11px); gap: 3px; }
+.heatcell { width: 11px; height: 11px; border-radius: 2px; background: var(--hairline); }
+.heat-legend { display: flex; align-items: center; gap: 6px; margin-top: 12px; font-size: 9.5px; color: var(--faint); }
+.heat-legend .heatcell { width: 9px; height: 9px; }
+
+.grid-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px; }
+.card { border: 1px solid var(--hairline); background: var(--panel2); border-radius: var(--r-card); overflow: hidden; }
+.card-art { height: 96px; background: var(--grad-hero); position: relative; padding: 9px; }
+.card-badge { font-size: 9px; text-transform: uppercase; letter-spacing: .06em; padding: 3px 8px; border-radius: var(--r-pill); background: rgba(0,0,0,.35); color: #fff; }
+:root[data-theme="light"] .card-badge { background: var(--panel); border: 1px solid var(--hairline); color: var(--muted); }
+.card-body { padding: 11px 12px 12px; }
+.card-title { font-size: 12px; font-weight: 700; margin-bottom: 4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.card-meta { font-size: 9.5px; color: var(--faint); }
+
+.tag-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.tag-chip { font-size: 10.5px; padding: 6px 12px; border: 1px solid var(--hairline); border-radius: var(--r-pill); color: var(--muted); background: var(--panel2); }
+
+.rp-title { font-size: 10.5px; text-transform: uppercase; letter-spacing: .1em; font-weight: 700; margin-bottom: 14px; }
+.rp-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px dashed var(--hairline); }
+.rp-avatar { width: 26px; height: 26px; border-radius: var(--r-avatar); background: var(--panel2); border: 1px solid var(--hairline); display: flex; align-items: center; justify-content: center; font-size: 9.5px; font-weight: 700; flex-shrink: 0; }
+.rp-name { font-size: 11px; color: var(--ink); }
+.rp-sub { font-size: 9.5px; color: var(--faint); }
+.rp-bar-row { margin-bottom: 10px; }
+.rp-bar-label { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); margin-bottom: 5px; }
+.rp-bar-track { height: 6px; border-radius: var(--r-pill); background: var(--panel2); border: 1px solid var(--hairline); overflow: hidden; }
+.rp-bar-fill { height: 100%; background: var(--green); }
+
+.theme-toggle { border: 1px solid var(--hairline); background: var(--panel2); color: var(--ink); width: 32px; height: 32px; border-radius: var(--r-pill); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 13px; }
+
+@media (max-width: 760px) {
+  .phero { flex-direction: column; align-items: flex-start; padding: 34px 16px 20px; }
+  .phero-avatar { width: 84px; height: 84px; font-size: 30px; }
+  .phero-name { font-size: 26px; }
+  .main-body { padding: 18px 16px 30px; }
+  .stat-strip { grid-template-columns: repeat(2, 1fr); }
+}
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <div class="topbar">
+    <div class="brand"><div class="mark"></div>LiveShortly</div>
+    <div class="searchpill">⌕ <input placeholder="Search sessions, owners, tags…"></div>
+    <div class="top-actions">
+      <span class="install-link label" title="/install">⇩ Install CLI</span>
+      <span class="top-icon" title="Notifications">🔔</span>
+      <button class="theme-toggle" onclick="LS3.toggle()" aria-label="Toggle theme" title="Toggle light/dark">◐</button>
+      <div class="avatar">MK</div>
+    </div>
+  </div>
+
+  <div class="sidebar" style="display:flex; flex-direction:column;">
+    <div class="sb-head"><span class="sb-title">Your Sessions</span><span class="top-icon" style="width:22px;height:22px;font-size:12px;">⤢</span></div>
+    <div class="sb-tabs">
+      <span class="sb-tab active">All</span>
+      <span class="sb-tab">Live</span>
+      <span class="sb-tab">Shared</span>
+    </div>
+    <div class="sb-search">⌕ Search sessions</div>
+
+    <div class="sb-group-label live">◉ Live</div>
+    <div class="sb-row"><div class="sb-swatch"></div><div class="sb-row-title">refactor auth middleware</div><span class="sb-row-meta" style="color:var(--green);">live</span></div>
+
+    <div class="sb-group-label">Today</div>
+    <div class="sb-row"><div class="sb-swatch"></div><div class="sb-row-title">fix mobile composer overlap</div><span class="sb-row-meta">2h</span></div>
+    <div class="sb-row"><div class="sb-swatch"></div><div class="sb-row-title">avatar-bubble unified feed</div><span class="sb-row-meta">5h</span></div>
+
+    <div class="sb-group-label">Previous 7 Days</div>
+    <div class="sb-row"><div class="sb-swatch"></div><div class="sb-row-title">postgres migration cleanup</div><span class="sb-row-meta">3d</span></div>
+    <div class="sb-row"><div class="sb-swatch"></div><div class="sb-row-title">SSE reconnect backoff</div><span class="sb-row-meta">6d</span></div>
+
+    <div class="sb-group-label">🔗 Shared With Me</div>
+    <div class="sb-row"><div class="sb-swatch"></div><div class="sb-row-title">@sec_r0 · device flow</div><span class="sb-row-meta">1w</span></div>
+
+    <div class="sb-foot">
+      <div class="avatar" style="width:26px;height:26px;font-size:10px;">MK</div>
+      <div style="min-width:0;"><div style="font-size:11.5px;">mukul</div><div style="font-size:9.5px;color:var(--faint);">mukulmalviya2@…</div></div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="phero">
+      <div class="phero-avatar">MK</div>
+      <div>
+        <div class="phero-verified">◈ Developer profile</div>
+        <div class="phero-name">mukul</div>
+        <div class="phero-meta"><span>@mukullohar</span>·<span>mukulmalviya2@gmail.com</span>·<span>member since Jun 2026</span></div>
+      </div>
+    </div>
+
+    <div class="main-body">
+      <div class="section-head" style="margin-top:0;"><span class="section-title">Overview</span></div>
+      <div class="stat-strip">
+        <div class="stat-card"><div class="v tnum">42</div><div class="l">Sessions</div></div>
+        <div class="stat-card"><div class="v tnum">18</div><div class="l">Published</div></div>
+        <div class="stat-card"><div class="v tnum" style="color:var(--green);">1</div><div class="l">Live now</div></div>
+        <div class="stat-card"><div class="v tnum">6,204</div><div class="l">Events</div></div>
+      </div>
+
+      <div class="section-head"><span class="section-title">▦ Session activity</span></div>
+      <div class="heatwrap">
+        <div class="heatgrid" id="heatgrid"></div>
+        <div class="heat-legend">Less <span class="heatcell" style="background:var(--hairline)"></span><span class="heatcell" style="background:color-mix(in srgb, var(--green) 30%, var(--hairline))"></span><span class="heatcell" style="background:color-mix(in srgb, var(--green) 60%, var(--hairline))"></span><span class="heatcell" style="background:var(--green)"></span> More</div>
+      </div>
+
+      <div class="section-head"><span class="section-title">Published sessions</span><span class="section-link">See all →</span></div>
+      <div class="grid-cards">
+        <a class="card" href="session-viewer.html"><div class="card-art"><span class="card-badge">Ended</span></div><div class="card-body"><div class="card-title">SSE reconnect backoff strategy</div><div class="card-meta">4h ago · 302 ev</div></div></a>
+        <a class="card" href="session-viewer.html"><div class="card-art"><span class="card-badge">Ended</span></div><div class="card-body"><div class="card-title">postgres migration cleanup</div><div class="card-meta">3d ago · 142 ev</div></div></a>
+        <a class="card" href="session-viewer.html"><div class="card-art"><span class="card-badge">Ended</span></div><div class="card-body"><div class="card-title">write CONTRACT.md v2</div><div class="card-meta">6d ago · 88 ev</div></div></a>
+        <a class="card" href="session-viewer.html"><div class="card-art"><span class="card-badge">Ended</span></div><div class="card-body"><div class="card-title">mobile drawer scoping fix</div><div class="card-meta">1w ago · 51 ev</div></div></a>
+      </div>
+
+      <div class="section-head"><span class="section-title">Top tags</span></div>
+      <div class="tag-row">
+        <span class="tag-chip">#auth · 12</span>
+        <span class="tag-chip">#mobile · 9</span>
+        <span class="tag-chip">#postgres · 7</span>
+        <span class="tag-chip">#sse · 5</span>
+        <span class="tag-chip">#refactor · 5</span>
+        <span class="tag-chip">#hooks · 3</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="rightpanel">
+    <div class="rp-title">Model usage</div>
+    <div class="rp-bar-row"><div class="rp-bar-label"><span>claude-opus-4-8</span><span class="tnum">64%</span></div><div class="rp-bar-track"><div class="rp-bar-fill" style="width:64%;"></div></div></div>
+    <div class="rp-bar-row"><div class="rp-bar-label"><span>claude-sonnet-5</span><span class="tnum">31%</span></div><div class="rp-bar-track"><div class="rp-bar-fill" style="width:31%;"></div></div></div>
+    <div class="rp-bar-row"><div class="rp-bar-label"><span>claude-haiku-4-5</span><span class="tnum">5%</span></div><div class="rp-bar-track"><div class="rp-bar-fill" style="width:5%;"></div></div></div>
+
+    <div class="rp-title" style="margin-top:26px;">Frequent collaborators</div>
+    <div class="rp-row"><div class="rp-avatar">SR</div><div style="min-width:0;"><div class="rp-name">@sec_r0</div><div class="rp-sub">14 sessions together</div></div></div>
+    <div class="rp-row"><div class="rp-avatar">DM</div><div style="min-width:0;"><div class="rp-name">@dev_mira</div><div class="rp-sub">6 sessions together</div></div></div>
+  </div>
+</div>
+
+<script>
+const LS3 = {
+  key: 'ls3-theme',
+  toggle() {
+    const html = document.documentElement;
+    const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    html.setAttribute('data-theme', next);
+    localStorage.setItem(this.key, next);
+  },
+  init() {
+    const saved = localStorage.getItem(this.key);
+    const theme = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', theme);
+  }
+};
+LS3.init();
+
+// 53×7 activity heatmap, seeded pseudo-random so it's stable across reloads.
+(function () {
+  const grid = document.getElementById('heatgrid');
+  let seed = 42;
+  const rand = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
+  for (let w = 0; w < 53; w++) {
+    for (let d = 0; d < 7; d++) {
+      const r = rand();
+      const count = r > 0.72 ? Math.ceil(r * 4) : 0;
+      const cell = document.createElement('div');
+      cell.className = 'heatcell';
+      if (count > 0) {
+        const pct = Math.min(count / 4, 1) * 70 + 30;
+        cell.style.background = `color-mix(in srgb, var(--green) ${pct}%, var(--hairline))`;
+      }
+      grid.appendChild(cell);
+    }
+  }
+})();
+</script>
+</body>
+</html>

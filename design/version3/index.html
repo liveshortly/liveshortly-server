@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LiveShortly — v3 Design</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0c0c0e; --panel: #161618; --hairline: #2a2a30;
+  --strong: #f7f6f4; --ink: #ece9e4; --muted: #a6a3ac; --faint: #726f78;
+  --green: #1ed760; --admin: #a78bfa;
+  --font: 'JetBrains Mono', ui-monospace, monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font); background: var(--bg); color: var(--ink); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+a { color: inherit; }
+.page { max-width: 900px; margin: 0 auto; padding: 56px 32px 80px; }
+.brand { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.mark { width: 30px; height: 30px; background: var(--green); border-radius: 8px; position: relative; flex-shrink: 0; }
+.mark::before { content: ''; position: absolute; left: 6px; top: 7px; width: 6px; height: 14px; background: var(--panel); border-radius: 1px; }
+.mark::after { content: ''; position: absolute; left: 15px; top: 7px; width: 7px; height: 14px; border: 2px solid var(--panel); background: var(--green); border-radius: 1px; }
+.brand-name { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; }
+.eyebrow { font-size: 10px; text-transform: uppercase; letter-spacing: .16em; color: var(--green); font-weight: 700; margin: 30px 0 10px; }
+.h1 { font-size: 26px; font-weight: 800; letter-spacing: -.02em; margin-bottom: 12px; }
+.sub { font-size: 13px; color: var(--muted); line-height: 1.7; max-width: 620px; margin-bottom: 8px; }
+.sub code { color: var(--green); }
+.meta { font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: var(--faint); margin: 18px 0 30px; padding-bottom: 24px; border-bottom: 1px dashed var(--hairline); }
+
+.rule-strip { display: flex; gap: 12px; margin-bottom: 36px; flex-wrap: wrap; }
+.rule { flex: 1; min-width: 220px; border: 1px solid var(--hairline); border-radius: 14px; padding: 16px 18px; background: var(--panel); }
+.rule .rt { font-size: 9.5px; text-transform: uppercase; letter-spacing: .1em; color: var(--faint); margin-bottom: 6px; }
+.rule .rd { font-size: 12px; color: var(--muted); line-height: 1.55; }
+.rule.dark { border-color: var(--admin); }
+.rule.dark .rt { color: var(--admin); }
+.rule.light { border-color: var(--green); }
+.rule.light .rt { color: var(--green); }
+
+.cards { display: flex; flex-direction: column; gap: 12px; }
+.card { display: block; background: var(--panel); border: 1px solid var(--hairline); border-radius: 14px; padding: 20px 24px; text-decoration: none; transition: border-color 150ms, transform 120ms; }
+.card:hover { border-color: var(--strong); transform: translateX(3px); }
+.card-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.card-num { font-size: 10px; color: var(--faint); font-weight: 600; letter-spacing: .1em; }
+.card-tag { font-size: 9px; text-transform: uppercase; letter-spacing: .08em; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--hairline); color: var(--muted); }
+.card-tag.desktop { color: var(--admin); border-color: var(--admin); }
+.card-tag.mobile { color: var(--green); border-color: var(--green); }
+.card-title { font-size: 15px; font-weight: 700; color: var(--ink); margin-top: 8px; }
+.card-desc { font-size: 12px; color: var(--muted); margin-top: 5px; line-height: 1.55; }
+.back { display: inline-block; margin-top: 40px; font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); border: 1px solid var(--hairline); border-radius: 999px; padding: 8px 16px; }
+.back:hover { color: var(--ink); border-color: var(--strong); }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="brand"><div class="mark"></div><div class="brand-name">LiveShortly</div></div>
+  <div class="eyebrow">◈ Design / v3</div>
+  <h1 class="h1">Version 3 — Core Screens</h1>
+  <p class="sub">
+    Five HTML mockups for the core user-facing screens, each with a live
+    <code>◐</code> theme toggle in the top bar. <b>Light mode is the current shipped
+    app, unchanged</b> — same tokens as <code>web/app/globals.css</code>, same square
+    hairline-border terminal-HUD language. <b>Dark mode is new</b>, drawing its shell
+    (persistent library sidebar, hero cover art, tracklist rows, bottom status dock,
+    rounded pill controls) from a Spotify-style reference, re-skinned onto
+    LiveShortly's actual sessions/events/watchers domain.
+  </p>
+  <div class="meta">web/ HEAD ae08e8b · scope: feed, HUD, session viewer (desktop + mobile), profile</div>
+
+  <div class="rule-strip">
+    <div class="rule light"><div class="rt">☀ Light mode</div><div class="rd">Verbatim <code>:root[data-theme="light"]</code> tokens from the real app. Square corners, hairline borders, no gradients.</div></div>
+    <div class="rule dark"><div class="rt">☾ Dark mode</div><div class="rd">Near-black surfaces, rounded cards/pills, purple↔blue hero gradients. Same green accent (brand + "live"), same monospace type.</div></div>
+  </div>
+
+  <div class="cards">
+    <a href="landing.html" class="card">
+      <div class="card-row"><span class="card-num">01</span><div style="display:flex;gap:6px;"><span class="card-tag desktop">Desktop</span></div></div>
+      <div class="card-title">Landing — anonymous visitor</div>
+      <div class="card-desc">The feed page minus the personal "Your Sessions" sidebar (anon has none), avatar swapped for a Sign In button, plus the pitch strip / How it works / footer an anonymous visitor actually needs to convert.</div>
+    </a>
+    <a href="feed.html" class="card">
+      <div class="card-row"><span class="card-num">02</span><div style="display:flex;gap:6px;"><span class="card-tag desktop">Desktop</span></div></div>
+      <div class="card-title">Feed — browse grid</div>
+      <div class="card-desc">Hero "trending now" card, live-now grid, recently-published grid — the Spotify browse-page translation of the public feed.</div>
+    </a>
+    <a href="hud.html" class="card">
+      <div class="card-row"><span class="card-num">03</span><div style="display:flex;gap:6px;"><span class="card-tag desktop">Desktop</span></div></div>
+      <div class="card-title">My HUD — dashboard</div>
+      <div class="card-desc">"Continue where you left off" hero, live/archive/shared row-lists with hover action icons (share, publish, delete).</div>
+    </a>
+    <a href="session-viewer.html" class="card">
+      <div class="card-row"><span class="card-num">04</span><div style="display:flex;gap:6px;"><span class="card-tag desktop">Desktop</span></div></div>
+      <div class="card-title">Session viewer</div>
+      <div class="card-desc">Cover-art hero, tracklist-style event log with nested tool rows, right-hand session-info + live chat + composer panel, transport-style status dock.</div>
+    </a>
+    <a href="session-viewer-mobile.html" class="card">
+      <div class="card-row"><span class="card-num">05</span><div style="display:flex;gap:6px;"><span class="card-tag mobile">Mobile</span></div></div>
+      <div class="card-title">Session viewer — phone frame</div>
+      <div class="card-desc">Avatar-bubble unified feed, slide-in sessions drawer, gear action sheet, pinned composer — the real mobile-specific UI, re-skinned.</div>
+    </a>
+    <a href="profile.html" class="card">
+      <div class="card-row"><span class="card-num">06</span><div style="display:flex;gap:6px;"><span class="card-tag desktop">Desktop</span></div></div>
+      <div class="card-title">Developer profile</div>
+      <div class="card-desc">Artist-page-style banner, stat strip, real activity heatmap, published sessions grid, model-usage bars.</div>
+    </a>
+    <a href="story.html" class="card">
+      <div class="card-row"><span class="card-num">07</span><div style="display:flex;gap:6px;"><span class="card-tag desktop">Desktop</span></div></div>
+      <div class="card-title">Dev Story — post-session blog view</div>
+      <div class="card-desc">v3 take on design/session-report.html: AI summary, files-changed list, chaptered narrative with code blocks and viewer Q&amp;A, epilogue stats, TOC sidebar. Carries an honest ◐ PREVIEW banner — the narrative is AI-generated (no summarization backend yet), the stats are real.</div>
+    </a>
+    <a href="compose.html" class="card">
+      <div class="card-row"><span class="card-num">08</span><div style="display:flex;gap:6px;"><span class="card-tag desktop">Desktop</span></div></div>
+      <div class="card-title">Story composer — appears when a session ends</div>
+      <div class="card-desc">v3 take on design/blog-composer.html. 3 columns: real session source (chapters/code clips/viewer injects to insert), a draft editor pre-filled from the ended session, and publish settings. Reached via ⊘ End Session on the session viewer — no persistence backend yet, so it's local-draft-only, same as the real /compose/[id].</div>
+    </a>
+  </div>
+
+  <a href="../index.html" class="back">← All design files</a>
+</div>
+</body>
+</html>

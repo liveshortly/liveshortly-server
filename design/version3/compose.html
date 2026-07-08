@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LiveShortly v3 — Story Composer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root, :root[data-theme="light"] {
+  --bg: #e7e8ea; --panel: #f3f4f5; --panel2: #ffffff; --hairline: #d0d2d5; --strong: #1b1c1e;
+  --ink: #1b1c1e; --muted: #63666b; --faint: #94979c;
+  --green: #1f7a4d; --red: #c0392b; --amber: #a9810f; --admin: #7c3aed; --blue: #2f6fb0;
+  --shadow: rgba(20,22,26,0.16);
+  --r-card: 0px; --r-pill: 0px; --r-avatar: 2px; --r-sm: 0px;
+  --grad-hero: linear-gradient(135deg, #cfd3d8, #e7e8ea);
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --bg: #1e2123; --panel: #282c2f; --panel2: #2d3236; --hairline: #3d4247; --strong: #edeff1;
+  --ink: #e9ebed; --muted: #a6abb1; --faint: #797f86;
+  --green: #54b885; --red: #e7705f; --amber: #d9ad52; --admin: #b794f6; --blue: #5b9bd5;
+  --shadow: rgba(0,0,0,0.45);
+  --r-card: 0px; --r-pill: 0px; --r-avatar: 2px; --r-sm: 0px;
+  --grad-hero: var(--panel2);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0; font-family: 'JetBrains Mono','IBM Plex Mono',ui-monospace,'SFMono-Regular',Menlo,monospace;
+  background: var(--bg); color: var(--ink); line-height: 1.5; -webkit-font-smoothing: antialiased;
+  transition: background-color 200ms ease, color 200ms ease;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+a { color: inherit; text-decoration: none; }
+button, input, textarea { font-family: inherit; }
+*{scrollbar-width:thin;scrollbar-color:var(--hairline) transparent;}
+::-webkit-scrollbar{width:6px;height:6px;}
+::-webkit-scrollbar-thumb{background:var(--hairline); border-radius: var(--r-sm);}
+.label { text-transform: uppercase; letter-spacing: .1em; font-size: 10.5px; color: var(--muted); }
+.tnum { font-variant-numeric: tabular-nums; }
+
+/* ── topbar — no persistent library sidebar on this screen (matches the
+   real app: /compose/[id] isn't in the (workspace) route group, and a
+   distraction-free editor benefits from the extra width anyway). ── */
+.topbar { flex-shrink: 0; height: 52px; display: flex; align-items: center; border-bottom: 1px solid var(--hairline); background: var(--panel); }
+.tb-left { display: flex; align-items: center; gap: 12px; padding: 0 16px; min-width: 240px; height: 100%; border-right: 1px solid var(--hairline); }
+.tb-back { display: flex; align-items: center; gap: 6px; font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: var(--faint); cursor: pointer; white-space: nowrap; }
+.tb-back:hover { color: var(--ink); }
+.tb-sep { width: 1px; height: 18px; background: var(--hairline); }
+.tb-type { font-size: 8.5px; text-transform: uppercase; letter-spacing: .12em; font-weight: 700; color: var(--amber); border: 1px solid var(--amber); padding: 2px 7px; border-radius: var(--r-pill); }
+.tb-center { flex: 1; display: flex; align-items: center; gap: 14px; padding: 0 18px; height: 100%; min-width: 0; }
+.tb-title-input { flex: 1; min-width: 0; background: none; border: none; outline: none; font-size: 13px; font-weight: 700; color: var(--ink); border-bottom: 1px solid transparent; padding: 4px 0; }
+.tb-title-input:focus { border-bottom-color: var(--hairline); }
+.tb-draft-pill { font-size: 8.5px; text-transform: uppercase; letter-spacing: .12em; font-weight: 700; color: var(--amber); border: 1px solid var(--amber); background: color-mix(in srgb, var(--amber) 10%, transparent); padding: 3px 8px; border-radius: var(--r-pill); white-space: nowrap; }
+.tb-wordcount { font-size: 9.5px; color: var(--faint); white-space: nowrap; }
+.tb-mode { display: flex; gap: 2px; padding: 2px; background: var(--bg); border-radius: var(--r-sm); border: 1px solid var(--hairline); flex-shrink: 0; }
+.mode-btn { font-size: 9px; text-transform: uppercase; letter-spacing: .08em; font-weight: 700; padding: 4px 10px; border: none; border-radius: var(--r-sm); background: none; color: var(--faint); cursor: pointer; }
+.mode-btn.active { background: var(--panel2); color: var(--ink); }
+.tb-right { display: flex; align-items: center; gap: 8px; padding: 0 16px; min-width: 260px; height: 100%; border-left: 1px solid var(--hairline); justify-content: flex-end; }
+.tbtn { font-size: 9.5px; text-transform: uppercase; letter-spacing: .08em; font-weight: 700; padding: 6px 12px; border-radius: var(--r-pill); cursor: pointer; white-space: nowrap; }
+.tbtn.ghost { background: none; color: var(--muted); border: 1px solid var(--hairline); }
+.tbtn.ghost:hover { color: var(--ink); border-color: var(--strong); }
+.tbtn.primary { background: var(--strong); color: var(--panel); border: 1px solid var(--strong); }
+:root[data-theme="dark"] .tbtn.primary { background: var(--green); border-color: var(--green); color: #06210f; }
+.theme-toggle { border: 1px solid var(--hairline); background: var(--panel2); color: var(--ink); width: 28px; height: 28px; border-radius: var(--r-pill); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 12px; flex-shrink: 0; }
+
+/* ── ended banner — the "appears when session ends" cue ── */
+.ended-banner { flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: 8px 18px; background: color-mix(in srgb, var(--green) 10%, var(--panel2)); border-bottom: 1px solid var(--hairline); font-size: 11px; }
+.ended-banner b { color: var(--green); }
+.ended-banner .eb-note { color: var(--muted); }
+.ended-banner .eb-dismiss { margin-left: auto; color: var(--faint); cursor: pointer; font-size: 12px; flex-shrink: 0; }
+.preview-banner { flex-shrink: 0; display: flex; align-items: center; gap: 8px; padding: 7px 18px; background: color-mix(in srgb, var(--amber) 10%, var(--panel2)); border-bottom: 1px solid var(--hairline); font-size: 10.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--amber); }
+.preview-banner span.pb-note { color: var(--muted); text-transform: none; letter-spacing: 0; font-size: 11px; }
+
+/* ── three-column main ── */
+.main { flex: 1; display: flex; min-height: 0; }
+
+/* source panel */
+.source-panel { width: 258px; flex-shrink: 0; border-right: 1px solid var(--hairline); background: var(--panel); display: flex; flex-direction: column; overflow: hidden; }
+.sp-head { padding: 10px 14px; border-bottom: 1px solid var(--hairline); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+.sp-head-title { font-size: 9px; text-transform: uppercase; letter-spacing: .14em; font-weight: 700; color: var(--faint); }
+.sp-head-badge { font-size: 8px; text-transform: uppercase; letter-spacing: .08em; font-weight: 700; color: var(--green); border: 1px solid var(--green); padding: 2px 6px; border-radius: var(--r-pill); }
+.sp-scroll { flex: 1; overflow-y: auto; }
+.sp-session { margin: 10px; padding: 10px; background: var(--panel2); border: 1px solid var(--hairline); border-radius: var(--r-sm); }
+.sp-session-name { font-size: 10.5px; font-weight: 700; color: var(--ink); margin-bottom: 7px; line-height: 1.4; }
+.sp-session-meta { display: flex; flex-wrap: wrap; gap: 4px; }
+.sp-pill { font-size: 8px; text-transform: uppercase; letter-spacing: .06em; font-weight: 700; padding: 2px 6px; border-radius: var(--r-pill); }
+.sp-pill.g { color: var(--green); border: 1px solid var(--green); }
+.sp-pill.b { color: var(--blue); border: 1px solid var(--blue); }
+.sp-pill.n { color: var(--faint); border: 1px solid var(--hairline); }
+.sp-section { border-bottom: 1px solid var(--hairline); padding-bottom: 4px; }
+.sp-section-head { padding: 9px 14px 7px; display: flex; align-items: center; gap: 7px; cursor: pointer; }
+.sp-section-label { font-size: 8.5px; text-transform: uppercase; letter-spacing: .12em; font-weight: 700; color: var(--faint); flex: 1; }
+.sp-section-count { font-size: 8.5px; color: var(--faint); font-weight: 700; }
+.sp-chapter, .sp-clip, .sp-qa { padding: 6px 14px; display: flex; align-items: flex-start; gap: 8px; cursor: pointer; border-radius: var(--r-sm); }
+.sp-chapter:hover, .sp-clip:hover, .sp-qa:hover { background: var(--panel2); }
+.sp-chapter:hover .sp-insert, .sp-clip:hover .sp-insert, .sp-qa:hover .sp-insert { opacity: 1; }
+.sp-num { font-size: 8.5px; color: var(--faint); width: 14px; flex-shrink: 0; margin-top: 1px; }
+.sp-body { flex: 1; min-width: 0; }
+.sp-name { font-size: 10px; color: var(--ink); line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sp-sub { font-size: 8.5px; color: var(--faint); margin-top: 2px; }
+.sp-insert { opacity: 0; flex-shrink: 0; font-size: 7.5px; text-transform: uppercase; letter-spacing: .08em; font-weight: 700; color: var(--green); border: 1px solid var(--green); background: none; padding: 2px 6px; border-radius: var(--r-pill); cursor: pointer; transition: opacity 150ms; }
+
+/* editor */
+.editor-col { flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--bg); }
+.editor-toolbar { flex-shrink: 0; height: 38px; padding: 0 10px; display: flex; align-items: center; gap: 2px; border-bottom: 1px solid var(--hairline); background: var(--panel); overflow-x: auto; }
+.et-group { display: flex; align-items: center; gap: 1px; padding: 0 7px; border-right: 1px solid var(--hairline); flex-shrink: 0; }
+.et-group:last-child { border-right: none; }
+.ettool { width: 26px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: var(--faint); cursor: pointer; border-radius: var(--r-sm); border: none; background: none; }
+.ettool:hover { background: var(--panel2); color: var(--ink); }
+.ettool.active { background: color-mix(in srgb, var(--green) 15%, transparent); color: var(--green); }
+.ettool.wide { width: auto; padding: 0 8px; }
+.et-ai { margin-left: auto; flex-shrink: 0; display: flex; align-items: center; gap: 5px; font-size: 9px; text-transform: uppercase; letter-spacing: .08em; font-weight: 700; color: var(--admin); border: 1px solid var(--admin); background: color-mix(in srgb, var(--admin) 10%, transparent); padding: 4px 10px; border-radius: var(--r-pill); cursor: pointer; white-space: nowrap; }
+
+.editor-scroll { flex: 1; overflow-y: auto; padding: 28px 0 60px; }
+.editor-wrap { max-width: 700px; margin: 0 auto; padding: 0 36px; }
+.ed-cover { width: 100%; height: 150px; background: var(--grad-hero); border: 1px dashed var(--hairline); border-radius: var(--r-card); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; cursor: pointer; margin-bottom: 22px; }
+:root[data-theme="light"] .ed-cover { background: var(--panel2); }
+.ed-cover-icon { font-size: 16px; color: var(--faint); }
+.ed-cover-text { font-size: 9.5px; text-transform: uppercase; letter-spacing: .1em; color: var(--faint); }
+.ed-cover-sub { font-size: 9px; color: var(--faint); opacity: .7; }
+.ed-tags-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+.ed-tag { font-size: 9.5px; text-transform: uppercase; letter-spacing: .06em; font-weight: 700; padding: 3px 9px; border: 1px solid var(--hairline); color: var(--muted); border-radius: var(--r-pill); }
+.ed-tag-add { font-size: 9.5px; letter-spacing: .06em; color: var(--faint); border: 1px dashed var(--hairline); padding: 3px 9px; border-radius: var(--r-pill); cursor: pointer; background: none; }
+.ed-title { width: 100%; background: none; border: none; outline: none; font-size: 28px; font-weight: 800; color: var(--ink); line-height: 1.25; letter-spacing: -.02em; resize: none; margin-bottom: 10px; font-family: inherit; }
+:root[data-theme="light"] .ed-title { font-weight: 700; }
+.ed-title::placeholder { color: var(--faint); }
+.ed-subtitle { width: 100%; background: none; border: none; outline: none; font-size: 14px; color: var(--muted); line-height: 1.6; resize: none; margin-bottom: 26px; font-family: inherit; }
+.ed-subtitle::placeholder { color: var(--faint); }
+
+.ed-body { font-size: 14px; line-height: 1.8; color: var(--muted); }
+.ed-body p { margin-bottom: 14px; }
+.ed-body strong { color: var(--ink); font-weight: 700; }
+.ed-body code { background: var(--panel2); border: 1px solid var(--hairline); padding: 1px 5px; border-radius: 3px; font-size: 12px; color: var(--amber); }
+
+.ed-chapter-marker { display: flex; align-items: center; gap: 10px; margin: 28px 0 18px; padding: 9px 14px; background: var(--panel2); border: 1px solid var(--hairline); border-left: 3px solid var(--green); border-radius: var(--r-sm); }
+.ed-chapter-num { font-size: 8.5px; text-transform: uppercase; letter-spacing: .12em; font-weight: 700; color: var(--green); }
+.ed-chapter-title { font-size: 11.5px; font-weight: 700; color: var(--ink); }
+.ed-chapter-ts { font-size: 9px; color: var(--faint); margin-left: auto; white-space: nowrap; }
+
+.ed-code { margin: 16px 0; border: 1px solid var(--hairline); border-radius: var(--r-card); overflow: hidden; }
+.ed-code-head { display: flex; align-items: center; gap: 10px; padding: 7px 12px; border-bottom: 1px solid var(--hairline); background: var(--panel2); }
+.ed-code-lang { font-size: 8.5px; text-transform: uppercase; letter-spacing: .08em; font-weight: 700; color: var(--green); }
+.ed-code-file { font-size: 9.5px; color: var(--faint); flex: 1; }
+.ed-code-clip { font-size: 8px; text-transform: uppercase; letter-spacing: .08em; font-weight: 700; color: var(--blue); border: 1px solid var(--blue); padding: 1px 6px; border-radius: var(--r-pill); }
+.ed-code-copy { font-size: 8px; text-transform: uppercase; letter-spacing: .06em; color: var(--faint); border: 1px solid var(--hairline); background: none; padding: 2px 7px; border-radius: var(--r-pill); cursor: pointer; }
+.ed-code-body { padding: 14px 16px; overflow-x: auto; background: var(--panel2); }
+.ed-code-body pre { font-size: 11.5px; line-height: 1.7; color: var(--ink); white-space: pre; margin: 0; }
+.kw { color: var(--amber); } .fn { color: var(--green); } .str { color: var(--red); }
+.cm { color: var(--faint); font-style: italic; } .tk-t { color: var(--blue); } .tk-n { color: var(--red); }
+
+.ed-inject { margin: 20px 0; padding: 13px 16px; border: 1px solid var(--blue); border-left: 3px solid var(--blue); background: color-mix(in srgb, var(--blue) 8%, var(--panel2)); border-radius: var(--r-sm); position: relative; }
+.ed-inject-head { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+.ed-inject-label { font-size: 8.5px; text-transform: uppercase; letter-spacing: .1em; font-weight: 700; color: var(--blue); }
+.ed-inject-viewer { font-size: 9px; color: var(--muted); }
+.ed-inject-q { font-size: 12.5px; color: var(--ink); font-weight: 700; margin-bottom: 6px; line-height: 1.4; }
+.ed-inject-resp { font-size: 11.5px; color: var(--muted); line-height: 1.55; }
+.ed-inject-x { position: absolute; top: 8px; right: 10px; font-size: 10px; color: var(--faint); cursor: pointer; background: none; border: none; }
+.ed-inject-x:hover { color: var(--red); }
+
+.ed-epilogue { margin-top: 34px; padding-top: 20px; border-top: 1px solid var(--hairline); }
+.ed-epi-label { font-size: 8.5px; text-transform: uppercase; letter-spacing: .14em; font-weight: 700; color: var(--faint); margin-bottom: 14px; }
+.ed-epi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.ed-epi-cell { padding: 12px; background: var(--panel2); border: 1px solid var(--hairline); border-radius: var(--r-sm); }
+.ed-epi-value { font-size: 18px; font-weight: 800; color: var(--green); display: block; }
+.ed-epi-key { font-size: 8.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--faint); margin-top: 3px; display: block; }
+
+.ed-replay { margin-top: 16px; padding: 14px 16px; background: var(--panel2); border: 1px solid var(--hairline); border-radius: var(--r-card); display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.ed-replay-title { font-size: 11.5px; font-weight: 700; color: var(--ink); }
+.ed-replay-sub { font-size: 10px; color: var(--muted); line-height: 1.5; margin-top: 3px; }
+.ed-replay-btn { margin-left: auto; font-size: 9px; text-transform: uppercase; letter-spacing: .08em; font-weight: 700; padding: 7px 14px; border-radius: var(--r-pill); border: 1px solid var(--hairline); color: var(--muted); background: none; cursor: pointer; white-space: nowrap; }
+.ed-replay-btn:hover { border-color: var(--green); color: var(--green); }
+
+.editor-statusbar { flex-shrink: 0; height: 30px; display: flex; align-items: center; gap: 14px; padding: 0 36px; border-top: 1px solid var(--hairline); background: var(--panel); font-size: 9.5px; color: var(--faint); text-transform: uppercase; letter-spacing: .06em; }
+.sb-autosave { display: flex; align-items: center; gap: 6px; }
+.sb-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--green); }
+.sb-sep { width: 1px; height: 12px; background: var(--hairline); }
+.sb-quality { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.sb-q-bar { display: flex; gap: 2px; }
+.sb-q-seg { width: 16px; height: 4px; border-radius: 2px; background: var(--hairline); }
+.sb-q-seg.on { background: var(--green); }
+.sb-q-seg.half { background: var(--amber); }
+
+/* settings panel */
+.settings-panel { width: 268px; flex-shrink: 0; border-left: 1px solid var(--hairline); background: var(--panel); display: flex; flex-direction: column; overflow: hidden; }
+.settings-scroll { flex: 1; overflow-y: auto; }
+.set-section { padding: 14px 16px; border-bottom: 1px solid var(--hairline); }
+.set-head { font-size: 9px; text-transform: uppercase; letter-spacing: .14em; font-weight: 700; color: var(--faint); margin-bottom: 11px; }
+.set-status-row { display: flex; gap: 4px; }
+.status-opt { flex: 1; padding: 6px 4px; font-size: 8.5px; text-transform: uppercase; letter-spacing: .06em; font-weight: 700; border: 1px solid var(--hairline); background: none; color: var(--faint); text-align: center; border-radius: var(--r-sm); cursor: pointer; }
+.status-opt.active { border-color: var(--amber); color: var(--amber); background: color-mix(in srgb, var(--amber) 10%, transparent); }
+.set-vis-row { display: flex; flex-direction: column; gap: 5px; }
+.vis-opt { display: flex; align-items: center; gap: 9px; padding: 8px 10px; border: 1px solid var(--hairline); border-radius: var(--r-sm); cursor: pointer; }
+.vis-opt.active { border-color: var(--green); background: color-mix(in srgb, var(--green) 6%, transparent); }
+.vis-radio { width: 12px; height: 12px; border-radius: 50%; border: 1px solid var(--hairline); flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.vis-opt.active .vis-radio { border-color: var(--green); }
+.vis-radio::after { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--green); opacity: 0; }
+.vis-opt.active .vis-radio::after { opacity: 1; }
+.vis-label { font-size: 10.5px; font-weight: 700; color: var(--ink); }
+.vis-sub { font-size: 8.5px; color: var(--faint); line-height: 1.4; margin-top: 1px; }
+.set-tags { display: flex; flex-wrap: wrap; gap: 5px; }
+.set-tag { font-size: 9.5px; text-transform: uppercase; letter-spacing: .06em; font-weight: 700; padding: 3px 8px; border: 1px solid var(--hairline); color: var(--muted); border-radius: var(--r-pill); display: flex; align-items: center; gap: 5px; }
+.set-tag-x { color: var(--faint); cursor: pointer; font-size: 8px; }
+.set-tag-add { font-size: 9.5px; text-transform: uppercase; letter-spacing: .06em; padding: 3px 8px; border: 1px dashed var(--hairline); color: var(--faint); cursor: pointer; background: none; border-radius: var(--r-pill); }
+.set-series { width: 100%; background: var(--bg); border: 1px solid var(--hairline); outline: none; font-size: 10.5px; color: var(--ink); padding: 8px 10px; border-radius: var(--r-sm); }
+.set-series::placeholder { color: var(--faint); }
+.set-toggle-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
+.set-toggle-row + .set-toggle-row { border-top: 1px dashed var(--hairline); }
+.set-toggle-label { font-size: 10.5px; color: var(--ink); flex: 1; }
+.set-toggle-sub { font-size: 8.5px; color: var(--faint); margin-top: 1px; }
+.toggle { width: 32px; height: 18px; border-radius: 999px; position: relative; cursor: pointer; flex-shrink: 0; }
+.toggle.on { background: var(--green); }
+.toggle.off { background: var(--hairline); }
+.toggle::after { content: ''; position: absolute; width: 12px; height: 12px; border-radius: 50%; background: #fff; top: 3px; transition: left 150ms; }
+.toggle.on::after { left: 17px; }
+.toggle.off::after { left: 3px; }
+.set-session-link { display: flex; align-items: center; gap: 8px; padding: 9px 10px; background: var(--bg); border: 1px solid var(--hairline); border-radius: var(--r-sm); }
+.ssl-body { flex: 1; min-width: 0; }
+.ssl-name { font-size: 10px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ssl-meta { font-size: 8.5px; color: var(--faint); margin-top: 2px; }
+.set-publish-cta { flex-shrink: 0; padding: 14px 16px; background: color-mix(in srgb, var(--green) 8%, var(--panel)); border-top: 1px solid var(--hairline); display: flex; flex-direction: column; gap: 8px; }
+.pub-btn { width: 100%; font-size: 11px; text-transform: uppercase; letter-spacing: .1em; font-weight: 700; padding: 10px; border: none; border-radius: var(--r-pill); background: var(--strong); color: var(--panel); cursor: pointer; }
+:root[data-theme="dark"] .pub-btn { background: var(--green); color: #06210f; }
+.pub-sched-btn { width: 100%; font-size: 9.5px; text-transform: uppercase; letter-spacing: .08em; font-weight: 700; padding: 8px; border: 1px solid var(--hairline); border-radius: var(--r-pill); background: none; color: var(--faint); cursor: pointer; }
+.pub-sched-btn:hover { border-color: var(--amber); color: var(--amber); }
+.pub-note { font-size: 8.5px; color: var(--faint); text-align: center; line-height: 1.5; }
+
+@media (max-width: 1180px) {
+  .source-panel, .settings-panel { display: none; }
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="tb-left">
+    <span class="tb-back" onclick="location.href='session-viewer.html'">◂ Session</span>
+    <div class="tb-sep"></div>
+    <span class="tb-type">Dev Story</span>
+  </div>
+  <div class="tb-center">
+    <input class="tb-title-input" value="Build auth middleware — JWT + refresh token flow in Go">
+    <span class="tb-draft-pill">Draft</span>
+    <span class="tb-wordcount tnum">612 words · 3 min read</span>
+    <div class="tb-mode">
+      <button class="mode-btn active">Write</button>
+      <button class="mode-btn">Preview</button>
+    </div>
+  </div>
+  <div class="tb-right">
+    <button class="tbtn ghost">Discard</button>
+    <button class="tbtn ghost">Save Draft</button>
+    <button class="tbtn primary" onclick="location.href='story.html'">Publish →</button>
+    <button class="theme-toggle" onclick="LS3.toggle()" aria-label="Toggle theme" title="Toggle light/dark">◐</button>
+  </div>
+</div>
+
+<div class="ended-banner">
+  <span>◼ <b>Session ended</b> 3 minutes ago</span>
+  <span class="eb-note">— we've drafted a story from what happened. Nothing's published yet; edit freely before you send it out.</span>
+  <span class="eb-dismiss" title="Dismiss">✕</span>
+</div>
+
+<div class="preview-banner">
+  <span>◐ PREVIEW</span>
+  <span class="pb-note">— this draft is local-only; there's no compose backend yet, so nothing here persists. The session source panel on the left reflects the real captured session.</span>
+</div>
+
+<div class="main">
+
+  <div class="source-panel">
+    <div class="sp-head"><span class="sp-head-title">Session Source</span><span class="sp-head-badge">Real</span></div>
+    <div class="sp-scroll">
+      <div class="sp-session">
+        <div class="sp-session-name">refactor auth middleware · Jul 8 2026</div>
+        <div class="sp-session-meta">
+          <span class="sp-pill g">47m</span>
+          <span class="sp-pill b">214 events</span>
+          <span class="sp-pill n">9 files</span>
+          <span class="sp-pill n">14 tool calls</span>
+        </div>
+      </div>
+
+      <div class="sp-section">
+        <div class="sp-section-head"><span class="sp-section-label">Chapters</span><span class="sp-section-count">3</span></div>
+        <div class="sp-chapter"><span class="sp-num">01</span><div class="sp-body"><div class="sp-name">JWT middleware skeleton</div><div class="sp-sub">+00m 00s</div></div><button class="sp-insert">Insert</button></div>
+        <div class="sp-chapter"><span class="sp-num">02</span><div class="sp-body"><div class="sp-name">Database migration 002</div><div class="sp-sub">+12m 40s</div></div><button class="sp-insert">Insert</button></div>
+        <div class="sp-chapter"><span class="sp-num">03</span><div class="sp-body"><div class="sp-name">CLI device flow</div><div class="sp-sub">+38m 55s</div></div><button class="sp-insert">Insert</button></div>
+      </div>
+
+      <div class="sp-section">
+        <div class="sp-section-head"><span class="sp-section-label">Code Clips</span><span class="sp-section-count">3</span></div>
+        <div class="sp-clip"><span class="sp-num">▸</span><div class="sp-body"><div class="sp-name">api/internal/auth/authn.go</div><div class="sp-sub">New · +187</div></div><button class="sp-insert">Insert</button></div>
+        <div class="sp-clip"><span class="sp-num">▸</span><div class="sp-body"><div class="sp-name">infra/postgres/002-auth.sql</div><div class="sp-sub">New · +88</div></div><button class="sp-insert">Insert</button></div>
+        <div class="sp-clip"><span class="sp-num">▸</span><div class="sp-body"><div class="sp-name">api/internal/handlers/device.go</div><div class="sp-sub">New · +163</div></div><button class="sp-insert">Insert</button></div>
+      </div>
+
+      <div class="sp-section" style="border-bottom:none;">
+        <div class="sp-section-head"><span class="sp-section-label">Viewer Injects</span><span class="sp-section-count">2</span></div>
+        <div class="sp-qa"><div class="sp-body"><div class="sp-sub" style="color:var(--blue);text-transform:uppercase;letter-spacing:.06em;">@sec_r0 · +13m 55s</div><div class="sp-name" style="white-space:normal;">Why store the token hash rather than the full token?</div></div><button class="sp-insert">Insert</button></div>
+        <div class="sp-qa"><div class="sp-body"><div class="sp-sub" style="color:var(--blue);text-transform:uppercase;letter-spacing:.06em;">@dev_mira · +44m 18s</div><div class="sp-name" style="white-space:normal;">Does the CLI auto-refresh on expiry?</div></div><button class="sp-insert">Insert</button></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="editor-col">
+    <div class="editor-toolbar">
+      <div class="et-group"><button class="ettool wide">H1</button><button class="ettool wide">H2</button><button class="ettool wide">H3</button></div>
+      <div class="et-group"><button class="ettool" title="Bold"><strong>B</strong></button><button class="ettool" title="Italic"><em>I</em></button></div>
+      <div class="et-group"><button class="ettool" title="Inline code">&lt;/&gt;</button><button class="ettool active" title="Code block">{ }</button><button class="ettool" title="Quote">❝</button></div>
+      <div class="et-group"><button class="ettool" title="Link">↗</button><button class="ettool" title="Divider">—</button><button class="ettool" title="Session clip">⊞</button></div>
+      <div class="et-group"><button class="ettool" title="Bullet list">•</button><button class="ettool" title="Numbered list">1.</button></div>
+      <button class="et-ai"><span>✦</span>Claude Draft</button>
+    </div>
+
+    <div class="editor-scroll">
+      <div class="editor-wrap">
+        <div class="ed-cover"><span class="ed-cover-icon">▣</span><span class="ed-cover-text">Add a cover image</span><span class="ed-cover-sub">or auto-generate from session thumbnail</span></div>
+
+        <div class="ed-tags-row">
+          <span class="ed-tag">Go</span><span class="ed-tag">Auth</span><span class="ed-tag">JWT</span><span class="ed-tag">Middleware</span>
+          <button class="ed-tag-add">+ Add tag</button>
+        </div>
+
+        <textarea class="ed-title" rows="2">Build auth middleware — JWT + refresh token flow in Go</textarea>
+        <textarea class="ed-subtitle" rows="2">47 minutes, 214 events, one clean Authn middleware. Here's how the whole auth stack — Bearer, cookies, and a CLI device flow — came together in one session.</textarea>
+
+        <div class="ed-body">
+          <div class="ed-chapter-marker">
+            <span class="ed-chapter-num">Chapter 01</span>
+            <span class="ed-chapter-title">JWT middleware skeleton</span>
+            <span class="ed-chapter-ts tnum">▶ 00:00</span>
+          </div>
+          <p>We started with a single <strong>identity resolution layer</strong> so handlers never have to care which auth path was used — Bearer token for the CLI, or the <code>ls_session</code> cookie for the browser.</p>
+          <p>The <code>Authn</code> middleware extracts whichever is present, verifies it, and injects the resolved <code>Identity</code> into the request context. Downstream handlers call one <code>auth.From(ctx)</code> helper.</p>
+
+          <div class="ed-code">
+            <div class="ed-code-head"><span class="ed-code-lang">Go</span><span class="ed-code-file">api/internal/auth/authn.go</span><span class="ed-code-clip">Clip · 01:12</span><button class="ed-code-copy">Copy</button></div>
+            <div class="ed-code-body"><pre><span class="cm">// Authn resolves a principal from Bearer token or ls_session cookie.</span>
+<span class="kw">func</span> <span class="fn">Authn</span>(next http.Handler) http.Handler {
+  <span class="kw">return</span> http.<span class="fn">HandlerFunc</span>(<span class="kw">func</span>(w, r) {
+    token, err := <span class="fn">extractToken</span>(r)
+    <span class="kw">if</span> err != <span class="tk-n">nil</span> { http.<span class="fn">Error</span>(w, <span class="str">"unauthorized"</span>, 401); <span class="kw">return</span> }
+    claims, _ := ws.<span class="fn">Verify</span>(token)
+    next.<span class="fn">ServeHTTP</span>(w, r.<span class="fn">WithContext</span>(ctxWith(claims)))
+  })
+}</pre></div>
+          </div>
+
+          <div class="ed-chapter-marker">
+            <span class="ed-chapter-num">Chapter 02</span>
+            <span class="ed-chapter-title">Database migration 002</span>
+            <span class="ed-chapter-ts tnum">▶ 12:40</span>
+          </div>
+          <p><code>users</code> stores the Google-sourced identity with a unique constraint on <code>google_sub</code>. <code>auth_sessions</code> stores CLI refresh tokens as a hash with expiry and a soft-revoke flag — a compromised device grant can be killed without rotating the signing secret.</p>
+
+          <div class="ed-inject">
+            <button class="ed-inject-x">✕</button>
+            <div class="ed-inject-head"><span class="ed-inject-label">Viewer Inject</span><span class="ed-inject-viewer">@sec_r0 · 13:55</span></div>
+            <div class="ed-inject-q">"Why store the token hash rather than the full token?"</div>
+            <div class="ed-inject-resp">JWTs are stateless, so expiry alone can't revoke a compromised token early. Storing the hash gives us a revoke-able allowlist — one extra DB lookup per refresh, worth it for security.</div>
+          </div>
+
+          <div class="ed-chapter-marker">
+            <span class="ed-chapter-num">Chapter 03</span>
+            <span class="ed-chapter-title">CLI device flow</span>
+            <span class="ed-chapter-ts tnum">▶ 38:55</span>
+          </div>
+          <p>The CLI calls <code>POST /auth/device/start</code>, which creates a pending grant in Redis and returns a <code>device_code</code> plus a browser URL. The CLI polls until approved, then writes the token pair to <strong><code>~/.liveshortly/credentials.json</code></strong> — auto-refreshing from then on.</p>
+
+          <div class="ed-epilogue">
+            <div class="ed-epi-label">Session Epilogue — auto-filled from the session</div>
+            <div class="ed-epi-grid">
+              <div class="ed-epi-cell"><span class="ed-epi-value">47m</span><span class="ed-epi-key">Duration</span></div>
+              <div class="ed-epi-cell"><span class="ed-epi-value">214</span><span class="ed-epi-key">Events</span></div>
+              <div class="ed-epi-cell"><span class="ed-epi-value">9</span><span class="ed-epi-key">Files changed</span></div>
+            </div>
+          </div>
+
+          <div class="ed-replay">
+            <div><div class="ed-replay-title">▶ Watch the full session replay</div><div class="ed-replay-sub">47 min · chapters auto-synced with this story.</div></div>
+            <button class="ed-replay-btn">Configure →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="editor-statusbar">
+      <div class="sb-autosave"><span class="sb-dot"></span>Saved just now</div>
+      <div class="sb-sep"></div>
+      <span class="tnum">612 words</span>
+      <div class="sb-sep"></div>
+      <span>1 inject · 1 code clip · 3 chapters</span>
+      <div class="sb-quality">
+        <span>Story quality</span>
+        <div class="sb-q-bar"><div class="sb-q-seg on"></div><div class="sb-q-seg on"></div><div class="sb-q-seg on"></div><div class="sb-q-seg half"></div><div class="sb-q-seg"></div></div>
+        <span class="tnum">4 / 5</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="settings-panel">
+    <div class="settings-scroll">
+      <div class="set-section">
+        <div class="set-head">Status</div>
+        <div class="set-status-row">
+          <button class="status-opt active">Draft</button>
+          <button class="status-opt">Ready</button>
+          <button class="status-opt">Sched.</button>
+        </div>
+      </div>
+
+      <div class="set-section">
+        <div class="set-head">Visibility</div>
+        <div class="set-vis-row">
+          <div class="vis-opt active"><div class="vis-radio"></div><div><div class="vis-label">Public</div><div class="vis-sub">Anyone can read · shows in feed</div></div></div>
+          <div class="vis-opt"><div class="vis-radio"></div><div><div class="vis-label">Link only</div><div class="vis-sub">Shareable link · not in feed</div></div></div>
+          <div class="vis-opt"><div class="vis-radio"></div><div><div class="vis-label">Private</div><div class="vis-sub">Only you</div></div></div>
+        </div>
+      </div>
+
+      <div class="set-section">
+        <div class="set-head">Tags</div>
+        <div class="set-tags">
+          <span class="set-tag">Go <span class="set-tag-x">✕</span></span>
+          <span class="set-tag">Auth <span class="set-tag-x">✕</span></span>
+          <span class="set-tag">JWT <span class="set-tag-x">✕</span></span>
+          <button class="set-tag-add">+ tag</button>
+        </div>
+      </div>
+
+      <div class="set-section">
+        <div class="set-head">Series</div>
+        <input class="set-series" placeholder="Add to a series…">
+      </div>
+
+      <div class="set-section">
+        <div class="set-head">Options</div>
+        <div class="set-toggle-row"><div class="set-toggle-label">Comments</div><div class="toggle on"></div></div>
+        <div class="set-toggle-row"><div><div class="set-toggle-label">Session replay link</div><div class="set-toggle-sub">Embed replay button in story</div></div><div class="toggle on"></div></div>
+        <div class="set-toggle-row"><div><div class="set-toggle-label">Notify followers</div><div class="set-toggle-sub">Email on publish</div></div><div class="toggle off"></div></div>
+        <div class="set-toggle-row"><div><div class="set-toggle-label">Show session stats</div><div class="set-toggle-sub">Epilogue at end of post</div></div><div class="toggle on"></div></div>
+      </div>
+
+      <div class="set-section">
+        <div class="set-head">Source Session</div>
+        <div class="set-session-link">
+          <span style="color:var(--green);">▶</span>
+          <div class="ssl-body"><div class="ssl-name">refactor auth middleware</div><div class="ssl-meta">Jul 8 2026 · 47m · 214 events</div></div>
+          <span style="font-size:8px;color:var(--faint);cursor:pointer;">Unlink</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="set-publish-cta">
+      <button class="pub-btn" onclick="location.href='story.html'">Publish Dev Story</button>
+      <button class="pub-sched-btn">Schedule for later</button>
+      <div class="pub-note">Will post to your public profile<br>and notify followers</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const LS3 = {
+  key: 'ls3-theme',
+  toggle() {
+    const html = document.documentElement;
+    const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    html.setAttribute('data-theme', next);
+    localStorage.setItem(this.key, next);
+  },
+  init() {
+    const saved = localStorage.getItem(this.key);
+    const theme = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', theme);
+  }
+};
+LS3.init();
+</script>
+</body>
+</html>

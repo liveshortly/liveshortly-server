@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LiveShortly v3 — Session Viewer (Mobile)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root, :root[data-theme="light"] {
+  --bg: #e7e8ea; --panel: #f3f4f5; --panel2: #ffffff; --hairline: #d0d2d5; --strong: #1b1c1e;
+  --ink: #1b1c1e; --muted: #63666b; --faint: #94979c;
+  --green: #1f7a4d; --red: #c0392b; --amber: #a9810f; --admin: #7c3aed; --blue: #2f6fb0;
+  --shadow: rgba(20,22,26,0.16);
+  --r-card: 0px; --r-pill: 0px; --r-avatar: 2px; --r-sm: 0px;
+  --grad-hero: linear-gradient(135deg, #cfd3d8, #e7e8ea);
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --bg: #1e2123; --panel: #282c2f; --panel2: #2d3236; --hairline: #3d4247; --strong: #edeff1;
+  --ink: #e9ebed; --muted: #a6abb1; --faint: #797f86;
+  --green: #54b885; --red: #e7705f; --amber: #d9ad52; --admin: #b794f6; --blue: #5b9bd5;
+  --shadow: rgba(0,0,0,0.45);
+  --r-card: 0px; --r-pill: 0px; --r-avatar: 2px; --r-sm: 0px;
+  --grad-hero: var(--panel2);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: 'JetBrains Mono','IBM Plex Mono',ui-monospace,'SFMono-Regular',Menlo,monospace;
+  background: #0b0c0d; color: var(--ink); -webkit-font-smoothing: antialiased;
+}
+button { font-family: inherit; }
+.label { text-transform: uppercase; letter-spacing: .1em; font-size: 10px; color: var(--muted); }
+.tnum { font-variant-numeric: tabular-nums; }
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.35;transform:scale(.75)} }
+.live-dot { display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--green); animation:pulse 1.2s ease-in-out infinite; flex-shrink:0; }
+
+/* ── preview stage (not part of the screen) ── */
+.stage { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 32px 16px; }
+.toolbar { display: flex; align-items: center; gap: 10px; }
+.toolbtn { font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: #9aa0a6; background: #1a1b1d; border: 1px solid #33363a; padding: 7px 14px; cursor: pointer; border-radius: 4px; }
+.toolbtn.active { background: #e9ebed; color: #111; border-color: #e9ebed; }
+.stage-note { font-size: 10px; letter-spacing: .08em; color: #6b6e72; text-transform: uppercase; }
+
+.device { width: 393px; height: 852px; border-radius: 46px; border: 10px solid #000; background: var(--bg); overflow: hidden; position: relative; box-shadow: 0 40px 100px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.04); transition: background-color 200ms ease; }
+.notch { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); width: 120px; height: 26px; background: #000; border-radius: 14px; z-index: 50; }
+@media (max-width: 480px) {
+  .stage { padding: 0; gap: 0; }
+  .toolbar { position: fixed; top: 8px; right: 8px; z-index: 999; }
+  .device { width: 100vw; height: 100dvh; border-radius: 0; border: 0; box-shadow: none; }
+  .notch { display: none; }
+}
+
+/* ── the actual screen ── */
+.screen { display: flex; flex-direction: column; height: 100%; position: relative; background: var(--bg); }
+
+.mtop { flex: 0 0 auto; display: flex; align-items: center; gap: 10px; padding: 46px 14px 10px; border-bottom: 1px solid var(--hairline); background: var(--panel); }
+.mtop-back { font-size: 15px; color: var(--muted); }
+.mtop-info { flex: 1; min-width: 0; }
+.mtop-title { font-size: 12.5px; font-weight: 700; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mtop-sub { font-size: 9.5px; color: var(--faint); display: flex; align-items: center; gap: 5px; }
+.mtop-badge { font-size: 8.5px; text-transform: uppercase; letter-spacing: .06em; padding: 2px 7px; border-radius: var(--r-pill); background: rgba(30,215,96,.14); color: var(--green); display: inline-flex; align-items: center; gap: 4px; }
+.mtop-gear { width: 30px; height: 30px; border-radius: var(--r-sm); border: 1px solid var(--hairline); display: flex; align-items: center; justify-content: center; color: var(--ink); font-size: 14px; flex-shrink: 0; }
+
+/* mini hero: session cover strip, spotify-esque, collapses on scroll conceptually */
+.mhero { flex: 0 0 auto; padding: 14px; background: var(--grad-hero); display: flex; align-items: center; gap: 12px; }
+:root[data-theme="light"] .mhero { background: var(--panel2); border-bottom: 1px solid var(--hairline); }
+.mhero-art { width: 44px; height: 44px; border-radius: var(--r-sm); background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.25); flex-shrink: 0; }
+:root[data-theme="light"] .mhero-art { background: var(--panel); border-color: var(--hairline); }
+.mhero-title { font-size: 12.5px; font-weight: 800; color: #fff; }
+:root[data-theme="light"] .mhero-title { color: var(--ink); }
+.mhero-sub { font-size: 9.5px; color: rgba(255,255,255,.75); margin-top: 2px; }
+:root[data-theme="light"] .mhero-sub { color: var(--muted); }
+.mhero-watch { margin-left: auto; font-size: 9.5px; color: rgba(255,255,255,.85); flex-shrink: 0; }
+:root[data-theme="light"] .mhero-watch { color: var(--muted); }
+
+.mfeed { flex: 1; overflow-y: auto; padding: 14px 12px 10px; display: flex; flex-direction: column; gap: 16px; }
+.mfeed-msg { display: flex; gap: 9px; }
+.mfeed-avatar { width: 26px; height: 26px; border-radius: var(--r-avatar); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: #fff; }
+.mfeed-body { flex: 1; min-width: 0; }
+.mfeed-head { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.mfeed-name { font-size: 11px; font-weight: 700; }
+.mfeed-tag { font-size: 8.5px; text-transform: uppercase; letter-spacing: .06em; padding: 1px 6px; border-radius: var(--r-pill); border: 1px solid var(--hairline); color: var(--faint); }
+.mfeed-time { font-size: 9px; color: var(--faint); margin-left: auto; }
+.mfeed-work { display: flex; flex-direction: column; gap: 3px; margin-bottom: 6px; }
+.mfeed-toolrow { display: flex; align-items: center; gap: 6px; font-size: 10px; color: var(--faint); padding: 2px 0; }
+.mfeed-sw { width: 6px; height: 6px; border-radius: 2px; flex-shrink: 0; }
+.mfeed-sw-tool { background: var(--amber); }
+.mfeed-sw-write { background: var(--blue); }
+.mfeed-bubble { display: inline-block; font-size: 12px; line-height: 1.45; color: var(--ink); background: var(--panel2); border: 1px solid var(--hairline); border-radius: var(--r-sm); padding: 8px 11px; max-width: 100%; }
+.mfeed-msg.self .mfeed-bubble { background: var(--green); color: #06210f; border-color: var(--green); }
+:root[data-theme="light"] .mfeed-msg.self .mfeed-bubble { color: var(--panel); }
+
+.mgear-note { text-align: center; font-size: 9.5px; color: var(--faint); padding: 6px 0 2px; }
+
+.mcomposer { flex: 0 0 auto; border-top: 1px solid var(--hairline); background: var(--panel); padding: 10px 12px calc(18px + env(safe-area-inset-bottom)); display: flex; align-items: center; gap: 8px; }
+.mcomposer input { flex: 1; border: 1px solid var(--hairline); background: var(--bg); border-radius: var(--r-pill); padding: 10px 14px; font: inherit; font-size: 12px; color: var(--ink); outline: none; }
+.mcomposer-send { width: 36px; height: 36px; border-radius: 999px; background: var(--green); color: #06210f; border: none; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 14px; }
+:root[data-theme="light"] .mcomposer-send { border-radius: var(--r-sm); color: var(--panel); }
+
+/* slide-in library drawer, matching WorkspaceSidebar's mobile behavior */
+.mdrawer { position: absolute; inset: 0; z-index: 80; display: none; }
+.mdrawer.open { display: block; }
+.mdrawer-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.45); }
+.mdrawer-panel { position: absolute; top: 0; bottom: 0; left: 0; width: 78%; background: var(--panel); border-right: 1px solid var(--hairline); padding: 46px 0 14px; overflow-y: auto; }
+.mdrawer-brand { display: flex; align-items: center; gap: 8px; padding: 0 16px 14px; font-size: 13px; font-weight: 700; border-bottom: 1px solid var(--hairline); margin-bottom: 8px; }
+.mdrawer-brand .mark { width: 20px; height: 20px; border-radius: var(--r-sm); background: var(--green); }
+.mdrawer .sb-group-label { padding: 10px 16px 4px; font-size: 9px; text-transform: uppercase; letter-spacing: .1em; color: var(--faint); font-weight: 700; }
+.mdrawer .sb-group-label.live { color: var(--green); }
+.mdrawer .sb-row { display: flex; align-items: center; gap: 9px; padding: 8px 16px; }
+.mdrawer .sb-row.active { background: var(--panel2); border-left: 2px solid var(--green); padding-left: 14px; }
+.mdrawer .sb-swatch { width: 24px; height: 24px; border-radius: var(--r-sm); background: var(--grad-hero); flex-shrink: 0; }
+.mdrawer .sb-row-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+.mdrawer .sb-row-meta { font-size: 9px; color: var(--faint); }
+.mdrawer-profile { display: flex; align-items: center; gap: 9px; padding: 12px 16px; margin-top: 10px; border-top: 1px dashed var(--hairline); }
+.mdrawer-avatar { width: 24px; height: 24px; border-radius: var(--r-avatar); background: var(--admin); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; }
+
+/* gear action sheet */
+.msheet { position: absolute; inset: 0; z-index: 90; display: none; }
+.msheet.open { display: block; }
+.msheet-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.45); }
+.msheet-panel { position: absolute; left: 0; right: 0; bottom: 0; background: var(--panel); border-top: 1px solid var(--hairline); border-radius: var(--r-card) var(--r-card) 0 0; padding: 8px 0 calc(14px + env(safe-area-inset-bottom)); }
+.msheet-grabber { width: 36px; height: 4px; background: var(--hairline); border-radius: 999px; margin: 6px auto 10px; }
+.msheet-item { display: flex; align-items: center; gap: 12px; padding: 12px 20px; font-size: 12.5px; color: var(--ink); }
+.msheet-item .ic { width: 20px; text-align: center; color: var(--muted); }
+.msheet-item.danger { color: var(--red); }
+</style>
+</head>
+<body>
+
+<div class="stage">
+  <div class="toolbar">
+    <button class="toolbtn active" onclick="LS3.set('light')">☀ Light</button>
+    <button class="toolbtn" onclick="LS3.set('dark')">☾ Dark</button>
+    <button class="toolbtn" onclick="LS3.drawer()">☰ Drawer</button>
+    <button class="toolbtn" onclick="LS3.sheet()">⚙ Sheet</button>
+  </div>
+  <div class="stage-note">Session Viewer — Mobile · 393×852</div>
+
+  <div class="device">
+    <div class="notch"></div>
+    <div class="screen">
+
+      <div class="mtop">
+        <span class="mtop-back">‹</span>
+        <div class="mtop-info">
+          <div class="mtop-title">refactor auth middleware</div>
+          <div class="mtop-sub"><span class="mtop-badge"><span class="live-dot"></span>Live</span> 38 watching</div>
+        </div>
+        <div class="mtop-gear" onclick="LS3.sheet()">⚙</div>
+      </div>
+
+      <div class="mhero">
+        <div class="mhero-art"></div>
+        <div>
+          <div class="mhero-title">refactor auth middleware</div>
+          <div class="mhero-sub">@ironfisto · opus-4-8</div>
+        </div>
+        <div class="mhero-watch">214 ev</div>
+      </div>
+
+      <div class="mfeed">
+        <div class="mfeed-msg">
+          <div class="mfeed-avatar" style="background:var(--blue);">IF</div>
+          <div class="mfeed-body">
+            <div class="mfeed-head"><span class="mfeed-name">@ironfisto</span><span class="mfeed-tag">Prompt</span><span class="mfeed-time tnum">10:41</span></div>
+            <div class="mfeed-bubble">fix the header on mobile — it overlaps the composer</div>
+          </div>
+        </div>
+
+        <div class="mfeed-msg">
+          <div class="mfeed-avatar" style="background:var(--green);">⌐</div>
+          <div class="mfeed-body">
+            <div class="mfeed-head"><span class="mfeed-name">Claude</span><span class="mfeed-time tnum">10:41</span></div>
+            <div class="mfeed-work">
+              <div class="mfeed-toolrow"><span class="mfeed-sw mfeed-sw-tool"></span>Read app/globals.css</div>
+              <div class="mfeed-toolrow"><span class="mfeed-sw mfeed-sw-write"></span>Write app/globals.css</div>
+            </div>
+            <div class="mfeed-bubble">done — moved the composer into its own flex column so it no longer overlaps</div>
+          </div>
+        </div>
+
+        <div class="mfeed-msg">
+          <div class="mfeed-avatar" style="background:var(--admin);">SR</div>
+          <div class="mfeed-body">
+            <div class="mfeed-head"><span class="mfeed-name">@sec_r0</span><span class="mfeed-time tnum">10:43</span></div>
+            <div class="mfeed-bubble">nice, ship it — can you scope the drawer to mobile only too?</div>
+          </div>
+        </div>
+
+        <div class="mfeed-msg">
+          <div class="mfeed-avatar" style="background:var(--green);">⌐</div>
+          <div class="mfeed-body">
+            <div class="mfeed-head"><span class="mfeed-name">Claude</span><span class="mfeed-time tnum">10:45</span></div>
+            <div class="mfeed-work">
+              <div class="mfeed-toolrow"><span class="mfeed-sw mfeed-sw-tool"></span>Edit app/globals.css</div>
+            </div>
+            <div class="mfeed-bubble">done — ws-brand / ws-profile-footer now only render below 820px</div>
+          </div>
+        </div>
+
+        <div class="mfeed-msg self">
+          <div class="mfeed-avatar" style="background:var(--faint);">MK</div>
+          <div class="mfeed-body">
+            <div class="mfeed-head"><span class="mfeed-name">You</span><span class="mfeed-time tnum">10:46</span></div>
+            <div class="mfeed-bubble">🚀</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="mcomposer">
+        <input placeholder="Reply to this session…">
+        <button class="mcomposer-send">➤</button>
+      </div>
+
+      <!-- library drawer -->
+      <div class="mdrawer" id="mdrawer">
+        <div class="mdrawer-backdrop" onclick="LS3.drawer()"></div>
+        <div class="mdrawer-panel">
+          <div class="mdrawer-brand"><div class="mark"></div>LiveShortly</div>
+          <div class="sb-group-label live">◉ Live</div>
+          <div class="sb-row active"><div class="sb-swatch"></div><div class="sb-row-title">refactor auth middleware</div><span class="sb-row-meta" style="color:var(--green);">live</span></div>
+          <div class="sb-group-label">Today</div>
+          <div class="sb-row"><div class="sb-swatch"></div><div class="sb-row-title">fix mobile composer overlap</div><span class="sb-row-meta">2h</span></div>
+          <div class="sb-row"><div class="sb-swatch"></div><div class="sb-row-title">avatar-bubble unified feed</div><span class="sb-row-meta">5h</span></div>
+          <div class="sb-group-label">🔗 Shared</div>
+          <div class="sb-row"><div class="sb-swatch"></div><div class="sb-row-title">@sec_r0 · device flow</div><span class="sb-row-meta">1w</span></div>
+          <div class="mdrawer-profile">
+            <div class="mdrawer-avatar">MK</div>
+            <div style="font-size:11.5px;">mukul</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- gear action sheet -->
+      <div class="msheet" id="msheet">
+        <div class="msheet-backdrop" onclick="LS3.sheet()"></div>
+        <div class="msheet-panel">
+          <div class="msheet-grabber"></div>
+          <div class="msheet-item"><span class="ic">𝕏</span>Share to X</div>
+          <div class="msheet-item"><span class="ic">⊕</span>Publish to feed</div>
+          <div class="msheet-item"><span class="ic">⊕</span>Share link</div>
+          <div class="msheet-item"><span class="ic">✎</span>Rename</div>
+          <div class="msheet-item"><span class="ic">◐</span>Toggle theme</div>
+          <div class="msheet-item danger"><span class="ic">⊘</span>End session</div>
+          <div class="msheet-item danger"><span class="ic">⌫</span>Delete</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+const LS3 = {
+  key: 'ls3-theme',
+  set(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem(this.key, theme);
+    document.querySelectorAll('.toolbtn').forEach((b,i) => b.classList.toggle('active', (i===0)===(theme==='light')));
+  },
+  drawer() { document.getElementById('mdrawer').classList.toggle('open'); },
+  sheet() { document.getElementById('msheet').classList.toggle('open'); },
+  init() {
+    const saved = localStorage.getItem(this.key);
+    const theme = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    this.set(theme);
+  }
+};
+LS3.init();
+</script>
+</body>
+</html>

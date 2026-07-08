@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LiveShortly v3 — Landing (Anonymous)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════════════
+   Same shell/tokens as feed.html — this IS the feed page, minus
+   the personal "Your Sessions" sidebar (an anonymous visitor has
+   no sessions to list) and with the avatar swapped for a Sign In
+   CTA. Everything else — hero, live grid, recently-published
+   grid, right panel — is the same public content a signed-in
+   user sees on "/", because AuthGate only swaps chrome, not data.
+   ═══════════════════════════════════════════════════════════ */
+:root, :root[data-theme="light"] {
+  --bg: #e7e8ea; --panel: #f3f4f5; --panel2: #ffffff; --hairline: #d0d2d5; --strong: #1b1c1e;
+  --ink: #1b1c1e; --muted: #63666b; --faint: #94979c;
+  --green: #1f7a4d; --red: #c0392b; --amber: #a9810f; --admin: #7c3aed;
+  --shadow: rgba(20,22,26,0.16);
+  --r-card: 0px; --r-pill: 0px; --r-avatar: 2px; --r-sm: 0px;
+  --grad-hero: linear-gradient(135deg, #cfd3d8, #e7e8ea);
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --bg: #1e2123; --panel: #282c2f; --panel2: #2d3236; --hairline: #3d4247; --strong: #edeff1;
+  --ink: #e9ebed; --muted: #a6abb1; --faint: #797f86;
+  --green: #54b885; --red: #e7705f; --amber: #d9ad52; --admin: #b794f6;
+  --shadow: rgba(0,0,0,0.45);
+  --r-card: 0px; --r-pill: 0px; --r-avatar: 2px; --r-sm: 0px;
+  --grad-hero: var(--panel2);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; font-family: 'JetBrains Mono','IBM Plex Mono',ui-monospace,'SFMono-Regular',Menlo,monospace;
+  background: var(--bg); color: var(--ink); line-height: 1.45; -webkit-font-smoothing: antialiased;
+  transition: background-color 200ms ease, color 200ms ease;
+}
+a { color: inherit; text-decoration: none; }
+button { font-family: inherit; }
+*{scrollbar-width:thin;scrollbar-color:var(--hairline) transparent;}
+::-webkit-scrollbar{width:6px;height:6px;}
+::-webkit-scrollbar-thumb{background:var(--hairline); border-radius: var(--r-sm);}
+.label { text-transform: uppercase; letter-spacing: .1em; font-size: 10.5px; color: var(--muted); }
+.tnum { font-variant-numeric: tabular-nums; }
+@keyframes ls-pulse { 0%{opacity:1;transform:scale(1)} 50%{opacity:.35;transform:scale(.78)} 100%{opacity:1;transform:scale(1)} }
+.live-dot { display:inline-block; width:7px; height:7px; border-radius:9999px; background:var(--green); animation: ls-pulse 1.2s ease-in-out infinite; flex-shrink:0; }
+
+/* ── shell — same persistent left sidebar as every other v3 screen; no
+   right panel here (that content moved into the proof strip below). ── */
+.shell { display: grid; grid-template-columns: 232px 1fr; grid-template-rows: 56px 1fr; height: 100vh; gap: 1px; background: var(--hairline); }
+:root[data-theme="light"] .shell { gap: 0; }
+.topbar, .sidebar, .main { background: var(--bg); }
+.topbar { grid-column: 1 / 3; grid-row: 1; display: flex; align-items: center; gap: 16px; padding: 0 18px; border-bottom: 1px solid var(--hairline); background: var(--panel); }
+.sidebar { grid-column: 1; grid-row: 2; overflow-y: auto; border-right: 1px solid var(--hairline); background: var(--panel); }
+.main { grid-column: 2; grid-row: 2; overflow-y: auto; padding: 22px 26px 0; }
+.main-inner { max-width: 1080px; margin: 0 auto; }
+
+@media (max-width: 760px) {
+  .shell { grid-template-columns: 1fr; grid-template-rows: 52px 1fr; }
+  .sidebar { display: none; }
+}
+
+/* ── sidebar (same component as feed/hud/session-viewer/profile — content
+   adapted for an anonymous visitor: public browse nav + sign-in prompt
+   instead of a personal session library). ── */
+.sb-head { padding: 16px 14px 10px; display: flex; align-items: center; justify-content: space-between; }
+.sb-title { font-size: 11px; text-transform: uppercase; letter-spacing: .1em; font-weight: 700; color: var(--ink); }
+.sb-tabs { display: flex; gap: 6px; padding: 0 10px 10px; flex-wrap: wrap; }
+.sb-tab { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; padding: 5px 10px; border: 1px solid var(--hairline); border-radius: var(--r-pill); color: var(--muted); }
+.sb-tab.active { color: var(--green); border-color: var(--green); }
+.sb-search { margin: 4px 10px 8px; display: flex; align-items: center; gap: 7px; border: 1px solid var(--hairline); background: var(--bg); border-radius: var(--r-sm); padding: 7px 10px; color: var(--faint); font-size: 10.5px; }
+.sb-group-label { padding: 12px 14px 4px; font-size: 9px; text-transform: uppercase; letter-spacing: .1em; color: var(--faint); font-weight: 700; }
+.sb-group-label.live { color: var(--green); }
+.sb-row { display: flex; align-items: center; gap: 9px; padding: 7px 14px; margin: 0 6px; border-radius: var(--r-sm); cursor: pointer; }
+.sb-row:hover { background: var(--panel2); }
+.sb-row.active { background: var(--panel2); border-left: 2px solid var(--green); padding-left: 12px; }
+.sb-swatch { width: 26px; height: 26px; border-radius: var(--r-sm); flex-shrink: 0; background: var(--grad-hero); }
+.sb-row-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--ink); }
+.sb-row-meta { font-size: 9px; color: var(--faint); text-transform: uppercase; flex-shrink: 0; }
+.sb-foot { margin-top: auto; padding: 12px 14px; border-top: 1px dashed var(--hairline); display: flex; align-items: center; gap: 10px; }
+.sb-signin { margin-top: auto; padding: 14px; border-top: 1px dashed var(--hairline); }
+.sb-signin-btn { display: block; width: 100%; text-align: center; border: 1px solid var(--strong); background: var(--strong); color: var(--panel); font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; padding: 10px; border-radius: var(--r-pill); font-weight: 700; cursor: pointer; }
+:root[data-theme="dark"] .sb-signin-btn { background: var(--green); border-color: var(--green); color: #06210f; }
+.sb-signin-sub { font-size: 9.5px; color: var(--faint); text-align: center; margin-top: 8px; line-height: 1.5; }
+
+/* ── topbar ── */
+.brand { display: flex; align-items: center; gap: 9px; font-size: 15px; font-weight: 700; letter-spacing: -.02em; flex-shrink: 0; }
+.brand .mark { width: 24px; height: 24px; border-radius: var(--r-sm); background: var(--green); position: relative; flex-shrink: 0; }
+.brand .mark::before { content:''; position:absolute; left:5px; top:6px; width:5px; height:12px; background:var(--panel); border-radius:1px; }
+.brand .mark::after { content:''; position:absolute; left:13px; top:6px; width:6px; height:12px; border:2px solid var(--panel); background:var(--green); border-radius:1px; }
+.searchpill { flex: 1; max-width: 480px; margin: 0 auto; display: flex; align-items: center; gap: 10px; border: 1px solid var(--hairline); background: var(--bg); border-radius: var(--r-pill); padding: 9px 16px; color: var(--faint); font-size: 12px; }
+.searchpill input { border: none; outline: none; background: transparent; color: var(--ink); font: inherit; width: 100%; }
+.top-actions { display: flex; align-items: center; gap: 14px; margin-left: auto; flex-shrink: 0; }
+.top-icon { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border: 1px solid transparent; border-radius: var(--r-sm); color: var(--muted); cursor: pointer; font-size: 14px; }
+.top-icon:hover { color: var(--ink); border-color: var(--hairline); }
+.install-link { font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.install-link:hover { color: var(--ink); }
+.signin-btn { border: 1px solid var(--strong); background: var(--strong); color: var(--panel); font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; padding: 9px 18px; border-radius: var(--r-pill); font-weight: 700; cursor: pointer; white-space: nowrap; }
+:root[data-theme="dark"] .signin-btn { background: var(--green); border-color: var(--green); color: #06210f; }
+.theme-toggle { border: 1px solid var(--hairline); background: var(--panel2); color: var(--ink); width: 32px; height: 32px; border-radius: var(--r-pill); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 13px; }
+
+/* ── pitch strip (anon only — the thing replacing "Your Sessions") ── */
+.pitch { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 18px 22px; margin-bottom: 22px; border: 1px solid var(--hairline); border-radius: var(--r-card); background: var(--panel2); flex-wrap: wrap; }
+.pitch-copy .pt { font-size: 15px; font-weight: 700; letter-spacing: -.01em; }
+.pitch-copy .ps { font-size: 11.5px; color: var(--muted); margin-top: 4px; }
+.pitch-cta { display: flex; gap: 10px; flex-shrink: 0; flex-wrap: wrap; align-items: center; }
+.pitch-btn { border: 1px solid var(--strong); background: var(--strong); color: var(--panel); font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; padding: 10px 18px; border-radius: var(--r-pill); font-weight: 700; cursor: pointer; white-space: nowrap; }
+:root[data-theme="dark"] .pitch-btn { background: var(--green); border-color: var(--green); color: #06210f; }
+.pitch-btn.ghost { background: transparent; color: var(--ink); }
+.pitch-code { display: inline-flex; align-items: center; gap: 8px; margin-top: 4px; font-size: 10.5px; color: var(--muted); }
+.pitch-code code { color: var(--ink); background: var(--bg); border: 1px solid var(--hairline); border-radius: var(--r-sm); padding: 6px 10px; }
+
+/* ── proof strip (replaces the right panel — stats + who's watching) ── */
+.proof { display: flex; align-items: center; gap: 22px; padding: 14px 22px; margin-bottom: 26px; border: 1px solid var(--hairline); border-radius: var(--r-card); background: var(--panel2); flex-wrap: wrap; }
+.proof-stat { display: flex; align-items: baseline; gap: 7px; }
+.proof-stat .v { font-size: 18px; font-weight: 800; }
+.proof-stat .l { font-size: 9.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--faint); }
+.proof-sep { width: 1px; height: 22px; background: var(--hairline); flex-shrink: 0; }
+.proof-watch { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+.proof-avatars { display: flex; }
+.proof-avatar { width: 26px; height: 26px; border-radius: var(--r-avatar); display: flex; align-items: center; justify-content: center; font-size: 9.5px; font-weight: 700; color: #fff; border: 2px solid var(--panel2); margin-left: -8px; }
+.proof-avatar:first-child { margin-left: 0; }
+.proof-watch-label { font-size: 10.5px; color: var(--muted); }
+
+/* ── main / hero ── */
+.eyebrow { font-size: 10px; text-transform: uppercase; letter-spacing: .16em; color: var(--green); font-weight: 700; margin-bottom: 10px; }
+.hero { position: relative; border-radius: var(--r-card); overflow: hidden; padding: 34px 30px; background: var(--grad-hero); border: 1px solid var(--hairline); margin-bottom: 30px; display: flex; align-items: flex-end; gap: 22px; min-height: 168px; }
+:root[data-theme="light"] .hero { background: var(--panel2); }
+.hero-badge { width: 96px; height: 96px; border-radius: var(--r-card); background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.25); display: flex; align-items: center; justify-content: center; font-size: 40px; flex-shrink: 0; color: #fff; }
+:root[data-theme="light"] .hero-badge { background: var(--panel); border-color: var(--hairline); color: var(--green); }
+.hero-text .hk { font-size: 10px; text-transform: uppercase; letter-spacing: .14em; color: rgba(255,255,255,.75); margin-bottom: 6px; }
+:root[data-theme="light"] .hero-text .hk { color: var(--muted); }
+.hero-text .ht { font-size: 34px; font-weight: 800; letter-spacing: -.02em; color: #fff; line-height: 1.05; }
+:root[data-theme="light"] .hero-text .ht { color: var(--ink); font-weight: 700; }
+.hero-text .hs { margin-top: 8px; font-size: 12px; color: rgba(255,255,255,.8); }
+:root[data-theme="light"] .hero-text .hs { color: var(--muted); }
+
+.section-head { display: flex; align-items: baseline; justify-content: space-between; margin: 30px 0 14px; }
+.section-title { font-size: 13px; text-transform: uppercase; letter-spacing: .1em; font-weight: 700; }
+.section-link { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--faint); }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px; }
+.card { border: 1px solid var(--hairline); background: var(--panel2); border-radius: var(--r-card); overflow: hidden; transition: transform 150ms, border-color 150ms, box-shadow 150ms; display: block; }
+.card:hover { transform: translateY(-3px); border-color: var(--strong); box-shadow: 0 10px 24px -14px var(--shadow); }
+.card-art { height: 108px; background: var(--grad-hero); position: relative; display: flex; align-items: flex-start; justify-content: space-between; padding: 9px 10px; }
+.card-badge { font-size: 9px; text-transform: uppercase; letter-spacing: .06em; padding: 3px 8px; border-radius: var(--r-pill); background: rgba(0,0,0,.35); color: #fff; display: inline-flex; align-items: center; gap: 5px; backdrop-filter: blur(4px); }
+:root[data-theme="light"] .card-badge { background: var(--panel); border: 1px solid var(--hairline); color: var(--muted); }
+.card-badge.live { color: #baffce; }
+:root[data-theme="light"] .card-badge.live { color: var(--green); }
+.card-watch { position: absolute; right: 10px; bottom: -14px; background: var(--green); color: #06210f; font-size: 9.5px; text-transform: uppercase; letter-spacing: .06em; font-weight: 700; padding: 7px 12px; border-radius: var(--r-pill); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; opacity: 0; transform: translateY(6px); transition: opacity 150ms, transform 150ms; box-shadow: 0 8px 18px -6px rgba(0,0,0,.5); }
+:root[data-theme="light"] .card-watch { border-radius: var(--r-sm); box-shadow: none; }
+.card:hover .card-watch { opacity: 1; transform: translateY(0); }
+.card-body { padding: 12px 12px 13px; }
+.card-title { font-size: 12.5px; font-weight: 700; color: var(--ink); line-height: 1.3; margin-bottom: 5px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.card-meta { font-size: 10px; color: var(--faint); display: flex; align-items: center; gap: 6px; }
+.card-meta .m { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── how it works (anon-only marketing block) ── */
+.how { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 30px; }
+.how-step { border: 1px solid var(--hairline); background: var(--panel2); border-radius: var(--r-card); padding: 18px; }
+.how-step .hn { font-size: 20px; font-weight: 800; color: var(--green); margin-bottom: 8px; }
+.how-step .hh { font-size: 12.5px; font-weight: 700; margin-bottom: 6px; }
+.how-step .hd { font-size: 11px; color: var(--muted); line-height: 1.55; }
+.how-step code { color: var(--green); background: var(--bg); padding: 1px 5px; border-radius: 3px; font-size: 10.5px; }
+
+.pfoot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-top: 34px; padding: 18px 0 30px; border-top: 1px dashed var(--hairline); font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--faint); }
+.pfoot a { color: var(--muted); text-decoration: underline; }
+
+@media (max-width: 760px) {
+  .proof { flex-direction: column; align-items: flex-start; }
+  .proof-watch { margin-left: 0; }
+  .searchpill { display: none; }
+  .hero { flex-direction: column; align-items: flex-start; padding: 24px 18px; }
+  .hero-text .ht { font-size: 26px; }
+  .pitch { flex-direction: column; align-items: flex-start; }
+  .how { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <div class="topbar">
+    <div class="brand"><div class="mark"></div>LiveShortly</div>
+    <div class="searchpill">⌕ <input placeholder="Search sessions, owners, tags…"></div>
+    <div class="top-actions">
+      <span class="install-link" title="/install">⇩ Install CLI</span>
+      <button class="theme-toggle" onclick="LS3.toggle()" aria-label="Toggle theme" title="Toggle light/dark">◐</button>
+      <button class="signin-btn">Sign In</button>
+    </div>
+  </div>
+
+  <div class="sidebar" style="display:flex; flex-direction:column;">
+    <div class="sb-head"><span class="sb-title">Browse</span><span class="top-icon" style="width:22px;height:22px;font-size:12px;">⤢</span></div>
+    <div class="sb-tabs">
+      <span class="sb-tab active">Live</span>
+      <span class="sb-tab">Recent</span>
+      <span class="sb-tab">Tags</span>
+    </div>
+    <div class="sb-search">⌕ Search sessions</div>
+
+    <div class="sb-group-label live">◉ Live now</div>
+    <div class="sb-row active"><div class="sb-swatch"></div><div class="sb-row-title">refactor auth middleware</div><span class="sb-row-meta" style="color:var(--green);">live</span></div>
+    <div class="sb-row"><div class="sb-swatch"></div><div class="sb-row-title">ux plots pipeline</div><span class="sb-row-meta" style="color:var(--green);">live</span></div>
+    <div class="sb-row"><div class="sb-swatch"></div><div class="sb-row-title">device-flow CLI login</div><span class="sb-row-meta" style="color:var(--green);">live</span></div>
+
+    <div class="sb-group-label">Recently Published</div>
+    <div class="sb-row"><div class="sb-swatch"></div><div class="sb-row-title">SSE reconnect backoff</div><span class="sb-row-meta">4h</span></div>
+    <div class="sb-row"><div class="sb-swatch"></div><div class="sb-row-title">postgres migration cleanup</div><span class="sb-row-meta">1d</span></div>
+    <div class="sb-row"><div class="sb-swatch"></div><div class="sb-row-title">write CONTRACT.md v2</div><span class="sb-row-meta">2d</span></div>
+
+    <div class="sb-group-label">Popular Tags</div>
+    <div class="sb-row"><span class="label" style="color:var(--green);">#auth</span></div>
+    <div class="sb-row"><span class="label" style="color:var(--green);">#mobile</span></div>
+    <div class="sb-row"><span class="label" style="color:var(--green);">#postgres</span></div>
+
+    <div class="sb-signin">
+      <button class="sb-signin-btn">Sign In</button>
+      <div class="sb-signin-sub">Sign in to start your own session and build your library.</div>
+    </div>
+  </div>
+
+  <div class="main">
+   <div class="main-inner">
+    <div class="pitch">
+      <div class="pitch-copy">
+        <div class="pt">Watch Claude Code sessions live, as they happen.</div>
+        <div class="ps">Stream your terminal to a shareable link — viewers watch every prompt, tool call and response in real time, and can talk back.</div>
+      </div>
+      <div class="pitch-cta">
+        <button class="pitch-btn" title="Sign in with Google">Get Started — Sign Up Free</button>
+        <button class="pitch-btn ghost" onclick="document.getElementById('live-now').scrollIntoView({behavior:'smooth'})">Browse live sessions</button>
+        <div class="pitch-code">⇩ <code>curl liveshortly.com/i.sh | sh</code></div>
+      </div>
+    </div>
+
+    <div class="proof">
+      <div class="proof-stat"><span class="v tnum">1,204</span><span class="l">Total sessions</span></div>
+      <div class="proof-sep"></div>
+      <div class="proof-stat"><span class="v tnum" style="color:var(--green);">3</span><span class="l">Live now</span></div>
+      <div class="proof-watch">
+        <div class="proof-avatars">
+          <span class="proof-avatar" style="background:var(--admin);" title="@ironfisto">IF</span>
+          <span class="proof-avatar" style="background:var(--faint);" title="@sec_r0">SR</span>
+          <span class="proof-avatar" style="background:var(--green);" title="@dev_mira">DM</span>
+        </div>
+        <span class="proof-watch-label">@ironfisto, @sec_r0 &amp; @dev_mira watching now</span>
+      </div>
+    </div>
+
+    <div class="eyebrow">◈ Feed</div>
+    <div class="hero">
+      <div class="hero-badge">◉</div>
+      <div class="hero-text">
+        <div class="hk">Trending right now</div>
+        <div class="ht">refactor auth middleware</div>
+        <div class="hs">@ironfisto · claude-opus-4-8 · 214 events · 38 watching</div>
+      </div>
+    </div>
+
+    <div class="section-head" id="live-now"><span class="section-title">◉ Live now</span><span class="section-link">See all →</span></div>
+    <div class="grid">
+      <a class="card" href="session-viewer.html">
+        <div class="card-art">
+          <span class="card-badge live"><span class="live-dot"></span>Live</span>
+          <div class="card-watch">▶ Watch Live</div>
+        </div>
+        <div class="card-body"><div class="card-title">refactor auth middleware for token rotation</div><div class="card-meta"><span class="m">@ironfisto</span>·<span>opus-4-8</span></div></div>
+      </a>
+      <a class="card" href="session-viewer.html">
+        <div class="card-art">
+          <span class="card-badge live"><span class="live-dot"></span>Live</span>
+          <div class="card-watch">▶ Watch Live</div>
+        </div>
+        <div class="card-body"><div class="card-title">build the ux plots pipeline</div><div class="card-meta"><span class="m">@sec_r0</span>·<span>sonnet-5</span></div></div>
+      </a>
+      <a class="card" href="session-viewer.html">
+        <div class="card-art">
+          <span class="card-badge live"><span class="live-dot"></span>Live</span>
+          <div class="card-watch">▶ Watch Live</div>
+        </div>
+        <div class="card-body"><div class="card-title">device-flow CLI login polish</div><div class="card-meta"><span class="m">@dev_mira</span>·<span>opus-4-8</span></div></div>
+      </a>
+    </div>
+
+    <div class="section-head"><span class="section-title">Recently published</span><span class="section-link">See all →</span></div>
+    <div class="grid">
+      <a class="card" href="session-viewer.html"><div class="card-art"><span class="card-badge">Ended</span></div><div class="card-body"><div class="card-title">SSE reconnect backoff strategy</div><div class="card-meta"><span class="m">@ironfisto</span>·<span>4h ago</span></div></div></a>
+      <a class="card" href="session-viewer.html"><div class="card-art"><span class="card-badge">Ended</span></div><div class="card-body"><div class="card-title">postgres migration cleanup</div><div class="card-meta"><span class="m">@sec_r0</span>·<span>1d ago</span></div></div></a>
+      <a class="card" href="session-viewer.html"><div class="card-art"><span class="card-badge">Ended</span></div><div class="card-body"><div class="card-title">write CONTRACT.md v2</div><div class="card-meta"><span class="m">@ironfisto</span>·<span>2d ago</span></div></div></a>
+      <a class="card" href="session-viewer.html"><div class="card-art"><span class="card-badge">Ended</span></div><div class="card-body"><div class="card-title">mobile drawer scoping fix</div><div class="card-meta"><span class="m">@dev_mira</span>·<span>3d ago</span></div></div></a>
+      <a class="card" href="session-viewer.html"><div class="card-art"><span class="card-badge">Ended</span></div><div class="card-body"><div class="card-title">blog composer draft persistence</div><div class="card-meta"><span class="m">@sec_r0</span>·<span>5d ago</span></div></div></a>
+    </div>
+
+    <div class="section-head"><span class="section-title">How it works</span></div>
+    <div class="how">
+      <div class="how-step"><div class="hn">01</div><div class="hh">Install the CLI</div><div class="hd"><code>curl liveshortly.com/install.sh | sh</code> — one command, no config.</div></div>
+      <div class="how-step"><div class="hn">02</div><div class="hh">Run <code>live claude</code></div><div class="hd">Wraps your normal Claude Code session — hooks capture every prompt, tool call and response.</div></div>
+      <div class="how-step"><div class="hn">03</div><div class="hh">Share the link</div><div class="hd">Anyone with the URL watches live, comments back, and the session replays after it ends.</div></div>
+    </div>
+
+    <div class="pfoot">
+      <span>Made with <span style="color:var(--green);">♥</span> by <a href="#">@ironfisto</a> · <a href="#">@sec_r0</a></span>
+      <span>© 2026 LiveShortly · All rights reserved</span>
+    </div>
+   </div>
+  </div>
+</div>
+
+<script>
+const LS3 = {
+  key: 'ls3-theme',
+  toggle() {
+    const html = document.documentElement;
+    const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    html.setAttribute('data-theme', next);
+    localStorage.setItem(this.key, next);
+  },
+  init() {
+    const saved = localStorage.getItem(this.key);
+    const theme = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', theme);
+  }
+};
+LS3.init();
+</script>
+</body>
+</html>
