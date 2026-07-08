@@ -27,7 +27,7 @@ import {
   type SessionDetail,
   type SessionEvent,
 } from "@/lib/api";
-import { fmtInt, localTime, shortId, timeAgo } from "@/lib/utils";
+import { fmtInt, frameworkLabel, localTime, shortId, timeAgo } from "@/lib/utils";
 
 type Connection = "idle" | "connecting" | "open" | "closed" | "ended";
 
@@ -709,7 +709,7 @@ export default function SessionViewer({
             }
           />
           <MetaCell label="Model" value={meta?.model ?? "—"} />
-          <MetaCell label="Framework" value={meta?.framework ?? "—"} />
+          <MetaCell label="Framework" value={frameworkLabel(meta?.framework)} />
           <MetaCell label="Events" value={fmtInt(eventTotal)} mono />
           <MetaCell label="Views" value={fmtInt(meta?.view_count ?? 0)} mono />
           <MetaCell

@@ -25,6 +25,26 @@ export function shortId(id: string): string {
   return id.replace(/-/g, "").slice(0, 8).toUpperCase();
 }
 
+/** Human-friendly label for a session's capture framework. */
+export function frameworkLabel(fw: string | null | undefined): string {
+  switch (fw) {
+    case "claude-code":
+      return "Claude Code";
+    case "codex":
+      return "Codex";
+    case "gemini-cli":
+      return "Gemini";
+    case "terminal":
+      return "Terminal";
+    case null:
+    case undefined:
+    case "":
+      return "—";
+    default:
+      return fw;
+  }
+}
+
 /** Zero-padded number for fixed-width displays. */
 export function pad(n: number, width = 2): string {
   return String(n).padStart(width, "0");
