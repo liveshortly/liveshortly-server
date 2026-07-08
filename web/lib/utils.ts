@@ -45,6 +45,34 @@ export function frameworkLabel(fw: string | null | undefined): string {
   }
 }
 
+/** Short uppercase agent name for the event-stream byline (◆ CODEX / ◆ CLAUDE). */
+export function agentName(fw: string | null | undefined): string {
+  switch (fw) {
+    case "claude-code":
+      return "CLAUDE";
+    case "codex":
+      return "CODEX";
+    case "gemini-cli":
+      return "GEMINI";
+    default:
+      return frameworkLabel(fw).toUpperCase();
+  }
+}
+
+/** Title-case agent name for the mobile feed (Codex / Claude / Gemini). */
+export function agentTitle(fw: string | null | undefined): string {
+  switch (fw) {
+    case "claude-code":
+      return "Claude";
+    case "codex":
+      return "Codex";
+    case "gemini-cli":
+      return "Gemini";
+    default:
+      return frameworkLabel(fw);
+  }
+}
+
 /** Zero-padded number for fixed-width displays. */
 export function pad(n: number, width = 2): string {
   return String(n).padStart(width, "0");

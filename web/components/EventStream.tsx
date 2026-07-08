@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { SessionEvent } from "@/lib/api";
-import { summarizePayload, localTime, truncate } from "@/lib/utils";
+import { agentName, summarizePayload, localTime, truncate } from "@/lib/utils";
 
 // Internal stream-boundary markers carry no content (just a timestamp) and
 // should never show in the log. Some capture hooks emit these.
@@ -166,14 +166,18 @@ export default function EventStream({
   events: rawEvents,
   live,
   ownerHandle,
+  framework,
   fill,
 }: {
   events: SessionEvent[];
   live?: boolean;
   ownerHandle?: string | null;
+  /** Session capture framework, for the agent byline (◆ CODEX / ◆ CLAUDE). */
+  framework?: string | null;
   /** Grow to fill the parent (two-pane viewer) instead of a fixed height. */
   fill?: boolean;
 }) {
+  const agentLabel = "◆ " + agentName(framework);
   const events = rawEvents.filter((e) => !HIDDEN_EVENT_TYPES.has(e.event_type));
   const items = group(events);
   const endRef = useRef<HTMLDivElement>(null);
@@ -238,6 +242,7 @@ export default function EventStream({
               <WorkBlock
                 key={`work-${item.events[0].id}`}
                 events={item.events}
+                agentLabel={agentLabel}
                 setRef={setRef}
               />
             );
@@ -306,7 +311,7 @@ export default function EventStream({
               : "color-mix(in srgb, var(--amber) 6%, var(--panel))";
 
           const senderLabel = isResponse
-            ? "◆ CLAUDE"
+            ? agentLabel
             : isViewer
               ? `✉ @${handleOf(e, "viewer")} · VIEWER`
               : me === "YOU"
@@ -433,9 +438,11 @@ export default function EventStream({
 /** A collapsible block of Claude's actions (tool calls / file writes / output). */
 function WorkBlock({
   events,
+  agentLabel,
   setRef,
 }: {
   events: SessionEvent[];
+  agentLabel: string;
   setRef: (id: string) => (node: HTMLDivElement | null) => void;
 }) {
   // Expanded by default for short runs; folded for long ones.
@@ -476,7 +483,7 @@ function WorkBlock({
           }}
         >
           <span style={{ color: "var(--faint)" }}>{open ? "▾" : "▸"}</span>
-          <span style={{ color: "var(--green)" }}>◆ CLAUDE</span>
+          <span style={{ color: "var(--green)" }}>{agentLabel}</span>
           <span>· {events.length} step{events.length === 1 ? "" : "s"}</span>
           {files > 0 && <Chip tone="red">{files} file{files === 1 ? "" : "s"}</Chip>}
           {runs > 0 && <Chip tone="amber">{runs} run{runs === 1 ? "" : "s"}</Chip>}

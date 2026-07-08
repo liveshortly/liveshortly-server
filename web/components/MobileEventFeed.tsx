@@ -3,7 +3,7 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { SessionEvent } from "@/lib/api";
-import { localTime } from "@/lib/utils";
+import { agentTitle, localTime } from "@/lib/utils";
 import TypingIndicator from "@/components/TypingIndicator";
 
 // Same boundary/work-type rules as EventStream — kept in sync deliberately
@@ -109,11 +109,13 @@ export default function MobileEventFeed({
   events: rawEvents,
   live,
   ownerHandle,
+  framework,
   claudeWorking,
 }: {
   events: SessionEvent[];
   live?: boolean;
   ownerHandle?: string | null;
+  framework?: string | null;
   /** When true, append the mockup's light "CLAUDE IS WORKING" line as the last
    *  item in the thread (indented under the avatar column). Debounced upstream
    *  so it doesn't strobe on every SSE frame. */
@@ -122,6 +124,7 @@ export default function MobileEventFeed({
   const events = rawEvents.filter((e) => !HIDDEN_EVENT_TYPES.has(e.event_type));
   const { turns, leadingWork } = buildTurns(events);
   const owner = ownerHandle && ownerHandle.trim() ? ownerHandle.trim() : "you";
+  const agent = agentTitle(framework);
 
   if (turns.length === 0 && leadingWork.length === 0) {
     return (
@@ -140,7 +143,7 @@ export default function MobileEventFeed({
           </div>
           <div className="mfeed-body">
             <div className="mfeed-head">
-              <span className="mfeed-name mfeed-name-claude">Claude</span>
+              <span className="mfeed-name mfeed-name-claude">{agent}</span>
             </div>
             <WorkRows events={leadingWork} />
           </div>
@@ -156,7 +159,7 @@ export default function MobileEventFeed({
             ? "host"
             : "viewer";
         const name =
-          role === "claude" ? "Claude" : `@${handleOf(e, role === "host" ? owner : "viewer")}`;
+          role === "claude" ? agent : `@${handleOf(e, role === "host" ? owner : "viewer")}`;
         const avatarText = role === "claude" ? "⌐" : initials(name.replace(/^@/, ""));
 
         return (

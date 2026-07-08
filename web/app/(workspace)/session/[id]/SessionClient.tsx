@@ -793,6 +793,7 @@ export default function SessionViewer({
               events={events}
               live={isLive}
               ownerHandle={meta?.owner_handle ?? null}
+              framework={meta?.framework}
               fill
             />
           </div>
@@ -801,6 +802,7 @@ export default function SessionViewer({
               events={events}
               live={isLive}
               ownerHandle={meta?.owner_handle ?? null}
+              framework={meta?.framework}
               claudeWorking={showClaudeWorking}
             />
           </div>
