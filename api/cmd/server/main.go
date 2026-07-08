@@ -201,6 +201,7 @@ func router(cfg config.Config, h *handlers.Handler, ga *handlers.GoogleAuth, mgr
 			r.Use(auth.OptionalAuthn(mgr))
 
 			r.Get("/sessions/{id}", h.GetSession)
+			r.Get("/sessions/{id}/lineage", h.Lineage)
 			r.Get("/sessions/{id}/stream", h.Stream)
 			r.Get("/feed", h.Feed)
 		})

@@ -151,6 +151,97 @@ func (h *Handler) resolveFork(w http.ResponseWriter, r *http.Request, p auth.Ide
 	return s, wantSeq, true
 }
 
+// lineageResp is the prior-context payload for a forked session: the source
+// session's events up to the pinned snapshot seq, so the UI/CLI can render the
+// entire session (source ≤ seq, then the fork's own events) without physically
+// copying anything. Source and Events are omitted for a non-fork; Events are
+// withheld (Restricted=true) when the caller can't read the source.
+type lineageResp struct {
+	Source      *store.ForkRef `json:"source"`
+	SnapshotSeq int            `json:"snapshot_seq"`
+	Events      []store.Event  `json:"events"`
+	Restricted  bool           `json:"restricted"`
+}
+
+// Lineage returns a forked session's prior context: the source session's events
+// up to forked_from_seq. GET /api/sessions/{id}/lineage. RBAC is re-checked on
+// BOTH the fork (to view it at all) and the source (to see its events) — never a
+// capability bypass. A non-fork returns an empty lineage; no source access
+// returns the source ref with events withheld.
+func (h *Handler) Lineage(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	p, authed := auth.Principal(r.Context())
+
+	s, err := h.store.GetSession(r.Context(), id)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to load session")
+		return
+	}
+	if s == nil {
+		httpx.Error(w, http.StatusNotFound, "session not found")
+		return
+	}
+	allowed, err := h.canRead(r.Context(), s, p, authed)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to authorize")
+		return
+	}
+	if !allowed {
+		if !authed {
+			httpx.Error(w, http.StatusUnauthorized, "sign in required")
+		} else {
+			httpx.Error(w, http.StatusForbidden, "forbidden")
+		}
+		return
+	}
+
+	// Not a fork: no prior context.
+	if s.ForkedFromID == nil {
+		httpx.JSON(w, http.StatusOK, lineageResp{Events: []store.Event{}})
+		return
+	}
+
+	src, err := h.store.GetSession(r.Context(), *s.ForkedFromID)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to load source session")
+		return
+	}
+	// Source deleted since the fork was made: report the stored ref, no events.
+	if src == nil {
+		ref := &store.ForkRef{ID: *s.ForkedFromID}
+		if s.ForkedFromSeq != nil {
+			ref.Seq = *s.ForkedFromSeq
+		}
+		httpx.JSON(w, http.StatusOK, lineageResp{Source: ref, SnapshotSeq: ref.Seq, Events: []store.Event{}})
+		return
+	}
+
+	snapshot := 0
+	if s.ForkedFromSeq != nil {
+		snapshot = *s.ForkedFromSeq
+	}
+	ref := &store.ForkRef{ID: src.ID, Title: src.Title, OwnerHandle: src.OwnerHandle, Seq: snapshot}
+
+	// Re-check read access on the SOURCE for this caller. If they can't read it,
+	// return the ref but withhold the events (the fork itself still renders).
+	srcAllowed, err := h.canRead(r.Context(), src, p, authed)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to authorize source")
+		return
+	}
+	if !srcAllowed {
+		httpx.JSON(w, http.StatusOK, lineageResp{Source: ref, SnapshotSeq: snapshot, Events: []store.Event{}, Restricted: true})
+		return
+	}
+
+	events, err := h.store.GetEventsUpTo(r.Context(), src.ID, snapshot)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to load source events")
+		return
+	}
+	httpx.JSON(w, http.StatusOK, lineageResp{Source: ref, SnapshotSeq: snapshot, Events: events})
+}
+
 // buildBundle assembles the handoff briefing from a source session up to snapshot.
 func (h *Handler) buildBundle(r *http.Request, src *store.Session, snapshot int) (handoff.Bundle, error) {
 	events, err := h.store.GetEventsUpTo(r.Context(), src.ID, snapshot)

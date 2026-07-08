@@ -75,6 +75,7 @@ session and is present on every row (feed/list included).
 | GET  | `/api/sessions/{id}` | — | `200 {...Session,"events":[Event]}` (view_count++) |
 | PATCH | `/api/sessions/{id}` | `{"title"?,"visibility"?,"link_role"?,"model"?}` | `200 Session` (owner only) |
 | POST | `/api/sessions/{id}/events` | `{"event_type":string,"payload":object,"actor"?:string}` | `201 Event` |
+| GET  | `/api/sessions/{id}/lineage` | — | `200 {"source":{id,title,owner_handle,seq}\|null,"snapshot_seq":int,"events":[Event],"restricted":bool}` (auth: any reader of the fork; see Handoff / fork) |
 | GET  | `/api/sessions/{id}/stream` | — | `200` SSE stream (see below) |
 | GET  | `/api/sessions/{id}/agent/stream` | — | `200` agent SSE stream (owner only, Bearer; see below) |
 | POST | `/api/sessions/{id}/stop` | — | `200 {...Session}` (status=ended) |
@@ -215,6 +216,18 @@ source session is never modified; only its denormalised `fork_count` is bumped.
   }
   ```
   The client writes `markdown` to a file and launches its agent seeded with it.
+- **Prior context (full-history view)** via `GET /api/sessions/{id}/lineage`: for a
+  fork, returns the **source** session's events up to `forked_from_seq` so the UI
+  and CLI can render the entire session (source ≤ seq, then the fork's own events)
+  without physically copying anything — a virtual, copy-on-write view. This is a
+  human/replay surface; the agent is still seeded by the `handoff` **Bundle**
+  digest, not by replaying every prior turn. RBAC is re-checked on **both** the
+  fork (to view it) and the **source** (to see its events); no source access →
+  `restricted:true` with `events:[]` (the fork still renders). A non-fork returns
+  `source:null, events:[]`. A deleted source returns the stored ref with no events.
+  Note the source's events keep their own `seq` (each session numbers from 1), so
+  clients must render lineage as a distinct prior-context block, **not** merge it
+  into the fork's seq-sorted feed.
 
 ## Typing presence (ephemeral)
 `POST …/typing` (commenter, live only) publishes a control frame

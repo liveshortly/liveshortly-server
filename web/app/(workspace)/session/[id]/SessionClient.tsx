@@ -7,6 +7,7 @@ import Badge from "@/components/Badge";
 import DeleteSessionButton from "@/components/DeleteSessionButton";
 import EventStream from "@/components/EventStream";
 import MobileEventFeed from "@/components/MobileEventFeed";
+import PriorContext from "@/components/PriorContext";
 import PublicLinkDialog from "@/components/PublicLinkDialog";
 import PublishAction from "@/components/PublishAction";
 import HandoffButton from "@/components/HandoffButton";
@@ -773,6 +774,13 @@ export default function SessionViewer({
           {/* Layout lives in the .stream-log-head CSS rule (not inline) so the
               mobile media query can hide this whole strip — an inline
               display:flex would beat the query. */}
+          {/* Prior context (approach B): for a fork, render the source session's
+              history up to the snapshot as a distinct, collapsible block above the
+              fork's own feed — never merged into the seq-sorted EVENT LOG. */}
+          {meta?.forked_from && (
+            <PriorContext id={id} source={meta.forked_from} />
+          )}
+
           <div className="label stream-log-head">
             <span>EVENT LOG</span>
             <span style={{ color: "var(--muted)" }}>

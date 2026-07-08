@@ -132,6 +132,18 @@ export interface SessionDetail extends Session {
   events: SessionEvent[];
 }
 
+/** Prior context for a forked session: the source's events up to the pinned
+ *  snapshot seq (a virtual full-history view; nothing is physically copied). */
+export interface Lineage {
+  /** The source session, or null when this session is not a fork. */
+  source: ForkRef | null;
+  snapshot_seq: number;
+  /** Source events with seq ≤ snapshot_seq; empty when non-fork or restricted. */
+  events: SessionEvent[];
+  /** True when the caller can't read the source, so its events are withheld. */
+  restricted: boolean;
+}
+
 /** Base URL — internal on the server, relative (same-origin) in the browser.
  *  Using relative URLs in the browser means auth + API calls stay on whichever
  *  domain the user is on (liveshortly.com or server.liveshortly.com). */
@@ -520,6 +532,26 @@ export async function generateHandoff(
     );
   }
   return res.json() as Promise<Handoff>;
+}
+
+/** Fetch a fork's prior context: the source session's events up to the pinned
+ *  snapshot seq. GET /api/sessions/{id}/lineage. A non-fork returns an empty
+ *  lineage; no source access returns the ref with `restricted:true`, no events. */
+export async function getLineage(
+  id: string,
+  signal?: AbortSignal,
+): Promise<Lineage> {
+  const res = await fetch(
+    `${browserBase()}/api/sessions/${encodeURIComponent(id)}/lineage`,
+    { signal, credentials: "same-origin" },
+  );
+  if (!res.ok) {
+    throw new ApiError(
+      res.status,
+      `Could not load prior context: ${res.status} ${res.statusText}`,
+    );
+  }
+  return res.json() as Promise<Lineage>;
 }
 
 async function postAction(path: string, signal?: AbortSignal): Promise<Session> {
