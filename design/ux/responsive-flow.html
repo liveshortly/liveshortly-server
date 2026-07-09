@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LiveShortly — Desktop vs Mobile Session Viewer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #16150f; --panel: #1e1d16; --panel2: #252419; --hairline: #34322a;
+  --strong: #ece8da; --ink: #ece8da; --muted: #a4a08f; --faint: #767365;
+  --green: #4cae7a; --green-bg: rgba(76,174,122,.08);
+  --red: #e06a5a; --red-bg: rgba(224,106,90,.08);
+  --amber: #d6a94a; --amber-bg: rgba(214,169,74,.08);
+  --blue: #5b9bd5; --blue-bg: rgba(91,155,213,.08);
+  --font: 'JetBrains Mono', ui-monospace, monospace;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body { font-family: var(--font); background: var(--bg); color: var(--ink); line-height: 1.5; -webkit-font-smoothing: antialiased; }
+a { color: inherit; text-decoration: none; }
+*{scrollbar-width:thin;scrollbar-color:var(--hairline) transparent;}
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-thumb{background:var(--hairline);}
+
+.topbar { position: sticky; top: 0; z-index: 100; background: rgba(22,21,15,.94); backdrop-filter: blur(10px); border-bottom: 1px solid var(--hairline); display: flex; align-items: center; gap: 12px; padding: 0 32px; height: 52px; }
+.brand { display: flex; align-items: center; gap: 9px; font-size: 14px; font-weight: 700; letter-spacing: -.02em; margin-right: 12px; }
+.mark { width: 22px; height: 22px; background: var(--green); border-radius: 4px; position: relative; flex-shrink: 0; }
+.mark::before { content:''; position:absolute; left:5px; top:5px; width:4px; height:11px; background:var(--panel); border-radius:1px; }
+.mark::after { content:''; position:absolute; left:12px; top:5px; width:5px; height:11px; border:2px solid var(--panel); background:var(--green); border-radius:1px; }
+.crumb { font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: var(--faint); }
+.crumb a:hover { color: var(--ink); }
+.topbar-right { margin-left: auto; display: flex; gap: 8px; }
+.tl { font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); padding: 5px 12px; border: 1px solid var(--hairline); }
+.tl:hover, .tl.active { color: var(--ink); border-color: var(--strong); }
+
+.page { max-width: 1180px; margin: 0 auto; padding: 0 32px 90px; }
+.ph { padding: 44px 0 32px; border-bottom: 1px solid var(--hairline); margin-bottom: 40px; }
+.ph-eyebrow { font-size: 10px; text-transform: uppercase; letter-spacing: .16em; color: var(--green); font-weight: 600; margin-bottom: 12px; }
+.ph-title { font-size: 28px; font-weight: 700; letter-spacing: -.02em; margin-bottom: 10px; }
+.ph-sub { font-size: 13px; color: var(--muted); max-width: 700px; line-height: 1.65; }
+.ph-sub code { color: var(--green); }
+
+.sec { margin-bottom: 56px; }
+.sec-head { display: flex; align-items: baseline; gap: 10px; padding-bottom: 12px; border-bottom: 1px dashed var(--hairline); margin-bottom: 22px; }
+.sec-num { font-size: 10px; color: var(--faint); font-weight: 600; }
+.sec-title { font-size: 12px; text-transform: uppercase; letter-spacing: .14em; font-weight: 700; }
+.sec-desc { font-size: 11px; color: var(--faint); }
+
+/* ── breakpoint ruler ── */
+.ruler { position: relative; height: 54px; border: 1px solid var(--hairline); background: var(--panel); margin-bottom: 8px; display: flex; align-items: stretch; }
+.ruler-seg { position: relative; border-right: 1px dashed var(--hairline); display: flex; align-items: center; justify-content: center; font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.ruler-seg:last-child { border-right: none; }
+.ruler-tag { position: absolute; top: -9px; left: 50%; transform: translateX(-50%); background: var(--bg); padding: 0 6px; font-size: 9px; color: var(--amber); white-space: nowrap; }
+.ruler-note { font-size: 10.5px; color: var(--faint); margin-bottom: 30px; }
+
+/* ── mock device frames ── */
+.compare { display: grid; grid-template-columns: 1.55fr 1fr; gap: 22px; align-items: start; }
+@media (max-width: 900px) { .compare { grid-template-columns: 1fr; } }
+.device { border: 1px solid var(--hairline); background: var(--panel); }
+.device-head { padding: 9px 14px; border-bottom: 1px solid var(--hairline); display: flex; align-items: center; justify-content: space-between; background: var(--panel2); }
+.device-title { font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; font-weight: 700; }
+.device-tag { font-size: 9px; color: var(--faint); }
+.device-body { padding: 14px; }
+
+/* desktop mock */
+.d-shell { display: flex; gap: 8px; height: 260px; }
+.d-sidebar { flex: 0 0 90px; border: 1px solid var(--hairline); background: var(--panel2); padding: 8px; font-size: 8px; color: var(--faint); }
+.d-main { flex: 1; display: flex; gap: 8px; min-width: 0; }
+.d-stream { flex: 1; border: 1px solid var(--hairline); padding: 8px; font-size: 8.5px; color: var(--muted); display: flex; flex-direction: column; gap: 6px; }
+.d-chat { flex: 0 0 92px; border: 1px solid var(--hairline); background: var(--panel2); padding: 8px; font-size: 8px; color: var(--faint); display: flex; flex-direction: column; }
+.d-chat .fill { flex: 1; }
+.d-composer { margin-top: auto; border-top: 1px dashed var(--hairline); padding-top: 6px; color: var(--green); }
+.d-row { display: flex; gap: 5px; align-items: flex-start; }
+.d-dot { width: 5px; height: 5px; border-radius: 1px; flex-shrink: 0; margin-top: 3px; }
+.d-collapsible { border: 1px dashed var(--hairline); padding: 4px 6px; color: var(--faint); font-size: 8px; }
+
+/* mobile mock */
+.m-shell { width: 190px; margin: 0 auto; border: 1px solid var(--hairline); height: 340px; display: flex; flex-direction: column; position: relative; }
+.m-gear { position: absolute; top: 6px; right: 6px; border: 1px solid var(--hairline); font-size: 8px; padding: 2px 5px; color: var(--muted); }
+.m-feed { flex: 1; padding: 20px 8px 6px; display: flex; flex-direction: column; gap: 10px; overflow: hidden; }
+.m-msg { display: flex; gap: 6px; }
+.m-avatar { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; font-size: 6px; display: flex; align-items: center; justify-content: center; font-weight: 700; }
+.m-body { flex: 1; min-width: 0; }
+.m-name { font-size: 7px; color: var(--muted); margin-bottom: 2px; }
+.m-tool { font-size: 6.5px; color: var(--faint); padding-left: 4px; border-left: 1px solid var(--hairline); margin: 2px 0; }
+.m-bubble { font-size: 7.5px; color: var(--ink); background: var(--panel2); padding: 4px 6px; border-radius: 3px; display: inline-block; }
+.m-composer { flex: 0 0 auto; border-top: 1px dashed var(--hairline); padding: 6px 8px; font-size: 7px; color: var(--green); }
+
+/* ── diff table ── */
+.diff-wrap { overflow-x: auto; border: 1px solid var(--hairline); }
+table.diff { border-collapse: collapse; width: 100%; font-size: 11.5px; min-width: 720px; }
+table.diff th, table.diff td { border-bottom: 1px solid var(--hairline); padding: 10px 14px; text-align: left; vertical-align: top; }
+table.diff thead th { background: var(--panel2); font-size: 9.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--faint); }
+table.diff td:first-child { color: var(--strong); font-weight: 700; width: 190px; }
+table.diff td code { color: var(--green); }
+table.diff tbody tr:hover td { background: var(--panel2); }
+
+/* ── switch mechanism ── */
+.switch { display: flex; flex-wrap: wrap; gap: 14px; }
+.sw-box { flex: 1; min-width: 260px; border: 1px solid var(--hairline); background: var(--panel); padding: 16px 18px; }
+.sw-box .sw-label { font-size: 9.5px; text-transform: uppercase; letter-spacing: .1em; color: var(--faint); margin-bottom: 8px; }
+.sw-box .sw-title { font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+.sw-box .sw-body { font-size: 11.5px; color: var(--muted); line-height: 1.6; }
+.sw-box code { color: var(--strong); }
+
+/* gap card */
+.gap-card { border: 1px solid var(--amber); background: var(--amber-bg); padding: 16px 18px; margin-top: 14px; }
+.gap-card .gc-title { font-size: 11px; font-weight: 700; color: var(--amber); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; }
+.gap-card .gc-body { font-size: 12px; color: var(--muted); line-height: 1.6; }
+.gap-card code { color: var(--ink); }
+
+footer.pfoot { padding-top: 32px; border-top: 1px dashed var(--hairline); font-size: 10px; color: var(--faint); text-transform: uppercase; letter-spacing: .08em; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand"><div class="mark"></div>LiveShortly</div>
+  <div class="crumb"><a href="index.html">UX Plots</a> / Desktop vs Mobile Session Viewer</div>
+  <div class="topbar-right">
+    <a class="tl" href="sitemap.html">01 Sitemap</a>
+    <a class="tl" href="component-map.html">02 Components</a>
+    <a class="tl active" href="responsive-flow.html">03 Responsive</a>
+  </div>
+</div>
+
+<div class="page">
+  <div class="ph">
+    <div class="ph-eyebrow">◈ 03 — UX Plot</div>
+    <h1 class="ph-title">Desktop vs. Mobile — Session Viewer</h1>
+    <p class="ph-sub">
+      <code>/session/[id]</code> is the one screen with two fully independent renderers for
+      the same event stream — <code>EventStream</code> (desktop) and
+      <code>MobileEventFeed</code> (mobile) — switched by CSS, not JS, so neither remounts on
+      resize. This is also where nearly all of the last five commits landed, so it's the most
+      likely place for the two layouts to drift out of sync.
+    </p>
+  </div>
+
+  <!-- ═══ Breakpoints ═══ -->
+  <div class="sec" id="breakpoints">
+    <div class="sec-head">
+      <span class="sec-num">A</span>
+      <span class="sec-title">Three independent breakpoints, one screen</span>
+      <span class="sec-desc">app/globals.css</span>
+    </div>
+    <div class="ruler">
+      <div class="ruler-seg" style="flex:0.9;"><span class="ruler-tag">820px</span>desktop</div>
+      <div class="ruler-seg" style="flex:0.3;"><span class="ruler-tag">860px is wider — reads right→left below</span></div>
+      <div class="ruler-seg" style="flex:0.8;">mobile</div>
+    </div>
+    <p class="ruler-note">Ruler isn't to scale — the point is these three don't share one number.</p>
+
+    <table class="diff" style="margin-bottom:8px;">
+      <thead><tr><th style="width:110px">Breakpoint</th><th>Owns</th><th>Effect</th></tr></thead>
+      <tbody>
+        <tr><td><code>≤ 860px</code></td><td>viewer-body layout</td><td>Column stack; <code>.chat-pane</code> hidden (EventStream already interleaves viewer chat); <code>.desktop-feed-wrap</code> → <code>.mobile-feed-wrap</code>; gear button appears, action row hidden; mobile composer bar turns on.</td></tr>
+        <tr><td><code>≤ 820px</code></td><td>workspace shell</td><td>Sidebar becomes a slide-in drawer (<code>.ws-toggle</code> hamburger + backdrop); logo/profile row — normally in the header only on desktop — moves into the drawer since it's the only nav visible while open.</td></tr>
+      </tbody>
+    </table>
+    <div class="gap-card">
+      <div class="gc-title">⚠ Two thresholds, 40px apart, controlling one screen</div>
+      <div class="gc-body">
+        At a viewport between 821–860px the sidebar is a full permanent panel (desktop mode)
+        while the event feed below has already switched to the mobile renderer + gear button —
+        a real, reachable in-between state, not just a rounding accident. Worth confirming
+        that's intentional (sidebar and feed are different concerns) rather than two
+        breakpoints that were meant to be the same number.
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Side by side ═══ -->
+  <div class="sec" id="compare">
+    <div class="sec-head">
+      <span class="sec-num">B</span>
+      <span class="sec-title">Layout, side by side</span>
+      <span class="sec-desc">schematic, not pixel-accurate</span>
+    </div>
+    <div class="compare">
+      <div class="device">
+        <div class="device-head"><span class="device-title">Desktop · &gt; 860px</span><span class="device-tag">EventStream + chat-pane</span></div>
+        <div class="device-body">
+          <div class="d-shell">
+            <div class="d-sidebar">◉ LIVE<br>— session a<br>— session b<br><br>YESTERDAY<br>— session c</div>
+            <div class="d-main">
+              <div class="d-stream">
+                <div class="d-row"><span class="d-dot" style="background:var(--green)"></span>@host: prompt text…</div>
+                <div class="d-collapsible">▸ 3 tool calls (collapsed)</div>
+                <div class="d-row"><span class="d-dot" style="background:var(--blue)"></span>Claude: response markdown…</div>
+                <div class="d-row"><span class="d-dot" style="background:var(--amber)"></span>@viewer: reply, quoted turn</div>
+              </div>
+              <div class="d-chat">
+                viewer chat<div class="fill"></div>
+                <div class="d-composer">▸ composer</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="device">
+        <div class="device-head"><span class="device-title">Mobile · ≤ 860px</span><span class="device-tag">MobileEventFeed</span></div>
+        <div class="device-body">
+          <div class="m-shell">
+            <div class="m-gear">⚙</div>
+            <div class="m-feed">
+              <div class="m-msg">
+                <div class="m-avatar" style="background:var(--blue-bg);color:var(--blue);">@h</div>
+                <div class="m-body"><div class="m-name">@host · Prompt</div><span class="m-bubble">fix the header</span></div>
+              </div>
+              <div class="m-msg">
+                <div class="m-avatar" style="background:var(--green-bg);color:var(--green);">⌐</div>
+                <div class="m-body">
+                  <div class="m-name">Claude</div>
+                  <div class="m-tool">Read header.tsx</div>
+                  <div class="m-tool">Write header.tsx</div>
+                  <span class="m-bubble">done — updated the header</span>
+                </div>
+              </div>
+              <div class="m-msg">
+                <div class="m-avatar" style="background:var(--amber-bg);color:var(--amber);">@v</div>
+                <div class="m-body"><div class="m-name">@viewer</div><span class="m-bubble">nice, ship it</span></div>
+              </div>
+            </div>
+            <div class="m-composer">▸ pinned composer bar</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Diff table ═══ -->
+  <div class="sec" id="diff">
+    <div class="sec-head">
+      <span class="sec-num">C</span>
+      <span class="sec-title">What actually differs</span>
+      <span class="sec-desc">EventStream.tsx vs MobileEventFeed.tsx — same event data</span>
+    </div>
+    <div class="diff-wrap">
+      <table class="diff">
+        <thead><tr><th>Concern</th><th>Desktop — EventStream</th><th>Mobile — MobileEventFeed</th></tr></thead>
+        <tbody>
+          <tr><td>Grouping unit</td><td>Own collapsible row per event; work (tool/file/output) folds into its own block.</td><td>Chat "turn" per prompt/response/comment; tool/file/output nest as small swatched lines <em>under</em> the turn that produced them.</td></tr>
+          <tr><td>Viewer chat</td><td>Interleaved inline (bubble types include <code>viewer_comment</code>) — no separate panel needed on this axis.</td><td>Same — one unified thread; Claude, host and viewers all post into it.</td></tr>
+          <tr><td>Composer location</td><td>Bottom of <code>.chat-pane</code> (dedicated 340px sidebar).</td><td><code>.mobile-composer-bar</code>, last child of <code>.stream-pane</code> — pinned to bottom of that fixed-height column, same mechanism as desktop's chat-pane composer, different box.</td></tr>
+          <tr><td>Secondary actions</td><td><code>.session-actions</code> row inline in the header (share, publish, delete, rename…).</td><td>Collapsed behind the <code>.session-gear-btn</code> — opens an actions sheet instead of a row.</td></tr>
+          <tr><td>Avatar treatment</td><td>None — text rows with a colored left marker.</td><td>Per-message avatar bubble (initials or ⌐ for Claude), role-colored.</td></tr>
+          <tr><td>Sizing</td><td><code>.stream-pane { flex: 1 1 0 }</code> — fills remaining row width next to chat-pane.</td><td><code>.stream-pane { flex: 0 0 auto; height: 66vh }</code> — fixed viewport-relative height once stacked in a column.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ═══ Switch mechanism ═══ -->
+  <div class="sec" id="switch">
+    <div class="sec-head">
+      <span class="sec-num">D</span>
+      <span class="sec-title">Why CSS, not JS, decides which renders</span>
+    </div>
+    <div class="switch">
+      <div class="sw-box">
+        <div class="sw-label">Both mount, always</div>
+        <div class="sw-title">.desktop-feed-wrap + .mobile-feed-wrap</div>
+        <div class="sw-body">Both components render on every load; the media query flips <code>display</code>. No remount on resize/rotate means no lost scroll position, no re-subscribing the SSE-driven state.</div>
+      </div>
+      <div class="sw-box">
+        <div class="sw-label">A documented past bug</div>
+        <div class="sw-title">Plain class rules only — never inline styles</div>
+        <div class="sw-body">A code comment on <code>.session-actions</code> flags this explicitly: an inline <code>style</code> on the element would beat the mobile media query no matter its specificity, and that caused a real regression once. Any future variant of this show/hide pattern should follow the same rule.</div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="pfoot">Derived from web/app/globals.css, web/components/EventStream.tsx, web/components/MobileEventFeed.tsx, web/app/(workspace)/session/[id]/SessionClient.tsx — 2026-07-08</footer>
+</div>
+
+</body>
+</html>

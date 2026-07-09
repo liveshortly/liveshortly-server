@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LiveShortly — Page → Component Map</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #16150f; --panel: #1e1d16; --panel2: #252419; --hairline: #34322a;
+  --strong: #ece8da; --ink: #ece8da; --muted: #a4a08f; --faint: #767365;
+  --green: #4cae7a; --green-bg: rgba(76,174,122,.08);
+  --red: #e06a5a; --red-bg: rgba(224,106,90,.08);
+  --amber: #d6a94a; --amber-bg: rgba(214,169,74,.08);
+  --blue: #5b9bd5; --blue-bg: rgba(91,155,213,.08);
+  --font: 'JetBrains Mono', ui-monospace, monospace;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body { font-family: var(--font); background: var(--bg); color: var(--ink); line-height: 1.5; -webkit-font-smoothing: antialiased; }
+a { color: inherit; text-decoration: none; }
+*{scrollbar-width:thin;scrollbar-color:var(--hairline) transparent;}
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-thumb{background:var(--hairline);}
+
+.topbar { position: sticky; top: 0; z-index: 100; background: rgba(22,21,15,.94); backdrop-filter: blur(10px); border-bottom: 1px solid var(--hairline); display: flex; align-items: center; gap: 12px; padding: 0 32px; height: 52px; }
+.brand { display: flex; align-items: center; gap: 9px; font-size: 14px; font-weight: 700; letter-spacing: -.02em; margin-right: 12px; }
+.mark { width: 22px; height: 22px; background: var(--green); border-radius: 4px; position: relative; flex-shrink: 0; }
+.mark::before { content:''; position:absolute; left:5px; top:5px; width:4px; height:11px; background:var(--panel); border-radius:1px; }
+.mark::after { content:''; position:absolute; left:12px; top:5px; width:5px; height:11px; border:2px solid var(--panel); background:var(--green); border-radius:1px; }
+.crumb { font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: var(--faint); }
+.crumb a:hover { color: var(--ink); }
+.topbar-right { margin-left: auto; display: flex; gap: 8px; }
+.tl { font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); padding: 5px 12px; border: 1px solid var(--hairline); }
+.tl:hover, .tl.active { color: var(--ink); border-color: var(--strong); }
+
+.page { max-width: 1180px; margin: 0 auto; padding: 0 32px 90px; }
+.ph { padding: 44px 0 32px; border-bottom: 1px solid var(--hairline); margin-bottom: 40px; }
+.ph-eyebrow { font-size: 10px; text-transform: uppercase; letter-spacing: .16em; color: var(--green); font-weight: 600; margin-bottom: 12px; }
+.ph-title { font-size: 28px; font-weight: 700; letter-spacing: -.02em; margin-bottom: 10px; }
+.ph-sub { font-size: 13px; color: var(--muted); max-width: 680px; line-height: 1.65; }
+.ph-sub code { color: var(--green); }
+
+.sec { margin-bottom: 56px; }
+.sec-head { display: flex; align-items: baseline; gap: 10px; padding-bottom: 12px; border-bottom: 1px dashed var(--hairline); margin-bottom: 22px; }
+.sec-num { font-size: 10px; color: var(--faint); font-weight: 600; }
+.sec-title { font-size: 12px; text-transform: uppercase; letter-spacing: .14em; font-weight: 700; }
+.sec-desc { font-size: 11px; color: var(--faint); }
+
+/* ── page composition cards ── */
+.pages { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px,1fr)); gap: 16px; }
+.pcard { border: 1px solid var(--hairline); background: var(--panel); display: flex; flex-direction: column; }
+.pcard-head { padding: 12px 16px; border-bottom: 1px solid var(--hairline); display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.pcard-route { font-size: 12.5px; font-weight: 700; color: var(--strong); }
+.pcard-file { font-size: 9.5px; color: var(--faint); margin-top: 2px; }
+.pcard-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font-size: 10.5px; padding: 4px 9px; border: 1px solid var(--hairline); color: var(--muted); background: var(--panel2); }
+.chip.shared { color: var(--green); border-color: var(--green); background: var(--green-bg); }
+.chip.preview { color: var(--amber); border-color: var(--amber); background: var(--amber-bg); }
+.chip.leaf { color: var(--faint); }
+.pcard-tier { font-size: 9px; text-transform: uppercase; letter-spacing: .1em; color: var(--faint); margin-top: 2px; }
+
+/* ── reuse matrix ── */
+.matrix-wrap { overflow-x: auto; border: 1px solid var(--hairline); }
+table.matrix { border-collapse: collapse; width: 100%; font-size: 11px; min-width: 760px; }
+table.matrix th, table.matrix td { border-bottom: 1px solid var(--hairline); border-right: 1px solid var(--hairline); padding: 8px 10px; text-align: left; white-space: nowrap; }
+table.matrix th:last-child, table.matrix td:last-child { border-right: none; }
+table.matrix thead th { background: var(--panel2); font-size: 9.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--faint); position: sticky; top: 52px; }
+table.matrix td.comp { color: var(--strong); font-weight: 600; background: var(--panel); position: sticky; left: 0; }
+table.matrix td.hit { text-align: center; color: var(--green); font-weight: 700; }
+table.matrix td.dim { text-align: center; color: var(--faint); }
+table.matrix tbody tr:hover td { background: var(--panel2); }
+table.matrix tbody tr:hover td.comp { background: var(--panel2); }
+
+/* preview pattern */
+.preview-flow { display: flex; flex-wrap: wrap; gap: 16px; align-items: stretch; }
+.pf-box { flex: 1; min-width: 220px; border: 1px solid var(--hairline); background: var(--panel); padding: 16px 18px; }
+.pf-box .pf-label { font-size: 9.5px; text-transform: uppercase; letter-spacing: .1em; color: var(--faint); margin-bottom: 8px; }
+.pf-box .pf-title { font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+.pf-box .pf-body { font-size: 11.5px; color: var(--muted); line-height: 1.6; }
+.pf-box.real { border-color: var(--green); }
+.pf-box.real .pf-label { color: var(--green); }
+.pf-box.mock { border-color: var(--amber); }
+.pf-box.mock .pf-label { color: var(--amber); }
+
+footer.pfoot { padding-top: 32px; border-top: 1px dashed var(--hairline); font-size: 10px; color: var(--faint); text-transform: uppercase; letter-spacing: .08em; }
+
+@media (max-width: 640px) {
+  table.matrix thead th { position: static; }
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand"><div class="mark"></div>LiveShortly</div>
+  <div class="crumb"><a href="index.html">UX Plots</a> / Page → Component Map</div>
+  <div class="topbar-right">
+    <a class="tl" href="sitemap.html">01 Sitemap</a>
+    <a class="tl active" href="component-map.html">02 Components</a>
+    <a class="tl" href="responsive-flow.html">03 Responsive</a>
+  </div>
+</div>
+
+<div class="page">
+  <div class="ph">
+    <div class="ph-eyebrow">◈ 02 — UX Plot</div>
+    <h1 class="ph-title">Page → Component Map</h1>
+    <p class="ph-sub">
+      What each screen in <code>web/</code> is actually assembled from, which pieces get
+      reused across screens, and where the app is explicit about showing mocked UI
+      vs. real data.
+    </p>
+  </div>
+
+  <!-- ═══ Page composition ═══ -->
+  <div class="sec" id="pages">
+    <div class="sec-head">
+      <span class="sec-num">A</span>
+      <span class="sec-title">Screen composition</span>
+      <span class="sec-desc">green chips = reused elsewhere on this page · amber = preview/mock component</span>
+    </div>
+
+    <div class="pages">
+
+      <div class="pcard">
+        <div class="pcard-head"><span class="pcard-route">/ &amp; /feed</span><span class="pcard-file">Feed.tsx</span></div>
+        <div class="pcard-body">
+          <div class="pcard-tier">renders</div>
+          <div class="chip-row">
+            <span class="chip shared">FeedTile</span>
+            <span class="chip shared">Badge</span>
+            <span class="chip leaf">tileBg / fmtInt / timeAgo (lib/utils)</span>
+          </div>
+          <div class="pcard-tier">real data</div>
+          <div class="chip-row"><span class="chip">GET /api/feed — cursor pages + debounced search</span></div>
+        </div>
+      </div>
+
+      <div class="pcard">
+        <div class="pcard-head"><span class="pcard-route">Landing (anon /)</span><span class="pcard-file">Landing.tsx</span></div>
+        <div class="pcard-body">
+          <div class="pcard-tier">renders</div>
+          <div class="chip-row">
+            <span class="chip shared">BrandMark</span>
+            <span class="chip">InstallCommand</span>
+            <span class="chip">LandingDemo</span>
+            <span class="chip shared">ThemeToggle</span>
+          </div>
+          <div class="pcard-tier">note</div>
+          <div class="chip-row"><span class="chip">Own module CSS — Landing.module.css</span></div>
+        </div>
+      </div>
+
+      <div class="pcard">
+        <div class="pcard-head"><span class="pcard-route">/hud</span><span class="pcard-file">(workspace)/hud/page.tsx</span></div>
+        <div class="pcard-body">
+          <div class="pcard-tier">renders</div>
+          <div class="chip-row">
+            <span class="chip shared">SessionCard</span>
+            <span class="chip shared">ShareDialog</span>
+            <span class="chip shared">PublishAction</span>
+            <span class="chip shared">DeleteSessionButton</span>
+          </div>
+          <div class="pcard-tier">shell</div>
+          <div class="chip-row"><span class="chip">WorkspaceSidebar (from (workspace)/layout.tsx)</span></div>
+        </div>
+      </div>
+
+      <div class="pcard">
+        <div class="pcard-head"><span class="pcard-route">/session/[id]</span><span class="pcard-file">SessionClient.tsx</span></div>
+        <div class="pcard-body">
+          <div class="pcard-tier">renders</div>
+          <div class="chip-row">
+            <span class="chip shared">Badge</span>
+            <span class="chip shared">EventStream</span>
+            <span class="chip">MobileEventFeed</span>
+            <span class="chip shared">PublishAction</span>
+            <span class="chip">PublicLinkDialog</span>
+            <span class="chip">TypingIndicator</span>
+            <span class="chip">ShareToTwitter</span>
+            <span class="chip shared">DeleteSessionButton</span>
+          </div>
+          <div class="pcard-tier">largest client component in the app</div>
+          <div class="chip-row"><span class="chip">Inline Composer + InputRequestBanner (local to file)</span></div>
+        </div>
+      </div>
+
+      <div class="pcard">
+        <div class="pcard-head"><span class="pcard-route">/profile</span><span class="pcard-file">app/profile/page.tsx</span></div>
+        <div class="pcard-body">
+          <div class="pcard-tier">renders (real)</div>
+          <div class="chip-row">
+            <span class="chip shared">ActivityHeatmap</span>
+            <span class="chip shared">SessionCard</span>
+          </div>
+          <div class="pcard-tier">renders (preview)</div>
+          <div class="chip-row">
+            <span class="chip preview">PanelBox</span>
+            <span class="chip preview">Stat</span>
+            <span class="chip preview">PlaceholderNote</span>
+            <span class="chip preview">PreviewBanner</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="pcard">
+        <div class="pcard-head"><span class="pcard-route">/replay · /story · /compose</span><span class="pcard-file">[id]/page.tsx ×3</span></div>
+        <div class="pcard-body">
+          <div class="pcard-tier">renders (real)</div>
+          <div class="chip-row"><span class="chip shared">EventStream</span><span class="chip leaf">getSession(id) per-page</span></div>
+          <div class="pcard-tier">renders (preview shell)</div>
+          <div class="chip-row">
+            <span class="chip preview">PageHead</span>
+            <span class="chip preview">PanelBox</span>
+            <span class="chip preview">PreviewBanner</span>
+            <span class="chip preview">PlaceholderNote</span>
+            <span class="chip preview">Stat</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="pcard">
+        <div class="pcard-head"><span class="pcard-route">/admin · /admin/sessions · /admin/users</span><span class="pcard-file">app/admin/**</span></div>
+        <div class="pcard-body">
+          <div class="pcard-tier">renders</div>
+          <div class="chip-row">
+            <span class="chip shared">Badge</span>
+            <span class="chip leaf">fmtInt / timeAgo / shortId</span>
+          </div>
+          <div class="pcard-tier">guard</div>
+          <div class="chip-row"><span class="chip">useAdminGuard() — sessions &amp; users pages only; /admin itself inlines the same check rather than calling the hook</span></div>
+        </div>
+      </div>
+
+      <div class="pcard">
+        <div class="pcard-head"><span class="pcard-route">app-wide chrome</span><span class="pcard-file">AuthGate.tsx</span></div>
+        <div class="pcard-body">
+          <div class="pcard-tier">renders</div>
+          <div class="chip-row">
+            <span class="chip shared">HudHeader</span>
+            <span class="chip shared">BrandMark</span>
+            <span class="chip shared">ThemeToggle</span>
+          </div>
+          <div class="pcard-tier">HudHeader itself renders</div>
+          <div class="chip-row"><span class="chip">Clock</span><span class="chip">Panel ×2 (TOTAL SESSIONS / LIVE NOW)</span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ═══ Reuse matrix ═══ -->
+  <div class="sec" id="matrix">
+    <div class="sec-head">
+      <span class="sec-num">B</span>
+      <span class="sec-title">Reuse matrix</span>
+      <span class="sec-desc">the components load-bearing across ≥ 3 screens</span>
+    </div>
+    <div class="matrix-wrap">
+      <table class="matrix">
+        <thead>
+          <tr><th>Component</th><th>Feed/</th><th>HUD</th><th>Session</th><th>Profile</th><th>Replay/Story/Compose</th><th>Admin</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="comp">Badge</td><td class="hit">●</td><td class="dim">—</td><td class="hit">●</td><td class="dim">—</td><td class="dim">—</td><td class="hit">●</td></tr>
+          <tr><td class="comp">SessionCard</td><td class="dim">—</td><td class="hit">●</td><td class="dim">—</td><td class="hit">●</td><td class="dim">—</td><td class="dim">—</td></tr>
+          <tr><td class="comp">EventStream</td><td class="dim">—</td><td class="dim">—</td><td class="hit">●</td><td class="dim">—</td><td class="hit">●</td><td class="dim">—</td></tr>
+          <tr><td class="comp">PublishAction</td><td class="dim">—</td><td class="hit">●</td><td class="hit">●</td><td class="dim">—</td><td class="dim">—</td><td class="dim">—</td></tr>
+          <tr><td class="comp">DeleteSessionButton</td><td class="dim">—</td><td class="hit">●</td><td class="hit">●</td><td class="dim">—</td><td class="dim">—</td><td class="dim">—</td></tr>
+          <tr><td class="comp">preview.tsx kit</td><td class="dim">—</td><td class="dim">—</td><td class="dim">—</td><td class="hit">●</td><td class="hit">●</td><td class="dim">—</td></tr>
+          <tr><td class="comp">BrandMark / ThemeToggle</td><td class="hit">●</td><td class="hit">●</td><td class="hit">●</td><td class="hit">●</td><td class="hit">●</td><td class="hit">●</td></tr>
+          <tr><td class="comp">lib/utils (fmt/time helpers)</td><td class="hit">●</td><td class="hit">●</td><td class="hit">●</td><td class="hit">●</td><td class="hit">●</td><td class="hit">●</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ═══ preview pattern ═══ -->
+  <div class="sec" id="preview-pattern">
+    <div class="sec-head">
+      <span class="sec-num">C</span>
+      <span class="sec-title">The "honest placeholder" pattern</span>
+      <span class="sec-desc">components/preview.tsx — used by Profile, Replay, Story, Compose</span>
+    </div>
+    <div class="preview-flow">
+      <div class="pf-box real">
+        <div class="pf-label">✓ Real, wired to the API</div>
+        <div class="pf-title">Session data, event log, own-session lists, activity dates</div>
+        <div class="pf-body">Anything backed by <code>getSession</code> / <code>listSessions</code> / <code>me()</code> renders live values — never fabricated.</div>
+      </div>
+      <div class="pf-box mock">
+        <div class="pf-label">◐ PreviewBanner + PlaceholderNote</div>
+        <div class="pf-title">AI summaries, language DNA, replay scrubber/chapters, blog persistence</div>
+        <div class="pf-body">No backend exists yet. Rather than fake data, these panels render an explicit amber "PREVIEW" ribbon and a "coming soon" note — the layout is real, the content is not.</div>
+      </div>
+    </div>
+    <p style="font-size:11.5px;color:var(--muted);margin-top:14px;line-height:1.6;">
+      Four screens share this contract: <code>PageHead</code>, <code>PanelBox</code>,
+      <code>Stat</code>, <code>PreviewBanner</code>, <code>PlaceholderNote</code>. It's the
+      cleanest reuse boundary in the component tree — worth keeping as the template for the
+      next preview screen rather than inventing a new placeholder style.
+    </p>
+  </div>
+
+  <footer class="pfoot">Derived from web/components/*, web/app/**/page.tsx imports — 2026-07-08</footer>
+</div>
+
+</body>
+</html>

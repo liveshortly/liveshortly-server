@@ -53,9 +53,7 @@ button { font-family: inherit; }
 @media (max-width: 980px) { .shell { grid-template-columns: 1fr; } .sidebar, .rightpanel { display: none; } }
 
 .brand { display: flex; align-items: center; gap: 9px; font-size: 15px; font-weight: 700; letter-spacing: -.02em; flex-shrink: 0; }
-.brand .mark { width: 24px; height: 24px; border-radius: var(--r-sm); background: var(--green); position: relative; flex-shrink: 0; }
-.brand .mark::before { content:''; position:absolute; left:5px; top:6px; width:5px; height:12px; background:var(--panel); border-radius:1px; }
-.brand .mark::after { content:''; position:absolute; left:13px; top:6px; width:6px; height:12px; border:2px solid var(--panel); background:var(--green); border-radius:1px; }
+.brand .mark { display: flex; flex-shrink: 0; }
 .crumb { font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--faint); display: flex; align-items: center; gap: 8px; }
 .crumb a:hover { color: var(--ink); }
 .crumb span.sep { color: var(--hairline); }
@@ -112,8 +110,7 @@ button { font-family: inherit; }
 .action-row { display: flex; align-items: center; gap: 8px; padding: 16px 0; border-bottom: 1px solid var(--hairline); flex-wrap: wrap; }
 .sbtn { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; border: 1px solid var(--strong); background: transparent; color: var(--ink); padding: 7px 14px; border-radius: var(--r-pill); font-weight: 600; cursor: pointer; white-space: nowrap; }
 .sbtn:hover { background: var(--panel2); }
-.sbtn.primary { background: var(--strong); color: var(--panel); }
-:root[data-theme="dark"] .sbtn.primary { background: var(--green); border-color: var(--green); color: #06210f; }
+.sbtn.primary { border-color: var(--green); background: var(--green); color: var(--panel); }
 
 /* AI summary */
 .ai-summary { border: 1px solid var(--green); background: color-mix(in srgb, var(--green) 7%, var(--panel2)); border-radius: var(--r-card); padding: 18px 20px; margin: 28px 0; }
@@ -252,7 +249,7 @@ button { font-family: inherit; }
 
 <div class="shell">
   <div class="topbar">
-    <div class="brand"><div class="mark"></div>LiveShortly</div>
+    <div class="brand"><div class="mark"><svg width="24" height="24" viewBox="0 0 32 32" aria-hidden style="display:block;flex-shrink:0;"><rect width="32" height="32" rx="6" fill="var(--green)"/><rect x="7" y="8.5" width="6.5" height="15" rx="1.5" fill="var(--panel)"/><rect x="16.5" y="8.5" width="8.5" height="15" rx="1.5" fill="var(--green)" stroke="var(--panel)" stroke-width="2"/></svg></div>LiveShortly</div>
     <div class="crumb">
       <a href="hud.html">My HUD</a><span class="sep">›</span>
       <a href="session-viewer.html">refactor auth middleware</a><span class="sep">›</span>

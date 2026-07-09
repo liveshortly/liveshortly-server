@@ -106,7 +106,7 @@ button { font-family: inherit; }
 .mdrawer-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.45); }
 .mdrawer-panel { position: absolute; top: 0; bottom: 0; left: 0; width: 78%; background: var(--panel); border-right: 1px solid var(--hairline); padding: 46px 0 14px; overflow-y: auto; }
 .mdrawer-brand { display: flex; align-items: center; gap: 8px; padding: 0 16px 14px; font-size: 13px; font-weight: 700; border-bottom: 1px solid var(--hairline); margin-bottom: 8px; }
-.mdrawer-brand .mark { width: 20px; height: 20px; border-radius: var(--r-sm); background: var(--green); }
+.mdrawer-brand .mark { display: flex; flex-shrink: 0; }
 .mdrawer .sb-group-label { padding: 10px 16px 4px; font-size: 9px; text-transform: uppercase; letter-spacing: .1em; color: var(--faint); font-weight: 700; }
 .mdrawer .sb-group-label.live { color: var(--green); }
 .mdrawer .sb-row { display: flex; align-items: center; gap: 9px; padding: 8px 16px; }
@@ -219,7 +219,7 @@ button { font-family: inherit; }
       <div class="mdrawer" id="mdrawer">
         <div class="mdrawer-backdrop" onclick="LS3.drawer()"></div>
         <div class="mdrawer-panel">
-          <div class="mdrawer-brand"><div class="mark"></div>LiveShortly</div>
+          <div class="mdrawer-brand"><div class="mark"><svg width="20" height="20" viewBox="0 0 32 32" aria-hidden style="display:block;flex-shrink:0;"><rect width="32" height="32" rx="6" fill="var(--green)"/><rect x="7" y="8.5" width="6.5" height="15" rx="1.5" fill="var(--panel)"/><rect x="16.5" y="8.5" width="8.5" height="15" rx="1.5" fill="var(--green)" stroke="var(--panel)" stroke-width="2"/></svg></div>LiveShortly</div>
           <div class="sb-group-label live">◉ Live</div>
           <div class="sb-row active"><div class="sb-swatch"></div><div class="sb-row-title">refactor auth middleware</div><span class="sb-row-meta" style="color:var(--green);">live</span></div>
           <div class="sb-group-label">Today</div>

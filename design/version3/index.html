@@ -18,9 +18,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--ink); min-h
 a { color: inherit; }
 .page { max-width: 900px; margin: 0 auto; padding: 56px 32px 80px; }
 .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-.mark { width: 30px; height: 30px; background: var(--green); border-radius: 8px; position: relative; flex-shrink: 0; }
-.mark::before { content: ''; position: absolute; left: 6px; top: 7px; width: 6px; height: 14px; background: var(--panel); border-radius: 1px; }
-.mark::after { content: ''; position: absolute; left: 15px; top: 7px; width: 7px; height: 14px; border: 2px solid var(--panel); background: var(--green); border-radius: 1px; }
+.mark { display: flex; flex-shrink: 0; }
 .brand-name { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; }
 .eyebrow { font-size: 10px; text-transform: uppercase; letter-spacing: .16em; color: var(--green); font-weight: 700; margin: 30px 0 10px; }
 .h1 { font-size: 26px; font-weight: 800; letter-spacing: -.02em; margin-bottom: 12px; }
@@ -53,7 +51,7 @@ a { color: inherit; }
 </head>
 <body>
 <div class="page">
-  <div class="brand"><div class="mark"></div><div class="brand-name">LiveShortly</div></div>
+  <div class="brand"><div class="mark"><svg width="30" height="30" viewBox="0 0 32 32" aria-hidden style="display:block;flex-shrink:0;"><rect width="32" height="32" rx="6" fill="var(--green)"/><rect x="7" y="8.5" width="6.5" height="15" rx="1.5" fill="var(--panel)"/><rect x="16.5" y="8.5" width="8.5" height="15" rx="1.5" fill="var(--green)" stroke="var(--panel)" stroke-width="2"/></svg></div><div class="brand-name">LiveShortly</div></div>
   <div class="eyebrow">◈ Design / v3</div>
   <h1 class="h1">Version 3 — Core Screens</h1>
   <p class="sub">

@@ -55,7 +55,7 @@ button { font-family: inherit; }
 .shell { display: grid; grid-template-columns: 232px 1fr; grid-template-rows: 56px 1fr; height: 100vh; gap: 1px; background: var(--hairline); }
 :root[data-theme="light"] .shell { gap: 0; }
 .topbar, .sidebar, .main { background: var(--bg); }
-.topbar { grid-column: 1 / 3; grid-row: 1; display: flex; align-items: center; gap: 16px; padding: 0 18px; border-bottom: 1px solid var(--hairline); background: var(--panel); }
+.topbar { grid-column: 1 / 3; grid-row: 1; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 16px; padding: 0 18px; border-bottom: 1px solid var(--hairline); background: var(--panel); }
 .sidebar { grid-column: 1; grid-row: 2; overflow-y: auto; border-right: 1px solid var(--hairline); background: var(--panel); }
 .main { grid-column: 2; grid-row: 2; overflow-y: auto; padding: 22px 26px 0; }
 .main-inner { max-width: 1080px; margin: 0 auto; }
@@ -79,41 +79,88 @@ button { font-family: inherit; }
 .sb-row { display: flex; align-items: center; gap: 9px; padding: 7px 14px; margin: 0 6px; border-radius: var(--r-sm); cursor: pointer; }
 .sb-row:hover { background: var(--panel2); }
 .sb-row.active { background: var(--panel2); border-left: 2px solid var(--green); padding-left: 12px; }
-.sb-swatch { width: 26px; height: 26px; border-radius: var(--r-sm); flex-shrink: 0; background: var(--grad-hero); }
+.sb-swatch { width: 26px; height: 26px; border-radius: var(--r-sm); flex-shrink: 0; background: var(--grad-hero); position: relative; }
+.sb-swatch .live-dot { position: absolute; right: -2px; bottom: -2px; box-shadow: 0 0 0 2px var(--panel); }
 .sb-row-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--ink); }
 .sb-row-meta { font-size: 9px; color: var(--faint); text-transform: uppercase; flex-shrink: 0; }
+.sb-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.sb-row-main .t { font-size: 12px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sb-row-main .s { font-size: 9.5px; color: var(--faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* trending creators — replaces a duplicate "recently published" list with
+   something the main feed strip doesn't already show: who to follow. */
+.sb-creator { display: flex; align-items: center; gap: 9px; padding: 7px 14px; margin: 0 6px; border-radius: var(--r-sm); cursor: pointer; }
+.sb-creator:hover { background: var(--panel2); }
+.sb-creator-avatar { width: 24px; height: 24px; border-radius: var(--r-avatar); display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; color: #fff; flex-shrink: 0; }
+.sb-creator-body { flex: 1; min-width: 0; }
+.sb-creator-name { font-size: 11.5px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sb-creator-meta { font-size: 8.5px; color: var(--faint); margin-top: 1px; }
+.sb-tag-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 14px; margin: 0 6px; border-radius: var(--r-sm); cursor: pointer; }
+.sb-tag-row:hover { background: var(--panel2); }
+.sb-tag-count { font-size: 9px; color: var(--faint); }
 .sb-foot { margin-top: auto; padding: 12px 14px; border-top: 1px dashed var(--hairline); display: flex; align-items: center; gap: 10px; }
 .sb-signin { margin-top: auto; padding: 14px; border-top: 1px dashed var(--hairline); }
-.sb-signin-btn { display: block; width: 100%; text-align: center; border: 1px solid var(--strong); background: var(--strong); color: var(--panel); font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; padding: 10px; border-radius: var(--r-pill); font-weight: 700; cursor: pointer; }
-:root[data-theme="dark"] .sb-signin-btn { background: var(--green); border-color: var(--green); color: #06210f; }
+.sb-signin-btn { display: block; width: 100%; text-align: center; border: 1px solid var(--green); background: var(--green); color: var(--panel); font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; padding: 10px; border-radius: var(--r-pill); font-weight: 700; cursor: pointer; }
 .sb-signin-sub { font-size: 9.5px; color: var(--faint); text-align: center; margin-top: 8px; line-height: 1.5; }
 
 /* ── topbar ── */
 .brand { display: flex; align-items: center; gap: 9px; font-size: 15px; font-weight: 700; letter-spacing: -.02em; flex-shrink: 0; }
-.brand .mark { width: 24px; height: 24px; border-radius: var(--r-sm); background: var(--green); position: relative; flex-shrink: 0; }
-.brand .mark::before { content:''; position:absolute; left:5px; top:6px; width:5px; height:12px; background:var(--panel); border-radius:1px; }
-.brand .mark::after { content:''; position:absolute; left:13px; top:6px; width:6px; height:12px; border:2px solid var(--panel); background:var(--green); border-radius:1px; }
-.searchpill { flex: 1; max-width: 480px; margin: 0 auto; display: flex; align-items: center; gap: 10px; border: 1px solid var(--hairline); background: var(--bg); border-radius: var(--r-pill); padding: 9px 16px; color: var(--faint); font-size: 12px; }
+.brand .mark { display: flex; flex-shrink: 0; }
+.searchpill { width: 100%; max-width: 480px; margin: 0 auto; display: flex; align-items: center; gap: 10px; border: 1px solid var(--hairline); background: var(--bg); border-radius: var(--r-pill); padding: 9px 16px; color: var(--faint); font-size: 12px; }
 .searchpill input { border: none; outline: none; background: transparent; color: var(--ink); font: inherit; width: 100%; }
-.top-actions { display: flex; align-items: center; gap: 14px; margin-left: auto; flex-shrink: 0; }
+.top-actions { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
 .top-icon { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border: 1px solid transparent; border-radius: var(--r-sm); color: var(--muted); cursor: pointer; font-size: 14px; }
 .top-icon:hover { color: var(--ink); border-color: var(--hairline); }
 .install-link { font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); display: flex; align-items: center; gap: 6px; white-space: nowrap; }
 .install-link:hover { color: var(--ink); }
-.signin-btn { border: 1px solid var(--strong); background: var(--strong); color: var(--panel); font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; padding: 9px 18px; border-radius: var(--r-pill); font-weight: 700; cursor: pointer; white-space: nowrap; }
-:root[data-theme="dark"] .signin-btn { background: var(--green); border-color: var(--green); color: #06210f; }
+.signin-btn { border: 1px solid var(--green); background: var(--green); color: var(--panel); font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; padding: 9px 18px; border-radius: var(--r-pill); font-weight: 700; cursor: pointer; white-space: nowrap; }
 .theme-toggle { border: 1px solid var(--hairline); background: var(--panel2); color: var(--ink); width: 32px; height: 32px; border-radius: var(--r-pill); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 13px; }
 
-/* ── pitch strip (anon only — the thing replacing "Your Sessions") ── */
-.pitch { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 18px 22px; margin-bottom: 22px; border: 1px solid var(--hairline); border-radius: var(--r-card); background: var(--panel2); flex-wrap: wrap; }
-.pitch-copy .pt { font-size: 15px; font-weight: 700; letter-spacing: -.01em; }
-.pitch-copy .ps { font-size: 11.5px; color: var(--muted); margin-top: 4px; }
+/* ── marketing hero (blended from the real Landing.tsx + LandingDemo:
+   pitch copy + CTA on the left, a looping animated demo window on the
+   right, matching liveshortly.com's actual layout) ── */
+.mkt-hero { display: grid; grid-template-columns: 1.05fr 1fr; gap: 34px; align-items: center; border: 1px solid var(--hairline); border-radius: var(--r-card); background: var(--panel2); padding: 34px 32px; margin-bottom: 22px; }
+.mkt-eyebrow { display: flex; align-items: center; gap: 7px; font-size: 10px; text-transform: uppercase; letter-spacing: .16em; font-weight: 700; color: var(--green); margin-bottom: 14px; }
+.mkt-title { font-size: 30px; font-weight: 800; letter-spacing: -.02em; line-height: 1.18; margin-bottom: 14px; }
+:root[data-theme="light"] .mkt-title { font-weight: 700; }
+.mkt-sub { font-size: 12.5px; color: var(--muted); line-height: 1.65; max-width: 460px; margin-bottom: 22px; }
 .pitch-cta { display: flex; gap: 10px; flex-shrink: 0; flex-wrap: wrap; align-items: center; }
-.pitch-btn { border: 1px solid var(--strong); background: var(--strong); color: var(--panel); font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; padding: 10px 18px; border-radius: var(--r-pill); font-weight: 700; cursor: pointer; white-space: nowrap; }
-:root[data-theme="dark"] .pitch-btn { background: var(--green); border-color: var(--green); color: #06210f; }
-.pitch-btn.ghost { background: transparent; color: var(--ink); }
-.pitch-code { display: inline-flex; align-items: center; gap: 8px; margin-top: 4px; font-size: 10.5px; color: var(--muted); }
+.pitch-btn { display: inline-flex; align-items: center; gap: 10px; border: 1px solid var(--green); background: var(--green); color: var(--panel); font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; padding: 10px 18px; border-radius: var(--r-pill); font-weight: 700; cursor: pointer; white-space: nowrap; }
+.pitch-btn.ghost { background: transparent; color: var(--ink); border-color: var(--hairline); }
+.pitch-btn-g { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; background: var(--panel); color: var(--green); font-weight: 700; font-size: 12px; flex-shrink: 0; }
+.pitch-code { display: flex; align-items: center; gap: 8px; margin-top: 16px; font-size: 10.5px; color: var(--muted); }
 .pitch-code code { color: var(--ink); background: var(--bg); border: 1px solid var(--hairline); border-radius: var(--r-sm); padding: 6px 10px; }
+
+/* demo window — a genuinely looping animated "how it works" preview
+   (CSS crossfade + progress sweep) standing in for a product demo
+   gif/video, entirely self-contained so no external asset is needed. */
+.demo-win { border: 1px solid var(--hairline); border-radius: var(--r-card); overflow: hidden; background: var(--bg); box-shadow: 0 20px 40px -22px var(--shadow); }
+.demo-titlebar { display: flex; align-items: center; gap: 10px; padding: 9px 12px; background: var(--panel); border-bottom: 1px solid var(--hairline); }
+.demo-dots { display: flex; gap: 6px; flex-shrink: 0; }
+.demo-dot { width: 9px; height: 9px; border-radius: 50%; }
+.demo-dot.r { background: #e2685c; } .demo-dot.a { background: #e0aa4e; } .demo-dot.g { background: #4caf7d; }
+.demo-title { font-size: 9.5px; text-transform: uppercase; letter-spacing: .1em; color: var(--faint); font-weight: 700; flex: 1; text-align: center; }
+.demo-badge { font-size: 8.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--green); display: flex; align-items: center; gap: 5px; font-weight: 700; flex-shrink: 0; }
+.demo-urlbar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--panel2); border-bottom: 1px solid var(--hairline); font-size: 10px; color: var(--muted); }
+.demo-body { padding: 16px; min-height: 168px; position: relative; }
+.demo-status { display: flex; align-items: center; gap: 8px; font-size: 9.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 14px; font-weight: 700; }
+.demo-scene { position: absolute; left: 16px; right: 16px; top: 42px; }
+@keyframes demoFadeA { 0%, 42% { opacity: 1; } 50%, 100% { opacity: 0; } }
+@keyframes demoFadeB { 0%, 42% { opacity: 0; } 50%, 92% { opacity: 1; } 100% { opacity: 0; } }
+.demo-scene.a { animation: demoFadeA 8s ease-in-out infinite; }
+.demo-scene.b { animation: demoFadeB 8s ease-in-out infinite; }
+.demo-bubble { border: 1px solid var(--strong); border-right: 3px solid var(--strong); background: color-mix(in srgb, var(--amber) 6%, var(--panel2)); border-radius: var(--r-sm); padding: 8px 12px; font-size: 11px; }
+.demo-bubble .dbwho { display: block; font-size: 9px; text-transform: uppercase; letter-spacing: .08em; font-weight: 700; color: var(--strong); margin-bottom: 4px; }
+.demo-tool { display: flex; align-items: center; gap: 8px; font-size: 10.5px; color: var(--muted); padding: 6px 0; }
+.demo-tool .dw { color: var(--blue, var(--admin)); font-weight: 700; text-transform: uppercase; font-size: 9px; letter-spacing: .06em; }
+.demo-resp { border: 1px solid var(--green); border-left: 3px solid var(--green); background: var(--panel2); border-radius: var(--r-sm); padding: 8px 12px; font-size: 11px; margin-top: 8px; }
+.demo-resp .dbwho { display: block; font-size: 9px; text-transform: uppercase; letter-spacing: .08em; font-weight: 700; color: var(--green); margin-bottom: 4px; }
+.demo-foot { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-top: 1px solid var(--hairline); background: var(--panel); }
+.demo-playbtn { width: 22px; height: 22px; border: 1px solid var(--hairline); border-radius: var(--r-sm); display: flex; align-items: center; justify-content: center; font-size: 9px; color: var(--ink); flex-shrink: 0; }
+.demo-caption { font-size: 9.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--faint); flex-shrink: 0; }
+.demo-progress-track { flex: 1; height: 4px; background: var(--hairline); border-radius: var(--r-pill); overflow: hidden; }
+@keyframes demoProgress { 0% { width: 0%; } 100% { width: 100%; } }
+.demo-progress-fill { height: 100%; background: var(--green); animation: demoProgress 8s linear infinite; }
 
 /* ── proof strip (replaces the right panel — stats + who's watching) ── */
 .proof { display: flex; align-items: center; gap: 22px; padding: 14px 22px; margin-bottom: 26px; border: 1px solid var(--hairline); border-radius: var(--r-card); background: var(--panel2); flex-wrap: wrap; }
@@ -127,27 +174,16 @@ button { font-family: inherit; }
 .proof-avatar:first-child { margin-left: 0; }
 .proof-watch-label { font-size: 10.5px; color: var(--muted); }
 
-/* ── main / hero ── */
-.eyebrow { font-size: 10px; text-transform: uppercase; letter-spacing: .16em; color: var(--green); font-weight: 700; margin-bottom: 10px; }
-.hero { position: relative; border-radius: var(--r-card); overflow: hidden; padding: 34px 30px; background: var(--grad-hero); border: 1px solid var(--hairline); margin-bottom: 30px; display: flex; align-items: flex-end; gap: 22px; min-height: 168px; }
-:root[data-theme="light"] .hero { background: var(--panel2); }
-.hero-badge { width: 96px; height: 96px; border-radius: var(--r-card); background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.25); display: flex; align-items: center; justify-content: center; font-size: 40px; flex-shrink: 0; color: #fff; }
-:root[data-theme="light"] .hero-badge { background: var(--panel); border-color: var(--hairline); color: var(--green); }
-.hero-text .hk { font-size: 10px; text-transform: uppercase; letter-spacing: .14em; color: rgba(255,255,255,.75); margin-bottom: 6px; }
-:root[data-theme="light"] .hero-text .hk { color: var(--muted); }
-.hero-text .ht { font-size: 34px; font-weight: 800; letter-spacing: -.02em; color: #fff; line-height: 1.05; }
-:root[data-theme="light"] .hero-text .ht { color: var(--ink); font-weight: 700; }
-.hero-text .hs { margin-top: 8px; font-size: 12px; color: rgba(255,255,255,.8); }
-:root[data-theme="light"] .hero-text .hs { color: var(--muted); }
-
 .section-head { display: flex; align-items: baseline; justify-content: space-between; margin: 30px 0 14px; }
 .section-title { font-size: 13px; text-transform: uppercase; letter-spacing: .1em; font-weight: 700; }
 .section-link { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--faint); }
 
+/* ── small feed strip (just enough to prove there's a real feed behind
+   the pitch — no big "trending" hero bar) ── */
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px; }
 .card { border: 1px solid var(--hairline); background: var(--panel2); border-radius: var(--r-card); overflow: hidden; transition: transform 150ms, border-color 150ms, box-shadow 150ms; display: block; }
 .card:hover { transform: translateY(-3px); border-color: var(--strong); box-shadow: 0 10px 24px -14px var(--shadow); }
-.card-art { height: 108px; background: var(--grad-hero); position: relative; display: flex; align-items: flex-start; justify-content: space-between; padding: 9px 10px; }
+.card-art { height: 92px; background: var(--grad-hero); position: relative; display: flex; align-items: flex-start; justify-content: space-between; padding: 9px 10px; }
 .card-badge { font-size: 9px; text-transform: uppercase; letter-spacing: .06em; padding: 3px 8px; border-radius: var(--r-pill); background: rgba(0,0,0,.35); color: #fff; display: inline-flex; align-items: center; gap: 5px; backdrop-filter: blur(4px); }
 :root[data-theme="light"] .card-badge { background: var(--panel); border: 1px solid var(--hairline); color: var(--muted); }
 .card-badge.live { color: #baffce; }
@@ -155,18 +191,27 @@ button { font-family: inherit; }
 .card-watch { position: absolute; right: 10px; bottom: -14px; background: var(--green); color: #06210f; font-size: 9.5px; text-transform: uppercase; letter-spacing: .06em; font-weight: 700; padding: 7px 12px; border-radius: var(--r-pill); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; opacity: 0; transform: translateY(6px); transition: opacity 150ms, transform 150ms; box-shadow: 0 8px 18px -6px rgba(0,0,0,.5); }
 :root[data-theme="light"] .card-watch { border-radius: var(--r-sm); box-shadow: none; }
 .card:hover .card-watch { opacity: 1; transform: translateY(0); }
-.card-body { padding: 12px 12px 13px; }
-.card-title { font-size: 12.5px; font-weight: 700; color: var(--ink); line-height: 1.3; margin-bottom: 5px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.card-meta { font-size: 10px; color: var(--faint); display: flex; align-items: center; gap: 6px; }
+.card-body { padding: 11px 12px 12px; }
+.card-title { font-size: 12px; font-weight: 700; color: var(--ink); line-height: 1.3; margin-bottom: 5px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.card-meta { font-size: 9.5px; color: var(--faint); display: flex; align-items: center; gap: 6px; }
 .card-meta .m { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ── how it works (anon-only marketing block) ── */
 .how { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 30px; }
-.how-step { border: 1px solid var(--hairline); background: var(--panel2); border-radius: var(--r-card); padding: 18px; }
-.how-step .hn { font-size: 20px; font-weight: 800; color: var(--green); margin-bottom: 8px; }
-.how-step .hh { font-size: 12.5px; font-weight: 700; margin-bottom: 6px; }
+.how-step { border: 1px solid var(--hairline); background: var(--panel2); border-radius: var(--r-card); padding: 18px; display: flex; flex-direction: column; }
+.how-step .hhead { display: flex; align-items: baseline; gap: 9px; margin-bottom: 8px; }
+.how-step .hn { font-size: 20px; font-weight: 800; color: var(--green); }
+.how-step .hh { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; font-weight: 700; }
 .how-step .hd { font-size: 11px; color: var(--muted); line-height: 1.55; }
 .how-step code { color: var(--green); background: var(--bg); padding: 1px 5px; border-radius: 3px; font-size: 10.5px; }
+.how-code { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; padding: 9px 11px; background: var(--bg); border: 1px solid var(--hairline); border-radius: var(--r-sm); font-size: 10.5px; }
+.how-code .hc-cmd { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.how-code .hc-cmd b { color: var(--green); font-weight: 700; margin-right: 6px; }
+.how-copy { flex-shrink: 0; font-size: 9px; text-transform: uppercase; letter-spacing: .06em; font-weight: 700; color: var(--faint); border: 1px solid var(--hairline); background: none; padding: 4px 8px; border-radius: var(--r-pill); cursor: pointer; }
+.how-copy:hover { color: var(--ink); border-color: var(--strong); }
+.how-sub { margin-top: 10px; font-size: 9.5px; color: var(--faint); }
+.how-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; padding-top: 14px; }
+.how-badge { font-size: 9px; text-transform: uppercase; letter-spacing: .06em; font-weight: 700; color: var(--muted); border: 1px solid var(--hairline); padding: 4px 9px; border-radius: var(--r-pill); }
 
 .pfoot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-top: 34px; padding: 18px 0 30px; border-top: 1px dashed var(--hairline); font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--faint); }
 .pfoot a { color: var(--muted); text-decoration: underline; }
@@ -177,7 +222,9 @@ button { font-family: inherit; }
   .searchpill { display: none; }
   .hero { flex-direction: column; align-items: flex-start; padding: 24px 18px; }
   .hero-text .ht { font-size: 26px; }
-  .pitch { flex-direction: column; align-items: flex-start; }
+  .mkt-hero { grid-template-columns: 1fr; padding: 24px 20px; }
+  .mkt-title { font-size: 24px; }
+  .mkt-title br { display: none; }
   .how { grid-template-columns: 1fr; }
 }
 </style>
@@ -186,7 +233,7 @@ button { font-family: inherit; }
 
 <div class="shell">
   <div class="topbar">
-    <div class="brand"><div class="mark"></div>LiveShortly</div>
+    <div class="brand"><div class="mark"><svg width="24" height="24" viewBox="0 0 32 32" aria-hidden style="display:block;flex-shrink:0;"><rect width="32" height="32" rx="6" fill="var(--green)"/><rect x="7" y="8.5" width="6.5" height="15" rx="1.5" fill="var(--panel)"/><rect x="16.5" y="8.5" width="8.5" height="15" rx="1.5" fill="var(--green)" stroke="var(--panel)" stroke-width="2"/></svg></div>LiveShortly</div>
     <div class="searchpill">⌕ <input placeholder="Search sessions, owners, tags…"></div>
     <div class="top-actions">
       <span class="install-link" title="/install">⇩ Install CLI</span>
@@ -204,20 +251,38 @@ button { font-family: inherit; }
     </div>
     <div class="sb-search">⌕ Search sessions</div>
 
-    <div class="sb-group-label live">◉ Live now</div>
-    <div class="sb-row active"><div class="sb-swatch"></div><div class="sb-row-title">refactor auth middleware</div><span class="sb-row-meta" style="color:var(--green);">live</span></div>
-    <div class="sb-row"><div class="sb-swatch"></div><div class="sb-row-title">ux plots pipeline</div><span class="sb-row-meta" style="color:var(--green);">live</span></div>
-    <div class="sb-row"><div class="sb-swatch"></div><div class="sb-row-title">device-flow CLI login</div><span class="sb-row-meta" style="color:var(--green);">live</span></div>
+    <div class="sb-group-label live">◉ Live now · 3</div>
+    <div class="sb-row active">
+      <div class="sb-swatch"><span class="live-dot"></span></div>
+      <div class="sb-row-main"><span class="t">refactor auth middleware</span><span class="s">@ironfisto · 38 watching</span></div>
+    </div>
+    <div class="sb-row">
+      <div class="sb-swatch"><span class="live-dot"></span></div>
+      <div class="sb-row-main"><span class="t">ux plots pipeline</span><span class="s">@sec_r0 · 12 watching</span></div>
+    </div>
+    <div class="sb-row">
+      <div class="sb-swatch"><span class="live-dot"></span></div>
+      <div class="sb-row-main"><span class="t">device-flow CLI login</span><span class="s">@dev_mira · 6 watching</span></div>
+    </div>
 
-    <div class="sb-group-label">Recently Published</div>
-    <div class="sb-row"><div class="sb-swatch"></div><div class="sb-row-title">SSE reconnect backoff</div><span class="sb-row-meta">4h</span></div>
-    <div class="sb-row"><div class="sb-swatch"></div><div class="sb-row-title">postgres migration cleanup</div><span class="sb-row-meta">1d</span></div>
-    <div class="sb-row"><div class="sb-swatch"></div><div class="sb-row-title">write CONTRACT.md v2</div><span class="sb-row-meta">2d</span></div>
+    <div class="sb-group-label">Trending Creators</div>
+    <div class="sb-creator">
+      <div class="sb-creator-avatar" style="background:var(--admin);">IF</div>
+      <div class="sb-creator-body"><div class="sb-creator-name">@ironfisto</div><div class="sb-creator-meta">42 sessions · 1.2k views</div></div>
+    </div>
+    <div class="sb-creator">
+      <div class="sb-creator-avatar" style="background:var(--faint);">SR</div>
+      <div class="sb-creator-body"><div class="sb-creator-name">@sec_r0</div><div class="sb-creator-meta">27 sessions · 860 views</div></div>
+    </div>
+    <div class="sb-creator">
+      <div class="sb-creator-avatar" style="background:var(--green);">DM</div>
+      <div class="sb-creator-body"><div class="sb-creator-name">@dev_mira</div><div class="sb-creator-meta">15 sessions · 410 views</div></div>
+    </div>
 
     <div class="sb-group-label">Popular Tags</div>
-    <div class="sb-row"><span class="label" style="color:var(--green);">#auth</span></div>
-    <div class="sb-row"><span class="label" style="color:var(--green);">#mobile</span></div>
-    <div class="sb-row"><span class="label" style="color:var(--green);">#postgres</span></div>
+    <div class="sb-tag-row"><span class="label" style="color:var(--green);">#auth</span><span class="sb-tag-count tnum">214</span></div>
+    <div class="sb-tag-row"><span class="label" style="color:var(--green);">#mobile</span><span class="sb-tag-count tnum">168</span></div>
+    <div class="sb-tag-row"><span class="label" style="color:var(--green);">#postgres</span><span class="sb-tag-count tnum">97</span></div>
 
     <div class="sb-signin">
       <button class="sb-signin-btn">Sign In</button>
@@ -227,15 +292,41 @@ button { font-family: inherit; }
 
   <div class="main">
    <div class="main-inner">
-    <div class="pitch">
-      <div class="pitch-copy">
-        <div class="pt">Watch Claude Code sessions live, as they happen.</div>
-        <div class="ps">Stream your terminal to a shareable link — viewers watch every prompt, tool call and response in real time, and can talk back.</div>
+    <div class="mkt-hero">
+      <div>
+        <div class="mkt-eyebrow">◉ LiveShortly</div>
+        <div class="mkt-title">Watch Claude Code<br>write software — live.</div>
+        <div class="mkt-sub">LiveShortly turns any Claude Code session into a live-streamed, replayable, shareable feed. Viewers watch every prompt and tool call as it happens — and can talk back to a running session in real time.</div>
+        <div class="pitch-cta">
+          <button class="pitch-btn" title="Sign in with Google"><span class="pitch-btn-g">G</span>Get Started — Sign Up Free</button>
+          <button class="pitch-btn ghost" onclick="location.href='feed.html'">Browse live sessions</button>
+        </div>
+        <div class="pitch-code">⇩ <code>curl -fsSL liveshortly.com/i.sh | sh</code></div>
       </div>
-      <div class="pitch-cta">
-        <button class="pitch-btn" title="Sign in with Google">Get Started — Sign Up Free</button>
-        <button class="pitch-btn ghost" onclick="document.getElementById('live-now').scrollIntoView({behavior:'smooth'})">Browse live sessions</button>
-        <div class="pitch-code">⇩ <code>curl liveshortly.com/i.sh | sh</code></div>
+
+      <div class="demo-win">
+        <div class="demo-titlebar">
+          <div class="demo-dots"><span class="demo-dot r"></span><span class="demo-dot a"></span><span class="demo-dot g"></span></div>
+          <span class="demo-title">LiveShortly · How it works</span>
+          <span class="demo-badge"><span class="live-dot"></span>Demo</span>
+        </div>
+        <div class="demo-urlbar">🔒 liveshortly.com/s/lucid-cobra-6110</div>
+        <div class="demo-body">
+          <div class="demo-status"><span class="live-dot"></span>Live lucid-cobra-6110 · claude-opus-4-8</div>
+
+          <div class="demo-scene a">
+            <div class="demo-bubble"><span class="dbwho">You</span>build the JWT auth middleware</div>
+          </div>
+          <div class="demo-scene b">
+            <div class="demo-tool"><span class="dw">Wrote</span>api/authn.go <span style="color:var(--green);">+187</span></div>
+            <div class="demo-resp"><span class="dbwho">Claude</span>done — Authn now verifies Bearer + cookie tokens on every route</div>
+          </div>
+        </div>
+        <div class="demo-foot">
+          <span class="demo-playbtn">▶</span>
+          <span class="demo-caption">Open the URL — watch it live</span>
+          <div class="demo-progress-track"><div class="demo-progress-fill"></div></div>
+        </div>
       </div>
     </div>
 
@@ -253,17 +344,7 @@ button { font-family: inherit; }
       </div>
     </div>
 
-    <div class="eyebrow">◈ Feed</div>
-    <div class="hero">
-      <div class="hero-badge">◉</div>
-      <div class="hero-text">
-        <div class="hk">Trending right now</div>
-        <div class="ht">refactor auth middleware</div>
-        <div class="hs">@ironfisto · claude-opus-4-8 · 214 events · 38 watching</div>
-      </div>
-    </div>
-
-    <div class="section-head" id="live-now"><span class="section-title">◉ Live now</span><span class="section-link">See all →</span></div>
+    <div class="section-head"><span class="section-title">◉ Live now</span><span class="section-link">See all →</span></div>
     <div class="grid">
       <a class="card" href="session-viewer.html">
         <div class="card-art">
@@ -288,20 +369,29 @@ button { font-family: inherit; }
       </a>
     </div>
 
-    <div class="section-head"><span class="section-title">Recently published</span><span class="section-link">See all →</span></div>
-    <div class="grid">
-      <a class="card" href="session-viewer.html"><div class="card-art"><span class="card-badge">Ended</span></div><div class="card-body"><div class="card-title">SSE reconnect backoff strategy</div><div class="card-meta"><span class="m">@ironfisto</span>·<span>4h ago</span></div></div></a>
-      <a class="card" href="session-viewer.html"><div class="card-art"><span class="card-badge">Ended</span></div><div class="card-body"><div class="card-title">postgres migration cleanup</div><div class="card-meta"><span class="m">@sec_r0</span>·<span>1d ago</span></div></div></a>
-      <a class="card" href="session-viewer.html"><div class="card-art"><span class="card-badge">Ended</span></div><div class="card-body"><div class="card-title">write CONTRACT.md v2</div><div class="card-meta"><span class="m">@ironfisto</span>·<span>2d ago</span></div></div></a>
-      <a class="card" href="session-viewer.html"><div class="card-art"><span class="card-badge">Ended</span></div><div class="card-body"><div class="card-title">mobile drawer scoping fix</div><div class="card-meta"><span class="m">@dev_mira</span>·<span>3d ago</span></div></div></a>
-      <a class="card" href="session-viewer.html"><div class="card-art"><span class="card-badge">Ended</span></div><div class="card-body"><div class="card-title">blog composer draft persistence</div><div class="card-meta"><span class="m">@sec_r0</span>·<span>5d ago</span></div></div></a>
-    </div>
-
     <div class="section-head"><span class="section-title">How it works</span></div>
     <div class="how">
-      <div class="how-step"><div class="hn">01</div><div class="hh">Install the CLI</div><div class="hd"><code>curl liveshortly.com/install.sh | sh</code> — one command, no config.</div></div>
-      <div class="how-step"><div class="hn">02</div><div class="hh">Run <code>live claude</code></div><div class="hd">Wraps your normal Claude Code session — hooks capture every prompt, tool call and response.</div></div>
-      <div class="how-step"><div class="hn">03</div><div class="hh">Share the link</div><div class="hd">Anyone with the URL watches live, comments back, and the session replays after it ends.</div></div>
+      <div class="how-step">
+        <div class="hhead"><span class="hn">01</span><span class="hh">Install Live</span></div>
+        <div class="hd">One command drops the live CLI onto your PATH. Idempotent — rerun any time to update.</div>
+        <div class="how-code"><span class="hc-cmd"><b>$</b>curl -fsSL https://liveshor…</span><button class="how-copy">⧉ Copy</button></div>
+        <div class="how-sub">All versions →</div>
+      </div>
+      <div class="how-step">
+        <div class="hhead"><span class="hn">02</span><span class="hh">Run Live Claude</span></div>
+        <div class="hd">live wraps Claude Code and opens a session, printing your share URL the moment it starts streaming.</div>
+        <div class="how-code"><span class="hc-cmd"><b>$</b>live claude</span><button class="how-copy">⧉ Copy</button></div>
+        <div class="how-sub">▸ Streaming · liveshortly.com/session/…</div>
+      </div>
+      <div class="how-step">
+        <div class="hhead"><span class="hn">03</span><span class="hh">Share or Publish</span></div>
+        <div class="hd">Open the URL to watch live from the browser, send a private link to a teammate, or publish it to the public feed.</div>
+        <div class="how-badges">
+          <span class="how-badge">Private Link</span>
+          <span class="how-badge">Public Feed</span>
+          <span class="how-badge">Open · No Login</span>
+        </div>
+      </div>
     </div>
 
     <div class="pfoot">

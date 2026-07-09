@@ -46,7 +46,7 @@ button { font-family: inherit; }
 .shell { display: grid; grid-template-columns: 232px 1fr 300px; grid-template-rows: 56px 1fr; height: 100vh; gap: 1px; background: var(--hairline); }
 :root[data-theme="light"] .shell { gap: 0; }
 .topbar, .sidebar, .main, .rightpanel { background: var(--bg); }
-.topbar { grid-column: 1 / 4; grid-row: 1; display: flex; align-items: center; gap: 16px; padding: 0 18px; border-bottom: 1px solid var(--hairline); background: var(--panel); }
+.topbar { grid-column: 1 / 4; grid-row: 1; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 16px; padding: 0 18px; border-bottom: 1px solid var(--hairline); background: var(--panel); }
 .sidebar { grid-column: 1; grid-row: 2; overflow-y: auto; border-right: 1px solid var(--hairline); background: var(--panel); }
 .main { grid-column: 2; grid-row: 2; overflow: hidden; min-height: 0; display: flex; flex-direction: column; }
 .rightpanel { grid-column: 3; grid-row: 2; overflow-y: auto; border-left: 1px solid var(--hairline); background: var(--panel); display: flex; flex-direction: column; min-height: 0; }
@@ -59,12 +59,10 @@ button { font-family: inherit; }
 }
 
 .brand { display: flex; align-items: center; gap: 9px; font-size: 15px; font-weight: 700; letter-spacing: -.02em; flex-shrink: 0; }
-.brand .mark { width: 24px; height: 24px; border-radius: var(--r-sm); background: var(--green); position: relative; flex-shrink: 0; }
-.brand .mark::before { content:''; position:absolute; left:5px; top:6px; width:5px; height:12px; background:var(--panel); border-radius:1px; }
-.brand .mark::after { content:''; position:absolute; left:13px; top:6px; width:6px; height:12px; border:2px solid var(--panel); background:var(--green); border-radius:1px; }
-.searchpill { flex: 1; max-width: 480px; margin: 0 auto; display: flex; align-items: center; gap: 10px; border: 1px solid var(--hairline); background: var(--bg); border-radius: var(--r-pill); padding: 9px 16px; color: var(--faint); font-size: 12px; }
+.brand .mark { display: flex; flex-shrink: 0; }
+.searchpill { width: 100%; max-width: 480px; margin: 0 auto; display: flex; align-items: center; gap: 10px; border: 1px solid var(--hairline); background: var(--bg); border-radius: var(--r-pill); padding: 9px 16px; color: var(--faint); font-size: 12px; }
 .searchpill input { border: none; outline: none; background: transparent; color: var(--ink); font: inherit; width: 100%; }
-.top-actions { display: flex; align-items: center; gap: 14px; margin-left: auto; flex-shrink: 0; }
+.top-actions { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
 .top-icon { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border: 1px solid transparent; border-radius: var(--r-sm); color: var(--muted); cursor: pointer; font-size: 14px; }
 .top-icon:hover { color: var(--ink); border-color: var(--hairline); }
 .avatar { width: 30px; height: 30px; border-radius: var(--r-avatar); background: var(--admin); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
@@ -107,8 +105,7 @@ button { font-family: inherit; }
 .saction-spacer { flex: 1; }
 .sbtn { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; border: 1px solid var(--strong); background: transparent; color: var(--ink); padding: 7px 14px; border-radius: var(--r-pill); font-weight: 600; cursor: pointer; white-space: nowrap; }
 .sbtn:hover { background: var(--panel2); }
-.sbtn.primary { background: var(--strong); color: var(--panel); }
-:root[data-theme="dark"] .sbtn.primary { background: var(--green); border-color: var(--green); color: #06210f; }
+.sbtn.primary { border-color: var(--green); background: var(--green); color: var(--panel); }
 .sbtn.danger { border-color: var(--red); color: var(--red); }
 .sbtn.danger:hover { background: var(--red); color: #fff; }
 
@@ -170,8 +167,7 @@ button { font-family: inherit; }
 .composer-box { display: flex; align-items: stretch; border: 1px solid var(--strong); background: var(--panel2); border-radius: var(--r-sm); overflow: hidden; }
 .composer-glyph { display: flex; align-items: center; padding: 0 12px; color: var(--green); border-right: 1px solid var(--hairline); font-size: 13px; flex-shrink: 0; }
 .composer-box input { flex: 1; min-width: 0; border: none; outline: none; background: transparent; color: var(--ink); padding: 11px 12px; font-size: 11.5px; letter-spacing: .02em; }
-.composer-send { border: none; border-left: 1px solid var(--strong); background: var(--strong); color: var(--panel); padding: 0 18px; font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; cursor: pointer; font-weight: 700; flex-shrink: 0; }
-:root[data-theme="dark"] .composer-send { background: var(--green); border-left-color: var(--green); color: #06210f; }
+.composer-send { border: none; border-left: 1px solid var(--green); background: var(--green); color: var(--panel); padding: 0 18px; font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; cursor: pointer; font-weight: 700; flex-shrink: 0; }
 
 /* ── right panel (session info + who's watching) ── */
 .rp-hero { padding: 18px; border-bottom: 1px solid var(--hairline); }
@@ -213,7 +209,7 @@ button { font-family: inherit; }
 
 <div class="shell">
   <div class="topbar">
-    <div class="brand"><div class="mark"></div>LiveShortly</div>
+    <div class="brand"><div class="mark"><svg width="24" height="24" viewBox="0 0 32 32" aria-hidden style="display:block;flex-shrink:0;"><rect width="32" height="32" rx="6" fill="var(--green)"/><rect x="7" y="8.5" width="6.5" height="15" rx="1.5" fill="var(--panel)"/><rect x="16.5" y="8.5" width="8.5" height="15" rx="1.5" fill="var(--green)" stroke="var(--panel)" stroke-width="2"/></svg></div>LiveShortly</div>
     <div class="searchpill">⌕ <input placeholder="Search sessions, owners, tags…"></div>
     <div class="top-actions">
       <span class="top-icon" title="Notifications">🔔</span>
