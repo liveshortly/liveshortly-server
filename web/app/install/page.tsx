@@ -127,7 +127,7 @@ export default async function InstallPage() {
           NO PREREQUISITES · PREBUILT BINARY · MACOS + LINUX · AMD64 + ARM64 —
           downloaded from{" "}
           <a
-            href="https://github.com/resapce/live-dist/releases"
+            href="https://github.com/LiveShortly/live-dist/releases"
             style={{ color: "var(--muted)", textDecoration: "underline" }}
           >
             github releases

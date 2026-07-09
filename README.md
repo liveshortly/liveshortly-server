@@ -231,7 +231,7 @@ by the compact digest, not by replaying every prior turn into its context window
 ## ✦ Quickstart
 
 ```bash
-git clone git@github.com:resapce/LiveShortly.git
+git clone git@github.com:LiveShortly/LiveShortlyServer.git
 cd LiveShortly
 cp .env.example .env          # sensible defaults, no edits needed
 docker compose up -d --build
