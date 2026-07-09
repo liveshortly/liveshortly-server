@@ -163,7 +163,7 @@ export default async function InstallPage() {
           </span>
         </div>
         {/* Two clear steps: tap the formula once, then install it. */}
-        <InstallCommand command="brew tap resapce/tap" />
+        <InstallCommand command="brew tap liveshortly/tap" />
         <div style={{ height: 10 }} />
         <InstallCommand command="brew install live" />
         <div className="label" style={{ color: "var(--faint)", marginTop: 12, lineHeight: 1.7 }}>
