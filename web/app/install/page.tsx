@@ -219,9 +219,10 @@ export default async function InstallPage() {
           web
         </div>
         <div className="label" style={{ color: "var(--amber)", marginTop: 12 }}>
-          🪄 install <code>tmux</code> for the best experience —{" "}
-          <code>brew install tmux</code> / your package manager (optional; the
-          web path works without it)
+          🪄 install <code>tmux</code> — <code>brew install tmux</code> / your
+          package manager. Required for <code>live codex</code> (viewer comments
+          are typed into codex&apos;s composer); optional for{" "}
+          <code>live claude</code>, where it adds the CLI permission popup.
         </div>
       </section>
 
