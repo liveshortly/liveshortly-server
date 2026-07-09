@@ -47,6 +47,61 @@ async function loadReleases(): Promise<{ releases: Release[]; latest: string | n
   }
 }
 
+/** How many releases to show before collapsing the rest. Older binaries stay
+ *  published and installable — `--version vX.Y.Z` pins never break — they are
+ *  just folded away so the page leads with what people actually want. */
+const SHOWN_RELEASES = 3;
+
+function ReleaseRow({
+  r,
+  latest,
+  installBase,
+}: {
+  r: Release;
+  latest: string | null;
+  installBase: string;
+}) {
+  const isLatest = r.version === latest;
+  const pinned = `${installBase} -s -- --version ${r.version}`;
+  return (
+    <div
+      style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}
+    >
+      <span
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 8,
+          minWidth: 118,
+        }}
+      >
+        <span
+          className="tnum"
+          style={{ fontSize: 15, fontWeight: 700, color: "var(--ink)" }}
+        >
+          {r.version}
+        </span>
+        {isLatest && (
+          <span
+            className="label"
+            style={{
+              border: "1px solid var(--green)",
+              color: "var(--green)",
+              padding: "1px 6px",
+              fontSize: 9,
+            }}
+          >
+            LATEST
+          </span>
+        )}
+      </span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <InstallCommand command={pinned} />
+      </div>
+    </div>
+  );
+}
+
 /** Compare vMAJOR.MINOR.PATCH strings. */
 function cmpVersion(a: string, b: string): number {
   const pa = a.replace(/^v/, "").split(".").map(Number);
@@ -256,53 +311,43 @@ export default async function InstallPage() {
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {releases.map((r) => {
-            const isLatest = r.version === latest;
-            const pinned = `${installBase} -s -- --version ${r.version}`;
-            return (
+          {releases.slice(0, SHOWN_RELEASES).map((r) => (
+            <ReleaseRow
+              key={r.version}
+              r={r}
+              latest={latest}
+              installBase={installBase}
+            />
+          ))}
+
+          {releases.length > SHOWN_RELEASES && (
+            <details style={{ marginTop: 4 }}>
+              <summary
+                className="label"
+                style={{ cursor: "pointer", color: "var(--muted)" }}
+              >
+                {releases.length - SHOWN_RELEASES} OLDER{" "}
+                {releases.length - SHOWN_RELEASES === 1 ? "RELEASE" : "RELEASES"}
+              </summary>
               <div
-                key={r.version}
                 style={{
                   display: "flex",
-                  alignItems: "center",
-                  gap: 12,
-                  flexWrap: "wrap",
+                  flexDirection: "column",
+                  gap: 10,
+                  marginTop: 12,
                 }}
               >
-                <span
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 8,
-                    minWidth: 118,
-                  }}
-                >
-                  <span
-                    className="tnum"
-                    style={{ fontSize: 15, fontWeight: 700, color: "var(--ink)" }}
-                  >
-                    {r.version}
-                  </span>
-                  {isLatest && (
-                    <span
-                      className="label"
-                      style={{
-                        border: "1px solid var(--green)",
-                        color: "var(--green)",
-                        padding: "1px 6px",
-                        fontSize: 9,
-                      }}
-                    >
-                      LATEST
-                    </span>
-                  )}
-                </span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <InstallCommand command={pinned} />
-                </div>
+                {releases.slice(SHOWN_RELEASES).map((r) => (
+                  <ReleaseRow
+                    key={r.version}
+                    r={r}
+                    latest={latest}
+                    installBase={installBase}
+                  />
+                ))}
               </div>
-            );
-          })}
+            </details>
+          )}
         </div>
       )}
 
