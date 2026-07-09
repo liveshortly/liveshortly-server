@@ -59,7 +59,7 @@ function cmpVersion(a: string, b: string): number {
 
 export default async function InstallPage() {
   const { releases, latest } = await loadReleases();
-  const installBase = `curl -fsSL ${SITE_URL}/install.sh | bash`;
+  const installBase = `curl -fsSL ${SITE_URL}/i.sh | bash`;
 
   return (
     <div style={{ maxWidth: 1080, margin: "0 auto" }}>
@@ -124,14 +124,15 @@ export default async function InstallPage() {
         </div>
         <InstallCommand command={installBase} />
         <div className="label" style={{ color: "var(--faint)", marginTop: 12 }}>
-          PREREQUISITE · GO 1.21+ ·{" "}
+          NO PREREQUISITES · PREBUILT BINARY · MACOS + LINUX · AMD64 + ARM64 —
+          downloaded from{" "}
           <a
-            href="https://go.dev/dl/"
+            href="https://github.com/resapce/live-dist/releases"
             style={{ color: "var(--muted)", textDecoration: "underline" }}
           >
-            go.dev/dl
+            github releases
           </a>{" "}
-          — the installer never touches your Go install.
+          and verified against its published SHA-256 before install.
         </div>
       </section>
 
