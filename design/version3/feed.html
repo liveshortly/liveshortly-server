@@ -106,6 +106,17 @@ a { color: inherit; text-decoration: none; }
 :root[data-theme="light"] .hero-text .ht { color: var(--ink); font-weight: 700; }
 .hero-text .hs { margin-top: 8px; font-size: 12px; color: rgba(255,255,255,.8); }
 :root[data-theme="light"] .hero-text .hs { color: var(--muted); }
+.hero-watchers { position: absolute; top: 18px; right: 22px; display: flex; align-items: center; gap: 8px; }
+.hero-watch-avatars { display: flex; }
+.hero-watch-avatar { width: 22px; height: 22px; border-radius: var(--r-avatar); display: flex; align-items: center; justify-content: center; font-size: 8.5px; font-weight: 700; color: #fff; border: 2px solid var(--panel2); margin-left: -7px; }
+.hero-watch-avatar:first-child { margin-left: 0; }
+.hero-watch-label { font-size: 9.5px; color: rgba(255,255,255,.85); white-space: nowrap; }
+:root[data-theme="light"] .hero-watch-label { color: var(--muted); }
+.hero-snippet { margin-top: 12px; display: flex; align-items: center; gap: 8px; font-size: 11px; color: rgba(255,255,255,.85); }
+:root[data-theme="light"] .hero-snippet { color: var(--muted); }
+.hero-snippet .who { color: #baffce; font-weight: 700; }
+:root[data-theme="light"] .hero-snippet .who { color: var(--green); }
+.hero-snippet .glyph { color: var(--green); }
 
 .section-head { display: flex; align-items: baseline; justify-content: space-between; margin: 30px 0 14px; }
 .section-title { font-size: 13px; text-transform: uppercase; letter-spacing: .1em; font-weight: 700; }
@@ -137,6 +148,18 @@ a { color: inherit; text-decoration: none; }
 .rp-stat { border: 1px solid var(--hairline); border-radius: var(--r-sm); padding: 12px; background: var(--panel2); }
 .rp-stat .v { font-size: 20px; font-weight: 700; }
 .rp-stat .l { font-size: 9px; text-transform: uppercase; letter-spacing: .08em; color: var(--faint); margin-top: 2px; }
+.rp-activity-row { display: flex; align-items: flex-start; gap: 9px; padding: 8px 0; border-bottom: 1px dashed var(--hairline); }
+.rp-activity-row:last-child { border-bottom: none; }
+.rp-activity-dot { width: 6px; height: 6px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }
+.rp-activity-text { font-size: 10.5px; color: var(--muted); line-height: 1.45; }
+.rp-activity-text b { color: var(--ink); font-weight: 700; }
+.rp-activity-time { font-size: 9px; color: var(--faint); margin-top: 3px; }
+.sb-head-link { display: flex; align-items: center; gap: 8px; color: var(--ink); border: 1px solid var(--hairline); border-radius: var(--r-pill); padding: 6px 10px 6px 12px; }
+.sb-head-link:hover { color: var(--green); border-color: var(--green); background: var(--panel2); }
+.sb-head-link .go-arrow { color: var(--faint); font-size: 11px; }
+.sb-head-link:hover .go-arrow { color: var(--green); }
+.sb-foot-link { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+.sb-foot-link:hover .sb-foot-name { color: var(--green); }
 
 .theme-toggle { border: 1px solid var(--hairline); background: var(--panel2); color: var(--ink); width: 32px; height: 32px; border-radius: var(--r-pill); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 13px; }
 
@@ -144,6 +167,7 @@ a { color: inherit; text-decoration: none; }
   .searchpill { display: none; }
   .hero { flex-direction: column; align-items: flex-start; padding: 24px 18px; }
   .hero-text .ht { font-size: 26px; }
+  .hero-watchers { display: none; }
 }
 </style>
 </head>
@@ -163,7 +187,10 @@ a { color: inherit; text-decoration: none; }
   </div>
 
   <div class="sidebar" style="display:flex; flex-direction:column;">
-    <div class="sb-head"><span class="sb-title">Your Sessions</span><span class="top-icon" style="width:22px;height:22px;font-size:12px;">⤢</span></div>
+    <div class="sb-head">
+      <a href="hud.html" class="sb-head-link" title="Open My HUD"><span class="sb-title">⌂ Your Sessions</span><span class="go-arrow">→</span></a>
+      <span class="top-icon" style="width:22px;height:22px;font-size:12px;">⤢</span>
+    </div>
     <div class="sb-tabs">
       <span class="sb-tab active">All</span>
       <span class="sb-tab">Live</span>
@@ -190,19 +217,31 @@ a { color: inherit; text-decoration: none; }
     <div class="sb-row"><div class="sb-swatch"></div><div class="sb-row-title">@sec_r0 · device flow</div><span class="sb-row-meta">1w</span></div>
 
     <div class="sb-foot">
-      <div class="avatar" style="width:26px;height:26px;font-size:10px;">MK</div>
-      <div style="min-width:0;"><div style="font-size:11.5px;">mukul</div><div class="rp-sub">mukulmalviya2@…</div></div>
+      <a href="profile.html" class="sb-foot-link" title="Open your profile">
+        <div class="avatar" style="width:26px;height:26px;font-size:10px;">MK</div>
+        <div style="min-width:0;"><div class="sb-foot-name" style="font-size:11.5px;">mukul</div><div class="rp-sub">mukulmalviya2@…</div></div>
+      </a>
+      <span class="go-arrow" style="opacity:.6;">◇</span>
     </div>
   </div>
 
   <div class="main">
     <div class="eyebrow">◈ Feed</div>
     <div class="hero">
+      <div class="hero-watchers">
+        <div class="hero-watch-avatars">
+          <span class="hero-watch-avatar" style="background:var(--admin);">IF</span>
+          <span class="hero-watch-avatar" style="background:var(--faint);">SR</span>
+          <span class="hero-watch-avatar" style="background:var(--green);">DM</span>
+        </div>
+        <span class="hero-watch-label">38 watching</span>
+      </div>
       <div class="hero-badge">◉</div>
       <div class="hero-text">
         <div class="hk">Trending right now</div>
         <div class="ht">refactor auth middleware</div>
         <div class="hs">@ironfisto · claude-opus-4-8 · 214 events · 38 watching</div>
+        <div class="hero-snippet"><span class="glyph">▸</span><span class="who">Claude</span>Wrote api/authn.go <span class="tnum" style="opacity:.7;">· just now</span></div>
       </div>
     </div>
 
@@ -251,6 +290,24 @@ a { color: inherit; text-decoration: none; }
     <div class="rp-stat-grid">
       <div class="rp-stat"><div class="v tnum">1,204</div><div class="l">Total sessions</div></div>
       <div class="rp-stat"><div class="v tnum" style="color:var(--green);">3</div><div class="l">Live now</div></div>
+    </div>
+
+    <div class="rp-title" style="margin-top:26px;">Recent Activity</div>
+    <div class="rp-activity-row">
+      <span class="rp-activity-dot" style="background:var(--green);"></span>
+      <div><div class="rp-activity-text"><b>@ironfisto</b> went live — refactor auth middleware</div><div class="rp-activity-time">41m ago</div></div>
+    </div>
+    <div class="rp-activity-row">
+      <span class="rp-activity-dot" style="background:var(--faint);"></span>
+      <div><div class="rp-activity-text"><b>@sec_r0</b> published — SSE reconnect backoff strategy</div><div class="rp-activity-time">4h ago</div></div>
+    </div>
+    <div class="rp-activity-row">
+      <span class="rp-activity-dot" style="background:var(--admin);"></span>
+      <div><div class="rp-activity-text"><b>@dev_mira</b> commented on device-flow CLI login</div><div class="rp-activity-time">6h ago</div></div>
+    </div>
+    <div class="rp-activity-row">
+      <span class="rp-activity-dot" style="background:var(--faint);"></span>
+      <div><div class="rp-activity-text"><b>@ironfisto</b> published — postgres migration cleanup</div><div class="rp-activity-time">1d ago</div></div>
     </div>
   </div>
 </div>

@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1f7a4d">
+<title>LiveShortly v3 — Landing (Mobile)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root, :root[data-theme="light"] {
+  --bg: #e7e8ea; --panel: #f3f4f5; --panel2: #ffffff; --hairline: #d0d2d5; --strong: #1b1c1e;
+  --ink: #1b1c1e; --muted: #63666b; --faint: #94979c;
+  --green: #1f7a4d; --red: #c0392b; --amber: #a9810f; --admin: #7c3aed; --blue: #2f6fb0;
+  --shadow: rgba(20,22,26,0.16);
+  --r-card: 0px; --r-pill: 0px; --r-avatar: 2px; --r-sm: 0px;
+  --grad-hero: linear-gradient(135deg, #cfd3d8, #e7e8ea);
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --bg: #1e2123; --panel: #282c2f; --panel2: #2d3236; --hairline: #3d4247; --strong: #edeff1;
+  --ink: #e9ebed; --muted: #a6abb1; --faint: #797f86;
+  --green: #54b885; --red: #e7705f; --amber: #d9ad52; --admin: #b794f6; --blue: #5b9bd5;
+  --shadow: rgba(0,0,0,0.45);
+  --r-card: 0px; --r-pill: 0px; --r-avatar: 2px; --r-sm: 0px;
+  --grad-hero: var(--panel2);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: 'JetBrains Mono','IBM Plex Mono',ui-monospace,'SFMono-Regular',Menlo,monospace;
+  background: #0b0c0d; color: var(--ink); -webkit-font-smoothing: antialiased;
+}
+a { color: inherit; text-decoration: none; }
+button { font-family: inherit; }
+.label { text-transform: uppercase; letter-spacing: .1em; font-size: 10px; color: var(--muted); }
+.tnum { font-variant-numeric: tabular-nums; }
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.35;transform:scale(.75)} }
+.live-dot { display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--green); animation:pulse 1.2s ease-in-out infinite; flex-shrink:0; }
+
+/* ── preview stage (not part of the screen) ── */
+.stage { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 32px 16px; }
+.toolbar { display: flex; align-items: center; gap: 10px; }
+.toolbtn { font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: #9aa0a6; background: #1a1b1d; border: 1px solid #33363a; padding: 7px 14px; cursor: pointer; border-radius: 4px; }
+.toolbtn.active { background: #e9ebed; color: #111; border-color: #e9ebed; }
+.stage-note { font-size: 10px; letter-spacing: .08em; color: #6b6e72; text-transform: uppercase; }
+
+.device { width: 390px; height: 844px; border-radius: 46px; border: 10px solid #000; background: var(--bg); overflow: hidden; position: relative; box-shadow: 0 40px 100px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.04); transition: background-color 200ms ease; }
+.notch { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 154px; height: 30px; background: #000; border-radius: 0 0 18px 18px; z-index: 50; }
+@media (max-width: 480px) {
+  .stage { padding: 0; gap: 0; }
+  .toolbar { position: fixed; top: 8px; right: 8px; z-index: 999; }
+  .device { width: 100vw; height: 100dvh; border-radius: 0; border: 0; box-shadow: none; }
+  .notch { display: none; }
+}
+
+/* ── the actual screen ── */
+.screen { display: flex; flex-direction: column; height: 100%; position: relative; background: var(--bg); }
+
+.mtop { flex: 0 0 auto; display: flex; align-items: center; gap: 10px; padding: calc(10px + env(safe-area-inset-top, 40px)) 16px 10px; border-bottom: 1px solid var(--hairline); background: var(--panel); }
+.mtop .mark { width: 22px; height: 22px; border-radius: var(--r-sm); background: var(--green); position: relative; flex-shrink: 0; }
+.mtop .mark::before { content:''; position:absolute; left:4.5px; top:5.5px; width:4.5px; height:11px; background:var(--panel); border-radius:1px; }
+.mtop .mark::after { content:''; position:absolute; left:11.5px; top:5.5px; width:5.5px; height:11px; border:1.8px solid var(--panel); background:var(--green); border-radius:1px; }
+.mtop-brand { font-size: 13px; font-weight: 700; letter-spacing: -.02em; }
+.mtop-signin { margin-left: auto; font-size: 10px; text-transform: uppercase; letter-spacing: .06em; font-weight: 700; border: none; border-radius: var(--r-pill); padding: 8px 14px; background: var(--strong); color: var(--panel); cursor: pointer; }
+:root[data-theme="dark"] .mtop-signin { background: var(--green); color: #06210f; }
+
+.mscroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+
+.mhero-pitch { padding: 28px 20px 22px; border-bottom: 1px solid var(--hairline); }
+.mhp-eyebrow { font-size: 10px; text-transform: uppercase; letter-spacing: .12em; color: var(--green); font-weight: 700; display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
+.mhp-title { font-size: 24px; font-weight: 800; letter-spacing: -.02em; line-height: 1.15; color: var(--ink); }
+.mhp-title .tw { color: var(--green); }
+.mhp-sub { font-size: 12px; color: var(--muted); line-height: 1.6; margin-top: 12px; }
+.mhp-cta { display: flex; flex-direction: column; gap: 8px; margin-top: 18px; }
+.mhp-btn { width: 100%; border: none; border-radius: var(--r-pill); padding: 13px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; background: var(--strong); color: var(--panel); }
+:root[data-theme="dark"] .mhp-btn { background: var(--green); color: #06210f; }
+.mhp-btn-g { width: 16px; height: 16px; border-radius: 50%; background: #fff; color: #444; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 800; }
+.mhp-btn.ghost { background: transparent; border: 1px solid var(--hairline); color: var(--ink); }
+.mhp-code { margin-top: 14px; font-size: 10px; color: var(--faint); border: 1px dashed var(--hairline); border-radius: var(--r-sm); padding: 9px 11px; overflow-x: auto; white-space: nowrap; }
+.mhp-code code { color: var(--ink); }
+
+.msec-head { display: flex; align-items: baseline; justify-content: space-between; padding: 18px 16px 10px; }
+.msec-title { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; font-weight: 700; }
+.msec-link { font-size: 10px; color: var(--muted); }
+
+.mlive-row { display: flex; gap: 10px; overflow-x: auto; padding: 0 16px 18px; -webkit-overflow-scrolling: touch; }
+.mlive-card { flex: 0 0 auto; width: 170px; border: 1px solid var(--hairline); background: var(--panel2); border-radius: var(--r-card); overflow: hidden; }
+.mlive-art { height: 76px; background: var(--grad-hero); position: relative; display: flex; align-items: flex-start; padding: 7px; }
+.mlive-badge { font-size: 8px; text-transform: uppercase; letter-spacing: .06em; padding: 2px 6px; border-radius: var(--r-pill); background: rgba(0,0,0,.35); color: #baffce; display: inline-flex; align-items: center; gap: 4px; }
+:root[data-theme="light"] .mlive-badge { background: var(--panel); border: 1px solid var(--hairline); color: var(--green); }
+.mlive-body { padding: 8px 9px 10px; }
+.mlive-title { font-size: 10.5px; font-weight: 700; color: var(--ink); line-height: 1.3; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.mlive-meta { font-size: 9px; color: var(--faint); margin-top: 5px; }
+
+.mproof { margin: 0 16px 18px; border: 1px solid var(--hairline); background: var(--panel2); border-radius: var(--r-card); padding: 12px 14px; display: flex; align-items: center; gap: 14px; }
+.mproof-stat .v { font-size: 16px; font-weight: 800; }
+.mproof-stat .l { font-size: 8.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--faint); margin-top: 1px; }
+
+.mhow { padding: 0 16px 18px; display: flex; flex-direction: column; gap: 12px; }
+.mhow-step { border: 1px solid var(--hairline); background: var(--panel2); border-radius: var(--r-card); padding: 12px 14px; }
+.mhow-head { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+.mhow-num { font-size: 10px; color: var(--green); font-weight: 700; }
+.mhow-title { font-size: 11.5px; font-weight: 700; }
+.mhow-desc { font-size: 10.5px; color: var(--muted); line-height: 1.5; }
+
+.mfoot { padding: 16px; text-align: center; font-size: 9px; color: var(--faint); border-top: 1px dashed var(--hairline); }
+.mfoot div + div { margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<div class="stage">
+  <div class="toolbar">
+    <button class="toolbtn active" onclick="LS3.set('light')">☀ Light</button>
+    <button class="toolbtn" onclick="LS3.set('dark')">☾ Dark</button>
+  </div>
+  <div class="stage-note">Landing — Mobile · iPhone 13 · 390×844</div>
+
+  <div class="device">
+    <div class="notch"></div>
+    <div class="screen">
+
+      <div class="mtop">
+        <div class="mark"></div>
+        <span class="mtop-brand">LiveShortly</span>
+        <button class="mtop-signin">Sign In</button>
+      </div>
+
+      <div class="mscroll">
+        <div class="mhero-pitch">
+          <div class="mhp-eyebrow"><span class="live-dot"></span>3 sessions live now</div>
+          <div class="mhp-title">Watch Agent <span class="tw">write software</span> — live.</div>
+          <div class="mhp-sub">LiveShortly turns any Claude Code session into a live-streamed, replayable, shareable feed. Watch every prompt and tool call as it happens — and talk back in real time.</div>
+          <div class="mhp-cta">
+            <button class="mhp-btn"><span class="mhp-btn-g">G</span>Get Started — Sign Up Free</button>
+            <button class="mhp-btn ghost" onclick="location.href='feed-mobile.html'">Browse live sessions</button>
+          </div>
+          <div class="mhp-code">⇩ <code>curl -fsSL liveshortly.com/i.sh | sh</code></div>
+        </div>
+
+        <div class="msec-head"><span class="msec-title">◉ Live now</span><span class="msec-link">See all →</span></div>
+        <div class="mlive-row">
+          <a class="mlive-card" href="session-viewer-mobile.html">
+            <div class="mlive-art"><span class="mlive-badge"><span class="live-dot"></span>Live</span></div>
+            <div class="mlive-body"><div class="mlive-title">refactor auth middleware for token rotation</div><div class="mlive-meta">@ironfisto · opus-4-8</div></div>
+          </a>
+          <a class="mlive-card" href="session-viewer-mobile.html">
+            <div class="mlive-art"><span class="mlive-badge"><span class="live-dot"></span>Live</span></div>
+            <div class="mlive-body"><div class="mlive-title">build the ux plots pipeline</div><div class="mlive-meta">@sec_r0 · sonnet-5</div></div>
+          </a>
+          <a class="mlive-card" href="session-viewer-mobile.html">
+            <div class="mlive-art"><span class="mlive-badge"><span class="live-dot"></span>Live</span></div>
+            <div class="mlive-body"><div class="mlive-title">device-flow CLI login polish</div><div class="mlive-meta">@dev_mira · opus-4-8</div></div>
+          </a>
+        </div>
+
+        <div class="mproof">
+          <div class="mproof-stat"><div class="v tnum">1,204</div><div class="l">Total sessions</div></div>
+          <div class="mproof-stat"><div class="v tnum" style="color:var(--green);">3</div><div class="l">Live now</div></div>
+        </div>
+
+        <div class="msec-head"><span class="msec-title">How it works</span></div>
+        <div class="mhow">
+          <div class="mhow-step">
+            <div class="mhow-head"><span class="mhow-num">01</span><span class="mhow-title">Install Live</span></div>
+            <div class="mhow-desc">One command drops the live CLI onto your PATH.</div>
+          </div>
+          <div class="mhow-step">
+            <div class="mhow-head"><span class="mhow-num">02</span><span class="mhow-title">Run Live Claude</span></div>
+            <div class="mhow-desc">live wraps Claude Code and prints your share URL the moment it starts streaming.</div>
+          </div>
+          <div class="mhow-step">
+            <div class="mhow-head"><span class="mhow-num">03</span><span class="mhow-title">Share or Publish</span></div>
+            <div class="mhow-desc">Watch from the browser, send a private link, or publish to the public feed.</div>
+          </div>
+        </div>
+
+        <div class="mfoot">
+          <div>Made with <span style="color:var(--green);">♥</span> by @ironfisto · @sec_r0</div>
+          <div>© 2026 LiveShortly · All rights reserved</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+const LS3 = {
+  key: 'ls3-theme',
+  set(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem(this.key, theme);
+    document.querySelectorAll('.toolbtn').forEach((b,i) => b.classList.toggle('active', (i===0)===(theme==='light')));
+  },
+  init() {
+    const saved = localStorage.getItem(this.key);
+    const theme = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    this.set(theme);
+  }
+};
+LS3.init();
+</script>
+</body>
+</html>

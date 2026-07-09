@@ -65,21 +65,23 @@ a { color: inherit; text-decoration: none; }
 .install-link { font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); display: flex; align-items: center; gap: 6px; white-space: nowrap; }
 .avatar { width: 30px; height: 30px; border-radius: var(--r-avatar); background: var(--admin); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
 
-.sb-head { padding: 16px 14px 10px; display: flex; align-items: center; justify-content: space-between; }
-.sb-title { font-size: 11px; text-transform: uppercase; letter-spacing: .1em; font-weight: 700; color: var(--ink); }
-.sb-tabs { display: flex; gap: 6px; padding: 0 10px 10px; flex-wrap: wrap; }
-.sb-tab { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; padding: 5px 10px; border: 1px solid var(--hairline); border-radius: var(--r-pill); color: var(--muted); }
-.sb-tab.active { color: var(--green); border-color: var(--green); }
-.sb-search { margin: 4px 10px 8px; display: flex; align-items: center; gap: 7px; border: 1px solid var(--hairline); background: var(--bg); border-radius: var(--r-sm); padding: 7px 10px; color: var(--faint); font-size: 10.5px; }
-.sb-group-label { padding: 12px 14px 4px; font-size: 9px; text-transform: uppercase; letter-spacing: .1em; color: var(--faint); font-weight: 700; }
-.sb-group-label.live { color: var(--green); }
-.sb-row { display: flex; align-items: center; gap: 9px; padding: 7px 14px; margin: 0 6px; border-radius: var(--r-sm); cursor: pointer; }
-.sb-row:hover { background: var(--panel2); }
-.sb-row.active { background: var(--panel2); border-left: 2px solid var(--green); padding-left: 12px; }
-.sb-swatch { width: 26px; height: 26px; border-radius: var(--r-sm); flex-shrink: 0; background: var(--grad-hero); }
-.sb-row-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--ink); }
-.sb-row-meta { font-size: 9px; color: var(--faint); text-transform: uppercase; flex-shrink: 0; }
+/* ── sidebar — a nav menu, not a duplicate of the session list already
+   shown in the main content on this page (that's what the other v3
+   screens' library sidebar is for; here it'd just repeat itself). ── */
+.sb-brand { display: flex; align-items: center; gap: 9px; padding: 16px 14px; font-size: 14px; font-weight: 700; letter-spacing: -.02em; color: var(--ink); border-bottom: 1px solid var(--hairline); margin-bottom: 4px; }
+.sb-brand .mark { display: flex; flex-shrink: 0; }
+.sb-nav-list { padding: 8px 8px 4px; display: flex; flex-direction: column; gap: 2px; }
+.sb-nav-item { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: var(--r-sm); color: var(--ink); font-size: 12.5px; font-weight: 600; }
+.sb-nav-item:hover { background: var(--panel2); }
+.sb-nav-item.active { background: var(--panel2); border-left: 2px solid var(--green); padding-left: 8px; color: var(--green); }
+.sb-nav-icon { width: 18px; text-align: center; flex-shrink: 0; font-size: 13px; }
+.sb-nav-label { flex: 1; min-width: 0; }
+.sb-nav-count { font-size: 10px; color: var(--faint); background: var(--panel2); border: 1px solid var(--hairline); padding: 2px 7px; border-radius: var(--r-pill); flex-shrink: 0; }
+.sb-nav-item.active .sb-nav-count { color: var(--green); border-color: var(--green); }
+.sb-nav-item.live .sb-nav-icon { color: var(--green); }
 .sb-foot { margin-top: auto; padding: 12px 14px; border-top: 1px dashed var(--hairline); display: flex; align-items: center; gap: 10px; }
+.sb-foot-link { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+.sb-foot-link:hover .sb-foot-name { color: var(--green); }
 
 .eyebrow { font-size: 10px; text-transform: uppercase; letter-spacing: .16em; color: var(--green); font-weight: 700; margin-bottom: 10px; }
 .hero { position: relative; border-radius: var(--r-card); overflow: hidden; padding: 30px 30px; background: var(--grad-hero); border: 1px solid var(--hairline); margin-bottom: 26px; display: flex; align-items: center; justify-content: space-between; gap: 22px; min-height: 108px; flex-wrap: wrap; }
@@ -91,6 +93,17 @@ a { color: inherit; text-decoration: none; }
 .hero-text .hs { margin-top: 6px; font-size: 12px; color: rgba(255,255,255,.8); }
 :root[data-theme="light"] .hero-text .hs { color: var(--muted); }
 .hero-cta { border: 1px solid var(--green); background: var(--green); color: var(--panel); font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; padding: 10px 18px; border-radius: var(--r-pill); font-weight: 700; cursor: pointer; white-space: nowrap; }
+.hero-watchers { position: absolute; top: 16px; right: 20px; display: flex; align-items: center; gap: 8px; }
+.hero-watch-avatars { display: flex; }
+.hero-watch-avatar { width: 20px; height: 20px; border-radius: var(--r-avatar); display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 700; color: #fff; border: 2px solid var(--panel2); margin-left: -6px; }
+.hero-watch-avatar:first-child { margin-left: 0; }
+.hero-watch-label { font-size: 9px; color: rgba(255,255,255,.85); white-space: nowrap; }
+:root[data-theme="light"] .hero-watch-label { color: var(--muted); }
+.hero-snippet { margin-top: 10px; display: flex; align-items: center; gap: 7px; font-size: 10.5px; color: rgba(255,255,255,.85); }
+:root[data-theme="light"] .hero-snippet { color: var(--muted); }
+.hero-snippet .who { color: #baffce; font-weight: 700; }
+:root[data-theme="light"] .hero-snippet .who { color: var(--green); }
+.hero-snippet .glyph { color: var(--green); }
 
 .section-head { display: flex; align-items: baseline; justify-content: space-between; margin: 30px 0 14px; }
 .section-title { font-size: 13px; text-transform: uppercase; letter-spacing: .1em; font-weight: 700; }
@@ -127,6 +140,16 @@ a { color: inherit; text-decoration: none; }
 .rp-stat .l { font-size: 9px; text-transform: uppercase; letter-spacing: .08em; color: var(--faint); margin-top: 2px; }
 .rp-list { margin-top: 20px; display: flex; flex-direction: column; gap: 10px; }
 .rp-tag { display: inline-flex; align-items: center; gap: 6px; font-size: 10.5px; padding: 5px 10px; border: 1px solid var(--hairline); border-radius: var(--r-pill); color: var(--muted); margin: 0 6px 6px 0; }
+.rp-bar-row { margin-bottom: 10px; }
+.rp-bar-label { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); margin-bottom: 5px; }
+.rp-bar-track { height: 6px; border-radius: var(--r-pill); background: var(--panel2); border: 1px solid var(--hairline); overflow: hidden; }
+.rp-bar-fill { height: 100%; background: var(--green); }
+.rp-activity-row { display: flex; align-items: flex-start; gap: 9px; padding: 8px 0; border-bottom: 1px dashed var(--hairline); }
+.rp-activity-row:last-child { border-bottom: none; }
+.rp-activity-dot { width: 6px; height: 6px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }
+.rp-activity-text { font-size: 10.5px; color: var(--muted); line-height: 1.45; }
+.rp-activity-text b { color: var(--ink); font-weight: 700; }
+.rp-activity-time { font-size: 9px; color: var(--faint); margin-top: 3px; }
 
 .theme-toggle { border: 1px solid var(--hairline); background: var(--panel2); color: var(--ink); width: 32px; height: 32px; border-radius: var(--r-pill); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 13px; }
 
@@ -134,6 +157,7 @@ a { color: inherit; text-decoration: none; }
   .searchpill { display: none; }
   .row-events { display: none; }
   .hero { padding: 22px 18px; }
+  .hero-watchers { display: none; }
 }
 </style>
 </head>
@@ -153,41 +177,42 @@ a { color: inherit; text-decoration: none; }
   </div>
 
   <div class="sidebar" style="display:flex; flex-direction:column;">
-    <div class="sb-head"><span class="sb-title">Your Sessions</span><span class="top-icon" style="width:22px;height:22px;font-size:12px;">⤢</span></div>
-    <div class="sb-tabs">
-      <span class="sb-tab active">All</span>
-      <span class="sb-tab">Live</span>
-      <span class="sb-tab">Shared</span>
+    <a href="feed.html" class="sb-brand">
+      <div class="mark"><svg width="20" height="20" viewBox="0 0 32 32" aria-hidden style="display:block;flex-shrink:0;"><rect width="32" height="32" rx="6" fill="var(--green)"/><rect x="7" y="8.5" width="6.5" height="15" rx="1.5" fill="var(--panel)"/><rect x="16.5" y="8.5" width="8.5" height="15" rx="1.5" fill="var(--green)" stroke="var(--panel)" stroke-width="2"/></svg></div>
+      LiveShortly
+    </a>
+
+    <div class="sb-nav-list">
+      <a href="session-viewer.html" class="sb-nav-item live"><span class="sb-nav-icon"><span class="live-dot"></span></span><span class="sb-nav-label">Live Now</span><span class="sb-nav-count" style="color:var(--green);border-color:var(--green);">1</span></a>
+      <a href="hud.html" class="sb-nav-item active"><span class="sb-nav-icon">▤</span><span class="sb-nav-label">Sessions</span><span class="sb-nav-count">24</span></a>
+      <a href="story.html" class="sb-nav-item"><span class="sb-nav-icon">✎</span><span class="sb-nav-label">Dev Stories</span><span class="sb-nav-count">3</span></a>
+      <a href="hud.html" class="sb-nav-item"><span class="sb-nav-icon">🔗</span><span class="sb-nav-label">Shared with me</span><span class="sb-nav-count">4</span></a>
     </div>
-    <div class="sb-search">⌕ Search sessions</div>
-
-    <div class="sb-group-label live">◉ Live</div>
-    <div class="sb-row active"><div class="sb-swatch"></div><div class="sb-row-title">refactor auth middleware</div><span class="sb-row-meta" style="color:var(--green);">live</span></div>
-
-    <div class="sb-group-label">Today</div>
-    <div class="sb-row"><div class="sb-swatch"></div><div class="sb-row-title">fix mobile composer overlap</div><span class="sb-row-meta">2h</span></div>
-    <div class="sb-row"><div class="sb-swatch"></div><div class="sb-row-title">avatar-bubble unified feed</div><span class="sb-row-meta">5h</span></div>
-
-    <div class="sb-group-label">Previous 7 Days</div>
-    <div class="sb-row"><div class="sb-swatch"></div><div class="sb-row-title">postgres migration cleanup</div><span class="sb-row-meta">3d</span></div>
-    <div class="sb-row"><div class="sb-swatch"></div><div class="sb-row-title">SSE reconnect backoff</div><span class="sb-row-meta">6d</span></div>
-
-    <div class="sb-group-label">🔗 Shared With Me</div>
-    <div class="sb-row"><div class="sb-swatch"></div><div class="sb-row-title">@sec_r0 · device flow</div><span class="sb-row-meta">1w</span></div>
 
     <div class="sb-foot">
-      <div class="avatar" style="width:26px;height:26px;font-size:10px;">MK</div>
-      <div style="min-width:0;"><div style="font-size:11.5px;">mukul</div><div class="rp-sub" style="font-size:9.5px;color:var(--faint);">mukulmalviya2@…</div></div>
+      <a href="profile.html" class="sb-foot-link" title="Open your profile">
+        <div class="avatar" style="width:26px;height:26px;font-size:10px;">MK</div>
+        <div style="min-width:0;"><div class="sb-foot-name" style="font-size:11.5px;">mukul</div><div class="rp-sub" style="font-size:9.5px;color:var(--faint);">mukulmalviya2@…</div></div>
+      </a>
+      <span style="opacity:.6;font-size:11px;color:var(--faint);">◇</span>
     </div>
   </div>
 
   <div class="main">
     <div class="eyebrow">⌂ My HUD</div>
     <div class="hero">
+      <div class="hero-watchers">
+        <div class="hero-watch-avatars">
+          <span class="hero-watch-avatar" style="background:var(--admin);">SR</span>
+          <span class="hero-watch-avatar" style="background:var(--faint);">DM</span>
+        </div>
+        <span class="hero-watch-label">38 watching</span>
+      </div>
       <div class="hero-text">
         <div class="hk">Continue where you left off</div>
         <div class="ht">refactor auth middleware</div>
         <div class="hs">Started 41m ago · 214 events · 38 watching</div>
+        <div class="hero-snippet"><span class="glyph">▸</span><span class="who">Claude</span>Wrote api/authn.go <span class="tnum" style="opacity:.7;">· just now</span></div>
       </div>
       <button class="hero-cta" onclick="location.href='session-viewer.html'">▶ Resume watching</button>
     </div>
@@ -262,6 +287,29 @@ a { color: inherit; text-decoration: none; }
       <div class="rp-stat"><div class="v tnum">6</div><div class="l">Published</div></div>
       <div class="rp-stat"><div class="v tnum" style="color:var(--green);">96</div><div class="l">Peak watchers</div></div>
     </div>
+
+    <div class="rp-title" style="margin-top:26px;">Recent Activity</div>
+    <div class="rp-activity-row">
+      <span class="rp-activity-dot" style="background:var(--green);"></span>
+      <div><div class="rp-activity-text">You went live — <b>refactor auth middleware</b></div><div class="rp-activity-time">41m ago</div></div>
+    </div>
+    <div class="rp-activity-row">
+      <span class="rp-activity-dot" style="background:var(--admin);"></span>
+      <div><div class="rp-activity-text"><b>@sec_r0</b> commented on refactor auth middleware</div><div class="rp-activity-time">2h ago</div></div>
+    </div>
+    <div class="rp-activity-row">
+      <span class="rp-activity-dot" style="background:var(--faint);"></span>
+      <div><div class="rp-activity-text">You published — <b>SSE reconnect backoff</b></div><div class="rp-activity-time">4h ago</div></div>
+    </div>
+    <div class="rp-activity-row">
+      <span class="rp-activity-dot" style="background:var(--faint);"></span>
+      <div><div class="rp-activity-text"><b>@dev_mira</b> shared device-flow CLI login with you</div><div class="rp-activity-time">1w ago</div></div>
+    </div>
+
+    <div class="rp-title" style="margin-top:26px;">Model Usage</div>
+    <div class="rp-bar-row"><div class="rp-bar-label"><span>claude-opus-4-8</span><span class="tnum">64%</span></div><div class="rp-bar-track"><div class="rp-bar-fill" style="width:64%;"></div></div></div>
+    <div class="rp-bar-row"><div class="rp-bar-label"><span>claude-sonnet-5</span><span class="tnum">31%</span></div><div class="rp-bar-track"><div class="rp-bar-fill" style="width:31%;"></div></div></div>
+    <div class="rp-bar-row"><div class="rp-bar-label"><span>claude-haiku-4-5</span><span class="tnum">5%</span></div><div class="rp-bar-track"><div class="rp-bar-fill" style="width:5%;"></div></div></div>
 
     <div class="rp-title" style="margin-top:26px;">Top tags</div>
     <div>

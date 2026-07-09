@@ -55,15 +55,18 @@ a { color: inherit; }
   <div class="eyebrow">◈ Design / v3</div>
   <h1 class="h1">Version 3 — Core Screens</h1>
   <p class="sub">
-    Five HTML mockups for the core user-facing screens, each with a live
+    HTML mockups for the core user-facing screens, each with a live
     <code>◐</code> theme toggle in the top bar. <b>Light mode is the current shipped
     app, unchanged</b> — same tokens as <code>web/app/globals.css</code>, same square
-    hairline-border terminal-HUD language. <b>Dark mode is new</b>, drawing its shell
-    (persistent library sidebar, hero cover art, tracklist rows, bottom status dock,
-    rounded pill controls) from a Spotify-style reference, re-skinned onto
-    LiveShortly's actual sessions/events/watchers domain.
+    hairline-border terminal-HUD language. <b>Dark mode</b> uses the real app's actual
+    dark tokens — same shapes, only colors differ. Every screen also has a dedicated
+    <b>Mobile</b> variant, framed at <b>iPhone 13 (390×844)</b> with real safe-area
+    insets and PWA meta tags (<code>apple-mobile-web-app-capable</code>,
+    <code>viewport-fit=cover</code>) so it feels like an installed app when opened
+    full-screen on a phone — persistent bottom tab bar, slide-in drawers, and
+    bottom action sheets in place of the desktop sidebar/menus.
   </p>
-  <div class="meta">web/ HEAD ae08e8b · scope: feed, HUD, session viewer (desktop + mobile), profile</div>
+  <div class="meta">web/ HEAD ae08e8b · scope: landing, feed, HUD, session viewer, profile, dev story, composer — desktop + mobile</div>
 
   <div class="rule-strip">
     <div class="rule light"><div class="rt">☀ Light mode</div><div class="rd">Verbatim <code>:root[data-theme="light"]</code> tokens from the real app. Square corners, hairline borders, no gradients.</div></div>
@@ -74,42 +77,42 @@ a { color: inherit; }
     <a href="landing.html" class="card">
       <div class="card-row"><span class="card-num">01</span><div style="display:flex;gap:6px;"><span class="card-tag desktop">Desktop</span></div></div>
       <div class="card-title">Landing — anonymous visitor</div>
-      <div class="card-desc">The feed page minus the personal "Your Sessions" sidebar (anon has none), avatar swapped for a Sign In button, plus the pitch strip / How it works / footer an anonymous visitor actually needs to convert.</div>
+      <div class="card-desc">The feed page minus the personal "Your Sessions" sidebar (anon has none), avatar swapped for a Sign In button, plus the pitch strip / How it works / footer an anonymous visitor actually needs to convert. <a href="landing-mobile.html" style="color:var(--green);">Mobile →</a></div>
     </a>
     <a href="feed.html" class="card">
       <div class="card-row"><span class="card-num">02</span><div style="display:flex;gap:6px;"><span class="card-tag desktop">Desktop</span></div></div>
       <div class="card-title">Feed — browse grid</div>
-      <div class="card-desc">Hero "trending now" card, live-now grid, recently-published grid — the Spotify browse-page translation of the public feed.</div>
+      <div class="card-desc">Hero "trending now" card, live-now grid, recently-published grid — the browse-page translation of the public feed. <a href="feed-mobile.html" style="color:var(--green);">Mobile →</a></div>
     </a>
     <a href="hud.html" class="card">
       <div class="card-row"><span class="card-num">03</span><div style="display:flex;gap:6px;"><span class="card-tag desktop">Desktop</span></div></div>
       <div class="card-title">My HUD — dashboard</div>
-      <div class="card-desc">"Continue where you left off" hero, live/archive/shared row-lists with hover action icons (share, publish, delete).</div>
+      <div class="card-desc">"Continue where you left off" hero, live/archive/shared row-lists with hover action icons (share, publish, delete). <a href="hud-mobile.html" style="color:var(--green);">Mobile →</a></div>
     </a>
     <a href="session-viewer.html" class="card">
       <div class="card-row"><span class="card-num">04</span><div style="display:flex;gap:6px;"><span class="card-tag desktop">Desktop</span></div></div>
       <div class="card-title">Session viewer</div>
-      <div class="card-desc">Cover-art hero, tracklist-style event log with nested tool rows, right-hand session-info + live chat + composer panel, transport-style status dock.</div>
+      <div class="card-desc">Compact single-row hero, gear-menu session actions, real chat thread + composer that expands into a richer toolbar on hover/focus. <a href="session-viewer-mobile.html" style="color:var(--green);">Mobile →</a></div>
     </a>
     <a href="session-viewer-mobile.html" class="card">
       <div class="card-row"><span class="card-num">05</span><div style="display:flex;gap:6px;"><span class="card-tag mobile">Mobile</span></div></div>
       <div class="card-title">Session viewer — phone frame</div>
-      <div class="card-desc">Avatar-bubble unified feed, slide-in sessions drawer, gear action sheet, pinned composer — the real mobile-specific UI, re-skinned.</div>
+      <div class="card-desc">Avatar-bubble unified feed, slide-in sessions drawer, gear action sheet, pinned composer — framed at iPhone 13 size (390×844) with real safe-area insets.</div>
     </a>
     <a href="profile.html" class="card">
       <div class="card-row"><span class="card-num">06</span><div style="display:flex;gap:6px;"><span class="card-tag desktop">Desktop</span></div></div>
       <div class="card-title">Developer profile</div>
-      <div class="card-desc">Artist-page-style banner, stat strip, real activity heatmap, published sessions grid, model-usage bars.</div>
+      <div class="card-desc">Banner, stat strip, real activity heatmap, published sessions grid, model-usage bars. <a href="profile-mobile.html" style="color:var(--green);">Mobile →</a></div>
     </a>
     <a href="story.html" class="card">
       <div class="card-row"><span class="card-num">07</span><div style="display:flex;gap:6px;"><span class="card-tag desktop">Desktop</span></div></div>
       <div class="card-title">Dev Story — post-session blog view</div>
-      <div class="card-desc">v3 take on design/session-report.html: AI summary, files-changed list, chaptered narrative with code blocks and viewer Q&amp;A, epilogue stats, TOC sidebar. Carries an honest ◐ PREVIEW banner — the narrative is AI-generated (no summarization backend yet), the stats are real.</div>
+      <div class="card-desc">v3 take on design/session-report.html: AI summary, files-changed list, chaptered narrative with code blocks and viewer Q&amp;A, epilogue stats, TOC sidebar. Carries an honest ◐ PREVIEW banner — the narrative is AI-generated (no summarization backend yet), the stats are real. <a href="story-mobile.html" style="color:var(--green);">Mobile →</a></div>
     </a>
     <a href="compose.html" class="card">
       <div class="card-row"><span class="card-num">08</span><div style="display:flex;gap:6px;"><span class="card-tag desktop">Desktop</span></div></div>
       <div class="card-title">Story composer — appears when a session ends</div>
-      <div class="card-desc">v3 take on design/blog-composer.html. 3 columns: real session source (chapters/code clips/viewer injects to insert), a draft editor pre-filled from the ended session, and publish settings. Reached via ⊘ End Session on the session viewer — no persistence backend yet, so it's local-draft-only, same as the real /compose/[id].</div>
+      <div class="card-desc">v3 take on design/blog-composer.html. 3 columns: real session source (chapters/code clips/viewer injects to insert), a draft editor pre-filled from the ended session, and publish settings. Reached via ⊘ End Session on the session viewer — no persistence backend yet, so it's local-draft-only, same as the real /compose/[id]. <a href="compose-mobile.html" style="color:var(--green);">Mobile →</a></div>
     </a>
   </div>
 

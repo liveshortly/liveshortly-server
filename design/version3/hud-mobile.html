@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1f7a4d">
+<title>LiveShortly v3 — HUD (Mobile)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root, :root[data-theme="light"] {
+  --bg: #e7e8ea; --panel: #f3f4f5; --panel2: #ffffff; --hairline: #d0d2d5; --strong: #1b1c1e;
+  --ink: #1b1c1e; --muted: #63666b; --faint: #94979c;
+  --green: #1f7a4d; --red: #c0392b; --amber: #a9810f; --admin: #7c3aed; --blue: #2f6fb0;
+  --shadow: rgba(20,22,26,0.16);
+  --r-card: 0px; --r-pill: 0px; --r-avatar: 2px; --r-sm: 0px;
+  --grad-hero: linear-gradient(135deg, #cfd3d8, #e7e8ea);
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --bg: #1e2123; --panel: #282c2f; --panel2: #2d3236; --hairline: #3d4247; --strong: #edeff1;
+  --ink: #e9ebed; --muted: #a6abb1; --faint: #797f86;
+  --green: #54b885; --red: #e7705f; --amber: #d9ad52; --admin: #b794f6; --blue: #5b9bd5;
+  --shadow: rgba(0,0,0,0.45);
+  --r-card: 0px; --r-pill: 0px; --r-avatar: 2px; --r-sm: 0px;
+  --grad-hero: var(--panel2);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: 'JetBrains Mono','IBM Plex Mono',ui-monospace,'SFMono-Regular',Menlo,monospace;
+  background: #0b0c0d; color: var(--ink); -webkit-font-smoothing: antialiased;
+}
+a { color: inherit; text-decoration: none; }
+button { font-family: inherit; }
+.label { text-transform: uppercase; letter-spacing: .1em; font-size: 10px; color: var(--muted); }
+.tnum { font-variant-numeric: tabular-nums; }
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.35;transform:scale(.75)} }
+.live-dot { display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--green); animation:pulse 1.2s ease-in-out infinite; flex-shrink:0; }
+
+/* ── preview stage (not part of the screen) ── */
+.stage { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 32px 16px; }
+.toolbar { display: flex; align-items: center; gap: 10px; }
+.toolbtn { font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: #9aa0a6; background: #1a1b1d; border: 1px solid #33363a; padding: 7px 14px; cursor: pointer; border-radius: 4px; }
+.toolbtn.active { background: #e9ebed; color: #111; border-color: #e9ebed; }
+.stage-note { font-size: 10px; letter-spacing: .08em; color: #6b6e72; text-transform: uppercase; }
+
+.device { width: 390px; height: 844px; border-radius: 46px; border: 10px solid #000; background: var(--bg); overflow: hidden; position: relative; box-shadow: 0 40px 100px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.04); transition: background-color 200ms ease; }
+.notch { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 154px; height: 30px; background: #000; border-radius: 0 0 18px 18px; z-index: 50; }
+@media (max-width: 480px) {
+  .stage { padding: 0; gap: 0; }
+  .toolbar { position: fixed; top: 8px; right: 8px; z-index: 999; }
+  .device { width: 100vw; height: 100dvh; border-radius: 0; border: 0; box-shadow: none; }
+  .notch { display: none; }
+}
+
+/* ── the actual screen ── */
+.screen { display: flex; flex-direction: column; height: 100%; position: relative; background: var(--bg); }
+
+.mtop { flex: 0 0 auto; display: flex; align-items: center; gap: 10px; padding: calc(10px + env(safe-area-inset-top, 40px)) 16px 10px; border-bottom: 1px solid var(--hairline); background: var(--panel); }
+.mtop-title { font-size: 13px; font-weight: 700; letter-spacing: -.01em; }
+.mtop-avatar { margin-left: auto; width: 26px; height: 26px; border-radius: var(--r-avatar); background: var(--admin); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0; }
+
+.mscroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+
+.mresume { margin: 12px 16px 18px; border: 1px solid var(--hairline); background: var(--grad-hero); border-radius: var(--r-card); padding: 14px; }
+:root[data-theme="light"] .mresume { background: var(--panel2); }
+.mresume-k { font-size: 9px; text-transform: uppercase; letter-spacing: .08em; color: rgba(255,255,255,.75); }
+:root[data-theme="light"] .mresume-k { color: var(--muted); }
+.mresume-t { font-size: 15px; font-weight: 800; color: #fff; margin-top: 5px; }
+:root[data-theme="light"] .mresume-t { color: var(--ink); }
+.mresume-s { font-size: 10px; color: rgba(255,255,255,.8); margin-top: 4px; }
+:root[data-theme="light"] .mresume-s { color: var(--muted); }
+.mresume-cta { width: 100%; margin-top: 12px; border: none; border-radius: var(--r-pill); padding: 11px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; background: var(--strong); color: var(--panel); cursor: pointer; }
+:root[data-theme="dark"] .mresume-cta { background: var(--green); color: #06210f; }
+
+.mstats { display: flex; gap: 8px; margin: 0 16px 18px; }
+.mstat { flex: 1; border: 1px solid var(--hairline); background: var(--panel2); border-radius: var(--r-sm); padding: 9px; text-align: center; }
+.mstat .v { font-size: 15px; font-weight: 800; }
+.mstat .l { font-size: 7.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--faint); margin-top: 2px; }
+
+.msec-head { display: flex; align-items: baseline; justify-content: space-between; padding: 4px 16px 8px; }
+.msec-title { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; font-weight: 700; }
+.msec-link { font-size: 10px; color: var(--muted); }
+
+.mrow-list { padding: 0 16px 16px; display: flex; flex-direction: column; }
+.mrow { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--hairline); }
+.mrow:last-child { border-bottom: none; }
+.mrow-art { width: 40px; height: 40px; border-radius: var(--r-sm); background: var(--grad-hero); flex-shrink: 0; position: relative; }
+.mrow-play { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--faint); font-size: 11px; }
+.mrow-body { min-width: 0; flex: 1; }
+.mrow-title { font-size: 11.5px; font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mrow-meta { font-size: 9.5px; color: var(--faint); margin-top: 2px; }
+.mrow-badge { font-size: 8px; text-transform: uppercase; letter-spacing: .05em; padding: 2px 6px; border-radius: var(--r-pill); border: 1px solid var(--hairline); color: var(--faint); flex-shrink: 0; }
+.mrow-badge.live { color: var(--green); border-color: var(--green); display: flex; align-items: center; gap: 4px; }
+
+/* bottom tab bar */
+.mtabbar { flex: 0 0 auto; display: flex; align-items: stretch; border-top: 1px solid var(--hairline); background: var(--panel); padding-bottom: env(safe-area-inset-bottom, 20px); }
+.mtab { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 8px 0 6px; color: var(--faint); position: relative; }
+.mtab-icon { font-size: 16px; line-height: 1; }
+.mtab-avatar { width: 17px; height: 17px; border-radius: 50%; background: var(--admin); color: #fff; font-size: 8px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+.mtab-label { font-size: 8.5px; text-transform: uppercase; letter-spacing: .04em; font-weight: 600; }
+.mtab.active { color: var(--green); }
+.mtab.active .mtab-avatar { background: var(--green); }
+</style>
+</head>
+<body>
+
+<div class="stage">
+  <div class="toolbar">
+    <button class="toolbtn active" onclick="LS3.set('light')">☀ Light</button>
+    <button class="toolbtn" onclick="LS3.set('dark')">☾ Dark</button>
+  </div>
+  <div class="stage-note">HUD — Mobile · iPhone 13 · 390×844</div>
+
+  <div class="device">
+    <div class="notch"></div>
+    <div class="screen">
+
+      <div class="mtop">
+        <span class="mtop-title">⌂ My HUD</span>
+        <a href="profile-mobile.html" class="mtop-avatar">MK</a>
+      </div>
+
+      <div class="mscroll">
+        <div class="mresume">
+          <div class="mresume-k">Continue where you left off</div>
+          <div class="mresume-t">refactor auth middleware</div>
+          <div class="mresume-s">Started 41m ago · 214 events · 38 watching</div>
+          <button class="mresume-cta" onclick="location.href='session-viewer-mobile.html'">▶ Resume watching</button>
+        </div>
+
+        <div class="mstats">
+          <div class="mstat"><div class="v tnum">12</div><div class="l">Sessions</div></div>
+          <div class="mstat"><div class="v tnum">1,842</div><div class="l">Events</div></div>
+          <div class="mstat"><div class="v tnum">6</div><div class="l">Published</div></div>
+          <div class="mstat"><div class="v tnum" style="color:var(--green);">96</div><div class="l">Peak</div></div>
+        </div>
+
+        <div class="msec-head"><span class="msec-title">◉ Live (1)</span></div>
+        <div class="mrow-list">
+          <a class="mrow" href="session-viewer-mobile.html">
+            <div class="mrow-art"><span class="mrow-play">▶</span></div>
+            <div class="mrow-body"><div class="mrow-title">refactor auth middleware for token rotation</div><div class="mrow-meta">claude-opus-4-8 · 41m ago</div></div>
+            <span class="mrow-badge live"><span class="live-dot"></span>Live</span>
+          </a>
+        </div>
+
+        <div class="msec-head"><span class="msec-title">Archive</span><span class="msec-link">All sessions →</span></div>
+        <div class="mrow-list">
+          <a class="mrow" href="session-viewer-mobile.html">
+            <div class="mrow-art"><span class="mrow-play">▶</span></div>
+            <div class="mrow-body"><div class="mrow-title">fix mobile composer overlap</div><div class="mrow-meta">sonnet-5 · ended 2h ago</div></div>
+            <span class="mrow-badge">Ended</span>
+          </a>
+          <a class="mrow" href="session-viewer-mobile.html">
+            <div class="mrow-art"><span class="mrow-play">▶</span></div>
+            <div class="mrow-body"><div class="mrow-title">avatar-bubble unified feed on mobile</div><div class="mrow-meta">opus-4-8 · ended 5h ago</div></div>
+            <span class="mrow-badge">Ended</span>
+          </a>
+          <a class="mrow" href="session-viewer-mobile.html">
+            <div class="mrow-art"><span class="mrow-play">▶</span></div>
+            <div class="mrow-body"><div class="mrow-title">postgres migration cleanup</div><div class="mrow-meta">sonnet-5 · ended 3d ago</div></div>
+            <span class="mrow-badge">Ended</span>
+          </a>
+        </div>
+
+        <div class="msec-head"><span class="msec-title">🔗 Shared with me</span></div>
+        <div class="mrow-list">
+          <a class="mrow" href="session-viewer-mobile.html">
+            <div class="mrow-art"><span class="mrow-play">▶</span></div>
+            <div class="mrow-body"><div class="mrow-title">device-flow CLI login</div><div class="mrow-meta">@sec_r0 · commenter access</div></div>
+            <span class="mrow-badge">Ended</span>
+          </a>
+        </div>
+      </div>
+
+      <div class="mtabbar">
+        <a href="feed-mobile.html" class="mtab"><span class="mtab-icon">⌂</span><span class="mtab-label">Feed</span></a>
+        <a href="hud-mobile.html" class="mtab active"><span class="mtab-icon">▤</span><span class="mtab-label">Sessions</span></a>
+        <a href="story-mobile.html" class="mtab"><span class="mtab-icon">✎</span><span class="mtab-label">Stories</span></a>
+        <a href="profile-mobile.html" class="mtab"><span class="mtab-icon"><span class="mtab-avatar">MK</span></span><span class="mtab-label">Profile</span></a>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+const LS3 = {
+  key: 'ls3-theme',
+  set(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem(this.key, theme);
+    document.querySelectorAll('.toolbtn').forEach((b,i) => b.classList.toggle('active', (i===0)===(theme==='light')));
+  },
+  init() {
+    const saved = localStorage.getItem(this.key);
+    const theme = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    this.set(theme);
+  }
+};
+LS3.init();
+</script>
+</body>
+</html>

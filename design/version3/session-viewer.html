@@ -46,7 +46,7 @@ button { font-family: inherit; }
 .shell { display: grid; grid-template-columns: 232px 1fr 300px; grid-template-rows: 56px 1fr; height: 100vh; gap: 1px; background: var(--hairline); }
 :root[data-theme="light"] .shell { gap: 0; }
 .topbar, .sidebar, .main, .rightpanel { background: var(--bg); }
-.topbar { grid-column: 1 / 4; grid-row: 1; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 16px; padding: 0 18px; border-bottom: 1px solid var(--hairline); background: var(--panel); }
+.topbar { grid-column: 1 / 4; grid-row: 1; display: flex; align-items: center; gap: 16px; padding: 0 18px; border-bottom: 1px solid var(--hairline); background: var(--panel); }
 .sidebar { grid-column: 1; grid-row: 2; overflow-y: auto; border-right: 1px solid var(--hairline); background: var(--panel); }
 .main { grid-column: 2; grid-row: 2; overflow: hidden; min-height: 0; display: flex; flex-direction: column; }
 .rightpanel { grid-column: 3; grid-row: 2; overflow-y: auto; border-left: 1px solid var(--hairline); background: var(--panel); display: flex; flex-direction: column; min-height: 0; }
@@ -59,55 +59,60 @@ button { font-family: inherit; }
 }
 
 .brand { display: flex; align-items: center; gap: 9px; font-size: 15px; font-weight: 700; letter-spacing: -.02em; flex-shrink: 0; }
-.brand .mark { display: flex; flex-shrink: 0; }
-.searchpill { width: 100%; max-width: 480px; margin: 0 auto; display: flex; align-items: center; gap: 10px; border: 1px solid var(--hairline); background: var(--bg); border-radius: var(--r-pill); padding: 9px 16px; color: var(--faint); font-size: 12px; }
+.brand .mark { width: 24px; height: 24px; border-radius: var(--r-sm); background: var(--green); position: relative; flex-shrink: 0; }
+.brand .mark::before { content:''; position:absolute; left:5px; top:6px; width:5px; height:12px; background:var(--panel); border-radius:1px; }
+.brand .mark::after { content:''; position:absolute; left:13px; top:6px; width:6px; height:12px; border:2px solid var(--panel); background:var(--green); border-radius:1px; }
+.searchpill { flex: 1; max-width: 480px; margin: 0 auto; display: flex; align-items: center; gap: 10px; border: 1px solid var(--hairline); background: var(--bg); border-radius: var(--r-pill); padding: 9px 16px; color: var(--faint); font-size: 12px; }
 .searchpill input { border: none; outline: none; background: transparent; color: var(--ink); font: inherit; width: 100%; }
-.top-actions { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
+.top-actions { display: flex; align-items: center; gap: 14px; margin-left: auto; flex-shrink: 0; }
 .top-icon { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border: 1px solid transparent; border-radius: var(--r-sm); color: var(--muted); cursor: pointer; font-size: 14px; }
 .top-icon:hover { color: var(--ink); border-color: var(--hairline); }
 .avatar { width: 30px; height: 30px; border-radius: var(--r-avatar); background: var(--admin); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
 
 .sb-head { padding: 16px 14px 10px; display: flex; align-items: center; justify-content: space-between; }
 .sb-title { font-size: 11px; text-transform: uppercase; letter-spacing: .1em; font-weight: 700; color: var(--ink); }
-.sb-tabs { display: flex; gap: 6px; padding: 0 10px 10px; flex-wrap: wrap; }
-.sb-tab { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; padding: 5px 10px; border: 1px solid var(--hairline); border-radius: var(--r-pill); color: var(--muted); }
-.sb-tab.active { color: var(--green); border-color: var(--green); }
-.sb-search { margin: 4px 10px 8px; display: flex; align-items: center; gap: 7px; border: 1px solid var(--hairline); background: var(--bg); border-radius: var(--r-sm); padding: 7px 10px; color: var(--faint); font-size: 10.5px; }
 .sb-group-label { padding: 12px 14px 4px; font-size: 9px; text-transform: uppercase; letter-spacing: .1em; color: var(--faint); font-weight: 700; }
 .sb-group-label.live { color: var(--green); }
 .sb-row { display: flex; align-items: center; gap: 9px; padding: 7px 14px; margin: 0 6px; border-radius: var(--r-sm); cursor: pointer; }
 .sb-row:hover { background: var(--panel2); }
 .sb-row.active { background: var(--panel2); border-left: 2px solid var(--green); padding-left: 12px; }
-.sb-swatch { width: 26px; height: 26px; border-radius: var(--r-sm); flex-shrink: 0; background: var(--grad-hero); }
+.sb-swatch { width: 26px; height: 26px; border-radius: var(--r-sm); flex-shrink: 0; background: var(--grad-hero); position: relative; }
+.sb-swatch .live-dot { position: absolute; bottom: -2px; right: -2px; border: 2px solid var(--panel); }
 .sb-row-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--ink); }
+.sb-row-sub { font-size: 9.5px; color: var(--faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 1px; }
 .sb-row-meta { font-size: 9px; color: var(--faint); text-transform: uppercase; flex-shrink: 0; }
 .sb-foot { margin-top: auto; padding: 12px 14px; border-top: 1px dashed var(--hairline); display: flex; align-items: center; gap: 10px; }
 
 /* ── session hero ── */
-.shero { flex-shrink: 0; padding: 26px 28px 20px; background: var(--grad-hero); border-bottom: 1px solid var(--hairline); display: flex; align-items: flex-end; gap: 20px; }
+.shero { flex-shrink: 0; padding: 14px 28px; background: var(--grad-hero); border-bottom: 1px solid var(--hairline); display: flex; align-items: center; gap: 14px; }
 :root[data-theme="light"] .shero { background: var(--panel2); }
-.shero-art { width: 100px; height: 100px; border-radius: var(--r-card); background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.25); flex-shrink: 0; box-shadow: 0 14px 30px -10px rgba(0,0,0,.4); }
+.shero-art { width: 38px; height: 38px; border-radius: var(--r-card); background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.25); flex-shrink: 0; box-shadow: 0 14px 30px -10px rgba(0,0,0,.4); }
 :root[data-theme="light"] .shero-art { background: var(--panel); border-color: var(--hairline); box-shadow: none; }
-.shero-eyebrow { font-size: 10px; text-transform: uppercase; letter-spacing: .14em; color: rgba(255,255,255,.75); margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+.shero-eyebrow { font-size: 9px; text-transform: uppercase; letter-spacing: .14em; color: rgba(255,255,255,.75); margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
 :root[data-theme="light"] .shero-eyebrow { color: var(--muted); }
-.shero-title { font-size: 28px; font-weight: 800; color: #fff; letter-spacing: -.02em; line-height: 1.1; }
+.shero-title { font-size: 16px; font-weight: 800; color: #fff; letter-spacing: -.02em; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 :root[data-theme="light"] .shero-title { color: var(--ink); font-weight: 700; }
-.shero-meta { margin-top: 8px; font-size: 12px; color: rgba(255,255,255,.8); display: flex; gap: 8px; flex-wrap: wrap; }
+.shero-meta { margin-top: 3px; font-size: 10.5px; color: rgba(255,255,255,.8); display: flex; gap: 7px; flex-wrap: wrap; }
 :root[data-theme="light"] .shero-meta { color: var(--muted); }
 
 .shero-badge { font-size: 9.5px; text-transform: uppercase; letter-spacing: .06em; padding: 3px 9px; border-radius: var(--r-pill); background: rgba(0,0,0,.3); color: #baffce; display: inline-flex; align-items: center; gap: 5px; }
 :root[data-theme="light"] .shero-badge { color: var(--green); border: 1px solid var(--green); background: transparent; }
 
-/* Real session-viewer action row (web/app/(workspace)/session/[id]/SessionClient.tsx
+/* Real session-viewer actions (web/app/(workspace)/session/[id]/SessionClient.tsx
    .session-actions): Share to X, Publish, Share Link, End Session, Delete —
-   bordered text buttons, not icon glyphs. */
-.saction-row { flex-shrink: 0; display: flex; align-items: center; gap: 8px; padding: 16px 28px; border-bottom: 1px solid var(--hairline); flex-wrap: wrap; }
-.saction-spacer { flex: 1; }
-.sbtn { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; border: 1px solid var(--strong); background: transparent; color: var(--ink); padding: 7px 14px; border-radius: var(--r-pill); font-weight: 600; cursor: pointer; white-space: nowrap; }
-.sbtn:hover { background: var(--panel2); }
-.sbtn.primary { border-color: var(--green); background: var(--green); color: var(--panel); }
-.sbtn.danger { border-color: var(--red); color: var(--red); }
-.sbtn.danger:hover { background: var(--red); color: #fff; }
+   tucked behind a gear icon on the hero so the chat gets full height. */
+.shero-menu-wrap { position: absolute; top: 50%; right: 24px; transform: translateY(-50%); }
+.shero-gear { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: var(--r-pill); border: 1px solid rgba(255,255,255,.3); background: rgba(0,0,0,.25); color: #fff; font-size: 13px; cursor: pointer; }
+.shero-gear:hover { background: rgba(0,0,0,.4); }
+:root[data-theme="light"] .shero-gear { border-color: var(--hairline); background: var(--panel); color: var(--ink); }
+:root[data-theme="light"] .shero-gear:hover { background: var(--panel2); }
+.gear-menu { position: absolute; top: 42px; right: 0; min-width: 192px; background: var(--panel); border: 1px solid var(--hairline); border-radius: var(--r-card); box-shadow: 0 10px 26px -8px var(--shadow); padding: 6px; display: none; flex-direction: column; gap: 2px; z-index: 40; }
+.gear-menu.open { display: flex; }
+.gm-item { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; font-weight: 600; border: none; background: transparent; color: var(--ink); padding: 9px 10px; border-radius: var(--r-sm); cursor: pointer; }
+.gm-item:hover { background: var(--panel2); }
+.gm-item.danger { color: var(--red); }
+.gm-item.danger:hover { background: var(--red); color: #fff; }
+.gm-sep { height: 1px; background: var(--hairline); margin: 4px 2px; }
 
 /* ── chat thread — ported from the REAL web/components/EventStream.tsx:
    prompts align right, responses + viewer comments align left, each bubble
@@ -162,12 +167,29 @@ button { font-family: inherit; }
 .work-step .wtime { margin-left: auto; color: var(--faint); font-size: 10px; flex-shrink: 0; }
 
 /* ── composer — ported from the REAL Composer in SessionClient.tsx: a single
-   bordered box (⌐ glyph + input + SEND), not a rounded pill with an avatar. ── */
+   bordered box (⌐ glyph + input + SEND). On hover/focus it grows into a
+   taller two-row composer with an icon toolbar, then collapses back. ── */
 .composer-bar { flex-shrink: 0; padding: 12px 20px 16px; }
-.composer-box { display: flex; align-items: stretch; border: 1px solid var(--strong); background: var(--panel2); border-radius: var(--r-sm); overflow: hidden; }
+.composer-wrap { border: 1px solid var(--strong); background: var(--panel2); border-radius: var(--r-sm); overflow: hidden; transition: border-color 150ms, box-shadow 150ms; }
+.composer-wrap:hover, .composer-wrap:focus-within { border-color: var(--green); box-shadow: 0 12px 28px -14px var(--shadow); }
+.composer-box { display: flex; align-items: stretch; }
 .composer-glyph { display: flex; align-items: center; padding: 0 12px; color: var(--green); border-right: 1px solid var(--hairline); font-size: 13px; flex-shrink: 0; }
-.composer-box input { flex: 1; min-width: 0; border: none; outline: none; background: transparent; color: var(--ink); padding: 11px 12px; font-size: 11.5px; letter-spacing: .02em; }
-.composer-send { border: none; border-left: 1px solid var(--green); background: var(--green); color: var(--panel); padding: 0 18px; font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; cursor: pointer; font-weight: 700; flex-shrink: 0; }
+.composer-wrap:hover .composer-glyph, .composer-wrap:focus-within .composer-glyph { display: none; }
+.composer-box input { flex: 1; min-width: 0; border: none; outline: none; background: transparent; color: var(--ink); padding: 11px 12px; font-size: 11.5px; letter-spacing: .02em; transition: padding 150ms, font-size 150ms; }
+.composer-wrap:hover .composer-box input, .composer-wrap:focus-within .composer-box input { padding: 16px 14px 8px; font-size: 12.5px; }
+.composer-send { border: none; border-left: 1px solid var(--strong); background: var(--strong); color: var(--panel); padding: 0 18px; font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; cursor: pointer; font-weight: 700; flex-shrink: 0; }
+:root[data-theme="dark"] .composer-send { background: var(--green); border-left-color: var(--green); color: #06210f; }
+.composer-wrap:hover .composer-send, .composer-wrap:focus-within .composer-send { display: none; }
+.composer-toolbar { display: none; align-items: center; gap: 8px; padding: 2px 12px 10px; }
+.composer-wrap:hover .composer-toolbar, .composer-wrap:focus-within .composer-toolbar { display: flex; }
+.ctb-icon { display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; color: var(--muted); font-size: 14px; cursor: pointer; border-radius: var(--r-sm); flex-shrink: 0; }
+.ctb-icon:hover { color: var(--ink); background: var(--panel); }
+.ctb-pill { display: flex; align-items: center; gap: 5px; font-size: 10.5px; color: var(--muted); border: 1px solid var(--hairline); border-radius: var(--r-pill); padding: 5px 10px; cursor: pointer; white-space: nowrap; }
+.ctb-pill:hover { color: var(--ink); border-color: var(--strong); }
+.ctb-chev { font-size: 9px; }
+.ctb-spacer { flex: 1; }
+.ctb-send { width: 26px; height: 26px; border-radius: 50%; border: none; background: var(--strong); color: var(--panel); display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; font-size: 13px; }
+:root[data-theme="dark"] .ctb-send { background: var(--green); color: #06210f; }
 
 /* ── right panel (session info + who's watching) ── */
 .rp-hero { padding: 18px; border-bottom: 1px solid var(--hairline); }
@@ -195,9 +217,9 @@ button { font-family: inherit; }
 .theme-toggle { border: 1px solid var(--hairline); background: var(--panel2); color: var(--ink); width: 32px; height: 32px; border-radius: var(--r-pill); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 13px; }
 
 @media (max-width: 760px) {
-  .shero { padding: 20px 16px; }
-  .shero-art { width: 72px; height: 72px; }
-  .shero-title { font-size: 20px; }
+  .shero { padding: 10px 16px; }
+  .shero-art { width: 32px; height: 32px; }
+  .shero-title { font-size: 14px; }
   .trow { padding: 5px 14px; }
   .work { padding: 5px 14px; }
   .bubble { max-width: 92%; }
@@ -209,7 +231,7 @@ button { font-family: inherit; }
 
 <div class="shell">
   <div class="topbar">
-    <div class="brand"><div class="mark"><svg width="24" height="24" viewBox="0 0 32 32" aria-hidden style="display:block;flex-shrink:0;"><rect width="32" height="32" rx="6" fill="var(--green)"/><rect x="7" y="8.5" width="6.5" height="15" rx="1.5" fill="var(--panel)"/><rect x="16.5" y="8.5" width="8.5" height="15" rx="1.5" fill="var(--green)" stroke="var(--panel)" stroke-width="2"/></svg></div>LiveShortly</div>
+    <div class="brand"><div class="mark"></div>LiveShortly</div>
     <div class="searchpill">⌕ <input placeholder="Search sessions, owners, tags…"></div>
     <div class="top-actions">
       <span class="top-icon" title="Notifications">🔔</span>
@@ -219,27 +241,13 @@ button { font-family: inherit; }
   </div>
 
   <div class="sidebar" style="display:flex; flex-direction:column;">
-    <div class="sb-head"><span class="sb-title">Your Sessions</span><span class="top-icon" style="width:22px;height:22px;font-size:12px;">⤢</span></div>
-    <div class="sb-tabs">
-      <span class="sb-tab active">All</span>
-      <span class="sb-tab">Live</span>
-      <span class="sb-tab">Shared</span>
-    </div>
-    <div class="sb-search">⌕ Search sessions</div>
+    <div class="sb-head"><span class="sb-title">Live Now</span><span class="top-icon" style="width:22px;height:22px;font-size:12px;">⤢</span></div>
 
-    <div class="sb-group-label live">◉ Live</div>
-    <div class="sb-row active"><div class="sb-swatch"></div><div class="sb-row-title">refactor auth middleware</div><span class="sb-row-meta" style="color:var(--green);">live</span></div>
-
-    <div class="sb-group-label">Today</div>
-    <div class="sb-row"><div class="sb-swatch"></div><div class="sb-row-title">fix mobile composer overlap</div><span class="sb-row-meta">2h</span></div>
-    <div class="sb-row"><div class="sb-swatch"></div><div class="sb-row-title">avatar-bubble unified feed</div><span class="sb-row-meta">5h</span></div>
-
-    <div class="sb-group-label">Previous 7 Days</div>
-    <div class="sb-row"><div class="sb-swatch"></div><div class="sb-row-title">postgres migration cleanup</div><span class="sb-row-meta">3d</span></div>
-    <div class="sb-row"><div class="sb-swatch"></div><div class="sb-row-title">SSE reconnect backoff</div><span class="sb-row-meta">6d</span></div>
-
-    <div class="sb-group-label">🔗 Shared With Me</div>
-    <div class="sb-row"><div class="sb-swatch"></div><div class="sb-row-title">@sec_r0 · device flow</div><span class="sb-row-meta">1w</span></div>
+    <div class="sb-group-label live">◉ 4 online</div>
+    <div class="sb-row active"><div class="sb-swatch"><span class="live-dot"></span></div><div style="min-width:0;flex:1;"><div class="sb-row-title">refactor auth middleware</div><div class="sb-row-sub">@ironfisto</div></div><span class="sb-row-meta" style="color:var(--green);">38</span></div>
+    <div class="sb-row"><div class="sb-swatch"><span class="live-dot"></span></div><div style="min-width:0;flex:1;"><div class="sb-row-title">ux plots pipeline</div><div class="sb-row-sub">@sec_r0</div></div><span class="sb-row-meta" style="color:var(--green);">12</span></div>
+    <div class="sb-row"><div class="sb-swatch"><span class="live-dot"></span></div><div style="min-width:0;flex:1;"><div class="sb-row-title">device-flow CLI login</div><div class="sb-row-sub">@kx_dev</div></div><span class="sb-row-meta" style="color:var(--green);">7</span></div>
+    <div class="sb-row"><div class="sb-swatch"><span class="live-dot"></span></div><div style="min-width:0;flex:1;"><div class="sb-row-title">postgres migration cleanup</div><div class="sb-row-sub">@ironfisto</div></div><span class="sb-row-meta" style="color:var(--green);">3</span></div>
 
     <div class="sb-foot">
       <div class="avatar" style="width:26px;height:26px;font-size:10px;">MK</div>
@@ -248,22 +256,25 @@ button { font-family: inherit; }
   </div>
 
   <div class="main">
-    <div class="shero">
+    <div class="shero" style="position:relative;">
       <div class="shero-art"></div>
       <div style="min-width:0;">
         <div class="shero-eyebrow"><span class="shero-badge"><span class="live-dot"></span>Live</span> Session · claude-code</div>
         <div class="shero-title">refactor auth middleware for token rotation</div>
         <div class="shero-meta"><span>@ironfisto</span>·<span>claude-opus-4-8</span>·<span>214 events</span>·<span>started 41m ago</span></div>
       </div>
-    </div>
 
-    <div class="saction-row">
-      <button class="sbtn" title="Make this session public and tweet it">𝕏 Share to X</button>
-      <button class="sbtn" title="Publish to the public feed">⊕ Publish</button>
-      <button class="sbtn" title="Anyone with the link can watch">⊕ Share Link</button>
-      <div class="saction-spacer"></div>
-      <button class="sbtn danger" title="End this session (the CLI keeps running)" onclick="location.href='compose.html'">⊘ End Session</button>
-      <button class="sbtn danger" title="Delete this session permanently">⌫ Delete</button>
+      <div class="shero-menu-wrap">
+        <button class="shero-gear" id="gearBtn" title="Session actions" onclick="LS3.toggleGear(event)">⚙</button>
+        <div class="gear-menu" id="gearMenu">
+          <button class="gm-item" title="Make this session public and tweet it">𝕏 Share to X</button>
+          <button class="gm-item" title="Publish to the public feed">⊕ Publish</button>
+          <button class="gm-item" title="Anyone with the link can watch">⊕ Share Link</button>
+          <div class="gm-sep"></div>
+          <button class="gm-item danger" title="End this session (the CLI keeps running)" onclick="location.href='compose.html'">⊘ End Session</button>
+          <button class="gm-item danger" title="Delete this session permanently">⌫ Delete</button>
+        </div>
+      </div>
     </div>
 
     <div class="chat-thread">
@@ -338,10 +349,19 @@ button { font-family: inherit; }
     </div>
 
     <div class="composer-bar">
-      <div class="composer-box">
-        <span class="composer-glyph">⌐</span>
-        <input placeholder="MESSAGE THE SESSION  /  ⌐ SENT TO CLI" spellcheck="false">
-        <button class="composer-send">Send</button>
+      <div class="composer-wrap">
+        <div class="composer-box">
+          <span class="composer-glyph">⌐</span>
+          <input placeholder="MESSAGE THE SESSION  /  ⌐ SENT TO CLI" spellcheck="false">
+          <button class="composer-send">Send</button>
+        </div>
+        <div class="composer-toolbar">
+          <span class="ctb-icon" title="Attach">+</span>
+          <span class="ctb-pill">⌐ Sent to CLI <span class="ctb-chev">⌄</span></span>
+          <span class="ctb-spacer"></span>
+          <span class="ctb-icon" title="Voice input">🎙</span>
+          <button class="ctb-send" title="Send">↑</button>
+        </div>
       </div>
     </div>
   </div>
@@ -395,9 +415,19 @@ const LS3 = {
     const saved = localStorage.getItem(this.key);
     const theme = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
     document.documentElement.setAttribute('data-theme', theme);
+  },
+  toggleGear(e) {
+    e.stopPropagation();
+    document.getElementById('gearMenu').classList.toggle('open');
   }
 };
 LS3.init();
+document.addEventListener('click', (e) => {
+  const menu = document.getElementById('gearMenu');
+  if (menu && menu.classList.contains('open') && !menu.contains(e.target) && e.target.id !== 'gearBtn') {
+    menu.classList.remove('open');
+  }
+});
 </script>
 </body>
 </html>

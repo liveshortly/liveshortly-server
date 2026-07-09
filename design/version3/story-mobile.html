@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1f7a4d">
+<title>LiveShortly v3 — Dev Story (Mobile)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root, :root[data-theme="light"] {
+  --bg: #e7e8ea; --panel: #f3f4f5; --panel2: #ffffff; --hairline: #d0d2d5; --strong: #1b1c1e;
+  --ink: #1b1c1e; --muted: #63666b; --faint: #94979c;
+  --green: #1f7a4d; --red: #c0392b; --amber: #a9810f; --admin: #7c3aed; --blue: #2f6fb0;
+  --shadow: rgba(20,22,26,0.16);
+  --r-card: 0px; --r-pill: 0px; --r-avatar: 2px; --r-sm: 0px;
+  --grad-hero: linear-gradient(135deg, #cfd3d8, #e7e8ea);
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --bg: #1e2123; --panel: #282c2f; --panel2: #2d3236; --hairline: #3d4247; --strong: #edeff1;
+  --ink: #e9ebed; --muted: #a6abb1; --faint: #797f86;
+  --green: #54b885; --red: #e7705f; --amber: #d9ad52; --admin: #b794f6; --blue: #5b9bd5;
+  --shadow: rgba(0,0,0,0.45);
+  --r-card: 0px; --r-pill: 0px; --r-avatar: 2px; --r-sm: 0px;
+  --grad-hero: var(--panel2);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: 'JetBrains Mono','IBM Plex Mono',ui-monospace,'SFMono-Regular',Menlo,monospace;
+  background: #0b0c0d; color: var(--ink); -webkit-font-smoothing: antialiased;
+}
+a { color: inherit; text-decoration: none; }
+button { font-family: inherit; }
+code { font-family: inherit; }
+.label { text-transform: uppercase; letter-spacing: .1em; font-size: 10px; color: var(--muted); }
+.tnum { font-variant-numeric: tabular-nums; }
+
+/* ── preview stage (not part of the screen) ── */
+.stage { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 32px 16px; }
+.toolbar { display: flex; align-items: center; gap: 10px; }
+.toolbtn { font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: #9aa0a6; background: #1a1b1d; border: 1px solid #33363a; padding: 7px 14px; cursor: pointer; border-radius: 4px; }
+.toolbtn.active { background: #e9ebed; color: #111; border-color: #e9ebed; }
+.stage-note { font-size: 10px; letter-spacing: .08em; color: #6b6e72; text-transform: uppercase; }
+
+.device { width: 390px; height: 844px; border-radius: 46px; border: 10px solid #000; background: var(--bg); overflow: hidden; position: relative; box-shadow: 0 40px 100px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.04); transition: background-color 200ms ease; }
+.notch { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 154px; height: 30px; background: #000; border-radius: 0 0 18px 18px; z-index: 50; }
+@media (max-width: 480px) {
+  .stage { padding: 0; gap: 0; }
+  .toolbar { position: fixed; top: 8px; right: 8px; z-index: 999; }
+  .device { width: 100vw; height: 100dvh; border-radius: 0; border: 0; box-shadow: none; }
+  .notch { display: none; }
+}
+
+/* ── the actual screen ── */
+.screen { display: flex; flex-direction: column; height: 100%; position: relative; background: var(--bg); }
+
+.mtop { flex: 0 0 auto; display: flex; align-items: center; gap: 10px; padding: calc(10px + env(safe-area-inset-top, 40px)) 16px 10px; border-bottom: 1px solid var(--hairline); background: var(--panel); }
+.mtop-back { font-size: 15px; color: var(--muted); }
+.mtop-title { font-size: 11.5px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.mscroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-bottom: calc(16px + env(safe-area-inset-bottom, 12px)); }
+
+.mpreview { margin: 12px 16px; border: 1px dashed var(--amber); color: var(--amber); background: color-mix(in srgb, var(--amber) 10%, transparent); border-radius: var(--r-sm); padding: 8px 10px; font-size: 9.5px; line-height: 1.5; }
+.mpreview b { text-transform: uppercase; letter-spacing: .06em; }
+
+.mah { padding: 4px 16px 16px; border-bottom: 1px solid var(--hairline); }
+.mah-status { display: flex; gap: 8px; flex-wrap: wrap; font-size: 9px; color: var(--faint); margin-bottom: 8px; text-transform: uppercase; letter-spacing: .05em; }
+.mah-title { font-size: 18px; font-weight: 800; line-height: 1.25; letter-spacing: -.01em; }
+.mah-byline { margin-top: 8px; font-size: 10px; color: var(--muted); }
+.mah-stats { display: flex; gap: 8px; margin-top: 12px; }
+.mah-stat { flex: 1; text-align: center; border: 1px solid var(--hairline); border-radius: var(--r-sm); padding: 7px 4px; background: var(--panel2); }
+.mah-stat .k { font-size: 7px; text-transform: uppercase; letter-spacing: .05em; color: var(--faint); }
+.mah-stat .v { font-size: 12px; font-weight: 700; margin-top: 2px; }
+.mah-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 12px; }
+.mah-tag { font-size: 8.5px; border: 1px solid var(--hairline); border-radius: var(--r-pill); padding: 3px 8px; color: var(--faint); }
+
+.mactions { display: flex; gap: 7px; padding: 12px 16px; border-bottom: 1px solid var(--hairline); }
+.msbtn { flex: 1; font-size: 9px; text-transform: uppercase; letter-spacing: .05em; border: 1px solid var(--strong); background: transparent; color: var(--ink); padding: 8px 6px; border-radius: var(--r-pill); font-weight: 700; text-align: center; }
+.msbtn.primary { background: var(--strong); color: var(--panel); border-color: var(--strong); }
+:root[data-theme="dark"] .msbtn.primary { background: var(--green); border-color: var(--green); color: #06210f; }
+
+.maisum { margin: 14px 16px; border: 1px solid var(--admin); border-radius: var(--r-sm); padding: 11px 12px; background: color-mix(in srgb, var(--admin) 7%, transparent); }
+.maisum-head { display: flex; align-items: center; gap: 6px; font-size: 9px; text-transform: uppercase; letter-spacing: .06em; color: var(--admin); font-weight: 700; margin-bottom: 6px; }
+.ai-icon { width: 14px; height: 14px; border-radius: 3px; background: var(--admin); color: #fff; font-size: 7px; display: flex; align-items: center; justify-content: center; font-weight: 800; }
+.maisum-text { font-size: 11px; color: var(--ink); line-height: 1.6; }
+.maisum-text code { color: var(--admin); }
+
+.msec-label { font-size: 9.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--faint); font-weight: 700; padding: 0 16px 8px; margin-top: 6px; }
+.mfile-list { margin: 0 16px 14px; border: 1px solid var(--hairline); border-radius: var(--r-sm); overflow: hidden; }
+.mfile-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-bottom: 1px solid var(--hairline); font-size: 9.5px; }
+.mfile-item:last-child { border-bottom: none; }
+.mfi-status { font-size: 7.5px; text-transform: uppercase; padding: 1px 5px; border-radius: var(--r-pill); background: rgba(31,122,77,.14); color: var(--green); flex-shrink: 0; }
+.mfi-path { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
+.mfi-add { color: var(--green); font-size: 9px; flex-shrink: 0; }
+
+.mchapter { padding: 4px 16px 18px; border-top: 1px solid var(--hairline); }
+.mch-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; padding-top: 14px; }
+.mch-num { font-size: 10px; font-weight: 700; color: var(--green); text-transform: uppercase; letter-spacing: .06em; }
+.mch-time { font-size: 8.5px; color: var(--faint); }
+.mch-prompt { font-size: 11px; font-style: italic; color: var(--muted); border-left: 2px solid var(--hairline); padding-left: 9px; margin-bottom: 10px; }
+.mprose { font-size: 11.5px; line-height: 1.65; color: var(--ink); }
+.mprose p { margin: 0 0 10px; }
+.mprose code { background: var(--panel2); border: 1px solid var(--hairline); border-radius: 3px; padding: 1px 4px; font-size: 10.5px; }
+.mtool-event { display: flex; align-items: center; gap: 6px; font-size: 9.5px; color: var(--faint); padding: 3px 0; }
+.mte-verb { font-size: 8px; text-transform: uppercase; padding: 1px 5px; border-radius: var(--r-pill); background: var(--blue); color: #fff; font-weight: 700; }
+
+.mcode { margin: 10px 0; border: 1px solid var(--hairline); border-radius: var(--r-sm); overflow: hidden; background: #14161a; }
+.mcode-head { display: flex; justify-content: space-between; padding: 6px 9px; background: var(--panel); font-size: 8.5px; color: var(--faint); border-bottom: 1px solid var(--hairline); }
+.mcode-body { padding: 9px 10px; overflow-x: auto; font-size: 9.5px; line-height: 1.6; color: #d3d6da; white-space: pre; }
+.mcode-body .kw { color: #c586c0; } .mcode-body .fn { color: #dcdcaa; } .mcode-body .str { color: #ce9178; } .mcode-body .cm { color: #6a9955; }
+
+.mviewer-c { margin: 10px 0; border: 1px solid var(--hairline); border-left: 2px solid var(--amber); background: var(--panel2); border-radius: var(--r-sm); padding: 9px 11px; }
+.mvc-head { display: flex; gap: 6px; align-items: center; font-size: 9px; margin-bottom: 5px; }
+.mvc-author { font-weight: 700; }
+.mvc-badge { font-size: 7.5px; text-transform: uppercase; color: var(--amber); border: 1px solid var(--amber); border-radius: var(--r-pill); padding: 1px 5px; }
+.mvc-text { font-size: 10.5px; color: var(--ink); line-height: 1.5; }
+.mvc-resp { margin-top: 7px; padding-top: 7px; border-top: 1px dashed var(--hairline); font-size: 10px; color: var(--muted); line-height: 1.55; }
+
+.mepilogue { margin: 4px 16px 18px; border: 1px solid var(--hairline); background: var(--panel2); border-radius: var(--r-card); padding: 14px; }
+.mep-head { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; font-weight: 700; margin-bottom: 10px; }
+.mep-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.mep-cell { text-align: center; }
+.mep-val { font-size: 15px; font-weight: 800; }
+.mep-val.green { color: var(--green); }
+.mep-key { font-size: 8px; text-transform: uppercase; letter-spacing: .04em; color: var(--faint); margin-top: 2px; }
+.mep-desc { font-size: 10px; color: var(--muted); line-height: 1.55; margin-top: 12px; }
+
+.mauthor { display: flex; align-items: center; gap: 10px; margin: 0 16px 20px; border: 1px solid var(--hairline); background: var(--panel2); border-radius: var(--r-card); padding: 12px; }
+.mauthor-avatar { width: 38px; height: 38px; border-radius: var(--r-avatar); background: var(--admin); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; }
+.mauthor-name { font-size: 12px; font-weight: 700; }
+.mauthor-desc { font-size: 9px; color: var(--faint); margin-top: 2px; line-height: 1.4; }
+</style>
+</head>
+<body>
+
+<div class="stage">
+  <div class="toolbar">
+    <button class="toolbtn active" onclick="LS3.set('light')">☀ Light</button>
+    <button class="toolbtn" onclick="LS3.set('dark')">☾ Dark</button>
+  </div>
+  <div class="stage-note">Dev Story — Mobile · iPhone 13 · 390×844</div>
+
+  <div class="device">
+    <div class="notch"></div>
+    <div class="screen">
+
+      <div class="mtop">
+        <a href="session-viewer-mobile.html" class="mtop-back">‹</a>
+        <span class="mtop-title">Dev Story</span>
+      </div>
+
+      <div class="mscroll">
+        <div class="mpreview"><b>◐ Preview</b> — narrative is AI-generated (no summarization backend yet). Stats and source session are real.</div>
+
+        <div class="mah">
+          <div class="mah-status"><span>◼ Session Ended</span><span>·</span><span>Jul 8, 2026</span><span>·</span><span>≈6 min read</span></div>
+          <div class="mah-title">Build auth middleware — JWT + refresh token flow in Go</div>
+          <div class="mah-byline">@ironfisto · claude-opus-4-8 · Jul 8, 2026</div>
+          <div class="mah-stats">
+            <div class="mah-stat"><div class="k">Duration</div><div class="v tnum">47m</div></div>
+            <div class="mah-stat"><div class="k">Events</div><div class="v tnum">214</div></div>
+            <div class="mah-stat"><div class="k">Files</div><div class="v tnum">9</div></div>
+            <div class="mah-stat"><div class="k">Viewers</div><div class="v tnum">38</div></div>
+          </div>
+          <div class="mah-tags"><span class="mah-tag">#go</span><span class="mah-tag">#auth</span><span class="mah-tag">#jwt</span><span class="mah-tag">#middleware</span></div>
+        </div>
+
+        <div class="mactions">
+          <div class="msbtn">𝕏 Share</div>
+          <div class="msbtn primary">● Publish</div>
+          <div class="msbtn">⊕ Link</div>
+        </div>
+
+        <div class="maisum">
+          <div class="maisum-head"><span class="ai-icon">AI</span>Session Summary</div>
+          <div class="maisum-text">In this 47-minute session, the developer implemented JWT-based auth middleware for the Go API — a single <code>Authn</code> handler, a Postgres migration adding <code>users</code> and <code>auth_sessions</code>, and a poll-based CLI device flow with token auto-refresh.</div>
+        </div>
+
+        <div class="msec-label">Files Changed · 9 files · +847 −42</div>
+        <div class="mfile-list">
+          <div class="mfile-item"><span class="mfi-status">New</span><span class="mfi-path">api/internal/auth/authn.go</span><span class="mfi-add">+187</span></div>
+          <div class="mfile-item"><span class="mfi-status">New</span><span class="mfi-path">infra/postgres/002-auth.sql</span><span class="mfi-add">+88</span></div>
+          <div class="mfile-item"><span class="mfi-status">New</span><span class="mfi-path">api/internal/handlers/device.go</span><span class="mfi-add">+163</span></div>
+        </div>
+
+        <div class="mchapter">
+          <div class="mch-head"><span class="mch-num">Chapter 1</span><span class="mch-time">+00m 00s</span></div>
+          <div class="mch-prompt">"Let's build the auth middleware. Bearer for CLI, cookie for web."</div>
+          <div class="mprose">
+            <p>We start with a single <strong>identity resolution layer</strong> so handlers never care which auth path was used.</p>
+            <p>The <code>Authn</code> middleware extracts a token from either the header or cookie, verifies it, and injects the resolved <code>Identity</code> into the request context.</p>
+          </div>
+          <div class="mtool-event"><span class="mte-verb">Write</span>api/internal/auth/authn.go</div>
+          <div class="mcode">
+            <div class="mcode-head"><span>authn.go</span><span>Go</span></div>
+            <div class="mcode-body"><span class="cm">// Authn resolves a principal from Bearer or cookie.</span>
+<span class="kw">func</span> <span class="fn">Authn</span>(next http.Handler) http.Handler {
+  token, err := <span class="fn">extractToken</span>(r)
+  <span class="kw">if</span> err != nil { <span class="kw">return</span> unauthorized }
+  ctx := <span class="fn">WithIdentity</span>(r.Context(), claims)
+  next.<span class="fn">ServeHTTP</span>(w, r.<span class="fn">WithContext</span>(ctx))
+}</div>
+          </div>
+
+          <div class="mviewer-c">
+            <div class="mvc-head"><span class="mvc-author">@sec_r0</span><span class="mvc-badge">Viewer</span><span style="margin-left:auto;color:var(--faint);">+13m 55s</span></div>
+            <div class="mvc-text">Why store the token hash rather than the full token?</div>
+            <div class="mvc-resp">JWTs are stateless, so expiry alone can't revoke a compromised token early. The hash gives us a revoke-able allowlist.</div>
+          </div>
+        </div>
+
+        <div class="mepilogue">
+          <div class="mep-head">Session Closed</div>
+          <div class="mep-grid">
+            <div class="mep-cell"><div class="mep-val green">47m</div><div class="mep-key">Duration</div></div>
+            <div class="mep-cell"><div class="mep-val tnum">214</div><div class="mep-key">Events</div></div>
+            <div class="mep-cell"><div class="mep-val tnum">9</div><div class="mep-key">Files</div></div>
+            <div class="mep-cell"><div class="mep-val tnum">38</div><div class="mep-key">Peak watchers</div></div>
+          </div>
+          <div class="mep-desc">Stopped by the developer at 14:47 UTC. Every <code>/api</code> route now requires a valid principal resolved by <code>auth.Authn</code>.</div>
+        </div>
+
+        <div class="mauthor">
+          <div class="mauthor-avatar">IF</div>
+          <div style="flex:1;min-width:0;">
+            <div class="mauthor-name">@ironfisto</div>
+            <div class="mauthor-desc">Building LiveShortly — turning Claude Code sessions into live streams.</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+const LS3 = {
+  key: 'ls3-theme',
+  set(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem(this.key, theme);
+    document.querySelectorAll('.toolbtn').forEach((b,i) => b.classList.toggle('active', (i===0)===(theme==='light')));
+  },
+  init() {
+    const saved = localStorage.getItem(this.key);
+    const theme = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    this.set(theme);
+  }
+};
+LS3.init();
+</script>
+</body>
+</html>

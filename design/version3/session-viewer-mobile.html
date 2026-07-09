@@ -2,7 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1f7a4d">
 <title>LiveShortly v3 — Session Viewer (Mobile)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -44,8 +47,8 @@ button { font-family: inherit; }
 .toolbtn.active { background: #e9ebed; color: #111; border-color: #e9ebed; }
 .stage-note { font-size: 10px; letter-spacing: .08em; color: #6b6e72; text-transform: uppercase; }
 
-.device { width: 393px; height: 852px; border-radius: 46px; border: 10px solid #000; background: var(--bg); overflow: hidden; position: relative; box-shadow: 0 40px 100px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.04); transition: background-color 200ms ease; }
-.notch { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); width: 120px; height: 26px; background: #000; border-radius: 14px; z-index: 50; }
+.device { width: 390px; height: 844px; border-radius: 46px; border: 10px solid #000; background: var(--bg); overflow: hidden; position: relative; box-shadow: 0 40px 100px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.04); transition: background-color 200ms ease; }
+.notch { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 154px; height: 30px; background: #000; border-radius: 0 0 18px 18px; z-index: 50; }
 @media (max-width: 480px) {
   .stage { padding: 0; gap: 0; }
   .toolbar { position: fixed; top: 8px; right: 8px; z-index: 999; }
@@ -56,7 +59,7 @@ button { font-family: inherit; }
 /* ── the actual screen ── */
 .screen { display: flex; flex-direction: column; height: 100%; position: relative; background: var(--bg); }
 
-.mtop { flex: 0 0 auto; display: flex; align-items: center; gap: 10px; padding: 46px 14px 10px; border-bottom: 1px solid var(--hairline); background: var(--panel); }
+.mtop { flex: 0 0 auto; display: flex; align-items: center; gap: 10px; padding: calc(10px + env(safe-area-inset-top, 40px)) 14px 10px; border-bottom: 1px solid var(--hairline); background: var(--panel); }
 .mtop-back { font-size: 15px; color: var(--muted); }
 .mtop-info { flex: 1; min-width: 0; }
 .mtop-title { font-size: 12.5px; font-weight: 700; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -104,7 +107,7 @@ button { font-family: inherit; }
 .mdrawer { position: absolute; inset: 0; z-index: 80; display: none; }
 .mdrawer.open { display: block; }
 .mdrawer-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.45); }
-.mdrawer-panel { position: absolute; top: 0; bottom: 0; left: 0; width: 78%; background: var(--panel); border-right: 1px solid var(--hairline); padding: 46px 0 14px; overflow-y: auto; }
+.mdrawer-panel { position: absolute; top: 0; bottom: 0; left: 0; width: 78%; background: var(--panel); border-right: 1px solid var(--hairline); padding: calc(10px + env(safe-area-inset-top, 40px)) 0 14px; overflow-y: auto; }
 .mdrawer-brand { display: flex; align-items: center; gap: 8px; padding: 0 16px 14px; font-size: 13px; font-weight: 700; border-bottom: 1px solid var(--hairline); margin-bottom: 8px; }
 .mdrawer-brand .mark { display: flex; flex-shrink: 0; }
 .mdrawer .sb-group-label { padding: 10px 16px 4px; font-size: 9px; text-transform: uppercase; letter-spacing: .1em; color: var(--faint); font-weight: 700; }
@@ -137,7 +140,7 @@ button { font-family: inherit; }
     <button class="toolbtn" onclick="LS3.drawer()">☰ Drawer</button>
     <button class="toolbtn" onclick="LS3.sheet()">⚙ Sheet</button>
   </div>
-  <div class="stage-note">Session Viewer — Mobile · 393×852</div>
+  <div class="stage-note">Session Viewer — Mobile · iPhone 13 · 390×844</div>
 
   <div class="device">
     <div class="notch"></div>
