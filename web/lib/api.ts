@@ -50,6 +50,11 @@ export interface Session {
   share_count?: number;
   /** Present on rows returned for scope=shared: the caller's grant role. */
   shared_role?: ShareRole | null;
+  /** Why the session ended: "quota" when auto-ended for crossing the storage
+   *  limit; null/absent for a normal stop. */
+  ended_reason?: string | null;
+  /** This session's own contribution to the owner's storage total (bytes). */
+  bytes_used?: number;
   /** Set (RFC3339) when the session is published to the public feed. */
   published_at?: string | null;
   /** Precomputed preview snippet shown on the feed tile. */
@@ -239,6 +244,42 @@ export interface AdminUser {
   last_active_at: string | null;
   session_count: number;
   live_count: number;
+  /** Quota usage + effective limits (override → default) for the admin controls. */
+  storage_bytes_used: number;
+  storage_limit_bytes: number;
+  max_live_sessions: number;
+  quota_exempt: boolean;
+}
+
+/** Set (or clear) a user's per-user quota overrides. Super-admin only. A null
+ *  limit field clears that override back to the config default. */
+export function setUserQuota(
+  id: string,
+  body: {
+    storage_limit_bytes?: number | null;
+    max_live_sessions?: number | null;
+    quota_exempt?: boolean;
+  },
+  signal?: AbortSignal,
+): Promise<{
+  storage_bytes_used: number;
+  storage_limit_bytes: number;
+  live_sessions: number;
+  max_live_sessions: number;
+  quota_exempt: boolean;
+}> {
+  return fetch(`${browserBase()}/api/admin/users/${encodeURIComponent(id)}/quota`, {
+    method: "PATCH",
+    credentials: "include",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+    signal,
+  }).then(async (res) => {
+    if (!res.ok) {
+      throw new ApiError(res.status, `Could not update quota: ${res.status}`);
+    }
+    return res.json();
+  });
 }
 
 /** A session row in the admin session browser (metadata only). */
@@ -634,6 +675,12 @@ export interface Me {
   picture?: string;
   /** True when the account is on the super-admin allowlist (server-resolved). */
   is_admin?: boolean;
+  /** Quota usage + effective limits (present for signed-in users). */
+  storage_bytes_used?: number;
+  storage_limit_bytes?: number;
+  live_sessions?: number;
+  max_live_sessions?: number;
+  quota_exempt?: boolean;
 }
 
 /** Check the current session. A 401 is normal (logged out) → not authenticated. */

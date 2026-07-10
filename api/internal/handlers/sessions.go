@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -105,9 +106,20 @@ func (h *Handler) CreateSession(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	s, err := h.store.CreateSession(r.Context(), p.ID, in)
+	s, err := h.store.CreateSession(r.Context(), p.ID, in,
+		h.cfg.DefaultStorageLimitBytes, h.cfg.DefaultMaxLiveSessions)
 	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "failed to create session")
+		switch {
+		case errors.Is(err, store.ErrConcurrencyLimit):
+			// Don't cite a number — the owner may have a per-user override.
+			httpx.Error(w, http.StatusTooManyRequests,
+				"live session limit reached — end a running session before starting another")
+		case errors.Is(err, store.ErrStorageLimit):
+			httpx.Error(w, http.StatusRequestEntityTooLarge,
+				"storage quota full — delete a session to free space, then try again")
+		default:
+			httpx.Error(w, http.StatusInternalServerError, "failed to create session")
+		}
 		return
 	}
 

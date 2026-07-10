@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"time"
@@ -244,7 +245,13 @@ func (h *Handler) Lineage(w http.ResponseWriter, r *http.Request) {
 
 // buildBundle assembles the handoff briefing from a source session up to snapshot.
 func (h *Handler) buildBundle(r *http.Request, src *store.Session, snapshot int) (handoff.Bundle, error) {
-	events, err := h.store.GetEventsUpTo(r.Context(), src.ID, snapshot)
+	return h.buildBundleCtx(r.Context(), src, snapshot)
+}
+
+// buildBundleCtx is buildBundle without an *http.Request, for callers (e.g. the
+// quota-crossing path) that only have a context.
+func (h *Handler) buildBundleCtx(ctx context.Context, src *store.Session, snapshot int) (handoff.Bundle, error) {
+	events, err := h.store.GetEventsUpTo(ctx, src.ID, snapshot)
 	if err != nil {
 		return handoff.Bundle{}, err
 	}

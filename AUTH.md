@@ -60,10 +60,15 @@ Endpoints:
 - On **every login** (web upsert + CLI), resolve pending grants: `UPDATE session_shares SET grantee_user_id=me WHERE grantee_email=my_email AND grantee_user_id IS NULL`.
 
 ## `/api/me`
-`200 {authenticated:true, id, email, name}` (cookie or bearer) else `401 {authenticated:false}`.
+`200 {authenticated:true, id, email, name, is_admin}` (cookie or bearer) else
+`401 {authenticated:false}`. For a signed-in user it also carries quota usage:
+`storage_bytes_used, storage_limit_bytes, live_sessions, max_live_sessions,
+quota_exempt` (effective limits, override → config default).
 
 ## Schema additions (idempotent)
 - `users`: `email TEXT UNIQUE`, `google_sub TEXT UNIQUE`, `name TEXT`, `avatar_url TEXT`.
+- `users` (quotas): `storage_bytes_used BIGINT DEFAULT 0`, `storage_limit_bytes BIGINT` (null → default), `max_live_sessions INT` (null → default), `quota_exempt BOOLEAN DEFAULT false`.
+- `sessions` (quotas): `bytes_used BIGINT DEFAULT 0`, `ended_reason TEXT`.
 - `sessions`: `visibility TEXT NOT NULL DEFAULT 'private'` (`private`|`link`|`public`|`open`), `link_role TEXT NOT NULL DEFAULT 'viewer'`.
 - `refresh_tokens(id UUID pk, user_id FK, token_hash TEXT, label TEXT, created_at, last_used_at, revoked_at)`.
 - `session_shares(...)` as above.

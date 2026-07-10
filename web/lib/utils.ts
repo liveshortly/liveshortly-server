@@ -84,6 +84,21 @@ export function fmtInt(n: number | null | undefined): string {
   return n.toLocaleString("en-US");
 }
 
+/** Human byte size (KB/MB/GB, base-1024) — e.g. 104857600 → "100 MB". */
+export function fmtBytes(n: number | null | undefined): string {
+  if (n == null || Number.isNaN(n)) return "—";
+  if (n < 1024) return `${n} B`;
+  const units = ["KB", "MB", "GB", "TB"];
+  let v = n / 1024;
+  let i = 0;
+  while (v >= 1024 && i < units.length - 1) {
+    v /= 1024;
+    i++;
+  }
+  // One decimal under 10, none above — "9.4 MB", "100 MB".
+  return `${v < 10 ? v.toFixed(1) : Math.round(v)} ${units[i]}`;
+}
+
 /** A very subtle status tint for session tiles: a faint green wash for live,
  *  a barely-there gray wash for ended. Theme-aware — mixes over --panel so it
  *  works in both light and dark. */
