@@ -111,6 +111,16 @@ type Stats struct {
 	TotalEvents   int `json:"total_events"`
 }
 
+// PublicStats holds the handful of aggregate counts the anonymous landing page
+// shows as social proof. Counts only — no titles, no owners, no content.
+type PublicStats struct {
+	TotalSessions int `json:"total_sessions"`
+	LiveNow       int `json:"live_now"`
+	Published     int `json:"published"`
+	TotalViews    int `json:"total_views"`
+	Creators      int `json:"creators"`
+}
+
 // AdminStats holds application-wide aggregate metrics for the admin surface.
 // Counts and rollups only — never any user's private session content.
 type AdminStats struct {
@@ -142,6 +152,25 @@ type AdminUser struct {
 	LastActiveAt *time.Time `json:"last_active_at"`
 	SessionCount int        `json:"session_count"`
 	LiveCount    int        `json:"live_count"`
+}
+
+// PublicStats returns the anonymous landing page's proof counts. LiveNow and
+// TotalViews are scoped to published sessions so the numbers agree with the
+// feed the visitor is looking at; TotalSessions/Creators are global.
+func (st *Store) PublicStats(ctx context.Context) (PublicStats, error) {
+	const q = `
+		SELECT
+			count(*),
+			count(*) FILTER (WHERE s.status = 'live' AND s.published_at IS NOT NULL),
+			count(*) FILTER (WHERE s.published_at IS NOT NULL),
+			COALESCE(sum(s.view_count) FILTER (WHERE s.published_at IS NOT NULL), 0),
+			count(DISTINCT s.owner_id)
+		FROM sessions s`
+	var p PublicStats
+	err := st.pool.QueryRow(ctx, q).Scan(
+		&p.TotalSessions, &p.LiveNow, &p.Published, &p.TotalViews, &p.Creators,
+	)
+	return p, err
 }
 
 // AdminUsers lists every user with rollup activity, most-recently-active first.
@@ -785,6 +814,15 @@ func (st *Store) FeedBrowse(ctx context.Context, beforePublished *time.Time, bef
 		fmt.Sprintf(" ORDER BY s.published_at DESC, s.id DESC LIMIT $%d", len(args)+1)
 	args = append(args, limit)
 	return st.scanFeed(ctx, q, args...)
+}
+
+// FeedLive returns the published sessions that are streaming right now, the
+// most recently started first. Small by nature, so it is not paginated.
+func (st *Store) FeedLive(ctx context.Context, limit int) ([]Session, error) {
+	const sql = "SELECT " + sessionSelectExpr + sessionFrom +
+		" WHERE s.published_at IS NOT NULL AND s.status = 'live'" +
+		" ORDER BY s.created_at DESC, s.id DESC LIMIT $1"
+	return st.scanFeed(ctx, sql, limit)
 }
 
 // FeedSearch returns published sessions ranked by full-text relevance to q.

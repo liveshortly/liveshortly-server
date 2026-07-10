@@ -190,6 +190,19 @@ export function stats(signal?: AbortSignal): Promise<Stats> {
   return getJSON<Stats>("/api/stats", signal);
 }
 
+/** Aggregate proof counts for the anonymous landing page. No auth required. */
+export interface PublicStats {
+  total_sessions: number;
+  live_now: number;
+  published: number;
+  total_views: number;
+  creators: number;
+}
+
+export function publicStats(signal?: AbortSignal): Promise<PublicStats> {
+  return getJSON<PublicStats>("/api/public/stats", signal);
+}
+
 /** Application-wide aggregate metrics (super-admins only). Mirrors the Go
  *  store.AdminStats — counts/rollups only, never any user's session content. */
 export interface AdminStats {
@@ -583,6 +596,14 @@ export function getFeed(
   if (params.limit != null) qs.set("limit", String(params.limit));
   const query = qs.toString();
   return getJSON<FeedPage>(`/api/feed${query ? `?${query}` : ""}`, signal);
+}
+
+/** Published sessions that are streaming right now. Not paginated. */
+export function getLiveFeed(
+  limit = 12,
+  signal?: AbortSignal,
+): Promise<FeedPage> {
+  return getJSON<FeedPage>(`/api/feed?status=live&limit=${limit}`, signal);
 }
 
 /** Best-effort "I'm typing" presence ping for a live session (fire-and-forget). */

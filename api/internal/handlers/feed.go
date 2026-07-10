@@ -55,6 +55,16 @@ func (h *Handler) Feed(w http.ResponseWriter, r *http.Request) {
 		results []store.Session
 		err     error
 	)
+	// ?status=live — the streaming-right-now strip. Never paginated.
+	if r.URL.Query().Get("status") == "live" {
+		results, err = h.store.FeedLive(r.Context(), limit)
+		if err != nil {
+			httpx.Error(w, http.StatusInternalServerError, "failed to load live feed")
+			return
+		}
+		httpx.JSON(w, http.StatusOK, map[string]any{"results": results, "next_cursor": ""})
+		return
+	}
 	if q != "" {
 		// Relevance search paginates by offset (encoded in the cursor).
 		offset := decodeOffsetCursor(cursor)

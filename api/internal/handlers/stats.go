@@ -23,6 +23,17 @@ func (h *Handler) Stats(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, s)
 }
 
+// PublicStats returns the aggregate proof counts shown on the anonymous
+// landing page. No principal required. GET /api/public/stats.
+func (h *Handler) PublicStats(w http.ResponseWriter, r *http.Request) {
+	s, err := h.store.PublicStats(r.Context())
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to compute public stats")
+		return
+	}
+	httpx.JSON(w, http.StatusOK, s)
+}
+
 // AdminStats returns application-wide aggregate metrics. Restricted to the
 // super-admin allowlist — any other principal gets 403. GET /api/admin/stats.
 func (h *Handler) AdminStats(w http.ResponseWriter, r *http.Request) {

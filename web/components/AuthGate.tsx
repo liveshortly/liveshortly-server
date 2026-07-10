@@ -28,9 +28,12 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isSessionRoute = pathname?.startsWith("/session/") ?? false;
   // Routes an anonymous visitor may see directly (with a guest header) instead
-  // of the marketing landing page — session watch + the public install page.
+  // of the marketing landing page — session watch, the public feed the landing
+  // page's "see all" links into, and the public install page.
   const isPublicRoute =
-    isSessionRoute || (pathname?.startsWith("/install") ?? false);
+    isSessionRoute ||
+    (pathname?.startsWith("/install") ?? false) ||
+    (pathname?.startsWith("/feed") ?? false);
 
   useEffect(() => {
     let alive = true;
