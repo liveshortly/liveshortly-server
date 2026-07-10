@@ -121,6 +121,9 @@ export interface SessionList {
 }
 
 export interface SessionDetail extends Session {
+  /** Viewers watching right now (live only). Aggregate — never identifies anyone.
+   *  Updated live by the SSE `watchers` frame. */
+  watcher_count?: number;
   /** Whether the calling viewer may post comments back to the session. */
   can_comment?: boolean;
   /** Whether the calling viewer owns this session (can rename / end it). */

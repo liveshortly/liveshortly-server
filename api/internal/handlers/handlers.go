@@ -40,8 +40,11 @@ type sessionWithEvents struct {
 	CanComment bool          `json:"can_comment"`
 	IsOwner    bool          `json:"is_owner"`
 	// AgentConnected is true while a Live-shim agent stream is attached (presence).
-	AgentConnected bool          `json:"agent_connected"`
-	Events         []store.Event `json:"events"`
+	AgentConnected bool `json:"agent_connected"`
+	// WatcherCount is how many SSE connections are watching right now (live only).
+	// An aggregate — presence tokens are anonymous, so this never identifies a viewer.
+	WatcherCount int           `json:"watcher_count"`
+	Events       []store.Event `json:"events"`
 }
 
 // detach returns a copy of the request's context that is no longer tied to the
