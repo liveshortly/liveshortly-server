@@ -1,0 +1,1405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LiveShortly — Home</title>
+<style>
+/* ── Design Tokens — identical to web/app/globals.css, the real,
+   currently-shipped theme. Both themes are real here: :root/[data-theme="light"]
+   is the default, [data-theme="dark"] overrides, and the media query covers
+   system preference before a user has picked one. ── */
+:root, :root[data-theme="light"] {
+  --bg:       #e7e8ea;
+  --panel:    #f3f4f5;
+  --hairline: #d0d2d5;
+  --strong:   #1b1c1e;
+  --ink:      #1b1c1e;
+  --muted:    #63666b;
+  --faint:    #94979c;
+  --green:    #1f7a4d;
+  --red:      #c0392b;
+  --amber:    #a9810f;
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --bg:       #1e2123;
+  --panel:    #282c2f;
+  --hairline: #3d4247;
+  --strong:   #edeff1;
+  --ink:      #e9ebed;
+  --muted:    #a6abb1;
+  --faint:    #797f86;
+  --green:    #54b885;
+  --red:      #e7705f;
+  --amber:    #d9ad52;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --bg: #1e2123; --panel: #282c2f; --hairline: #3d4247; --strong: #edeff1;
+    --ink: #e9ebed; --muted: #a6abb1; --faint: #797f86;
+    --green: #54b885; --red: #e7705f; --amber: #d9ad52;
+    color-scheme: dark;
+  }
+}
+:root {
+  --surface-hover: color-mix(in srgb, var(--hairline) 42%, var(--panel));
+  /* A softer line for internal/repeated dividers (card borders, chips, small
+     rules) so only real chrome boundaries (navbar, sidebar, footer) read as
+     "hard" edges — keeps the grid from looking chopped into boxes. */
+  --hairline-soft: color-mix(in srgb, var(--hairline) 45%, var(--panel));
+  --font: "JetBrains Mono", "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --sidebar: 240px;
+  --nav-h: 58px;
+  --radius: 6px;
+  --radius-sm: 4px;
+  --theme-transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+
+/* ── Reset ─────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  transition: var(--theme-transition);
+}
+a { color: inherit; text-decoration: none; }
+button { font-family: var(--font); cursor: pointer; }
+
+/* ── Utility ───────────────────────────────────────────────── */
+.label {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 600;
+}
+.tnum { font-variant-numeric: tabular-nums; }
+.flex { display: flex; }
+.gap4 { gap: 4px; }
+.gap8 { gap: 8px; }
+.gap12 { gap: 12px; }
+.gap16 { gap: 16px; }
+.items-center { align-items: center; }
+.justify-between { justify-content: space-between; }
+
+/* ── Live dot pulse ─────────────────────────────────────────── */
+@keyframes pulse {
+  0%,100% { opacity:1; transform:scale(1); }
+  50%      { opacity:0.3; transform:scale(0.75); }
+}
+.live-dot {
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--green);
+  animation: pulse 1.2s ease-in-out infinite;
+  flex-shrink: 0;
+}
+.live-dot-sm {
+  display: inline-block;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  animation: pulse 1.2s ease-in-out infinite;
+  flex-shrink: 0;
+}
+@keyframes blink {
+  0%,49% { opacity:1; } 50%,100% { opacity:0; }
+}
+.blink { animation: blink 1s step-end infinite; }
+
+/* ── Layout ─────────────────────────────────────────────────── */
+.app { display: flex; flex-direction: column; min-height: 100vh; }
+
+/* ── Navbar ─────────────────────────────────────────────────── */
+.navbar {
+  height: var(--nav-h);
+  background: var(--panel);
+  border-bottom: 1px solid var(--hairline);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 14px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  flex-shrink: 0;
+}
+.navbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.brand-mark {
+  width: 26px; height: 26px;
+  background: var(--green);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  position: relative;
+}
+.brand-mark::before {
+  content: '';
+  position: absolute;
+  left: 6px; top: 7px;
+  width: 5px; height: 12px;
+  background: var(--panel);
+  border-radius: 1px;
+}
+.brand-mark::after {
+  content: '';
+  position: absolute;
+  left: 14px; top: 7px;
+  width: 7px; height: 12px;
+  border: 1.5px solid var(--panel);
+  background: var(--green);
+  border-radius: 1px;
+}
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.nav-link {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  font-weight: 600;
+  padding: 6px 11px;
+  border-radius: var(--radius-sm);
+  transition: color 120ms, background 120ms;
+}
+.nav-link:hover { color: var(--ink); background: var(--surface-hover); }
+.nav-link.active { color: var(--ink); background: var(--surface-hover); }
+.nav-live-pill {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-weight: 700;
+  color: var(--green);
+  border: 1px solid var(--green);
+  background: color-mix(in srgb, var(--green) 8%, transparent);
+  padding: 5px 12px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.navbar-search {
+  flex: 1;
+  max-width: 360px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg);
+  border: 1px solid var(--hairline-soft);
+  padding: 0 14px;
+  height: 34px;
+  border-radius: 999px;
+  transition: border-color 150ms;
+}
+.navbar-search:focus-within { border-color: var(--strong); }
+.navbar-search input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.navbar-search input::placeholder { color: var(--faint); }
+.search-slash { color: var(--muted); font-size: 13px; }
+
+.navbar-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+.stat-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--bg);
+  border: 1px solid var(--hairline-soft);
+  border-radius: var(--radius-sm);
+  padding: 5px 14px;
+  cursor: pointer;
+  transition: border-color 120ms;
+  min-width: 64px;
+}
+.stat-chip:hover { border-color: var(--strong); }
+.stat-chip .val {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.stat-chip .val.green { color: var(--green); }
+.stat-chip .lbl {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--faint);
+  margin-top: 2px;
+}
+.divider-v {
+  width: 1px;
+  height: 28px;
+  background: var(--hairline);
+  flex-shrink: 0;
+}
+.theme-toggle {
+  width: 32px; height: 32px;
+  border: 1px solid var(--hairline-soft);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font);
+  font-size: 13px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: border-color 120ms, color 120ms;
+}
+.theme-toggle:hover { border-color: var(--strong); color: var(--ink); }
+.user-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.user-avatar {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: var(--green);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--panel);
+  flex-shrink: 0;
+}
+.user-info { line-height: 1.25; }
+.user-name { font-size: 12px; font-weight: 600; }
+.user-action { font-size: 9px; color: var(--red); text-transform: uppercase; letter-spacing: 0.1em; cursor: pointer; }
+
+/* ── Body layout: sidebar + main ───────────────────────────── */
+.body { display: flex; flex: 1; }
+
+/* ── Sidebar ─────────────────────────────────────────────────── */
+.sidebar {
+  width: var(--sidebar);
+  flex-shrink: 0;
+  background: var(--panel);
+  border-right: 1px solid var(--hairline);
+  padding: 20px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  position: sticky;
+  top: var(--nav-h);
+  height: calc(100vh - var(--nav-h));
+  overflow-y: auto;
+}
+.sidebar-section { padding: 0 16px; }
+.sidebar-heading {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--faint);
+  font-weight: 600;
+  margin-bottom: 8px;
+  padding-left: 2px;
+}
+.nav-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 120ms;
+  margin-bottom: 1px;
+}
+.nav-item:hover { background: var(--surface-hover); }
+.nav-item.active {
+  background: var(--surface-hover);
+  border-left: 2px solid var(--strong);
+  padding-left: 8px;
+}
+.nav-item-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 500;
+}
+.nav-item-label.live { color: var(--green); }
+.nav-count {
+  font-size: 10px;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+  background: var(--surface-hover);
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+}
+.nav-count.live {
+  color: var(--green);
+  background: color-mix(in srgb, var(--green) 12%, transparent);
+}
+.tag-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  background: var(--surface-hover);
+  border-radius: var(--radius-sm);
+  padding: 3px 8px;
+  cursor: pointer;
+  transition: color 120ms, background 120ms;
+}
+.tag:hover { color: var(--amber); background: color-mix(in srgb, var(--amber) 12%, transparent); }
+
+/* ── Main content ─────────────────────────────────────────── */
+.main {
+  flex: 1;
+  min-width: 0;
+  padding: 24px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 36px;
+}
+
+/* ── Section header ───────────────────────────────────────── */
+.section-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 12px;
+  border-bottom: 1px dashed var(--hairline-soft);
+  margin-bottom: 16px;
+}
+.section-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-weight: 700;
+  color: var(--ink);
+}
+.section-count { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.section-link {
+  margin-left: auto;
+  font-size: 10px; text-transform: uppercase; letter-spacing: .1em;
+  color: var(--muted); border-bottom: 1px solid var(--hairline-soft); padding-bottom: 1px;
+  transition: color 120ms, border-color 120ms;
+}
+.section-link:hover { color: var(--ink); border-color: var(--strong); }
+.section-filter { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.filter-btn {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: var(--surface-hover);
+  padding: 4px 10px;
+  cursor: pointer;
+  font-family: var(--font);
+  transition: border-color 120ms, color 120ms, background 120ms;
+}
+.filter-btn:hover { border-color: var(--hairline); color: var(--ink); }
+.filter-btn.active { border-color: var(--strong); background: var(--strong); color: var(--bg); }
+
+/* ── LIVE NOW: 3-column large cards ──────────────────────── */
+.live-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+
+.stream-card {
+  background: var(--panel);
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--ink) 5%, transparent);
+  transition: border-color 150ms, transform 150ms, box-shadow 150ms;
+  display: flex;
+  flex-direction: column;
+}
+.stream-card:hover {
+  border-color: var(--strong);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 28px color-mix(in srgb, var(--ink) 16%, transparent);
+}
+.stream-preview {
+  background: var(--bg);
+  border-bottom: 1px solid var(--hairline-soft);
+  padding: 14px 16px;
+  height: 160px;
+  overflow: hidden;
+  position: relative;
+  font-size: 11px;
+  line-height: 1.75;
+}
+.preview-lines { display: flex; flex-direction: column; gap: 0; }
+.preview-line { display: flex; gap: 8px; white-space: nowrap; }
+.ln { color: var(--faint); min-width: 22px; text-align: right; user-select: none; font-size: 10px; }
+.kw  { color: var(--amber); }
+.fn  { color: var(--green); }
+.str { color: var(--red); }
+.cm  { color: var(--faint); font-style: italic; }
+.tx  { color: var(--muted); }
+.op  { color: var(--ink); opacity: 0.7; }
+.preview-fade {
+  position: absolute; bottom: 0; left: 0; right: 0; height: 48px;
+  background: linear-gradient(to bottom, transparent, var(--bg));
+}
+.preview-badge {
+  position: absolute; top: 10px; left: 10px;
+  display: flex; align-items: center; gap: 5px;
+  background: var(--green); color: var(--bg);
+  font-size: 9px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.12em; padding: 3px 8px; border-radius: var(--radius-sm);
+}
+.preview-badge.ended {
+  background: color-mix(in srgb, var(--bg) 55%, var(--panel));
+  color: var(--faint);
+}
+.preview-evt {
+  position: absolute; top: 10px; right: 10px;
+  font-size: 9px; color: var(--muted);
+  background: color-mix(in srgb, var(--bg) 55%, var(--panel));
+  border-radius: var(--radius-sm);
+  padding: 2px 7px; text-transform: uppercase; letter-spacing: 0.1em;
+}
+.preview-viewers {
+  position: absolute; bottom: 18px; right: 10px;
+  font-size: 9px; color: var(--muted);
+  background: color-mix(in srgb, var(--bg) 60%, var(--panel));
+  border-radius: var(--radius-sm);
+  padding: 2px 7px; text-transform: uppercase; letter-spacing: 0.08em;
+  display: flex; align-items: center; gap: 5px;
+}
+.stream-info { padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
+.stream-title {
+  font-size: 13px; font-weight: 600; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.3;
+}
+.stream-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.stream-owner { font-size: 11px; color: var(--green); font-weight: 500; }
+.stream-sep { color: var(--hairline); }
+.stream-model { font-size: 10px; color: var(--faint); text-transform: uppercase; letter-spacing: 0.08em; }
+.stream-actions { display: flex; align-items: center; gap: 6px; padding: 10px 14px; border-top: 1px solid var(--hairline-soft); }
+.btn-outline {
+  font-family: var(--font); font-size: 10px; text-transform: uppercase;
+  letter-spacing: 0.1em; font-weight: 600; border: 1px solid var(--hairline-soft);
+  border-radius: var(--radius-sm);
+  background: transparent; color: var(--muted); padding: 5px 12px;
+  cursor: pointer; transition: all 120ms;
+}
+.btn-outline:hover { border-color: var(--strong); color: var(--ink); }
+.btn-green {
+  font-family: var(--font); font-size: 10px; text-transform: uppercase;
+  letter-spacing: 0.1em; font-weight: 600; border: 1px solid var(--green);
+  border-radius: var(--radius-sm);
+  background: var(--green); color: var(--bg); padding: 5px 12px; cursor: pointer;
+  transition: filter 120ms;
+}
+.btn-green:hover { filter: brightness(1.12); }
+
+/* ── TRENDING: 4-column feed row (shared by Trending + Recent) ── */
+.trend-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.trend-card {
+  background: var(--panel);
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--ink) 5%, transparent);
+  transition: border-color 140ms, transform 140ms, box-shadow 140ms;
+  display: flex;
+  flex-direction: column;
+}
+.trend-card:hover {
+  border-color: var(--strong);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--ink) 12%, transparent);
+}
+.trend-preview {
+  height: 92px; background: var(--bg);
+  border-bottom: 1px solid var(--hairline-soft);
+  padding: 8px 10px; overflow: hidden; position: relative;
+  font-size: 9px; line-height: 1.7;
+}
+.trend-preview .preview-fade { height: 30px; }
+.trend-body { padding: 10px 12px; flex: 1; display: flex; flex-direction: column; gap: 4px; }
+.trend-title {
+  font-size: 12px; font-weight: 600; color: var(--ink); line-height: 1.3;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.trend-foot { display: flex; align-items: center; justify-content: space-between; margin-top: auto; }
+.trend-owner { font-size: 10px; color: var(--muted); }
+.trend-time  { font-size: 9px; color: var(--faint); font-variant-numeric: tabular-nums; }
+.trend-stat {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 9px; color: var(--faint); text-transform: uppercase; letter-spacing: .08em;
+  padding: 6px 12px; border-top: 1px solid var(--hairline-soft); font-variant-numeric: tabular-nums;
+}
+
+/* ── Small session card (My Sessions / Shared With Me) ───── */
+.recent-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.session-card {
+  background: var(--panel);
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--ink) 5%, transparent);
+  transition: border-color 150ms, box-shadow 150ms;
+  display: flex;
+  flex-direction: column;
+}
+.session-card:hover {
+  border-color: var(--strong);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--ink) 12%, transparent);
+}
+.session-preview-sm {
+  height: 80px; background: var(--bg); border-bottom: 1px solid var(--hairline-soft);
+  padding: 8px 10px; overflow: hidden; position: relative; font-size: 9px; line-height: 1.7;
+}
+.session-preview-sm .preview-fade { height: 28px; }
+.session-badge {
+  position: absolute; top: 6px; left: 6px;
+  font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em;
+  padding: 2px 6px; border-radius: var(--radius-sm);
+}
+.session-badge.live { background: var(--green); color: var(--bg); }
+.session-badge.ended { background: color-mix(in srgb, var(--bg) 55%, var(--panel)); color: var(--faint); }
+.session-body { padding: 10px 12px; flex: 1; display: flex; flex-direction: column; gap: 4px; }
+.session-title-sm {
+  font-size: 12px; font-weight: 600; color: var(--ink); line-height: 1.3;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.session-info-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: auto; }
+.session-owner-sm { font-size: 10px; color: var(--muted); text-overflow: ellipsis; overflow: hidden; white-space: nowrap; }
+.session-time { font-size: 9px; color: var(--faint); white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+/* ── Install guide ───────────────────────────────────────── */
+.install-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 32px;
+  flex-wrap: wrap;
+  margin-bottom: 26px;
+}
+.install-eyebrow {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 10px; text-transform: uppercase; letter-spacing: .14em;
+  color: var(--green); font-weight: 700; margin-bottom: 10px;
+}
+.install-heading { font-size: 19px; font-weight: 700; letter-spacing: -.01em; color: var(--ink); line-height: 1.35; max-width: 420px; }
+.install-sub { font-size: 12px; color: var(--muted); margin-top: 8px; max-width: 400px; line-height: 1.6; }
+
+.install-copybox { flex-shrink: 0; min-width: 340px; }
+.install-tabs { display: flex; gap: 4px; margin-bottom: 8px; }
+.install-tab {
+  font-family: var(--font);
+  font-size: 10px; text-transform: uppercase; letter-spacing: .08em;
+  color: var(--muted); background: var(--surface-hover);
+  border: 1px solid transparent; border-radius: var(--radius-sm);
+  padding: 4px 10px; cursor: pointer; transition: all 120ms;
+}
+.install-tab:hover { color: var(--ink); }
+.install-tab.active { background: var(--strong); color: var(--bg); }
+.install-copyline {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--bg); border: 1px solid var(--hairline-soft);
+  border-radius: 999px; padding: 5px 6px 5px 18px;
+  transition: border-color 150ms;
+}
+.install-copyline:focus-within { border-color: var(--strong); }
+.install-copyline .install-prompt { color: var(--green); flex-shrink: 0; }
+.install-copy-cmd {
+  flex: 1; font-size: 12px; color: var(--ink);
+  white-space: nowrap; overflow-x: auto;
+}
+.install-copy-btn {
+  width: 30px; height: 30px; flex-shrink: 0;
+  border-radius: 999px; border: 1px solid transparent;
+  background: var(--surface-hover); color: var(--muted); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; transition: all 120ms;
+}
+.install-copy-btn:hover { border-color: var(--strong); color: var(--ink); }
+.install-copy-btn.copied { border-color: var(--green); color: var(--green); }
+
+/* connected 3-step path */
+.install-path { display: flex; align-items: stretch; gap: 6px; }
+.install-path-step {
+  flex: 1; position: relative;
+  background: var(--panel);
+  border-radius: var(--radius);
+  padding: 18px 18px 16px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.install-path-arrow {
+  align-self: center;
+  color: var(--faint); font-size: 16px; flex-shrink: 0;
+}
+.install-path-head { display: flex; align-items: center; gap: 10px; }
+.install-path-icon {
+  width: 32px; height: 32px; flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--green) 12%, transparent);
+  color: var(--green);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+}
+.install-path-num { font-size: 10px; color: var(--faint); font-variant-numeric: tabular-nums; letter-spacing: .08em; }
+.install-path-title { font-size: 12px; font-weight: 700; color: var(--ink); }
+.install-path-desc { font-size: 12px; color: var(--muted); line-height: 1.55; }
+.install-path-chip {
+  align-self: flex-start;
+  font-family: var(--font); font-size: 10px; color: var(--green);
+  background: color-mix(in srgb, var(--green) 10%, transparent);
+  border-radius: var(--radius-sm);
+  padding: 4px 9px;
+}
+
+.install-links { display: flex; align-items: center; gap: 18px; margin-top: 20px; }
+.install-link {
+  font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted);
+  border-bottom: 1px solid var(--hairline-soft); padding-bottom: 1px;
+  transition: color 120ms, border-color 120ms;
+}
+.install-link:hover { color: var(--ink); border-color: var(--strong); }
+
+/* ── Footer ─────────────────────────────────────────────── */
+.footer { border-top: 1px solid var(--hairline); background: var(--panel); padding: 32px 28px 20px; flex-shrink: 0; }
+.footer-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 40px; flex-wrap: wrap; margin-bottom: 24px; }
+.footer-brand { display: flex; align-items: center; gap: 9px; }
+.footer-desc { font-size: 11px; color: var(--muted); margin-top: 10px; max-width: 240px; line-height: 1.6; }
+.footer-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; max-width: 560px; flex: 1; }
+.footer-col-heading { font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--faint); font-weight: 700; margin-bottom: 10px; }
+.footer-links { display: flex; flex-direction: column; gap: 8px; }
+.footer-links a { font-size: 12px; color: var(--muted); transition: color 120ms; }
+.footer-links a:hover { color: var(--ink); }
+.footer-bottom {
+  padding-top: 16px; border-top: 1px dashed var(--hairline-soft);
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  font-size: 10px; color: var(--faint); text-transform: uppercase; letter-spacing: 0.08em;
+}
+.footer-status { display: flex; align-items: center; gap: 7px; color: var(--green); }
+
+/* ── Scrollbar ──────────────────────────────────────────── */
+* { scrollbar-width: thin; scrollbar-color: var(--hairline) transparent; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--hairline); }
+::-webkit-scrollbar-thumb:hover { background: var(--faint); }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ═══ NAVBAR ══════════════════════════════════════════ -->
+  <nav class="navbar">
+    <a href="#" class="navbar-brand">
+      <div class="brand-mark"></div>
+      LiveShortly<span class="blink" style="color:var(--faint)">_</span>
+    </a>
+
+    <div class="divider-v"></div>
+
+    <div class="nav-links">
+      <a href="#top" class="nav-link active">Home</a>
+      <a href="#live" class="nav-link">Live</a>
+      <a href="#trending" class="nav-link">Trending</a>
+      <a href="#my-sessions" class="nav-link">My Sessions</a>
+      <a href="#install" class="nav-link">Get Started</a>
+    </div>
+
+    <div class="nav-live-pill">
+      <span class="live-dot-sm"></span> 2 Live
+    </div>
+
+    <div class="navbar-search">
+      <span class="search-slash">/</span>
+      <input type="text" placeholder="Search sessions — title or tag">
+    </div>
+
+    <div class="navbar-right">
+      <a href="#" class="stat-chip">
+        <span class="val">24</span>
+        <span class="lbl">Total</span>
+      </a>
+
+      <button type="button" class="theme-toggle" onclick="toggleTheme()" id="theme-toggle" title="Toggle theme">
+        <span id="theme-icon">☀</span>
+      </button>
+
+      <div class="divider-v"></div>
+
+      <div class="user-pill">
+        <div class="user-avatar">M</div>
+        <div class="user-info">
+          <div class="user-name">mukulmalviya2</div>
+          <div class="user-action">↩ Sign out</div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ═══ BODY ════════════════════════════════════════════ -->
+  <div class="body">
+
+    <!-- ── SIDEBAR ── -->
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-heading">Browse</div>
+        <div class="nav-item active">
+          <span class="nav-item-label">◈ All Sessions</span>
+          <span class="nav-count">24</span>
+        </div>
+        <div class="nav-item">
+          <span class="nav-item-label live"><span class="live-dot"></span> Live</span>
+          <span class="nav-count live">2</span>
+        </div>
+        <div class="nav-item">
+          <span class="nav-item-label" style="color:var(--muted)">▪ Ended</span>
+          <span class="nav-count">22</span>
+        </div>
+      </div>
+
+      <div style="height:1px;background:var(--hairline-soft);margin:0 16px"></div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-heading">Shared With Me</div>
+        <div class="nav-item">
+          <span class="nav-item-label" style="color:var(--amber)">⊞ From Others</span>
+          <span class="nav-count" style="color:var(--amber);border-color:var(--amber)">3</span>
+        </div>
+      </div>
+
+      <div style="height:1px;background:var(--hairline-soft);margin:0 16px"></div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-heading">Quick Filters</div>
+        <div class="tag-list">
+          <span class="tag">#python</span>
+          <span class="tag">#web</span>
+          <span class="tag">#api</span>
+          <span class="tag">#claude-4</span>
+          <span class="tag">#auth</span>
+          <span class="tag">#refactor</span>
+          <span class="tag">#debug</span>
+        </div>
+      </div>
+
+      <div style="height:1px;background:var(--hairline-soft);margin:0 16px"></div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-heading">Models</div>
+        <div class="nav-item">
+          <span class="nav-item-label" style="color:var(--muted);font-size:11px">claude-sonnet-4-6</span>
+          <span class="nav-count">18</span>
+        </div>
+        <div class="nav-item">
+          <span class="nav-item-label" style="color:var(--muted);font-size:11px">claude-opus-4-8</span>
+          <span class="nav-count">6</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ── MAIN ── -->
+    <main class="main" id="top">
+
+      <!-- LIVE NOW -->
+      <section id="live">
+        <div class="section-head">
+          <span class="live-dot"></span>
+          <span class="section-title">Live Now</span>
+          <span class="section-count tnum">· 2 streaming</span>
+          <div class="section-filter">
+            <button class="filter-btn active">All</button>
+            <button class="filter-btn">Live</button>
+            <button class="filter-btn">Ended</button>
+          </div>
+        </div>
+
+        <div class="live-grid">
+
+          <!-- Live Card 1 -->
+          <div class="stream-card">
+            <div class="stream-preview">
+              <span class="preview-badge"><span class="live-dot" style="width:6px;height:6px"></span>LIVE</span>
+              <span class="preview-evt">⚙ 247 EVENTS</span>
+              <span class="preview-viewers">👁 14</span>
+              <div class="preview-lines">
+                <div class="preview-line"><span class="ln">1</span><span class="cm">// auth middleware — JWT validation</span></div>
+                <div class="preview-line"><span class="ln">2</span><span class="kw">import</span><span class="tx"> { verify } </span><span class="kw">from</span><span class="str"> 'jsonwebtoken'</span></div>
+                <div class="preview-line"><span class="ln">3</span></div>
+                <div class="preview-line"><span class="ln">4</span><span class="kw">export</span><span class="tx"> </span><span class="kw">async function</span><span class="fn"> authenticate</span><span class="tx">(req, res, next) {</span></div>
+                <div class="preview-line"><span class="ln">5</span><span class="tx">  </span><span class="kw">const</span><span class="tx"> token = req.headers.</span><span class="fn">authorization</span></div>
+                <div class="preview-line"><span class="ln">6</span><span class="tx">    ?.replace(</span><span class="str">'Bearer '</span><span class="tx">, </span><span class="str">''</span><span class="tx">)</span></div>
+                <div class="preview-line"><span class="ln">7</span><span class="tx">  </span><span class="kw">if</span><span class="tx"> (!token) </span><span class="kw">return</span><span class="tx"> res.</span><span class="fn">status</span><span class="tx">(401).</span><span class="fn">json</span><span class="tx">({ error: </span><span class="str">'Unauthorized'</span><span class="tx"> })</span></div>
+              </div>
+              <div class="preview-fade"></div>
+            </div>
+            <div class="stream-info">
+              <div class="stream-title">Build auth middleware — JWT + refresh token flow</div>
+              <div class="stream-meta">
+                <span class="stream-owner">@mukulmalviya2</span>
+                <span class="stream-sep">·</span>
+                <span class="stream-model">claude-sonnet-4-6</span>
+              </div>
+            </div>
+            <div class="stream-actions">
+              <button class="btn-green">▶ WATCH LIVE</button>
+              <button class="btn-outline">⊕ SHARE</button>
+            </div>
+          </div>
+
+          <!-- Live Card 2 -->
+          <div class="stream-card">
+            <div class="stream-preview">
+              <span class="preview-badge"><span class="live-dot" style="width:6px;height:6px"></span>LIVE</span>
+              <span class="preview-evt">⚙ 89 EVENTS</span>
+              <span class="preview-viewers">👁 6</span>
+              <div class="preview-lines">
+                <div class="preview-line"><span class="ln">1</span><span class="cm">// fix React hydration mismatch</span></div>
+                <div class="preview-line"><span class="ln">2</span><span class="kw">import</span><span class="tx"> React, { </span><span class="fn">useEffect</span><span class="tx">, </span><span class="fn">useState</span><span class="tx"> } </span><span class="kw">from</span><span class="str"> 'react'</span></div>
+                <div class="preview-line"><span class="ln">3</span></div>
+                <div class="preview-line"><span class="ln">4</span><span class="kw">function</span><span class="fn"> ClientOnly</span><span class="tx">({ children }) {</span></div>
+                <div class="preview-line"><span class="ln">5</span><span class="tx">  </span><span class="kw">const</span><span class="tx"> [mounted, </span><span class="fn">setMounted</span><span class="tx">] = </span><span class="fn">useState</span><span class="tx">(</span><span class="kw">false</span><span class="tx">)</span></div>
+                <div class="preview-line"><span class="ln">6</span><span class="tx">  </span><span class="fn">useEffect</span><span class="tx">(() => </span><span class="fn">setMounted</span><span class="tx">(</span><span class="kw">true</span><span class="tx">), [])</span></div>
+                <div class="preview-line"><span class="ln">7</span><span class="tx">  </span><span class="kw">if</span><span class="tx"> (!mounted) </span><span class="kw">return</span><span class="tx"> </span><span class="kw">null</span></div>
+              </div>
+              <div class="preview-fade"></div>
+            </div>
+            <div class="stream-info">
+              <div class="stream-title">Fix React hydration mismatch in Next.js 15 App Router</div>
+              <div class="stream-meta">
+                <span class="stream-owner">@devuser_99</span>
+                <span class="stream-sep">·</span>
+                <span class="stream-model">claude-opus-4-8</span>
+              </div>
+            </div>
+            <div class="stream-actions">
+              <button class="btn-green">▶ WATCH LIVE</button>
+              <button class="btn-outline">⊕ SHARE</button>
+            </div>
+          </div>
+
+          <!-- Get started card -->
+          <div class="stream-card" style="border-style:dashed;opacity:.6">
+            <div class="stream-preview" style="display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px">
+              <div style="font-size:26px;color:var(--faint)">◌</div>
+              <div style="font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:var(--faint);text-align:center">
+                No more live sessions<br>right now
+              </div>
+            </div>
+            <div class="stream-info">
+              <div class="stream-title" style="color:var(--faint)">Start streaming your session</div>
+              <div class="stream-meta"><span style="font-size:11px;color:var(--faint)">Install the CLI hook and go live</span></div>
+            </div>
+            <div class="stream-actions">
+              <button class="btn-outline" style="width:100%">▶ Get Started →</button>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- TRENDING TODAY -->
+      <section id="trending">
+        <div class="section-head">
+          <span style="font-size:13px">◈</span>
+          <span class="section-title">Trending Today</span>
+          <span class="section-count tnum">· most events in the last 24h</span>
+          <a href="#" class="section-link">View all →</a>
+        </div>
+
+        <div class="trend-row">
+
+          <div class="trend-card">
+            <div class="trend-preview">
+              <span class="preview-badge ended">ENDED</span>
+              <div class="preview-lines" style="margin-top:20px">
+                <div class="preview-line"><span class="kw">SELECT</span><span class="tx"> s.*, </span><span class="fn">COUNT</span><span class="tx">(e.id) events</span></div>
+                <div class="preview-line"><span class="kw">FROM</span><span class="fn"> sessions</span><span class="tx"> s</span></div>
+                <div class="preview-line"><span class="kw">JOIN</span><span class="fn"> session_events</span><span class="tx"> e</span></div>
+              </div>
+              <div class="preview-fade"></div>
+            </div>
+            <div class="trend-body">
+              <div class="trend-title">Optimize session queries — composite indexes, EXPLAIN ANALYZE</div>
+              <div class="trend-foot">
+                <span class="trend-owner">@alice_codes</span>
+                <span class="trend-time">3h ago</span>
+              </div>
+            </div>
+            <div class="trend-stat">
+              <span>⚙ 1,247 events</span>
+              <span style="margin-left:auto">👁 31 views</span>
+            </div>
+          </div>
+
+          <div class="trend-card">
+            <div class="trend-preview">
+              <span class="preview-badge ended">ENDED</span>
+              <div class="preview-lines" style="margin-top:20px">
+                <div class="preview-line"><span class="kw">async function</span><span class="fn"> migrate</span><span class="tx">() {</span></div>
+                <div class="preview-line"><span class="tx">  </span><span class="kw">await</span><span class="tx"> db.</span><span class="fn">runMigration</span><span class="tx">(</span><span class="str">'002'</span><span class="tx">)</span></div>
+                <div class="preview-line"><span class="cm">  // add auth tables</span></div>
+              </div>
+              <div class="preview-fade"></div>
+            </div>
+            <div class="trend-body">
+              <div class="trend-title">Postgres migration 002 — auth tables, sharing model, indexes</div>
+              <div class="trend-foot">
+                <span class="trend-owner">@mukulmalviya2</span>
+                <span class="trend-time">8h ago</span>
+              </div>
+            </div>
+            <div class="trend-stat">
+              <span>⚙ 892 events</span>
+              <span style="margin-left:auto">👁 22 views</span>
+            </div>
+          </div>
+
+          <div class="trend-card">
+            <div class="trend-preview">
+              <span class="preview-badge ended">ENDED</span>
+              <div class="preview-lines" style="margin-top:20px">
+                <div class="preview-line"><span class="cm">// SSE stream handler</span></div>
+                <div class="preview-line"><span class="fn">w.Header</span><span class="tx">().</span><span class="fn">Set</span><span class="tx">(</span></div>
+                <div class="preview-line"><span class="str">  "Content-Type"</span><span class="tx">,</span></div>
+              </div>
+              <div class="preview-fade"></div>
+            </div>
+            <div class="trend-body">
+              <div class="trend-title">SSE streaming — Redis pub/sub fan-out, heartbeats, replay buffer</div>
+              <div class="trend-foot">
+                <span class="trend-owner">@mukulmalviya2</span>
+                <span class="trend-time">1d ago</span>
+              </div>
+            </div>
+            <div class="trend-stat">
+              <span>⚙ 743 events</span>
+              <span style="margin-left:auto">👁 18 views</span>
+            </div>
+          </div>
+
+          <div class="trend-card">
+            <div class="trend-preview">
+              <span class="preview-badge ended">ENDED</span>
+              <div class="preview-lines" style="margin-top:20px">
+                <div class="preview-line"><span class="kw">use</span><span class="tx"> tokio::net::</span><span class="fn">TcpListener</span><span class="tx">;</span></div>
+                <div class="preview-line"><span class="kw">use</span><span class="tx"> axum::{Router, </span><span class="fn">routing</span><span class="tx">::get};</span></div>
+                <div class="preview-line"><span class="kw">async fn</span><span class="fn"> main</span><span class="tx">() {</span></div>
+              </div>
+              <div class="preview-fade"></div>
+            </div>
+            <div class="trend-body">
+              <div class="trend-title">Rust + Axum async server — tokio, routing, middleware stack</div>
+              <div class="trend-foot">
+                <span class="trend-owner">@rust_fan</span>
+                <span class="trend-time">1d ago</span>
+              </div>
+            </div>
+            <div class="trend-stat">
+              <span>⚙ 611 events</span>
+              <span style="margin-left:auto">👁 29 views</span>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- MY SESSIONS -->
+      <section id="my-sessions">
+        <div class="section-head">
+          <span class="section-title">My Sessions</span>
+          <span class="section-count tnum">· 22</span>
+          <div class="section-filter">
+            <button class="filter-btn active">All</button>
+            <button class="filter-btn">Ended</button>
+          </div>
+        </div>
+
+        <div class="recent-grid">
+
+          <div class="session-card">
+            <div class="session-preview-sm">
+              <span class="session-badge ended">ENDED</span>
+              <div class="preview-lines" style="margin-top:20px">
+                <div class="preview-line"><span class="kw">const</span><span class="tx"> router = </span><span class="fn">chi.NewRouter</span><span class="tx">()</span></div>
+                <div class="preview-line"><span class="tx">router.</span><span class="fn">Use</span><span class="tx">(auth.</span><span class="fn">Authn</span><span class="tx">)</span></div>
+                <div class="preview-line"><span class="tx">router.</span><span class="fn">Get</span><span class="tx">(</span><span class="str">"/api/sessions"</span><span class="tx">,...)</span></div>
+              </div>
+              <div class="preview-fade"></div>
+            </div>
+            <div class="session-body">
+              <div class="session-title-sm">Go API refactor — chi router, middleware chain setup</div>
+              <div class="session-info-row">
+                <span class="session-owner-sm">@mukulmalviya2</span>
+                <span class="session-time">5h ago</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="session-card">
+            <div class="session-preview-sm">
+              <span class="session-badge ended">ENDED</span>
+              <div class="preview-lines" style="margin-top:20px">
+                <div class="preview-line"><span class="kw">export default function</span></div>
+                <div class="preview-line"><span class="fn"> EventStream</span><span class="tx">({ events }) {</span></div>
+                <div class="preview-line"><span class="tx">  </span><span class="kw">const</span><span class="tx"> endRef = </span><span class="fn">useRef</span><span class="tx">()</span></div>
+              </div>
+              <div class="preview-fade"></div>
+            </div>
+            <div class="session-body">
+              <div class="session-title-sm">EventStream component — auto-scroll chat transcript</div>
+              <div class="session-info-row">
+                <span class="session-owner-sm">@mukulmalviya2</span>
+                <span class="session-time">2d ago</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="session-card">
+            <div class="session-preview-sm">
+              <span class="session-badge ended">ENDED</span>
+              <div class="preview-lines" style="margin-top:20px">
+                <div class="preview-line"><span class="kw">docker</span><span class="fn"> compose</span><span class="tx"> up</span></div>
+                <div class="preview-line"><span class="tx">  --build --detach</span></div>
+                <div class="preview-line"><span class="cm"># nginx reverse proxy</span></div>
+              </div>
+              <div class="preview-fade"></div>
+            </div>
+            <div class="session-body">
+              <div class="session-title-sm">Production deploy — Docker, nginx config, Cloudflare TLS</div>
+              <div class="session-info-row">
+                <span class="session-owner-sm">@mukulmalviya2</span>
+                <span class="session-time">3d ago</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="session-card">
+            <div class="session-preview-sm">
+              <span class="session-badge ended">ENDED</span>
+              <div class="preview-lines" style="margin-top:20px">
+                <div class="preview-line"><span class="kw">const</span><span class="tx"> [theme, </span><span class="fn">setTheme</span><span class="tx">] =</span></div>
+                <div class="preview-line"><span class="fn">  useState</span><span class="tx">(</span><span class="str">'dark'</span><span class="tx">)</span></div>
+                <div class="preview-line"><span class="fn">useEffect</span><span class="tx">(() => {</span></div>
+              </div>
+              <div class="preview-fade"></div>
+            </div>
+            <div class="session-body">
+              <div class="session-title-sm">ThemeProvider — dark/light toggle with system preference detection</div>
+              <div class="session-info-row">
+                <span class="session-owner-sm">@mukulmalviya2</span>
+                <span class="session-time">4d ago</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="session-card">
+            <div class="session-preview-sm">
+              <span class="session-badge ended">ENDED</span>
+              <div class="preview-lines" style="margin-top:20px">
+                <div class="preview-line"><span class="cm">// Google OAuth flow</span></div>
+                <div class="preview-line"><span class="kw">func</span><span class="fn"> GoogleCallback</span><span class="tx">(w</span></div>
+                <div class="preview-line"><span class="tx">    http.ResponseWriter, r</span></div>
+              </div>
+              <div class="preview-fade"></div>
+            </div>
+            <div class="session-body">
+              <div class="session-title-sm">Google OAuth callback handler + session cookie setup</div>
+              <div class="session-info-row">
+                <span class="session-owner-sm">@mukulmalviya2</span>
+                <span class="session-time">5d ago</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="session-card">
+            <div class="session-preview-sm">
+              <span class="session-badge ended">ENDED</span>
+              <div class="preview-lines" style="margin-top:20px">
+                <div class="preview-line"><span class="cm">// CLI device flow</span></div>
+                <div class="preview-line"><span class="kw">POST</span><span class="fn"> /auth/device/start</span></div>
+                <div class="preview-line"><span class="kw">poll</span><span class="fn"> /auth/device/poll</span></div>
+              </div>
+              <div class="preview-fade"></div>
+            </div>
+            <div class="session-body">
+              <div class="session-title-sm">CLI device auth flow — start/poll tokens, credential storage</div>
+              <div class="session-info-row">
+                <span class="session-owner-sm">@mukulmalviya2</span>
+                <span class="session-time">6d ago</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- SHARED WITH ME -->
+      <section>
+        <div class="section-head">
+          <span style="color:var(--amber);font-size:13px">⊞</span>
+          <span class="section-title">Shared With Me</span>
+          <span class="section-count tnum">· 3</span>
+        </div>
+
+        <div class="recent-grid">
+
+          <div class="session-card">
+            <div class="session-preview-sm">
+              <span class="session-badge live">LIVE</span>
+              <div class="preview-lines" style="margin-top:20px">
+                <div class="preview-line"><span class="kw">SELECT</span><span class="tx"> * </span><span class="kw">FROM</span><span class="fn"> sessions</span></div>
+                <div class="preview-line"><span class="kw">WHERE</span><span class="tx"> status = </span><span class="str">'live'</span></div>
+                <div class="preview-line"><span class="kw">ORDER BY</span><span class="tx"> created_at</span></div>
+              </div>
+              <div class="preview-fade"></div>
+            </div>
+            <div class="session-body">
+              <div class="session-title-sm">Optimize session query — add composite indexes</div>
+              <div class="session-info-row">
+                <span class="session-owner-sm" style="color:var(--amber)">⊞ viewer</span>
+                <span class="session-time">12m ago</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="session-card">
+            <div class="session-preview-sm">
+              <span class="session-badge ended">ENDED</span>
+              <div class="preview-lines" style="margin-top:20px">
+                <div class="preview-line"><span class="fn">testBuildPackage</span><span class="tx">()</span></div>
+                <div class="preview-line"><span class="tx">  expect(result).</span><span class="fn">toBe</span><span class="tx">(</span><span class="kw">true</span><span class="tx">)</span></div>
+              </div>
+              <div class="preview-fade"></div>
+            </div>
+            <div class="session-body">
+              <div class="session-title-sm">Add integration tests for build pipeline</div>
+              <div class="session-info-row">
+                <span class="session-owner-sm" style="color:var(--amber)">⊞ commenter</span>
+                <span class="session-time">1d ago</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="session-card">
+            <div class="session-preview-sm">
+              <span class="session-badge ended">ENDED</span>
+              <div class="preview-lines" style="margin-top:20px">
+                <div class="preview-line"><span class="cm">// CORS middleware</span></div>
+                <div class="preview-line"><span class="fn">cors.New</span><span class="tx">(cors.Options{</span></div>
+                <div class="preview-line"><span class="tx">  AllowedOrigins: []</span><span class="fn">string</span><span class="tx">{</span></div>
+              </div>
+              <div class="preview-fade"></div>
+            </div>
+            <div class="session-body">
+              <div class="session-title-sm">CORS setup for API — allowed origins config</div>
+              <div class="session-info-row">
+                <span class="session-owner-sm" style="color:var(--amber)">⊞ viewer</span>
+                <span class="session-time">3d ago</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- INSTALL GUIDE -->
+      <section id="install">
+        <div class="section-head">
+          <span style="font-size:13px">▶</span>
+          <span class="section-title">Get Started</span>
+          <span class="section-count tnum">· 3 steps to go live</span>
+        </div>
+
+        <div class="install-top">
+          <div>
+            <div class="install-eyebrow">⚡ Two minutes, zero config</div>
+            <h2 class="install-heading">You're three commands away from going live</h2>
+            <p class="install-sub">Install the CLI hooks, authenticate once, then use Claude Code exactly like you already do — every session streams automatically.</p>
+          </div>
+
+          <div class="install-copybox">
+            <div class="install-tabs">
+              <button class="install-tab active" data-cmd="curl -fsSL liveshortly.dev/install.sh | sh">curl</button>
+              <button class="install-tab" data-cmd="pip install liveshortly-hooks">pip</button>
+              <button class="install-tab" data-cmd="brew install liveshortly/tap/liveshortly">brew</button>
+            </div>
+            <div class="install-copyline">
+              <span class="install-prompt">$</span>
+              <span class="install-copy-cmd tnum" id="install-copy-cmd">curl -fsSL liveshortly.dev/install.sh | sh</span>
+              <button class="install-copy-btn" id="install-copy-btn" onclick="copyInstallCmd()" title="Copy to clipboard">⧉</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="install-path">
+
+          <div class="install-path-step">
+            <div class="install-path-head">
+              <div class="install-path-icon">📥</div>
+              <div>
+                <div class="install-path-num">STEP 01</div>
+                <div class="install-path-title">Install the hooks</div>
+              </div>
+            </div>
+            <div class="install-path-desc">Wires session_start, pre_tool_use and the rest into your existing Claude Code config — no manual editing.</div>
+            <code class="install-path-chip">~/.claude/hooks/*.py</code>
+          </div>
+
+          <div class="install-path-arrow">→</div>
+
+          <div class="install-path-step">
+            <div class="install-path-head">
+              <div class="install-path-icon">🔑</div>
+              <div>
+                <div class="install-path-num">STEP 02</div>
+                <div class="install-path-title">Authenticate once</div>
+              </div>
+            </div>
+            <div class="install-path-desc">Device-flow login pairs the CLI to your account; tokens auto-refresh so you never log in again.</div>
+            <code class="install-path-chip">liveshortly auth login</code>
+          </div>
+
+          <div class="install-path-arrow">→</div>
+
+          <div class="install-path-step">
+            <div class="install-path-head">
+              <div class="install-path-icon">▶</div>
+              <div>
+                <div class="install-path-num">STEP 03</div>
+                <div class="install-path-title">Just run Claude</div>
+              </div>
+            </div>
+            <div class="install-path-desc">Every session is captured, streamed over SSE, and instantly shareable — no extra flags, nothing to remember.</div>
+            <code class="install-path-chip">claude</code>
+          </div>
+
+        </div>
+
+        <div class="install-links">
+          <a href="#" class="install-link">Read the Docs →</a>
+          <a href="#" class="install-link">Browse example sessions →</a>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ═══ FOOTER ══════════════════════════════════════════ -->
+  <footer class="footer">
+    <div class="footer-top">
+      <div>
+        <div class="footer-brand">
+          <div class="brand-mark" style="width:22px;height:22px"></div>
+          <span style="font-size:14px;font-weight:700;letter-spacing:-.02em">LiveShortly</span>
+        </div>
+        <p class="footer-desc">Live-streamed, replayable, shareable Claude Code sessions for developers.</p>
+      </div>
+
+      <div class="footer-grid">
+        <div>
+          <div class="footer-col-heading">Company</div>
+          <div class="footer-links">
+            <a href="#">About</a>
+            <a href="#">Blog</a>
+            <a href="#">Careers</a>
+            <a href="#">Contact</a>
+          </div>
+        </div>
+        <div>
+          <div class="footer-col-heading">Developers</div>
+          <div class="footer-links">
+            <a href="#">API Docs</a>
+            <a href="#">CONTRACT.md</a>
+            <a href="#">Changelog</a>
+            <a href="#">GitHub</a>
+          </div>
+        </div>
+        <div>
+          <div class="footer-col-heading">Account</div>
+          <div class="footer-links">
+            <a href="dashboard.html">Dashboard</a>
+            <a href="#">Sign In</a>
+            <a href="#">Start Streaming</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer-bottom">
+      <span>© 2026 LiveShortly · Made with Claude Code</span>
+      <div class="footer-status">
+        <span class="live-dot-sm"></span>
+        All systems operational
+      </div>
+    </div>
+  </footer>
+
+</div>
+
+<script>
+function toggleTheme() {
+  const root = document.documentElement;
+  const current = root.getAttribute('data-theme') ||
+    (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  const next = current === 'dark' ? 'light' : 'dark';
+  root.setAttribute('data-theme', next);
+  document.getElementById('theme-icon').textContent = next === 'dark' ? '☾' : '☀';
+}
+document.querySelectorAll('.install-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.install-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('install-copy-cmd').textContent = tab.dataset.cmd;
+  });
+});
+function copyInstallCmd() {
+  const cmd = document.getElementById('install-copy-cmd').textContent;
+  const btn = document.getElementById('install-copy-btn');
+  navigator.clipboard?.writeText(cmd);
+  btn.textContent = '✓';
+  btn.classList.add('copied');
+  setTimeout(() => { btn.textContent = '⧉'; btn.classList.remove('copied'); }, 1500);
+}
+</script>
+</body>
+</html>

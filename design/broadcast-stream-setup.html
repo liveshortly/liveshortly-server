@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>LiveShortly — Broadcast Design</title>
+<style>
+  /* ══════════════════════════════════════════════════════════════
+     PAGE CHROME
+     ══════════════════════════════════════════════════════════════ */
+  :root, :root[data-theme="light"] {
+    --page-bg: #f3f2ec; --page-panel: #fff; --page-ink: #17160f;
+    --page-muted: #6b6a5f; --page-line: #ddd9cb; --page-accent: #1f8a52;
+  }
+  :root[data-theme="dark"] {
+    --page-bg: #111310; --page-panel: #1a1c17; --page-ink: #ece9de;
+    --page-muted: #9d9a8c; --page-line: #2c2e26; --page-accent: #39ff8f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme]) {
+      --page-bg: #111310; --page-panel: #1a1c17; --page-ink: #ece9de;
+      --page-muted: #9d9a8c; --page-line: #2c2e26; --page-accent: #39ff8f;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--page-bg); color: var(--page-ink);
+    font-family: -apple-system, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page { max-width: 1120px; margin: 0 auto; padding: 48px 24px 80px; }
+  .kicker { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--page-accent); font-weight: 700; margin-bottom: 10px; }
+  h1 { font-size: 29px; font-weight: 700; letter-spacing: -.01em; margin: 0 0 14px; text-wrap: balance; }
+  .lede { font-size: 15.5px; line-height: 1.68; color: var(--page-muted); max-width: 68ch; margin: 0 0 12px; }
+  .principles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 26px 0 6px; }
+  .pr { border: 1px solid var(--page-line); padding: 14px 16px; border-radius: 3px; }
+  .pr .k { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--page-accent); font-weight: 700; margin-bottom: 7px; }
+  .pr .g { font-size: 13px; color: var(--page-muted); margin-bottom: 3px; }
+  .pr .c { font-size: 13.5px; font-weight: 600; }
+  .arrow { color: var(--page-muted); margin: 0 5px; font-weight: 400; }
+  .stage-wrap { margin-top: 30px; }
+  .canvas-frame {
+    width: 100%; aspect-ratio: 16/9; position: relative; overflow: hidden;
+    border-radius: 4px; box-shadow: 0 20px 60px rgba(0,0,0,.35);
+  }
+  .swatches { display: flex; gap: 16px; margin-top: 22px; flex-wrap: wrap; }
+  .sw { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--page-muted); }
+  .sw i { width: 16px; height: 16px; border-radius: 3px; display: block; }
+  .note { font-size: 13px; line-height: 1.6; color: var(--page-muted); margin-top: 20px; max-width: 70ch; }
+
+  /* ══════════════════════════════════════════════════════════════
+     THE BROADCAST CANVAS — 1280×720, one coherent system.
+
+     PHILOSOPHY: a coder's stream setup, built the way a gamer builds
+     theirs — same slots, recast for this audience. Gameplay capture
+     becomes the live code feed (the main event, not a chat window).
+     Face-cam becomes an Agent Status card — Claude has no face, so
+     the "reaction" is a state readout and an activity meter instead.
+     Chat sits where chat always sits: fixed, always on, never
+     covering the feed. A sub-goal bar becomes a shipping-progress
+     bar tied to the actual task. New-follower alerts become the
+     things THIS audience cares about — permission granted, a
+     viewer's suggestion landing, a build passing.
+
+     COLOR: one signature hue carries the whole thing — phosphor
+     green, closer to a CRT terminal glow than the product's own
+     buttoned-up brand green, because a stream needs to read at a
+     glance and through YouTube's compression. Amber is reserved
+     strictly for "something is happening" (build/activity). A warm
+     pink is reserved strictly for people — chat and alerts — so the
+     one moment a human enters the frame is the one moment the palette
+     breaks from green. Three hues, three fixed meanings, no more.
+
+     TYPE: one monospace voice throughout, at a real scale — this
+     is a terminal being watched, not a UI being read, so it's set
+     bigger and looser than the product's own dense HUD chrome.
+     ══════════════════════════════════════════════════════════════ */
+  .bstage {
+    --bg: #060a07; --panel: #0d130e; --panel-2: #111a12; --line: #1c2a1d;
+    --ink: #eef3ea; --muted: #7d8c7a; --faint: #4d5a4b;
+    --green: #39ff8f; --green-dim: rgba(57,255,143,.12);
+    --amber: #ffcc66; --pink: #ff6f9c;
+    background: var(--bg); color: var(--ink);
+    font-family: "JetBrains Mono", "SF Mono", ui-monospace, Menlo, monospace;
+    display: flex; flex-direction: column; height: 100%; position: relative;
+  }
+  .bstage::before {
+    /* soft ambient glow, upper-left — the one bit of atmosphere */
+    content: ''; position: absolute; top: -140px; left: -100px; width: 480px; height: 480px;
+    background: radial-gradient(circle, var(--green-dim) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .b-main-row { flex: 1; min-height: 0; display: flex; position: relative; z-index: 1; }
+
+  /* ── Main stage: chat — the actual differentiator, so it gets the
+     biggest seat instead of a squeezed rail. ── */
+  .b-chatmain { flex: 1.5; min-width: 0; display: flex; flex-direction: column; padding: 20px 22px 16px; }
+  .b-scene-tag {
+    display: inline-flex; align-items: center; gap: 7px; align-self: flex-start;
+    font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted);
+    border: 1px solid var(--line); padding: 4px 10px 4px 8px; border-radius: 2px; margin-bottom: 14px;
+  }
+  .b-scene-tag .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--amber); }
+  .b-chatmain-head {
+    display: flex; justify-content: space-between; font-size: 10.5px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--muted); padding-bottom: 12px; border-bottom: 1px solid var(--line);
+    margin-bottom: 14px;
+  }
+  .b-msgs { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: flex-end; gap: 16px; overflow: hidden; }
+  .b-msg-lg { display: flex; gap: 11px; align-items: flex-start; }
+  .b-av { width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; }
+  .b-av-claude { background: var(--green-dim); color: var(--green); border: 1px solid var(--green); }
+  .b-msg-body { min-width: 0; }
+  .b-msg-lg .who { font-size: 12.5px; color: var(--pink); font-weight: 700; margin-bottom: 3px; }
+  .b-msg-lg .who-claude { color: var(--green); }
+  .b-msg-lg .txt { font-size: 14.5px; color: var(--ink); line-height: 1.45; }
+
+  /* ── Right rail: tool-call activity — the actual work, logged live,
+     instead of a single static code snippet. ── */
+  .b-activity { flex: 1; min-width: 0; border-left: 1px solid var(--line); background: var(--panel); display: flex; flex-direction: column; padding: 18px 20px; }
+  .b-activity-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+  .b-agent-state { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--green); font-weight: 700; display: flex; align-items: center; gap: 5px; }
+  .b-agent-state .d { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+  .b-activity-name { font-size: 11px; color: var(--muted); }
+  .b-tool-log { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; overflow: hidden; }
+  .b-tool-row { display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--muted); }
+  .b-tool-row-active { color: var(--ink); }
+  .b-tool-dot { width: 6px; height: 6px; border-radius: 1px; background: var(--amber); opacity: .45; flex-shrink: 0; }
+  .b-tool-row-active .b-tool-dot { opacity: 1; box-shadow: 0 0 6px var(--amber); }
+  .b-tool-txt { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: "JetBrains Mono", monospace; }
+  .b-tool-ts { color: var(--faint); flex-shrink: 0; font-size: 10px; }
+  .b-goal { margin-top: auto; padding-top: 14px; }
+  .b-goal-row { display: flex; align-items: baseline; justify-content: space-between; font-size: 11px; color: var(--muted); margin-bottom: 7px; }
+  .b-goal-row b { color: var(--ink); font-weight: 600; }
+  .b-goal-track { height: 5px; background: var(--panel-2); border-radius: 3px; overflow: hidden; }
+  .b-goal-fill { height: 100%; background: var(--green); width: 70%; border-radius: 3px; }
+
+  /* ── Alert toast — the "new follower" moment, recast ── */
+  .b-alert {
+    position: absolute; top: 22px; right: 22px; z-index: 3;
+    display: flex; align-items: center; gap: 10px; max-width: 320px;
+    background: var(--panel-2); border: 1px solid var(--pink); border-left: 3px solid var(--pink);
+    padding: 10px 14px; border-radius: 3px; box-shadow: 0 8px 24px rgba(0,0,0,.4);
+  }
+  .b-alert .ic { font-size: 15px; }
+  .b-alert .t1 { font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--pink); font-weight: 700; }
+  .b-alert .t2 { font-size: 11.5px; color: var(--ink); margin-top: 1px; }
+
+  /* ── Bottom bar — persistent scoreboard + brand ── */
+  .b-bar { flex: 0 0 auto; display: flex; align-items: center; gap: 20px; padding: 10px 22px; border-top: 1px solid var(--line); background: var(--panel); position: relative; z-index: 1; }
+  .brandmark { width: 20px; height: 20px; border-radius: 5px; background: var(--green); position: relative; flex-shrink: 0; }
+  .brandmark::before { content: ''; position: absolute; left: 5px; top: 5.5px; width: 4px; height: 9px; background: #05170e; border-radius: 1px; }
+  .brandmark::after { content: ''; position: absolute; left: 11px; top: 5.5px; width: 5px; height: 9px; border: 1.5px solid #05170e; background: var(--green); border-radius: 1px; }
+  .b-brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 12.5px; color: var(--ink); }
+  .b-live { display: flex; align-items: center; gap: 5px; color: var(--green); font-weight: 800; font-size: 10px; letter-spacing: .08em; }
+  .b-live .d { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+  .b-stat { font-size: 10.5px; color: var(--muted); }
+  .b-stat b { color: var(--ink); font-weight: 600; }
+  .b-build { margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--green); font-weight: 700; }
+  .tnum { font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <div class="kicker">Design pitch · broadcast identity · iteration 2</div>
+  <h1>A streamer's setup, for someone whose "game" is a codebase</h1>
+  <p class="lede">
+    Same palette, same philosophy, rebalanced composition. Iteration 1 made the code editor
+    the main stage — wrong instinct: nobody can read a diff through YouTube's compression at
+    a glance, and reading code isn't why anyone watches this. The two things that actually are
+    the show — the chat where viewers talk back, and the tool calls that prove the agent is
+    really doing something — now get the space that the code editor was taking.
+  </p>
+
+  <div class="principles">
+    <div class="pr"><div class="k">Gameplay capture</div><div class="g">becomes</div><div class="c">Chat — the differentiator, so it's the biggest seat on stage</div></div>
+    <div class="pr"><div class="k">Face-cam</div><div class="g">becomes</div><div class="c">A tool-call log, always ticking — proof of work instead of a face</div></div>
+    <div class="pr"><div class="k">Code editor</div><div class="g">drops out</div><div class="c">Unreadable at stream resolution, and not the point anyway</div></div>
+    <div class="pr"><div class="k">Sub goal bar</div><div class="g">stays</div><div class="c">Shipping progress, tied to the actual task</div></div>
+    <div class="pr"><div class="k">"New follower!" alert</div><div class="g">stays</div><div class="c">Permission granted, build passed, a viewer's fix lands</div></div>
+    <div class="pr"><div class="k">Scoreboard bar</div><div class="g">stays</div><div class="c">Events / viewers / build / uptime, always visible</div></div>
+  </div>
+
+  <div class="stage-wrap">
+    <div class="canvas-frame">
+      <div class="bstage">
+
+        <div class="b-main-row">
+          <div class="b-chatmain">
+            <div class="b-scene-tag"><span class="dot"></span>NOW BUILDING · Google OAuth device flow</div>
+            <div class="b-chatmain-head"><span>Chat</span><span class="tnum">42 watching</span></div>
+            <div class="b-msgs">
+              <div class="b-msg-lg">
+                <span class="b-av" style="background:#3a2130;color:#ffb8d4">A</span>
+                <div class="b-msg-body"><div class="who">@alice</div><div class="txt">can you also add refresh token rotation?</div></div>
+              </div>
+              <div class="b-msg-lg">
+                <span class="b-av b-av-claude">⌐</span>
+                <div class="b-msg-body"><div class="who who-claude">claude</div><div class="txt">yep — doing that right after the device flow lands</div></div>
+              </div>
+              <div class="b-msg-lg">
+                <span class="b-av" style="background:#3a2130;color:#ffb8d4">D</span>
+                <div class="b-msg-body"><div class="who">@devon</div><div class="txt">nice, clean diff so far 👀</div></div>
+              </div>
+              <div class="b-msg-lg">
+                <span class="b-av" style="background:#3a2130;color:#ffb8d4">P</span>
+                <div class="b-msg-body"><div class="who">@priya</div><div class="txt">watching this to learn OAuth flows tbh</div></div>
+              </div>
+              <div class="b-msg-lg">
+                <span class="b-av" style="background:#3a2130;color:#ffb8d4">M</span>
+                <div class="b-msg-body"><div class="who">@marcus</div><div class="txt">lgtm honestly</div></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="b-activity">
+            <div class="b-activity-head">
+              <span class="b-agent-state"><span class="d"></span>Writing</span>
+              <span class="b-activity-name tnum">claude-sonnet-5 · 12 calls</span>
+            </div>
+            <div class="b-tool-log">
+              <div class="b-tool-row"><span class="b-tool-dot"></span><span class="b-tool-txt">Read authweb.go</span><span class="b-tool-ts tnum">17:52:04</span></div>
+              <div class="b-tool-row"><span class="b-tool-dot"></span><span class="b-tool-txt">Write device.go</span><span class="b-tool-ts tnum">17:52:07</span></div>
+              <div class="b-tool-row"><span class="b-tool-dot"></span><span class="b-tool-txt">Bash: go build ./...</span><span class="b-tool-ts tnum">17:52:11</span></div>
+              <div class="b-tool-row"><span class="b-tool-dot"></span><span class="b-tool-txt">Read websession.go</span><span class="b-tool-ts tnum">17:52:18</span></div>
+              <div class="b-tool-row"><span class="b-tool-dot"></span><span class="b-tool-txt">Write websession.go</span><span class="b-tool-ts tnum">17:52:24</span></div>
+              <div class="b-tool-row b-tool-row-active"><span class="b-tool-dot"></span><span class="b-tool-txt">Bash: go test ./...</span><span class="b-tool-ts tnum">now</span></div>
+            </div>
+            <div class="b-goal">
+              <div class="b-goal-row"><span>Shipping: <b>OAuth device flow</b></span><span class="tnum">70%</span></div>
+              <div class="b-goal-track"><div class="b-goal-fill"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="b-alert">
+          <span class="ic">🔓</span>
+          <div><div class="t1">Permission granted</div><div class="t2">@rsehgal allowed <code>go build ./...</code></div></div>
+        </div>
+
+        <div class="b-bar">
+          <div class="b-brand"><span class="brandmark"></span>LiveShortly</div>
+          <div class="b-live"><span class="d"></span>LIVE</div>
+          <div class="b-stat tnum"><b>147</b> events</div>
+          <div class="b-stat tnum"><b>42</b> watching</div>
+          <div class="b-stat tnum"><b>18:42</b> elapsed</div>
+          <div class="b-build">● Build passing</div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <div class="swatches">
+    <div class="sw"><i style="background:#060a07;border:1px solid #2c2e26"></i>Ground — near-black, not neutral</div>
+    <div class="sw"><i style="background:#39ff8f"></i>Signature green — agent, brand, steady state</div>
+    <div class="sw"><i style="background:#ffcc66"></i>Amber — reserved for "something is happening"</div>
+    <div class="sw"><i style="background:#ff6f9c"></i>Pink — reserved for people: chat and alerts, nothing else</div>
+  </div>
+  <p class="note">
+    Three hues, three fixed jobs — that discipline is the actual design decision here, not the
+    colors themselves. If a fourth color shows up anywhere later, it should mean a fourth kind
+    of thing, not decorate an existing one.
+  </p>
+</div>
+
+</body>
+</html>

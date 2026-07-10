@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LiveShortly — Watch Code Come Alive</title>
+  <style>
+    /* ─── TOKENS ─────────────────────────────────────────── */
+    :root {
+      --bg:            #07090f;
+      --surface:       #0d1120;
+      --surface-hi:    #131828;
+      --surface-hover: #181e30;
+      --border:        rgba(255,255,255,0.07);
+      --border-accent: rgba(91,143,249,0.28);
+      --text:          #dde2f0;
+      --text-muted:    #7a87a8;
+      --text-faint:    #363e56;
+      --accent:        #5b8ff9;
+      --accent-dim:    rgba(91,143,249,0.1);
+      --accent-glow:   rgba(91,143,249,0.22);
+      --live:          #22c55e;
+      --live-dim:      rgba(34,197,94,0.1);
+      --ended:         #ef4444;
+      --purple:        #a78bfa;
+      --purple-dim:    rgba(167,139,250,0.1);
+      --amber:         #fbbf24;
+      --radius:        6px;
+      --radius-sm:     3px;
+      --font:  -apple-system,'SF Pro Display','Segoe UI Variable Display',system-ui,sans-serif;
+      --mono:  'SF Mono','JetBrains Mono','Cascadia Code','Fira Code',monospace;
+    }
+    [data-theme="light"] {
+      --bg:            #f1f3fa;
+      --surface:       #ffffff;
+      --surface-hi:    #f8f9fd;
+      --surface-hover: #f4f6fc;
+      --border:        rgba(0,0,0,0.08);
+      --border-accent: rgba(37,99,235,0.3);
+      --text:          #080c1c;
+      --text-muted:    #5a6480;
+      --text-faint:    #b8c0d8;
+      --accent:        #2563eb;
+      --accent-dim:    rgba(37,99,235,0.07);
+      --accent-glow:   rgba(37,99,235,0.14);
+      --live:          #16a34a;
+      --live-dim:      rgba(22,163,74,0.08);
+      --ended:         #dc2626;
+      --purple:        #7c3aed;
+      --purple-dim:    rgba(124,58,237,0.08);
+      --amber:         #d97706;
+    }
+
+    /* ─── RESET ──────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: inherit; }
+
+    /* ─── HEADER ─────────────────────────────────────────── */
+    .header {
+      position: sticky; top: 0; z-index: 100;
+      display: flex; align-items: center; gap: 1.5rem;
+      padding: 0 2rem; height: 56px;
+      background: rgba(7,9,15,0.88);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+    }
+    [data-theme="light"] .header { background: rgba(241,243,250,0.88); }
+
+    .logo {
+      display: flex; align-items: center; gap: 0.5rem;
+      font-family: var(--mono); font-size: 0.875rem; font-weight: 600;
+      color: var(--text); text-decoration: none; white-space: nowrap;
+    }
+    .logo-mark {
+      width: 24px; height: 24px; border-radius: 4px;
+      background: var(--accent);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; color: #fff; font-weight: 700;
+    }
+    .nav {
+      display: flex; align-items: center; gap: 0.125rem;
+      margin-left: 0.5rem;
+    }
+    .nav a {
+      font-size: 0.875rem; color: var(--text-muted);
+      text-decoration: none; padding: 0.375rem 0.75rem;
+      border-radius: var(--radius-sm);
+      transition: color .15s, background .15s;
+    }
+    .nav a:hover { color: var(--text); background: var(--surface); }
+
+    .header-right {
+      display: flex; align-items: center; gap: 0.625rem; margin-left: auto;
+    }
+    .btn {
+      display: inline-flex; align-items: center; gap: 0.375rem;
+      padding: 0.375rem 0.875rem; border-radius: var(--radius-sm);
+      font-size: 0.875rem; font-weight: 500; cursor: pointer;
+      text-decoration: none; border: 1px solid transparent;
+      transition: all .15s; font-family: var(--font);
+      white-space: nowrap;
+    }
+    .btn-ghost { color: var(--text-muted); background: transparent; }
+    .btn-ghost:hover { color: var(--text); background: var(--surface); }
+    .btn-outline { color: var(--text); background: transparent; border-color: var(--border); }
+    .btn-outline:hover { border-color: var(--border-accent); background: var(--accent-dim); }
+    .btn-primary { color: #fff; background: var(--accent); border-color: var(--accent); }
+    .btn-primary:hover { opacity: 0.88; }
+    .btn-lg { padding: 0.6rem 1.375rem; font-size: 0.9375rem; }
+
+    .theme-btn {
+      width: 32px; height: 32px; border-radius: var(--radius-sm);
+      border: 1px solid var(--border); background: transparent;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      color: var(--text-muted); font-size: 0.875rem; transition: all .15s;
+    }
+    .theme-btn:hover { background: var(--surface); color: var(--text); }
+
+    /* ─── HERO ───────────────────────────────────────────── */
+    .hero {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 4rem; align-items: center;
+      max-width: 1200px; margin: 0 auto;
+      padding: 5.5rem 2rem 4.5rem;
+    }
+    .eyebrow {
+      display: inline-flex; align-items: center; gap: 0.5rem;
+      font-family: var(--mono); font-size: 0.7rem;
+      color: var(--live); letter-spacing: 0.1em; text-transform: uppercase;
+      padding: 0.3rem 0.75rem;
+      background: var(--live-dim);
+      border: 1px solid rgba(34,197,94,0.2);
+      border-radius: var(--radius-sm);
+      margin-bottom: 1.5rem;
+    }
+    .live-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--live);
+      animation: livepulse 1.6s ease-in-out infinite;
+    }
+    @keyframes livepulse {
+      0%,100% { opacity:1; transform:scale(1); }
+      50%      { opacity:.45; transform:scale(.75); }
+    }
+    .hero h1 {
+      font-size: clamp(2.4rem,4.5vw,3.75rem);
+      font-weight: 750; line-height: 1.08;
+      letter-spacing: -0.035em; text-wrap: balance;
+      margin-bottom: 1.25rem;
+    }
+    .hl { color: var(--accent); }
+    .hero-sub {
+      font-size: 1.05rem; color: var(--text-muted);
+      line-height: 1.75; max-width: 430px; margin-bottom: 2rem;
+    }
+    .hero-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+    .hero-stats {
+      display: flex; gap: 2rem; margin-top: 2.5rem;
+      padding-top: 2rem; border-top: 1px solid var(--border);
+    }
+    .stat-val {
+      font-family: var(--mono); font-size: 1.4rem; font-weight: 700;
+      color: var(--text); font-variant-numeric: tabular-nums; display: block;
+    }
+    .stat-lbl {
+      font-size: 0.72rem; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.08em;
+    }
+
+    /* ─── LIVE CARD (hero right) ─────────────────────────── */
+    .hero-preview { position: relative; }
+    .hero-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); overflow: hidden;
+      box-shadow: 0 28px 80px rgba(0,0,0,.5), 0 0 0 1px rgba(91,143,249,.08);
+    }
+    [data-theme="light"] .hero-card {
+      box-shadow: 0 20px 60px rgba(0,0,0,.1), 0 0 0 1px rgba(37,99,235,.07);
+    }
+    .card-titlebar {
+      display: flex; align-items: center; gap: 0.625rem;
+      padding: 0.625rem 1rem;
+      background: var(--surface-hi);
+      border-bottom: 1px solid var(--border);
+    }
+    .tlights { display: flex; gap: 5px; }
+    .tl { width: 10px; height: 10px; border-radius: 50%; }
+    .tl-r { background: #ff5f57; } .tl-y { background: #febc2e; } .tl-g { background: #28c840; }
+    .titlebar-label {
+      flex: 1; text-align: center;
+      font-family: var(--mono); font-size: 0.7rem; color: var(--text-faint);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .badge-live {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-family: var(--mono); font-size: 0.62rem; font-weight: 600;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--live); background: var(--live-dim);
+      border: 1px solid rgba(34,197,94,.22);
+      padding: 2px 7px; border-radius: 2px;
+    }
+    .events-log { padding: 0.875rem 1rem; display: flex; flex-direction: column; gap: 0.5rem; }
+    .ev {
+      display: flex; gap: 0.625rem; align-items: flex-start;
+      font-family: var(--mono); font-size: 0.72rem;
+    }
+    .ev-ts { color: var(--text-faint); white-space: nowrap; flex-shrink:0; }
+    .ev-tag {
+      flex-shrink:0; padding: 1px 5px; border-radius: 2px;
+      font-size: 0.62rem; font-weight: 600; letter-spacing:.05em; text-transform:uppercase;
+    }
+    .t-prompt   { background:rgba(91,143,249,.15); color:#5b8ff9; }
+    .t-tool     { background:rgba(167,139,250,.15); color:#a78bfa; }
+    .t-response { background:rgba(34,197,94,.14);  color:#22c55e; }
+    .t-write    { background:rgba(251,191,36,.14);  color:#fbbf24; }
+    .ev-text { color: var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .cursor {
+      display:inline-block; width:7px; height:11px;
+      background:var(--accent); border-radius:1px;
+      animation:blink 1s step-end infinite; vertical-align:middle; margin-left:3px;
+    }
+    @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0;} }
+    .viewer-msg {
+      display:flex; align-items:center; gap:0.5rem;
+      padding: 0.35rem 0.75rem;
+      background: rgba(91,143,249,.06);
+      border-left: 2px solid var(--accent);
+      font-family: var(--mono); font-size: 0.72rem; color: var(--text-muted);
+      border-radius: 0 2px 2px 0;
+    }
+    .vm-handle { color: var(--accent); }
+
+    /* ─── SEARCH ─────────────────────────────────────────── */
+    .search-wrap {
+      max-width: 760px; margin: 0 auto; padding: 4rem 2rem 3rem;
+      text-align: center;
+    }
+    .sec-eyebrow {
+      font-family: var(--mono); font-size: 0.68rem;
+      letter-spacing: .15em; text-transform: uppercase;
+      color: var(--text-faint); margin-bottom: 0.625rem;
+    }
+    .sec-h2 {
+      font-size: clamp(1.5rem,3vw,2.125rem); font-weight: 700;
+      letter-spacing: -0.02em; text-wrap: balance;
+      margin-bottom: 1.75rem;
+    }
+    .search-bar {
+      display: flex; align-items: stretch;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); overflow: hidden;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .search-bar:focus-within {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-dim);
+    }
+    .search-ico { padding: 0 1rem; display:flex; align-items:center; color: var(--text-faint); font-size: 1rem; }
+    .search-in {
+      flex:1; padding: 0.875rem 0; background: transparent; border: none;
+      color: var(--text); font-size: 0.9375rem; font-family: var(--font); outline: none;
+    }
+    .search-in::placeholder { color: var(--text-faint); }
+    .search-go {
+      padding: 0 1.5rem; background: var(--accent); color: #fff;
+      border: none; font-size: 0.875rem; font-weight: 500;
+      cursor: pointer; font-family: var(--font); transition: opacity .15s;
+    }
+    .search-go:hover { opacity: .88; }
+    .tags { display:flex; gap:.5rem; justify-content:center; flex-wrap:wrap; margin-top:.875rem; }
+    .tag {
+      font-family: var(--mono); font-size: 0.72rem;
+      color: var(--text-muted); background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 0.25rem 0.625rem; border-radius: var(--radius-sm);
+      cursor: pointer; transition: all .15s; text-decoration: none;
+    }
+    .tag:hover { color: var(--accent); border-color: var(--border-accent); background: var(--accent-dim); }
+
+    /* ─── SECTIONS ───────────────────────────────────────── */
+    .section { max-width: 1200px; margin: 0 auto; padding: 2.5rem 2rem 4rem; }
+    .sec-head {
+      display: flex; align-items: flex-end; justify-content: space-between;
+      margin-bottom: 1.625rem;
+    }
+    .sec-name { font-size: 1.125rem; font-weight: 700; letter-spacing: -0.015em; }
+    .sec-sub { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem; }
+    .view-all {
+      font-family: var(--mono); font-size: 0.75rem; color: var(--accent);
+      text-decoration: none; white-space: nowrap;
+    }
+    .view-all:hover { text-decoration: underline; }
+    .divider { height: 1px; background: var(--border); max-width: 1200px; margin: 0 auto; }
+
+    /* ─── SESSION CARDS ──────────────────────────────────── */
+    .grid-3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 1rem; }
+    .grid-4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 1rem; }
+
+    .scard {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); overflow: hidden; cursor: pointer;
+      transition: border-color .2s, box-shadow .2s, transform .2s;
+    }
+    .scard:hover {
+      border-color: var(--border-accent);
+      box-shadow: 0 8px 32px rgba(0,0,0,.22), 0 0 0 1px var(--border-accent);
+      transform: translateY(-2px);
+    }
+    [data-theme="light"] .scard:hover {
+      box-shadow: 0 6px 20px rgba(0,0,0,.08), 0 0 0 1px var(--border-accent);
+    }
+
+    /* terminal thumbnail */
+    .thumb {
+      position: relative; width: 100%; aspect-ratio: 16/9;
+      overflow: hidden; background: var(--surface-hi);
+    }
+    .t-win {
+      position: absolute; inset: 0; padding: 8px 10px;
+      display: flex; flex-direction: column; gap: 5px;
+    }
+    .t-bar { display:flex; gap:4px; margin-bottom:3px; }
+    .t-dot { width:7px; height:7px; border-radius:50%; }
+    .t-lines { display:flex; flex-direction:column; gap:3px; flex:1; }
+    .t-line { height:5px; border-radius:2px; opacity:.75; }
+    .thumb-badge { position:absolute; top:7px; right:7px; }
+    .badge-ended {
+      font-family:var(--mono); font-size:0.6rem; font-weight:600;
+      letter-spacing:.08em; text-transform:uppercase;
+      color: var(--text-muted); background: rgba(0,0,0,.55);
+      border: 1px solid rgba(255,255,255,.1);
+      padding:2px 6px; border-radius:2px; backdrop-filter:blur(4px);
+    }
+    .dur {
+      position:absolute; bottom:7px; right:7px;
+      font-family:var(--mono); font-size:0.65rem; color:#fff;
+      background:rgba(0,0,0,.6); padding:2px 6px; border-radius:2px;
+      backdrop-filter:blur(4px);
+    }
+
+    .cbody { padding: .8rem 1rem; }
+    .cmeta { display:flex; align-items:center; justify-content:space-between; margin-bottom:.4rem; }
+    .ctag { font-family:var(--mono); font-size:.62rem; letter-spacing:.08em; text-transform:uppercase; color:var(--accent); }
+    .cevents { font-family:var(--mono); font-size:.62rem; color:var(--text-faint); }
+    .ctitle {
+      font-size:.875rem; font-weight:600; color:var(--text); line-height:1.4;
+      margin-bottom:.6rem;
+      display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+    }
+    .cfoot { display:flex; align-items:center; justify-content:space-between; }
+    .author { display:flex; align-items:center; gap:.4rem; }
+    .av {
+      width:20px; height:20px; border-radius:50%;
+      display:flex; align-items:center; justify-content:center;
+      font-size:.6rem; font-weight:700; color:#fff; flex-shrink:0;
+    }
+    .aname { font-family:var(--mono); font-size:.72rem; color:var(--text-muted); }
+    .ctime { font-family:var(--mono); font-size:.68rem; color:var(--text-faint); }
+
+    /* ─── FEATURED CARDS ─────────────────────────────────── */
+    .fcard {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 1.25rem; cursor: pointer;
+      transition: all .2s; position: relative; overflow: hidden;
+    }
+    .fcard::before {
+      content:''; position:absolute; top:0; left:0; right:0; height:2px;
+      background: linear-gradient(90deg, var(--accent), var(--purple));
+      opacity:0; transition: opacity .2s;
+    }
+    .fcard:hover { border-color: var(--border-accent); }
+    .fcard:hover::before { opacity:1; }
+    .fnum { font-family:var(--mono); font-size:.62rem; color:var(--text-faint); letter-spacing:.1em; margin-bottom:.75rem; }
+    .ftitle { font-size:.9375rem; font-weight:600; color:var(--text); line-height:1.45; margin-bottom:.5rem; }
+    .fdesc { font-size:.8rem; color:var(--text-muted); line-height:1.65; margin-bottom:1rem; }
+    .ffoot { display:flex; align-items:center; justify-content:space-between; }
+    .fauthor { display:flex; align-items:center; gap:.5rem; }
+    .fauthor-name { font-family:var(--mono); font-size:.7rem; color:var(--text-muted); }
+    .fevents { font-family:var(--mono); font-size:.7rem; color:var(--text-faint); }
+
+    /* ─── VIDEO CARDS ────────────────────────────────────── */
+    .vcard { cursor:pointer; }
+    .vthumb {
+      position:relative; aspect-ratio:16/9; border-radius:var(--radius);
+      overflow:hidden; margin-bottom:.75rem;
+      background:var(--surface); border:1px solid var(--border);
+    }
+    .play {
+      position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+      width:40px; height:40px; border-radius:50%;
+      background:rgba(0,0,0,.72); backdrop-filter:blur(4px);
+      border:1px solid rgba(255,255,255,.2);
+      display:flex; align-items:center; justify-content:center;
+      opacity:.7; transition:all .2s;
+    }
+    .vcard:hover .play { opacity:1; transform:translate(-50%,-50%) scale(1.06); }
+    .play-ico {
+      width:0; height:0;
+      border-top:7px solid transparent; border-bottom:7px solid transparent;
+      border-left:12px solid #fff; margin-left:3px;
+    }
+    .vtitle { font-size:.85rem; font-weight:600; color:var(--text); line-height:1.4; margin-bottom:.375rem;
+      display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+    .vmeta { font-family:var(--mono); font-size:.68rem; color:var(--text-faint); display:flex; gap:.5rem; }
+
+    /* ─── BLOG CARDS ─────────────────────────────────────── */
+    .bcard { cursor:pointer; }
+    .bimg {
+      aspect-ratio:16/9; border-radius:var(--radius); margin-bottom:.875rem;
+      overflow:hidden; border:1px solid var(--border); background:var(--surface-hi);
+    }
+    .btag { font-family:var(--mono); font-size:.62rem; letter-spacing:.1em; text-transform:uppercase; color:var(--purple); display:inline-block; margin-bottom:.45rem; }
+    .btitle { font-size:.9375rem; font-weight:700; line-height:1.4; letter-spacing:-.01em; color:var(--text); margin-bottom:.45rem; text-wrap:balance; }
+    .bcard:hover .btitle { color:var(--accent); }
+    .bexcerpt { font-size:.8375rem; color:var(--text-muted); line-height:1.65; margin-bottom:.7rem;
+      display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+    .bmeta { font-family:var(--mono); font-size:.68rem; color:var(--text-faint); display:flex; gap:.625rem; }
+
+    /* ─── SIGNUP ─────────────────────────────────────────── */
+    .signup {
+      padding: 6rem 2rem; text-align: center; position: relative; overflow: hidden;
+    }
+    .signup-glow {
+      position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+      width:700px; height:500px;
+      background:radial-gradient(ellipse, rgba(91,143,249,.07) 0%, transparent 65%);
+      pointer-events:none;
+    }
+    .signup-inner { position:relative; z-index:1; max-width:500px; margin:0 auto; }
+    .signup-h { font-size:clamp(1.875rem,3.5vw,2.75rem); font-weight:750; letter-spacing:-.03em; text-wrap:balance; margin-bottom:.75rem; }
+    .signup-sub { font-size:1rem; color:var(--text-muted); line-height:1.7; margin-bottom:2rem; }
+    .signup-form { display:flex; gap:.5rem; margin-bottom:.875rem; }
+    .email-in {
+      flex:1; padding:.7rem 1rem; background:var(--surface);
+      border:1px solid var(--border); border-radius:var(--radius-sm);
+      color:var(--text); font-size:.9rem; font-family:var(--font); outline:none;
+      transition: border-color .15s;
+    }
+    .email-in:focus { border-color: var(--accent); }
+    .email-in::placeholder { color:var(--text-faint); }
+    .signup-note { font-size:.8rem; color:var(--text-faint); }
+    .signup-note a { color:var(--accent); text-decoration:none; }
+
+    /* ─── FOOTER ─────────────────────────────────────────── */
+    .footer { border-top:1px solid var(--border); padding:3rem 2rem 2rem; }
+    .footer-in { max-width:1200px; margin:0 auto; }
+    .footer-top {
+      display:grid; grid-template-columns:1.6fr 1fr 1fr 1fr 1fr;
+      gap:3rem; padding-bottom:2.5rem;
+      border-bottom:1px solid var(--border); margin-bottom:1.5rem;
+    }
+    .footer-tagline { font-size:.85rem; color:var(--text-muted); line-height:1.6; max-width:200px; margin-top:.625rem; }
+    .fcol-h { font-family:var(--mono); font-size:.68rem; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--text); margin-bottom:.875rem; }
+    .flinks { list-style:none; display:flex; flex-direction:column; gap:.5rem; }
+    .flinks a { font-size:.85rem; color:var(--text-muted); text-decoration:none; transition:color .15s; }
+    .flinks a:hover { color:var(--text); }
+    .footer-bot { display:flex; align-items:center; justify-content:space-between; }
+    .copy { font-family:var(--mono); font-size:.75rem; color:var(--text-faint); }
+    .socials { display:flex; gap:.625rem; }
+    .soc {
+      width:30px; height:30px; border-radius:var(--radius-sm);
+      border:1px solid var(--border); background:transparent;
+      display:flex; align-items:center; justify-content:center;
+      font-family:var(--mono); font-size:.65rem; color:var(--text-muted);
+      text-decoration:none; transition:all .15s;
+    }
+    .soc:hover { border-color:var(--border-accent); color:var(--text); background:var(--surface); }
+
+    /* ─── RESPONSIVE ─────────────────────────────────────── */
+    @media (max-width:1024px) {
+      .grid-4 { grid-template-columns: repeat(2,1fr); }
+    }
+    @media (max-width:900px) {
+      .hero { grid-template-columns:1fr; }
+      .hero-preview { display:none; }
+      .grid-3 { grid-template-columns: repeat(2,1fr); }
+      .footer-top { grid-template-columns:1fr 1fr; gap:2rem; }
+      .nav { display:none; }
+    }
+    @media (max-width:600px) {
+      .grid-3, .grid-4 { grid-template-columns:1fr; }
+      .signup-form { flex-direction:column; }
+      .footer-top { grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══ HEADER ══════════════════════════════════════════════ -->
+<header class="header">
+  <a class="logo" href="#">
+    <div class="logo-mark">◧</div>
+    LiveShortly
+  </a>
+  <nav class="nav">
+    <a href="#">Features</a>
+    <a href="#">Feed</a>
+    <a href="#">Docs</a>
+    <a href="#">Blog</a>
+    <a href="#">Pricing</a>
+  </nav>
+  <div class="header-right">
+    <button class="theme-btn" onclick="toggleTheme()" title="Toggle theme">
+      <span id="ticon">☀</span>
+    </button>
+    <a href="#" class="btn btn-ghost">Sign in</a>
+    <a href="#signup" class="btn btn-primary">Get started</a>
+  </div>
+</header>
+
+<!-- ══ HERO ═════════════════════════════════════════════════ -->
+<section class="hero">
+  <div>
+    <div class="eyebrow"><span class="live-dot"></span>24 sessions live now</div>
+    <h1>Watch code <span class="hl">come alive.</span></h1>
+    <p class="hero-sub">
+      Stream your Claude Code sessions live. Let viewers comment in real time,
+      replay every move, and steer the agent from any browser.
+    </p>
+    <div class="hero-actions">
+      <a href="#signup" class="btn btn-primary btn-lg">Start streaming free</a>
+      <a href="#feed" class="btn btn-outline btn-lg">Browse feed →</a>
+    </div>
+    <div class="hero-stats">
+      <div><span class="stat-val">2,841</span><span class="stat-lbl">Sessions</span></div>
+      <div><span class="stat-val">412k</span><span class="stat-lbl">Events streamed</span></div>
+      <div><span class="stat-val">1.2k</span><span class="stat-lbl">Developers</span></div>
+    </div>
+  </div>
+
+  <div class="hero-preview">
+    <div class="hero-card">
+      <div class="card-titlebar">
+        <div class="tlights"><div class="tl tl-r"></div><div class="tl tl-y"></div><div class="tl tl-g"></div></div>
+        <div class="titlebar-label">build-auth-flow · rsehgal@macbook-pro</div>
+        <div class="badge-live"><span class="live-dot"></span>LIVE</div>
+      </div>
+      <div class="events-log">
+        <div class="ev"><span class="ev-ts">14:22:01</span><span class="ev-tag t-prompt">prompt</span><span class="ev-text">implement Google OAuth device flow for CLI</span></div>
+        <div class="ev"><span class="ev-ts">14:22:04</span><span class="ev-tag t-tool">tool</span><span class="ev-text">Read api/internal/handlers/authweb.go</span></div>
+        <div class="ev"><span class="ev-ts">14:22:07</span><span class="ev-tag t-write">write</span><span class="ev-text">api/internal/handlers/device.go</span></div>
+        <div class="ev"><span class="ev-ts">14:22:11</span><span class="ev-tag t-tool">tool</span><span class="ev-text">Bash: go build ./...</span></div>
+        <div class="ev"><span class="ev-ts">14:22:18</span><span class="ev-tag t-response">reply</span><span class="ev-text">Device flow implemented. Start with POST /auth/device<span class="cursor"></span></span></div>
+        <div class="viewer-msg"><span class="vm-handle">@alice:</span>can you also add refresh token rotation?</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ SEARCH ════════════════════════════════════════════════ -->
+<div class="search-wrap" id="feed">
+  <div class="sec-eyebrow">Explore</div>
+  <h2 class="sec-h2">2,400+ coding sessions, all searchable.</h2>
+  <div class="search-bar">
+    <span class="search-ico">⌕</span>
+    <input class="search-in" type="text" placeholder="Search sessions, topics, or developers…">
+    <button class="search-go">Search</button>
+  </div>
+  <div class="tags">
+    <a href="#" class="tag">#react</a>
+    <a href="#" class="tag">#python</a>
+    <a href="#" class="tag">#claude-code</a>
+    <a href="#" class="tag">#debugging</a>
+    <a href="#" class="tag">#rust</a>
+    <a href="#" class="tag">#nextjs</a>
+    <a href="#" class="tag">#go</a>
+    <a href="#" class="tag">#auth</a>
+    <a href="#" class="tag">#postgres</a>
+  </div>
+</div>
+
+<!-- ══ PUBLIC FEED ══════════════════════════════════════════ -->
+<section class="section">
+  <div class="sec-head">
+    <div><div class="sec-name">Public Feed</div><div class="sec-sub">Latest from the community</div></div>
+    <a class="view-all" href="#">View all →</a>
+  </div>
+  <div class="grid-3">
+
+    <!-- card 1 LIVE -->
+    <div class="scard">
+      <div class="thumb">
+        <div class="t-win">
+          <div class="t-bar"><div class="t-dot" style="background:#ff5f57"></div><div class="t-dot" style="background:#febc2e"></div><div class="t-dot" style="background:#28c840"></div></div>
+          <div class="t-lines">
+            <div class="t-line" style="background:#5b8ff9;width:62%"></div>
+            <div class="t-line" style="background:#363e56;width:88%"></div>
+            <div class="t-line" style="background:#363e56;width:74%"></div>
+            <div class="t-line" style="background:#a78bfa;width:46%"></div>
+            <div class="t-line" style="background:#363e56;width:80%"></div>
+            <div class="t-line" style="background:#22c55e;width:54%"></div>
+            <div class="t-line" style="background:#363e56;width:70%"></div>
+          </div>
+        </div>
+        <div class="thumb-badge"><div class="badge-live"><span class="live-dot"></span>LIVE</div></div>
+      </div>
+      <div class="cbody">
+        <div class="cmeta"><span class="ctag">claude-code</span><span class="cevents">147 events</span></div>
+        <div class="ctitle">Building a multi-tenant auth system with JWT refresh tokens and rotation</div>
+        <div class="cfoot">
+          <div class="author"><div class="av" style="background:#5b8ff9">RS</div><span class="aname">rsehgal</span></div>
+          <span class="ctime">3m ago</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- card 2 ENDED -->
+    <div class="scard">
+      <div class="thumb">
+        <div class="t-win">
+          <div class="t-bar"><div class="t-dot" style="background:#ff5f57"></div><div class="t-dot" style="background:#febc2e"></div><div class="t-dot" style="background:#28c840"></div></div>
+          <div class="t-lines">
+            <div class="t-line" style="background:#a78bfa;width:44%"></div>
+            <div class="t-line" style="background:#363e56;width:86%"></div>
+            <div class="t-line" style="background:#fbbf24;width:60%"></div>
+            <div class="t-line" style="background:#363e56;width:72%"></div>
+            <div class="t-line" style="background:#363e56;width:90%"></div>
+            <div class="t-line" style="background:#5b8ff9;width:40%"></div>
+            <div class="t-line" style="background:#363e56;width:66%"></div>
+          </div>
+        </div>
+        <div class="thumb-badge"><div class="badge-ended">ENDED · 1h 24m</div></div>
+        <div class="dur">1:24:07</div>
+      </div>
+      <div class="cbody">
+        <div class="cmeta"><span class="ctag">python</span><span class="cevents">89 events</span></div>
+        <div class="ctitle">Debugging a memory leak in FastAPI async endpoints with tracemalloc</div>
+        <div class="cfoot">
+          <div class="author"><div class="av" style="background:#a78bfa">MK</div><span class="aname">mkumar</span></div>
+          <span class="ctime">2h ago</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- card 3 LIVE -->
+    <div class="scard">
+      <div class="thumb">
+        <div class="t-win">
+          <div class="t-bar"><div class="t-dot" style="background:#ff5f57"></div><div class="t-dot" style="background:#febc2e"></div><div class="t-dot" style="background:#28c840"></div></div>
+          <div class="t-lines">
+            <div class="t-line" style="background:#22c55e;width:54%"></div>
+            <div class="t-line" style="background:#363e56;width:80%"></div>
+            <div class="t-line" style="background:#5b8ff9;width:70%"></div>
+            <div class="t-line" style="background:#363e56;width:95%"></div>
+            <div class="t-line" style="background:#fbbf24;width:36%"></div>
+            <div class="t-line" style="background:#363e56;width:76%"></div>
+            <div class="t-line" style="background:#a78bfa;width:50%"></div>
+          </div>
+        </div>
+        <div class="thumb-badge"><div class="badge-live"><span class="live-dot"></span>LIVE</div></div>
+      </div>
+      <div class="cbody">
+        <div class="cmeta"><span class="ctag">nextjs</span><span class="cevents">56 events</span></div>
+        <div class="ctitle">Migrating a CRA app to Next.js 15 App Router with streaming RSC</div>
+        <div class="cfoot">
+          <div class="author"><div class="av" style="background:#22c55e">JL</div><span class="aname">jliang</span></div>
+          <span class="ctime">12m ago</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- card 4 -->
+    <div class="scard">
+      <div class="thumb">
+        <div class="t-win">
+          <div class="t-bar"><div class="t-dot" style="background:#ff5f57"></div><div class="t-dot" style="background:#febc2e"></div><div class="t-dot" style="background:#28c840"></div></div>
+          <div class="t-lines">
+            <div class="t-line" style="background:#fbbf24;width:70%"></div>
+            <div class="t-line" style="background:#363e56;width:84%"></div>
+            <div class="t-line" style="background:#363e56;width:60%"></div>
+            <div class="t-line" style="background:#5b8ff9;width:44%"></div>
+            <div class="t-line" style="background:#363e56;width:90%"></div>
+            <div class="t-line" style="background:#22c55e;width:54%"></div>
+            <div class="t-line" style="background:#363e56;width:70%"></div>
+          </div>
+        </div>
+        <div class="thumb-badge"><div class="badge-ended">ENDED · 42m</div></div>
+        <div class="dur">42:18</div>
+      </div>
+      <div class="cbody">
+        <div class="cmeta"><span class="ctag">rust</span><span class="cevents">203 events</span></div>
+        <div class="ctitle">Writing a zero-copy HTTP parser in Rust with nom combinators</div>
+        <div class="cfoot">
+          <div class="author"><div class="av" style="background:#fbbf24;color:#000">TW</div><span class="aname">twang</span></div>
+          <span class="ctime">45m ago</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- card 5 LIVE -->
+    <div class="scard">
+      <div class="thumb">
+        <div class="t-win">
+          <div class="t-bar"><div class="t-dot" style="background:#ff5f57"></div><div class="t-dot" style="background:#febc2e"></div><div class="t-dot" style="background:#28c840"></div></div>
+          <div class="t-lines">
+            <div class="t-line" style="background:#a78bfa;width:50%"></div>
+            <div class="t-line" style="background:#363e56;width:76%"></div>
+            <div class="t-line" style="background:#5b8ff9;width:90%"></div>
+            <div class="t-line" style="background:#363e56;width:64%"></div>
+            <div class="t-line" style="background:#22c55e;width:40%"></div>
+            <div class="t-line" style="background:#363e56;width:80%"></div>
+            <div class="t-line" style="background:#fbbf24;width:56%"></div>
+          </div>
+        </div>
+        <div class="thumb-badge"><div class="badge-live"><span class="live-dot"></span>LIVE</div></div>
+      </div>
+      <div class="cbody">
+        <div class="cmeta"><span class="ctag">go</span><span class="cevents">31 events</span></div>
+        <div class="ctitle">Optimizing Redis pub/sub fan-out for 10k concurrent SSE connections</div>
+        <div class="cfoot">
+          <div class="author"><div class="av" style="background:#ef4444">AP</div><span class="aname">apatel</span></div>
+          <span class="ctime">8m ago</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- card 6 -->
+    <div class="scard">
+      <div class="thumb">
+        <div class="t-win">
+          <div class="t-bar"><div class="t-dot" style="background:#ff5f57"></div><div class="t-dot" style="background:#febc2e"></div><div class="t-dot" style="background:#28c840"></div></div>
+          <div class="t-lines">
+            <div class="t-line" style="background:#5b8ff9;width:80%"></div>
+            <div class="t-line" style="background:#363e56;width:60%"></div>
+            <div class="t-line" style="background:#a78bfa;width:74%"></div>
+            <div class="t-line" style="background:#363e56;width:90%"></div>
+            <div class="t-line" style="background:#363e56;width:50%"></div>
+            <div class="t-line" style="background:#22c55e;width:65%"></div>
+            <div class="t-line" style="background:#fbbf24;width:40%"></div>
+          </div>
+        </div>
+        <div class="thumb-badge"><div class="badge-ended">ENDED · 2h 05m</div></div>
+        <div class="dur">2:05:44</div>
+      </div>
+      <div class="cbody">
+        <div class="cmeta"><span class="ctag">react</span><span class="cevents">178 events</span></div>
+        <div class="ctitle">Real-time collaborative code editor with CRDT and Yjs state sync</div>
+        <div class="cfoot">
+          <div class="author"><div class="av" style="background:#a78bfa">SC</div><span class="aname">schoi</span></div>
+          <span class="ctime">3h ago</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ══ FEATURED ═════════════════════════════════════════════ -->
+<section class="section">
+  <div class="sec-head">
+    <div><div class="sec-name">Featured Sessions</div><div class="sec-sub">Hand-picked by the community</div></div>
+    <a class="view-all" href="#">View all →</a>
+  </div>
+  <div class="grid-3">
+    <div class="fcard">
+      <div class="fnum">FEATURED · CLAUDE-CODE</div>
+      <div class="ftitle">Building a production-ready OAuth2 server from scratch in Go</div>
+      <div class="fdesc">Watch every step: JWT minting, refresh token rotation, device flow, and full Google SSO — no libraries skipped, everything explained.</div>
+      <div class="ffoot">
+        <div class="fauthor"><div class="av" style="background:#5b8ff9;width:22px;height:22px;font-size:.62rem">RS</div><span class="fauthor-name">rsehgal · 3h 12m</span></div>
+        <span class="fevents">312 events</span>
+      </div>
+    </div>
+    <div class="fcard">
+      <div class="fnum">FEATURED · DEBUGGING</div>
+      <div class="ftitle">Tracking down a race condition in a Go concurrent map write</div>
+      <div class="fdesc">Live debugging with pprof and the race detector — methodical bisection ending in a 3-line fix after 90 minutes of detective work.</div>
+      <div class="ffoot">
+        <div class="fauthor"><div class="av" style="background:#22c55e;width:22px;height:22px;font-size:.62rem">JL</div><span class="fauthor-name">jliang · 1h 34m</span></div>
+        <span class="fevents">201 events</span>
+      </div>
+    </div>
+    <div class="fcard">
+      <div class="fnum">FEATURED · ARCHITECTURE</div>
+      <div class="ftitle">Multi-region event sourcing pipeline on AWS with Kinesis and DynamoDB</div>
+      <div class="fdesc">From whiteboard to working Terraform and Go consumer — design, trade-offs, and implementation in one continuous session.</div>
+      <div class="ffoot">
+        <div class="fauthor"><div class="av" style="background:#a78bfa;width:22px;height:22px;font-size:.62rem">MK</div><span class="fauthor-name">mkumar · 2h 08m</span></div>
+        <span class="fevents">289 events</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ══ VIDEO SESSIONS ════════════════════════════════════════ -->
+<section class="section">
+  <div class="sec-head">
+    <div><div class="sec-name">Video Sessions</div><div class="sec-sub">Recorded replays worth watching</div></div>
+    <a class="view-all" href="#">View all →</a>
+  </div>
+  <div class="grid-4">
+
+    <div class="vcard">
+      <div class="vthumb">
+        <div class="t-win" style="position:absolute;inset:0;padding:10px">
+          <div class="t-bar"><div class="t-dot" style="background:#ff5f57"></div><div class="t-dot" style="background:#febc2e"></div><div class="t-dot" style="background:#28c840"></div></div>
+          <div class="t-lines">
+            <div class="t-line" style="background:#5b8ff9;width:70%;height:7px"></div>
+            <div class="t-line" style="background:#363e56;width:88%;height:7px"></div>
+            <div class="t-line" style="background:#a78bfa;width:55%;height:7px"></div>
+            <div class="t-line" style="background:#363e56;width:80%;height:7px"></div>
+            <div class="t-line" style="background:#22c55e;width:44%;height:7px"></div>
+          </div>
+        </div>
+        <div class="play"><div class="play-ico"></div></div>
+        <div class="dur">1:24:07</div>
+      </div>
+      <div class="vtitle">Complete Postgres query optimization — indexes, EXPLAIN ANALYZE, vacuuming</div>
+      <div class="vmeta"><span>twang</span><span>·</span><span>4.2k views</span><span>·</span><span>2d ago</span></div>
+    </div>
+
+    <div class="vcard">
+      <div class="vthumb">
+        <div class="t-win" style="position:absolute;inset:0;padding:10px">
+          <div class="t-bar"><div class="t-dot" style="background:#ff5f57"></div><div class="t-dot" style="background:#febc2e"></div><div class="t-dot" style="background:#28c840"></div></div>
+          <div class="t-lines">
+            <div class="t-line" style="background:#fbbf24;width:60%;height:7px"></div>
+            <div class="t-line" style="background:#363e56;width:84%;height:7px"></div>
+            <div class="t-line" style="background:#5b8ff9;width:74%;height:7px"></div>
+            <div class="t-line" style="background:#363e56;width:50%;height:7px"></div>
+            <div class="t-line" style="background:#a78bfa;width:90%;height:7px"></div>
+          </div>
+        </div>
+        <div class="play"><div class="play-ico"></div></div>
+        <div class="dur">47:32</div>
+      </div>
+      <div class="vtitle">Rust CLI with clap, tokio, and colored terminal output from scratch</div>
+      <div class="vmeta"><span>apatel</span><span>·</span><span>1.8k views</span><span>·</span><span>5d ago</span></div>
+    </div>
+
+    <div class="vcard">
+      <div class="vthumb">
+        <div class="t-win" style="position:absolute;inset:0;padding:10px">
+          <div class="t-bar"><div class="t-dot" style="background:#ff5f57"></div><div class="t-dot" style="background:#febc2e"></div><div class="t-dot" style="background:#28c840"></div></div>
+          <div class="t-lines">
+            <div class="t-line" style="background:#22c55e;width:80%;height:7px"></div>
+            <div class="t-line" style="background:#363e56;width:64%;height:7px"></div>
+            <div class="t-line" style="background:#363e56;width:90%;height:7px"></div>
+            <div class="t-line" style="background:#5b8ff9;width:40%;height:7px"></div>
+            <div class="t-line" style="background:#fbbf24;width:72%;height:7px"></div>
+          </div>
+        </div>
+        <div class="play"><div class="play-ico"></div></div>
+        <div class="dur">2:11:48</div>
+      </div>
+      <div class="vtitle">SSE fan-out at scale — Redis pub/sub, connection pooling, backpressure</div>
+      <div class="vmeta"><span>schoi</span><span>·</span><span>3.1k views</span><span>·</span><span>1w ago</span></div>
+    </div>
+
+    <div class="vcard">
+      <div class="vthumb">
+        <div class="t-win" style="position:absolute;inset:0;padding:10px">
+          <div class="t-bar"><div class="t-dot" style="background:#ff5f57"></div><div class="t-dot" style="background:#febc2e"></div><div class="t-dot" style="background:#28c840"></div></div>
+          <div class="t-lines">
+            <div class="t-line" style="background:#a78bfa;width:55%;height:7px"></div>
+            <div class="t-line" style="background:#363e56;width:80%;height:7px"></div>
+            <div class="t-line" style="background:#22c55e;width:70%;height:7px"></div>
+            <div class="t-line" style="background:#363e56;width:95%;height:7px"></div>
+            <div class="t-line" style="background:#5b8ff9;width:46%;height:7px"></div>
+          </div>
+        </div>
+        <div class="play"><div class="play-ico"></div></div>
+        <div class="dur">58:14</div>
+      </div>
+      <div class="vtitle">Next.js 15 deep dive — streaming, parallel routes, intercepting routes</div>
+      <div class="vmeta"><span>mkumar</span><span>·</span><span>6.7k views</span><span>·</span><span>3d ago</span></div>
+    </div>
+
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ══ BLOG ══════════════════════════════════════════════════ -->
+<section class="section">
+  <div class="sec-head">
+    <div><div class="sec-name">From the Blog</div><div class="sec-sub">Thoughts on live coding, tooling, and AI</div></div>
+    <a class="view-all" href="#">View all →</a>
+  </div>
+  <div class="grid-3">
+
+    <div class="bcard">
+      <div class="bimg">
+        <div class="t-win" style="height:100%;padding:14px">
+          <div class="t-bar"><div class="t-dot" style="background:#ff5f57"></div><div class="t-dot" style="background:#febc2e"></div><div class="t-dot" style="background:#28c840"></div></div>
+          <div class="t-lines">
+            <div class="t-line" style="background:#5b8ff9;width:65%;height:8px;margin-bottom:5px"></div>
+            <div class="t-line" style="background:#363e56;width:90%;height:8px;margin-bottom:5px"></div>
+            <div class="t-line" style="background:#a78bfa;width:50%;height:8px;margin-bottom:5px"></div>
+            <div class="t-line" style="background:#363e56;width:80%;height:8px;margin-bottom:5px"></div>
+            <div class="t-line" style="background:#22c55e;width:40%;height:8px"></div>
+          </div>
+        </div>
+      </div>
+      <span class="btag">Engineering</span>
+      <h3 class="btitle">How we built real-time session streaming with Redis pub/sub and SSE</h3>
+      <p class="bexcerpt">The architecture behind LiveShortly's fan-out system — how we replay buffered events for late joiners while streaming live ones to thousands of subscribers without duplication.</p>
+      <div class="bmeta"><span>rsehgal</span><span>·</span><span>Jul 1, 2026</span><span>·</span><span>8 min read</span></div>
+    </div>
+
+    <div class="bcard">
+      <div class="bimg">
+        <div class="t-win" style="height:100%;padding:14px">
+          <div class="t-bar"><div class="t-dot" style="background:#ff5f57"></div><div class="t-dot" style="background:#febc2e"></div><div class="t-dot" style="background:#28c840"></div></div>
+          <div class="t-lines">
+            <div class="t-line" style="background:#a78bfa;width:75%;height:8px;margin-bottom:5px"></div>
+            <div class="t-line" style="background:#363e56;width:60%;height:8px;margin-bottom:5px"></div>
+            <div class="t-line" style="background:#fbbf24;width:85%;height:8px;margin-bottom:5px"></div>
+            <div class="t-line" style="background:#363e56;width:45%;height:8px;margin-bottom:5px"></div>
+            <div class="t-line" style="background:#5b8ff9;width:70%;height:8px"></div>
+          </div>
+        </div>
+      </div>
+      <span class="btag">Product</span>
+      <h3 class="btitle">Viewer-to-agent messaging: the two-way stream that makes LiveShortly different</h3>
+      <p class="bexcerpt">The deliver-once queue, hook injection, and why messages land at the next turn boundary — the design decisions behind the feature everyone asks about.</p>
+      <div class="bmeta"><span>jliang</span><span>·</span><span>Jun 15, 2026</span><span>·</span><span>6 min read</span></div>
+    </div>
+
+    <div class="bcard">
+      <div class="bimg">
+        <div class="t-win" style="height:100%;padding:14px">
+          <div class="t-bar"><div class="t-dot" style="background:#ff5f57"></div><div class="t-dot" style="background:#febc2e"></div><div class="t-dot" style="background:#28c840"></div></div>
+          <div class="t-lines">
+            <div class="t-line" style="background:#22c55e;width:55%;height:8px;margin-bottom:5px"></div>
+            <div class="t-line" style="background:#363e56;width:80%;height:8px;margin-bottom:5px"></div>
+            <div class="t-line" style="background:#363e56;width:65%;height:8px;margin-bottom:5px"></div>
+            <div class="t-line" style="background:#5b8ff9;width:90%;height:8px;margin-bottom:5px"></div>
+            <div class="t-line" style="background:#a78bfa;width:50%;height:8px"></div>
+          </div>
+        </div>
+      </div>
+      <span class="btag">Tutorial</span>
+      <h3 class="btitle">Wiring Claude Code hooks in 5 minutes: zero-dependency session capture</h3>
+      <p class="bexcerpt">A complete walkthrough of the Python hook scripts — how session_start, pre_tool_use, and post_tool_use capture every event without ever blocking your agent.</p>
+      <div class="bmeta"><span>mkumar</span><span>·</span><span>Jun 2, 2026</span><span>·</span><span>5 min read</span></div>
+    </div>
+
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ══ SIGNUP ════════════════════════════════════════════════ -->
+<section class="signup" id="signup">
+  <div class="signup-glow"></div>
+  <div class="signup-inner">
+    <h2 class="signup-h">Start your first stream today.</h2>
+    <p class="signup-sub">Free to use. No credit card. Takes 2 minutes to wire up your Claude Code session.</p>
+    <form class="signup-form" onsubmit="return false">
+      <input class="email-in" type="email" placeholder="you@yourcompany.com">
+      <button class="btn btn-primary btn-lg" type="submit">Get started</button>
+    </form>
+    <p class="signup-note">Already have an account? <a href="#">Sign in</a></p>
+  </div>
+</section>
+
+<!-- ══ FOOTER ════════════════════════════════════════════════ -->
+<footer class="footer">
+  <div class="footer-in">
+    <div class="footer-top">
+      <div>
+        <a class="logo" href="#" style="text-decoration:none">
+          <div class="logo-mark">◧</div>LiveShortly
+        </a>
+        <p class="footer-tagline">Stream your Claude Code sessions live. Watch, replay, and collaborate in real time.</p>
+      </div>
+      <div>
+        <div class="fcol-h">Product</div>
+        <ul class="flinks">
+          <li><a href="#">Feed</a></li>
+          <li><a href="#">Live sessions</a></li>
+          <li><a href="#">Replays</a></li>
+          <li><a href="#">Search</a></li>
+          <li><a href="#">Changelog</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="fcol-h">Developers</div>
+        <ul class="flinks">
+          <li><a href="#">Documentation</a></li>
+          <li><a href="#">API reference</a></li>
+          <li><a href="#">Hook setup</a></li>
+          <li><a href="#">Self-hosting</a></li>
+          <li><a href="#">GitHub</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="fcol-h">Company</div>
+        <ul class="flinks">
+          <li><a href="#">About</a></li>
+          <li><a href="#">Blog</a></li>
+          <li><a href="#">Careers</a></li>
+          <li><a href="#">Contact</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="fcol-h">Legal</div>
+        <ul class="flinks">
+          <li><a href="#">Privacy</a></li>
+          <li><a href="#">Terms</a></li>
+          <li><a href="#">Security</a></li>
+          <li><a href="#">Cookies</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bot">
+      <span class="copy">© 2026 LiveShortly. Built with Claude Code.</span>
+      <div class="socials">
+        <a href="#" class="soc" title="GitHub">GH</a>
+        <a href="#" class="soc" title="Twitter / X">X</a>
+        <a href="#" class="soc" title="Discord">DC</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+  function toggleTheme() {
+    const html = document.documentElement;
+    const dark = html.getAttribute('data-theme') === 'dark';
+    html.setAttribute('data-theme', dark ? 'light' : 'dark');
+    document.getElementById('ticon').textContent = dark ? '◐' : '☀';
+  }
+</script>
+</body>
+</html>

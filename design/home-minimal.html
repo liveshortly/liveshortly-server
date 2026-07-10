@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LiveShortly — Home (Minimal)</title>
+<style>
+/* ── Design Tokens — same real theme as web/app/globals.css ── */
+:root, :root[data-theme="light"] {
+  --bg:       #e7e8ea;
+  --panel:    #f3f4f5;
+  --hairline: #d0d2d5;
+  --strong:   #1b1c1e;
+  --ink:      #1b1c1e;
+  --muted:    #63666b;
+  --faint:    #94979c;
+  --green:    #1f7a4d;
+  --red:      #c0392b;
+  --amber:    #a9810f;
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --bg:       #1e2123;
+  --panel:    #282c2f;
+  --hairline: #3d4247;
+  --strong:   #edeff1;
+  --ink:      #e9ebed;
+  --muted:    #a6abb1;
+  --faint:    #797f86;
+  --green:    #54b885;
+  --red:      #e7705f;
+  --amber:    #d9ad52;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --bg: #1e2123; --panel: #282c2f; --hairline: #3d4247; --strong: #edeff1;
+    --ink: #e9ebed; --muted: #a6abb1; --faint: #797f86;
+    --green: #54b885; --red: #e7705f; --amber: #d9ad52;
+    color-scheme: dark;
+  }
+}
+:root {
+  --hairline-soft: color-mix(in srgb, var(--hairline) 40%, var(--bg));
+  --surface-hover: color-mix(in srgb, var(--hairline) 35%, var(--bg));
+  --font: "JetBrains Mono", "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --sidebar: 196px;
+  --nav-h: 60px;
+  --radius: 8px;
+  --radius-sm: 5px;
+  --theme-transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+
+/* ── Reset ─────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  transition: var(--theme-transition);
+}
+a { color: inherit; text-decoration: none; }
+button { font-family: var(--font); cursor: pointer; }
+code { font-family: var(--font); }
+
+.tnum { font-variant-numeric: tabular-nums; }
+
+@keyframes pulse {
+  0%,100% { opacity:1; transform:scale(1); }
+  50%      { opacity:0.3; transform:scale(0.75); }
+}
+.dot {
+  display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--green); flex-shrink: 0;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+@keyframes blink { 0%,49% { opacity:1; } 50%,100% { opacity:0; } }
+.blink { animation: blink 1s step-end infinite; }
+
+/* ── Layout ───────────────────────────────────────────────── */
+.app { display: flex; flex-direction: column; min-height: 100vh; }
+.body { display: flex; flex: 1; }
+
+/* ── Navbar — quiet, no boxed controls ────────────────────── */
+.navbar {
+  height: var(--nav-h);
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  padding: 0 32px;
+  border-bottom: 1px solid var(--hairline-soft);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  flex-shrink: 0;
+  background: var(--bg);
+}
+.brand {
+  display: flex; align-items: center; gap: 8px;
+  font-weight: 700; font-size: 14px; letter-spacing: -.01em;
+  flex-shrink: 0;
+}
+.brand-mark {
+  width: 18px; height: 18px; border-radius: 5px;
+  background: var(--green);
+  position: relative; flex-shrink: 0;
+}
+.brand-mark::before {
+  content: ''; position: absolute; left: 4px; top: 4px;
+  width: 3px; height: 10px; background: var(--bg); border-radius: 1px;
+}
+.brand-mark::after {
+  content: ''; position: absolute; left: 9px; top: 4px;
+  width: 5px; height: 10px; border: 1px solid var(--bg);
+  background: var(--green); border-radius: 1px;
+}
+.nav-links { display: flex; align-items: center; gap: 22px; flex-shrink: 0; }
+.nav-link { font-size: 12px; color: var(--muted); transition: color 120ms; }
+.nav-link:hover { color: var(--ink); }
+.nav-link.active { color: var(--ink); }
+
+.nav-search {
+  flex: 1; max-width: 280px;
+  display: flex; align-items: center; gap: 8px;
+  border-bottom: 1px solid transparent;
+  padding: 4px 0;
+  transition: border-color 150ms;
+}
+.nav-search:focus-within { border-color: var(--strong); }
+.nav-search span { color: var(--faint); font-size: 12px; }
+.nav-search input {
+  flex: 1; background: transparent; border: none; outline: none;
+  color: var(--ink); font-family: var(--font); font-size: 12px;
+}
+.nav-search input::placeholder { color: var(--faint); }
+
+.navbar-right { margin-left: auto; display: flex; align-items: center; gap: 18px; flex-shrink: 0; }
+.icon-btn {
+  background: none; border: none; color: var(--muted);
+  font-size: 14px; padding: 4px; border-radius: var(--radius-sm);
+  transition: color 120ms;
+}
+.icon-btn:hover { color: var(--ink); }
+.user-avatar {
+  width: 24px; height: 24px; border-radius: 50%;
+  background: var(--green); color: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; flex-shrink: 0;
+}
+
+/* ── Sidebar — quiet text nav, no filled chrome ──────────── */
+.sidebar {
+  width: var(--sidebar);
+  flex-shrink: 0;
+  padding: 32px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  border-right: 1px solid var(--hairline-soft);
+  position: sticky;
+  top: var(--nav-h);
+  height: calc(100vh - var(--nav-h));
+  overflow-y: auto;
+}
+.side-heading {
+  font-size: 9px; text-transform: uppercase; letter-spacing: .14em;
+  color: var(--faint); font-weight: 600; margin-bottom: 10px;
+}
+.side-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 5px 0; font-size: 12.5px; color: var(--muted);
+  cursor: pointer; transition: color 120ms;
+}
+.side-item:hover { color: var(--ink); }
+.side-item.active { color: var(--ink); font-weight: 600; }
+.side-item .n { color: var(--faint); font-variant-numeric: tabular-nums; font-size: 11px; }
+.side-item.active .n { color: var(--green); }
+.side-tags { display: flex; flex-wrap: wrap; gap: 6px 10px; }
+.side-tag { font-size: 11.5px; color: var(--muted); cursor: pointer; transition: color 120ms; }
+.side-tag:hover { color: var(--amber); }
+
+/* ── Main ─────────────────────────────────────────────────── */
+.main {
+  flex: 1; min-width: 0;
+  padding: 44px 56px 64px;
+  display: flex; flex-direction: column;
+  gap: 56px;
+}
+.main-inner { max-width: 860px; width: 100%; }
+
+.sec-head {
+  display: flex; align-items: baseline; gap: 10px;
+  margin-bottom: 20px;
+}
+.sec-title { font-size: 13px; font-weight: 700; color: var(--ink); letter-spacing: -.005em; }
+.sec-count { font-size: 11.5px; color: var(--faint); font-variant-numeric: tabular-nums; }
+.sec-link {
+  margin-left: auto; font-size: 11.5px; color: var(--muted); transition: color 120ms;
+}
+.sec-link:hover { color: var(--ink); }
+
+/* ── Session row — one shared list component for every feed ── */
+.row-list { display: flex; flex-direction: column; }
+.row {
+  display: flex; align-items: center; gap: 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--hairline-soft);
+  cursor: pointer;
+}
+.row:last-child { border-bottom: none; }
+.row-thumb {
+  width: 44px; height: 44px; flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 17px;
+  position: relative;
+}
+.row-thumb .dot { position: absolute; top: -2px; right: -2px; }
+.row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.row-title {
+  font-size: 13px; font-weight: 600; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  transition: color 120ms;
+}
+.row:hover .row-title { color: var(--green); }
+.row-meta { display: flex; align-items: center; gap: 7px; font-size: 11px; color: var(--muted); }
+.row-meta .sep { color: var(--hairline); }
+.row-status {
+  flex-shrink: 0; width: 70px;
+  font-size: 10px; text-transform: uppercase; letter-spacing: .07em;
+  color: var(--faint); text-align: right;
+}
+.row-status.live { color: var(--green); font-weight: 700; }
+.row-extra { flex-shrink: 0; font-size: 11px; color: var(--faint); width: 66px; text-align: right; font-variant-numeric: tabular-nums; }
+.row-arrow { flex-shrink: 0; color: var(--faint); font-size: 13px; transition: transform 120ms, color 120ms; }
+.row:hover .row-arrow { color: var(--ink); transform: translateX(2px); }
+
+/* live rows get a touch more room + a watch link instead of an arrow */
+.row.live-row { padding: 18px 0; }
+.row.live-row .row-thumb { width: 56px; height: 56px; font-size: 20px; }
+.row.live-row .row-title { font-size: 14px; }
+.watch-link { flex-shrink: 0; font-size: 11px; color: var(--green); font-weight: 600; }
+.watch-link:hover { text-decoration: underline; }
+
+/* ── Get Started — plain, centered, no boxes ─────────────── */
+.start-block { max-width: 560px; margin: 0 auto; text-align: center; }
+.start-eyebrow {
+  font-size: 10px; text-transform: uppercase; letter-spacing: .14em;
+  color: var(--green); font-weight: 700; margin-bottom: 10px;
+}
+.start-heading { font-size: 21px; font-weight: 700; letter-spacing: -.01em; color: var(--ink); line-height: 1.35; }
+.start-sub { font-size: 12.5px; color: var(--muted); margin-top: 10px; line-height: 1.6; }
+
+.start-cmd {
+  margin: 28px auto 0;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  border-bottom: 1px solid var(--hairline-soft);
+  padding-bottom: 10px;
+  max-width: 420px;
+}
+.start-cmd .p { color: var(--green); }
+.start-cmd code { font-size: 12.5px; color: var(--ink); }
+.start-cmd button {
+  background: none; border: none; color: var(--muted);
+  font-size: 13px; transition: color 120ms;
+}
+.start-cmd button:hover { color: var(--ink); }
+.start-cmd button.copied { color: var(--green); }
+
+.start-steps { margin-top: 40px; text-align: left; position: relative; }
+.start-step {
+  display: flex; gap: 16px; padding: 0 0 26px 0; position: relative;
+}
+.start-step:last-child { padding-bottom: 0; }
+.start-step::before {
+  content: '';
+  position: absolute; left: 11px; top: 26px; bottom: 0;
+  width: 1px; background: var(--hairline-soft);
+}
+.start-step:last-child::before { display: none; }
+.start-step-num {
+  width: 23px; height: 23px; flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--panel);
+  color: var(--muted);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700;
+  position: relative; z-index: 1;
+}
+.start-step-title { font-size: 12.5px; font-weight: 700; color: var(--ink); margin-bottom: 3px; }
+.start-step-desc { font-size: 12px; color: var(--muted); line-height: 1.55; }
+
+.start-links { display: flex; align-items: center; justify-content: center; gap: 20px; margin-top: 36px; }
+.start-link { font-size: 11.5px; color: var(--muted); transition: color 120ms; }
+.start-link:hover { color: var(--ink); }
+
+/* ── Footer — one quiet line ──────────────────────────────── */
+.footer {
+  border-top: 1px solid var(--hairline-soft);
+  padding: 20px 32px;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap;
+  flex-shrink: 0;
+}
+.footer-brand { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 700; color: var(--muted); }
+.footer-links { display: flex; align-items: center; gap: 18px; }
+.footer-links a { font-size: 11.5px; color: var(--muted); transition: color 120ms; }
+.footer-links a:hover { color: var(--ink); }
+.footer-copy { font-size: 11px; color: var(--faint); }
+
+/* ── Scrollbar ─────────────────────────────────────────────── */
+* { scrollbar-width: thin; scrollbar-color: var(--hairline) transparent; }
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--hairline); }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ═══ NAVBAR ══════════════════════════════════════════ -->
+  <nav class="navbar">
+    <a href="#" class="brand">
+      <div class="brand-mark"></div>
+      LiveShortly<span class="blink" style="color:var(--faint)">_</span>
+    </a>
+
+    <div class="nav-links">
+      <a href="#top" class="nav-link active">Home</a>
+      <a href="#live" class="nav-link">Live</a>
+      <a href="#sessions" class="nav-link">Sessions</a>
+      <a href="#start" class="nav-link">Get Started</a>
+    </div>
+
+    <div class="nav-search">
+      <span>/</span>
+      <input type="text" placeholder="Search sessions">
+    </div>
+
+    <div class="navbar-right">
+      <button type="button" class="icon-btn" onclick="toggleTheme()" id="theme-toggle" title="Toggle theme">
+        <span id="theme-icon">☀</span>
+      </button>
+      <div class="user-avatar">M</div>
+    </div>
+  </nav>
+
+  <!-- ═══ BODY ════════════════════════════════════════════ -->
+  <div class="body">
+
+    <!-- ── SIDEBAR ── -->
+    <aside class="sidebar">
+      <div>
+        <div class="side-heading">Browse</div>
+        <div class="side-item active"><span>All Sessions</span><span class="n">24</span></div>
+        <div class="side-item"><span style="color:var(--green)">● Live</span><span class="n">2</span></div>
+        <div class="side-item"><span>Ended</span><span class="n">22</span></div>
+      </div>
+
+      <div>
+        <div class="side-heading">Shared With Me</div>
+        <div class="side-item"><span style="color:var(--amber)">From Others</span><span class="n" style="color:var(--amber)">3</span></div>
+      </div>
+
+      <div>
+        <div class="side-heading">Filters</div>
+        <div class="side-tags">
+          <span class="side-tag">#python</span>
+          <span class="side-tag">#web</span>
+          <span class="side-tag">#api</span>
+          <span class="side-tag">#auth</span>
+          <span class="side-tag">#refactor</span>
+          <span class="side-tag">#debug</span>
+        </div>
+      </div>
+
+      <div>
+        <div class="side-heading">Models</div>
+        <div class="side-item"><span>sonnet-4-6</span><span class="n">18</span></div>
+        <div class="side-item"><span>opus-4-8</span><span class="n">6</span></div>
+      </div>
+    </aside>
+
+    <!-- ── MAIN ── -->
+    <main class="main" id="top">
+      <div class="main-inner">
+
+        <!-- LIVE NOW -->
+        <section id="live">
+          <div class="sec-head">
+            <span class="dot"></span>
+            <span class="sec-title">Live Now</span>
+            <span class="sec-count tnum">· 2 streaming</span>
+          </div>
+
+          <div class="row-list">
+            <div class="row live-row">
+              <div class="row-thumb">🔐<span class="dot"></span></div>
+              <div class="row-main">
+                <div class="row-title">Build auth middleware — JWT + refresh token flow</div>
+                <div class="row-meta">
+                  <span style="color:var(--green)">@mukulmalviya2</span>
+                  <span class="sep">·</span>
+                  <span>claude-sonnet-4-6</span>
+                  <span class="sep">·</span>
+                  <span class="tnum">247 events</span>
+                  <span class="sep">·</span>
+                  <span class="tnum">14 watching</span>
+                </div>
+              </div>
+              <a href="#" class="watch-link">▶ Watch Live</a>
+            </div>
+
+            <div class="row live-row">
+              <div class="row-thumb">⚛️<span class="dot"></span></div>
+              <div class="row-main">
+                <div class="row-title">Fix React hydration mismatch in Next.js 15 App Router</div>
+                <div class="row-meta">
+                  <span style="color:var(--green)">@devuser_99</span>
+                  <span class="sep">·</span>
+                  <span>claude-opus-4-8</span>
+                  <span class="sep">·</span>
+                  <span class="tnum">89 events</span>
+                  <span class="sep">·</span>
+                  <span class="tnum">6 watching</span>
+                </div>
+              </div>
+              <a href="#" class="watch-link">▶ Watch Live</a>
+            </div>
+          </div>
+        </section>
+
+        <!-- TRENDING -->
+        <section>
+          <div class="sec-head">
+            <span class="sec-title">Trending Today</span>
+            <span class="sec-count tnum">· most events in 24h</span>
+            <a href="#" class="sec-link">View all →</a>
+          </div>
+
+          <div class="row-list">
+            <div class="row">
+              <div class="row-thumb">🗄️</div>
+              <div class="row-main">
+                <div class="row-title">Optimize session queries — composite indexes, EXPLAIN ANALYZE</div>
+                <div class="row-meta"><span>@alice_codes</span><span class="sep">·</span><span class="tnum">1,247 events</span></div>
+              </div>
+              <div class="row-status">ended</div>
+              <div class="row-extra">3h ago</div>
+              <span class="row-arrow">→</span>
+            </div>
+            <div class="row">
+              <div class="row-thumb">🗄️</div>
+              <div class="row-main">
+                <div class="row-title">Postgres migration 002 — auth tables, sharing model, indexes</div>
+                <div class="row-meta"><span>@mukulmalviya2</span><span class="sep">·</span><span class="tnum">892 events</span></div>
+              </div>
+              <div class="row-status">ended</div>
+              <div class="row-extra">8h ago</div>
+              <span class="row-arrow">→</span>
+            </div>
+            <div class="row">
+              <div class="row-thumb">📡</div>
+              <div class="row-main">
+                <div class="row-title">SSE streaming — Redis pub/sub fan-out, heartbeats, replay buffer</div>
+                <div class="row-meta"><span>@mukulmalviya2</span><span class="sep">·</span><span class="tnum">743 events</span></div>
+              </div>
+              <div class="row-status">ended</div>
+              <div class="row-extra">1d ago</div>
+              <span class="row-arrow">→</span>
+            </div>
+            <div class="row">
+              <div class="row-thumb">🦀</div>
+              <div class="row-main">
+                <div class="row-title">Rust + Axum async server — tokio, routing, middleware stack</div>
+                <div class="row-meta"><span>@rust_fan</span><span class="sep">·</span><span class="tnum">611 events</span></div>
+              </div>
+              <div class="row-status">ended</div>
+              <div class="row-extra">1d ago</div>
+              <span class="row-arrow">→</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- MY SESSIONS -->
+        <section id="sessions">
+          <div class="sec-head">
+            <span class="sec-title">My Sessions</span>
+            <span class="sec-count tnum">· 22</span>
+            <a href="#" class="sec-link">View all →</a>
+          </div>
+
+          <div class="row-list">
+            <div class="row">
+              <div class="row-thumb">🐹</div>
+              <div class="row-main">
+                <div class="row-title">Go API refactor — chi router, middleware chain setup</div>
+                <div class="row-meta"><span>@mukulmalviya2</span></div>
+              </div>
+              <div class="row-status">ended</div>
+              <div class="row-extra">5h ago</div>
+              <span class="row-arrow">→</span>
+            </div>
+            <div class="row">
+              <div class="row-thumb">⚛️</div>
+              <div class="row-main">
+                <div class="row-title">EventStream component — auto-scroll chat transcript</div>
+                <div class="row-meta"><span>@mukulmalviya2</span></div>
+              </div>
+              <div class="row-status">ended</div>
+              <div class="row-extra">2d ago</div>
+              <span class="row-arrow">→</span>
+            </div>
+            <div class="row">
+              <div class="row-thumb">🐳</div>
+              <div class="row-main">
+                <div class="row-title">Production deploy — Docker, nginx config, Cloudflare TLS</div>
+                <div class="row-meta"><span>@mukulmalviya2</span></div>
+              </div>
+              <div class="row-status">ended</div>
+              <div class="row-extra">3d ago</div>
+              <span class="row-arrow">→</span>
+            </div>
+            <div class="row">
+              <div class="row-thumb">🎨</div>
+              <div class="row-main">
+                <div class="row-title">ThemeProvider — dark/light toggle with system preference detection</div>
+                <div class="row-meta"><span>@mukulmalviya2</span></div>
+              </div>
+              <div class="row-status">ended</div>
+              <div class="row-extra">4d ago</div>
+              <span class="row-arrow">→</span>
+            </div>
+            <div class="row">
+              <div class="row-thumb">🔑</div>
+              <div class="row-main">
+                <div class="row-title">Google OAuth callback handler + session cookie setup</div>
+                <div class="row-meta"><span>@mukulmalviya2</span></div>
+              </div>
+              <div class="row-status">ended</div>
+              <div class="row-extra">5d ago</div>
+              <span class="row-arrow">→</span>
+            </div>
+            <div class="row">
+              <div class="row-thumb">💻</div>
+              <div class="row-main">
+                <div class="row-title">CLI device auth flow — start/poll tokens, credential storage</div>
+                <div class="row-meta"><span>@mukulmalviya2</span></div>
+              </div>
+              <div class="row-status">ended</div>
+              <div class="row-extra">6d ago</div>
+              <span class="row-arrow">→</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- SHARED WITH ME -->
+        <section>
+          <div class="sec-head">
+            <span class="sec-title" style="color:var(--amber)">Shared With Me</span>
+            <span class="sec-count tnum">· 3</span>
+          </div>
+
+          <div class="row-list">
+            <div class="row">
+              <div class="row-thumb">🗄️<span class="dot"></span></div>
+              <div class="row-main">
+                <div class="row-title">Optimize session query — add composite indexes</div>
+                <div class="row-meta"><span style="color:var(--amber)">viewer</span></div>
+              </div>
+              <div class="row-status live">live</div>
+              <div class="row-extra">12m ago</div>
+              <span class="row-arrow">→</span>
+            </div>
+            <div class="row">
+              <div class="row-thumb">🧪</div>
+              <div class="row-main">
+                <div class="row-title">Add integration tests for build pipeline</div>
+                <div class="row-meta"><span style="color:var(--amber)">commenter</span></div>
+              </div>
+              <div class="row-status">ended</div>
+              <div class="row-extra">1d ago</div>
+              <span class="row-arrow">→</span>
+            </div>
+            <div class="row">
+              <div class="row-thumb">📡</div>
+              <div class="row-main">
+                <div class="row-title">CORS setup for API — allowed origins config</div>
+                <div class="row-meta"><span style="color:var(--amber)">viewer</span></div>
+              </div>
+              <div class="row-status">ended</div>
+              <div class="row-extra">3d ago</div>
+              <span class="row-arrow">→</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- GET STARTED -->
+        <section id="start">
+          <div class="start-block">
+            <div class="start-eyebrow">⚡ Two minutes, zero config</div>
+            <h2 class="start-heading">You're three commands away from going live</h2>
+            <p class="start-sub">Install the CLI hooks, authenticate once, then use Claude Code exactly like you already do.</p>
+
+            <div class="start-cmd">
+              <span class="p">$</span>
+              <code id="start-cmd-text">curl -fsSL liveshortly.dev/install.sh | sh</code>
+              <button onclick="copyStartCmd()" id="start-copy-btn" title="Copy">⧉</button>
+            </div>
+
+            <div class="start-steps">
+              <div class="start-step">
+                <div class="start-step-num">1</div>
+                <div>
+                  <div class="start-step-title">Install the hooks</div>
+                  <div class="start-step-desc">Wires session_start, pre_tool_use and the rest into your existing Claude Code config.</div>
+                </div>
+              </div>
+              <div class="start-step">
+                <div class="start-step-num">2</div>
+                <div>
+                  <div class="start-step-title">Authenticate once</div>
+                  <div class="start-step-desc">Device-flow login pairs the CLI to your account — tokens auto-refresh from there.</div>
+                </div>
+              </div>
+              <div class="start-step">
+                <div class="start-step-num">3</div>
+                <div>
+                  <div class="start-step-title">Just run Claude</div>
+                  <div class="start-step-desc">Every session streams automatically — no extra flags, nothing to remember.</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="start-links">
+              <a href="#" class="start-link">Read the Docs →</a>
+              <a href="#" class="start-link">Browse example sessions →</a>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- ═══ FOOTER ══════════════════════════════════════════ -->
+  <footer class="footer">
+    <div class="footer-brand">
+      <div class="brand-mark" style="width:14px;height:14px"></div>
+      LiveShortly
+    </div>
+    <div class="footer-links">
+      <a href="#">About</a>
+      <a href="#">API Docs</a>
+      <a href="#">GitHub</a>
+      <a href="#">Privacy</a>
+      <a href="#">Terms</a>
+    </div>
+    <div class="footer-copy">© 2026 LiveShortly</div>
+  </footer>
+
+</div>
+
+<script>
+function toggleTheme() {
+  const root = document.documentElement;
+  const current = root.getAttribute('data-theme') ||
+    (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  const next = current === 'dark' ? 'light' : 'dark';
+  root.setAttribute('data-theme', next);
+  document.getElementById('theme-icon').textContent = next === 'dark' ? '☾' : '☀';
+}
+function copyStartCmd() {
+  const cmd = document.getElementById('start-cmd-text').textContent;
+  const btn = document.getElementById('start-copy-btn');
+  navigator.clipboard?.writeText(cmd);
+  btn.textContent = '✓';
+  btn.classList.add('copied');
+  setTimeout(() => { btn.textContent = '⧉'; btn.classList.remove('copied'); }, 1500);
+}
+</script>
+</body>
+</html>
