@@ -204,6 +204,7 @@ func router(cfg config.Config, h *handlers.Handler, ga *handlers.GoogleAuth, mgr
 			r.Get("/sessions/{id}/lineage", h.Lineage)
 			r.Get("/sessions/{id}/stream", h.Stream)
 			r.Get("/feed", h.Feed)
+			r.Get("/public/stats", h.PublicStats)
 		})
 
 		// Everything else requires a resolved principal (bearer or cookie).
