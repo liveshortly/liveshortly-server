@@ -247,6 +247,8 @@ function Group({
   );
 }
 
+/** One session row, in the v3 rail's shape: swatch (with a live pip), title over
+ *  a sub-line, and a right-aligned status/age. See designs/version3 `.sb-row`. */
 function Row({
   s,
   active,
@@ -265,10 +267,10 @@ function Row({
       style={{
         display: "flex",
         alignItems: "center",
-        gap: 8,
-        padding: "8px 8px",
+        gap: 9,
+        padding: "7px 8px",
         borderLeft: `2px solid ${active ? "var(--green)" : "transparent"}`,
-        background: active ? "var(--panel)" : "transparent",
+        background: active ? "var(--panel2)" : "transparent",
         minWidth: 0,
       }}
       className="ws-row"
@@ -276,29 +278,67 @@ function Row({
       <span
         aria-hidden
         style={{
+          position: "relative",
           flexShrink: 0,
-          width: 7,
-          height: 7,
-          borderRadius: 9999,
-          background: live ? "var(--green)" : "var(--faint)",
+          width: 26,
+          height: 26,
+          background: "var(--grad-hero)",
+          border: "1px solid var(--hairline)",
         }}
-        className={live ? "live-dot" : undefined}
-      />
+      >
+        {live && (
+          <span
+            className="live-dot"
+            style={{
+              position: "absolute",
+              right: -3,
+              bottom: -3,
+              boxShadow: "0 0 0 2px var(--panel)",
+            }}
+          />
+        )}
+      </span>
       <span
         style={{
           flex: 1,
           minWidth: 0,
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
-          fontSize: 13,
-          color: active ? "var(--ink)" : "var(--muted)",
-          fontWeight: active ? 600 : 400,
+          display: "flex",
+          flexDirection: "column",
+          gap: 2,
         }}
       >
-        {s.title || "untitled session"}
+        <span
+          style={{
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            fontSize: 12,
+            color: active ? "var(--ink)" : "var(--muted)",
+            fontWeight: active ? 600 : 400,
+          }}
+        >
+          {s.title || "untitled session"}
+        </span>
+        <span
+          style={{
+            fontSize: 9.5,
+            color: "var(--faint)",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {shared ? `@${s.owner_handle}` : s.model || "—"}
+        </span>
       </span>
-      <span className="label" style={{ flexShrink: 0, color: "var(--faint)", fontSize: 9 }}>
+      <span
+        className="label"
+        style={{
+          flexShrink: 0,
+          color: live ? "var(--green)" : "var(--faint)",
+          fontSize: 9,
+        }}
+      >
         {live ? "LIVE" : timeAgo(s.ended_at ?? s.created_at)}
       </span>
     </Link>

@@ -12,6 +12,7 @@ import PublicLinkDialog from "@/components/PublicLinkDialog";
 import PublishAction from "@/components/PublishAction";
 import HandoffButton from "@/components/HandoffButton";
 import ShareToTwitter from "@/components/ShareToTwitter";
+import ThemeToggle from "@/components/ThemeToggle";
 import TypingIndicator from "@/components/TypingIndicator";
 import { useWorkspaceDrawer } from "@/components/WorkspaceDrawerContext";
 import {
@@ -28,7 +29,7 @@ import {
   type SessionDetail,
   type SessionEvent,
 } from "@/lib/api";
-import { fmtInt, frameworkLabel, localTime, shortId, timeAgo } from "@/lib/utils";
+import { fmtInt, frameworkLabel, shortId, timeAgo } from "@/lib/utils";
 
 type Connection = "idle" | "connecting" | "open" | "closed" | "ended";
 
@@ -146,6 +147,12 @@ export default function SessionViewer({
           return;
         }
         if (t === "connected") return;
+        if (t === "watchers") {
+          const n = (data as { count?: number }).count;
+          if (typeof n === "number")
+            setMeta((m) => (m ? { ...m, watcher_count: n } : m));
+          return;
+        }
         if (t === "typing") {
           const d = data as { who?: string; until?: number };
           setViewerTyping({
@@ -428,76 +435,95 @@ export default function SessionViewer({
         </div>
       )}
 
-      {/* Session header / meta strip. Border/background/padding live in CSS
-          (not inline) so the mobile media query can restyle this into a clean
-          topbar — inline styles would beat the query. */}
-      <div className="session-meta-card">
-        <div
-          style={{
-            display: "flex",
-            alignItems: "flex-start",
-            justifyContent: "space-between",
-            gap: 12,
-            flexWrap: "wrap",
-          }}
-        >
-          {/* Mobile-only hamburger → opens the session-history drawer (or, for
-              anonymous viewers with no drawer, links back home). Sits at the
-              head of the topbar per design/session-viewer-mobile.html. */}
-          {drawer ? (
-            <button
-              type="button"
-              className="session-hamburger"
-              onClick={() => drawer.toggle()}
-              aria-label="Session history"
-              aria-expanded={drawer.open}
-            >
-              <span />
-              <span />
-              <span />
-            </button>
-          ) : (
-            <Link
-              href="/"
-              className="session-hamburger session-hamburger-back"
-              aria-label="Back"
-            >
-              ‹
-            </Link>
-          )}
-          <div style={{ minWidth: 0, flex: "1 1 auto" }}>
-            <div
-              className="label session-hide-mobile"
-              style={{ color: "var(--faint)" }}
-            >
-              SESSION {shortId(id)}
-            </div>
-            <TitleBlock
-              meta={meta}
-              loadingLabel={err ? "—" : "loading…"}
-              onRenamed={(title) =>
-                setMeta((m) => (m ? { ...m, title } : m))
-              }
-            />
-            {/* Mobile-only compact meta line — replaces the full grid below,
-                mirroring design/session-viewer-mobile.html's slim header. */}
+      {/* Session hero (design/version3/session-viewer.html .shero). On mobile the
+          media query flattens it into the mock's sticky topbar, so its border,
+          background and padding live in CSS — inline styles would beat the query. */}
+      <div className="sv-hero">
+        {/* Mobile-only hamburger → opens the session-history drawer (or, for
+            anonymous viewers with no drawer, links back home). Sits at the
+            head of the topbar per design/session-viewer-mobile.html. */}
+        {drawer ? (
+          <button
+            type="button"
+            className="session-hamburger"
+            onClick={() => drawer.toggle()}
+            aria-label="Session history"
+            aria-expanded={drawer.open}
+          >
+            <span />
+            <span />
+            <span />
+          </button>
+        ) : (
+          <Link
+            href="/"
+            className="session-hamburger session-hamburger-back"
+            aria-label="Back"
+          >
+            ‹
+          </Link>
+        )}
+
+        <div className="sv-hero-art" aria-hidden />
+
+        <div className="sv-hero-main">
+          <div className="sv-hero-eyebrow">
             {meta && (
-              <div className="session-mobile-meta label">
-                <span
-                  className={
-                    meta.status === "live" ? "session-mm-live" : undefined
-                  }
-                >
-                  {meta.status === "live" ? "● LIVE" : "● ENDED"}
-                </span>
-                {meta.model && <span>· {meta.model}</span>}
-                <span>
-                  · ◔ {fmtInt(meta.view_count ?? 0)}{" "}
-                  {meta.status === "live" ? "watching" : "views"}
-                </span>
-              </div>
+              <span
+                className={`sv-hero-badge${meta.status === "live" ? "" : " ended"}`}
+              >
+                {meta.status === "live" && <span className="live-dot" />}
+                {meta.status === "live" ? "Live" : "Ended"}
+              </span>
             )}
+            <span>Session · {frameworkLabel(meta?.framework)}</span>
+            <span style={{ color: "var(--faint)" }}>{shortId(id)}</span>
           </div>
+
+          <TitleBlock
+            meta={meta}
+            loadingLabel={err ? "—" : "loading…"}
+            onRenamed={(title) => setMeta((m) => (m ? { ...m, title } : m))}
+          />
+
+          {meta && (
+            <div className="sv-hero-meta tnum">
+              <span>@{meta.owner_handle}</span>
+              {meta.model && <span>· {meta.model}</span>}
+              <span>· {fmtInt(eventTotal)} events</span>
+              <span>
+                ·{" "}
+                {meta.status === "ended"
+                  ? `ended ${timeAgo(meta.ended_at)}`
+                  : `started ${timeAgo(meta.created_at)}`}
+              </span>
+              {isLive && (
+                <span style={{ color: "var(--green)" }}>
+                  · ◔ {fmtInt(meta.watcher_count ?? 0)} watching
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Mobile-only compact meta line — mirrors the mock's slim header. */}
+          {meta && (
+            <div className="session-mobile-meta label">
+              <span
+                className={
+                  meta.status === "live" ? "session-mm-live" : undefined
+                }
+              >
+                {meta.status === "live" ? "● LIVE" : "● ENDED"}
+              </span>
+              {meta.model && <span>· {meta.model}</span>}
+              <span>
+                {meta.status === "live"
+                  ? `· ◔ ${fmtInt(meta.watcher_count ?? 0)} watching`
+                  : `· ◔ ${fmtInt(meta.view_count ?? 0)} views`}
+              </span>
+            </div>
+          )}
+        </div>
           <div
             style={{
               display: "flex",
@@ -685,89 +711,9 @@ export default function SessionViewer({
               </button>
             )}
           </div>
-        </div>
-
-        <div className="session-meta-detail">
-        <div
-          className="dashed-b"
-          style={{ height: 1, margin: "12px 0" }}
-          aria-hidden
-        />
-
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
-            gap: 10,
-          }}
-        >
-          <MetaCell
-            label={meta?.client_handle ? "Captured by" : "Owner"}
-            value={
-              meta
-                ? (meta.client_handle ?? `@${meta.owner_handle}`)
-                : "—"
-            }
-          />
-          <MetaCell label="Model" value={meta?.model ?? "—"} />
-          <MetaCell label="Framework" value={frameworkLabel(meta?.framework)} />
-          <MetaCell label="Events" value={fmtInt(eventTotal)} mono />
-          <MetaCell label="Views" value={fmtInt(meta?.view_count ?? 0)} mono />
-          <MetaCell
-            label={meta?.status === "ended" ? "Ended" : "Started"}
-            value={
-              meta
-                ? meta.status === "ended"
-                  ? timeAgo(meta.ended_at)
-                  : timeAgo(meta.created_at)
-                : "—"
-            }
-            mono
-          />
-          {meta && (meta.input_tokens ?? 0) + (meta.output_tokens ?? 0) > 0 && (
-            <MetaCell
-              label="Tokens (in / out)"
-              value={`${fmtInt(meta.input_tokens ?? 0)} / ${fmtInt(
-                meta.output_tokens ?? 0,
-              )}`}
-              mono
-            />
-          )}
-          {meta?.git_remote && (
-            <GitCell remote={meta.git_remote} branch={meta.git_branch} />
-          )}
-        </div>
-
-        {meta?.tags && meta.tags.length > 0 && (
-          <div className="label" style={{ marginTop: 10, color: "var(--muted)" }}>
-            #{meta.tags.join("  #")}
-          </div>
-        )}
-
-        {/* Alternate views of this session (new design). Replay/Story read the
-            same events; the Composer is owner-only. */}
-        {meta && (
-          <div
-            style={{
-              display: "flex",
-              gap: 8,
-              flexWrap: "wrap",
-              marginTop: 12,
-              paddingTop: 10,
-              borderTop: "1px dashed var(--hairline)",
-            }}
-          >
-            <ViewLink href={`/replay/${id}`}>▶ REPLAY</ViewLink>
-            <ViewLink href={`/story/${id}`}>✎ DEV STORY</ViewLink>
-            {meta.is_owner && (
-              <ViewLink href={`/compose/${id}`}>✎ COMPOSE</ViewLink>
-            )}
-          </div>
-        )}
-        </div>
       </div>
 
-      {/* ── Twitch-style split: event stream (left) + viewer chat (right) ── */}
+      {/* ── Split: the event thread (left) + the session info panel (right) ── */}
       <div className="viewer-body">
         {/* LEFT — the event stream */}
         <div className="stream-pane">
@@ -832,26 +778,28 @@ export default function SessionViewer({
             </div>
           )}
 
-          {/* Mobile-only: composer pinned to the bottom of THIS box (same
-              pattern as the desktop chat-pane's composer below), not the
-              page — a page-level sticky element would float over whatever
-              stream content hadn't scrolled past yet. */}
-          <div className="mobile-composer-bar">
+          {/* A viewer typing into the session, surfaced just above the composer.
+              Viewer comments themselves render inline in the thread (EventStream
+              and MobileEventFeed both bubble `viewer_comment`), which is why the
+              v3 viewer has no separate chat column. */}
+          {viewerIsTyping && viewerTyping && (
+            <div style={{ padding: "6px 2px 0" }}>
+              <TypingIndicator
+                label={`@${viewerTyping.who} IS TYPING`}
+                tone="amber"
+              />
+            </div>
+          )}
+
+          {/* Composer, pinned to the bottom of THIS box (a fixed-height flex
+              column) rather than the page — a page-level sticky element would
+              float over whatever stream content hadn't scrolled past yet. */}
+          <div className="sv-composer">
             {isLive ? (
               meta?.can_comment !== false ? (
                 <Composer id={id} emphasize={inputPending} />
               ) : (
-                <div
-                  className="label"
-                  style={{
-                    border: "1px dashed var(--hairline)",
-                    color: "var(--muted)",
-                    padding: "10px 12px",
-                    textAlign: "center",
-                  }}
-                >
-                  ◦ VIEW ONLY
-                </div>
+                <div className="sv-readonly">◦ VIEW ONLY</div>
               )
             ) : (
               <div
@@ -864,16 +812,13 @@ export default function SessionViewer({
           </div>
         </div>
 
-        {/* RIGHT — viewer chat sidebar */}
-        <ChatPane
+        {/* RIGHT — session info + who's watching */}
+        <SessionInfoPanel
           id={id}
+          meta={meta}
           events={events}
+          eventTotal={eventTotal}
           isLive={isLive}
-          canComment={meta?.can_comment !== false}
-          emphasizeComposer={inputPending}
-          viewerCount={meta?.view_count ?? 0}
-          viewerTyping={viewerIsTyping ? viewerTyping : null}
-          ownerHandle={meta?.owner_handle ?? null}
         />
       </div>
 
@@ -951,6 +896,12 @@ export default function SessionViewer({
                 />
               </div>
             )}
+            {/* The global header is hidden on the mobile session viewer, so the
+                sheet carries the only theme control reachable from here — as in
+                design/version3/session-viewer-mobile.html. */}
+            <div className="msheet-row-wrap">
+              <ThemeToggle />
+            </div>
             <div className="msheet-row-wrap">
               <button
                 type="button"
@@ -986,157 +937,236 @@ export default function SessionViewer({
   );
 }
 
-/** Right-hand viewer chat sidebar: viewer comments as a running chat, a live
- *  typing indicator, and the composer (or a read-only note). */
-function ChatPane({
+/** Right-hand panel: what this session IS (model, framework, reach, git, tags)
+ *  and who is around. The v3 mock has no separate chat column — viewer comments
+ *  bubble inline in the thread — so this replaces it.
+ *
+ *  "Watching now" names only the people who have actually spoken in the session
+ *  (their handle is already public in the thread). The rest of the audience is
+ *  an anonymous count: presence tokens carry no identity, so there is nobody
+ *  else to name without tracking who silently watched whom. */
+function SessionInfoPanel({
   id,
+  meta,
   events,
+  eventTotal,
   isLive,
-  canComment,
-  emphasizeComposer,
-  viewerCount,
-  viewerTyping,
-  ownerHandle,
 }: {
   id: string;
+  meta: SessionDetail | null;
   events: SessionEvent[];
+  eventTotal: number;
   isLive: boolean;
-  canComment: boolean;
-  emphasizeComposer: boolean;
-  viewerCount: number;
-  viewerTyping: { who: string; until: number } | null;
-  ownerHandle: string | null;
 }) {
-  const chat = useMemo(
-    () => events.filter((e) => e.event_type === "viewer_comment"),
-    [events],
-  );
-  const endRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    endRef.current?.scrollIntoView({ block: "end" });
-  }, [chat.length, viewerTyping]);
-
-  const who = (e: SessionEvent): string => {
-    const u = (e.payload as Record<string, unknown>)?.username;
-    if (typeof u === "string" && u.trim()) return u.trim();
-    return e.actor && e.actor !== "agent" ? e.actor : "viewer";
-  };
-  const text = (e: SessionEvent): string => {
-    const p = (e.payload ?? {}) as Record<string, unknown>;
-    for (const k of ["message", "text", "content"]) {
-      const v = p[k];
-      if (typeof v === "string" && v.trim()) return v;
+  // Distinct speakers, most recent first — real handles from real comments.
+  const speakers = useMemo(() => {
+    const last = new Map<string, string>();
+    for (const e of events) {
+      if (e.event_type !== "viewer_comment") continue;
+      const u = (e.payload as Record<string, unknown>)?.username;
+      const who =
+        typeof u === "string" && u.trim()
+          ? u.trim()
+          : e.actor && e.actor !== "agent"
+            ? e.actor
+            : "viewer";
+      last.set(who, e.ts);
     }
-    return "";
-  };
+    return [...last.entries()]
+      .sort((a, b) => +new Date(b[1]) - +new Date(a[1]))
+      .slice(0, 4);
+  }, [events]);
+
+  const watchers = meta?.watcher_count ?? 0;
+  const others = Math.max(0, watchers - speakers.length);
+
+  if (!meta) return <aside className="sv-panel" aria-busy />;
+
+  const tokens = (meta.input_tokens ?? 0) + (meta.output_tokens ?? 0);
+  const reach = visibilityLabel(meta.visibility);
 
   return (
-    <aside className="chat-pane">
-      {/* header */}
-      <div
-        className="label dashed-b"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 8,
-          padding: "10px 12px",
-          color: "var(--ink)",
-        }}
-      >
-        <span>✉ VIEWER CHAT</span>
-        <span className="tnum" style={{ color: "var(--muted)" }}>
-          ◔ {fmtInt(viewerCount)}
-        </span>
-      </div>
+    <aside className="sv-panel" aria-label="Session info">
+      <div className="sv-panel-hero">
+        <div className="sv-panel-cover" aria-hidden />
+        <div className="sv-panel-title">{meta.title || "untitled session"}</div>
+        <div className="sv-panel-sub">@{meta.owner_handle}</div>
 
-      {/* messages */}
-      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "10px 12px" }}>
-        {chat.length === 0 ? (
+        <div className="sv-panel-h">Session info</div>
+        <dl style={{ margin: 0 }}>
+          <InfoRow label="Model" value={meta.model ?? "—"} />
+          <InfoRow label="Framework" value={frameworkLabel(meta.framework)} />
+          {meta.client_handle && (
+            <InfoRow label="Captured by" value={meta.client_handle} />
+          )}
+          <InfoRow label="Events" value={fmtInt(eventTotal)} />
+          <InfoRow label="Views" value={fmtInt(meta.view_count ?? 0)} />
+          {tokens > 0 && (
+            <InfoRow
+              label="Tokens in/out"
+              value={`${fmtInt(meta.input_tokens ?? 0)} / ${fmtInt(meta.output_tokens ?? 0)}`}
+            />
+          )}
+          <InfoRow label="Reach" value={reach} />
+          {meta.git_remote && (
+            <InfoRow
+              label="Git"
+              value={gitLabel(meta.git_remote, meta.git_branch)}
+              href={gitWebUrl(meta.git_remote) ?? undefined}
+            />
+          )}
+        </dl>
+
+        {meta.tags && meta.tags.length > 0 && (
           <div
             className="label"
-            style={{ color: "var(--faint)", padding: "12px 2px" }}
+            style={{ marginTop: 10, color: "var(--muted)", lineHeight: 1.7 }}
           >
-            {isLive
-              ? "NO MESSAGES YET — SAY SOMETHING"
-              : "NO VIEWER CHAT ON THIS SESSION"}
+            #{meta.tags.join("  #")}
           </div>
-        ) : (
-          chat.map((e) => (
-            <div key={e.id} style={{ marginBottom: 12 }}>
-              <div
-                className="label tnum"
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  gap: 8,
-                  color: "var(--amber)",
-                  fontSize: 10,
-                }}
-              >
-                <span
-                  style={{
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  @{who(e)}
-                  {who(e) === ownerHandle ? " · HOST" : ""}
-                </span>
-                <span style={{ color: "var(--faint)", flexShrink: 0 }}>
-                  {localTime(e.ts)}
-                </span>
-              </div>
-              <div
-                style={{
-                  fontSize: 13,
-                  color: "var(--ink)",
-                  marginTop: 3,
-                  whiteSpace: "pre-wrap",
-                  wordBreak: "break-word",
-                }}
-              >
-                {text(e)}
-              </div>
-            </div>
-          ))
         )}
-        {viewerTyping && (
-          <TypingIndicator label={`@${viewerTyping.who} IS TYPING`} tone="amber" />
+
+        {isLive && (
+          <div className="sv-panel-foot">
+            <span className="sv-watch-count">
+              <b className="tnum">{fmtInt(watchers)}</b>{" "}
+              {watchers === 1 ? "person" : "people"} watching now
+            </span>
+          </div>
         )}
-        <div ref={endRef} />
+
+        {/* Alternate views of the same events. Compose is owner-only. */}
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            flexWrap: "wrap",
+            marginTop: 14,
+            paddingTop: 12,
+            borderTop: "1px dashed var(--hairline)",
+          }}
+        >
+          <ViewLink href={`/replay/${id}`}>▶ REPLAY</ViewLink>
+          <ViewLink href={`/story/${id}`}>✎ DEV STORY</ViewLink>
+          {meta.is_owner && <ViewLink href={`/compose/${id}`}>✎ COMPOSE</ViewLink>}
+        </div>
       </div>
 
-      {/* composer / read-only note */}
-      <div style={{ borderTop: "1px solid var(--hairline)", padding: 10 }}>
-        {isLive ? (
-          canComment ? (
-            <Composer id={id} emphasize={emphasizeComposer} />
-          ) : (
-            <div
-              className="label"
-              style={{
-                border: "1px dashed var(--hairline)",
-                color: "var(--muted)",
-                padding: "10px 12px",
-                textAlign: "center",
-              }}
+      <div className="sv-watch-head">
+        {isLive ? "◔ Watching now" : "✉ Participants"}
+      </div>
+      <div className="sv-watch">
+        {speakers.length === 0 && others === 0 && (
+          <div className="sv-watch-empty">
+            {isLive
+              ? "No viewers yet — share the link to bring someone in"
+              : "Nobody commented on this session"}
+          </div>
+        )}
+
+        {speakers.map(([who, ts]) => (
+          <div key={who} className="sv-watch-row">
+            <span
+              className="sv-watch-avatar"
+              style={{ background: handleColor(who) }}
+              aria-hidden
             >
-              ◦ VIEW ONLY
-            </div>
-          )
-        ) : (
-          <div
-            className="label"
-            style={{ color: "var(--faint)", textAlign: "center", padding: "8px 4px" }}
-          >
-            ● SESSION ENDED · CHAT CLOSED
+              {handleInitials(who)}
+            </span>
+            <span style={{ minWidth: 0 }}>
+              <span className="sv-watch-name">
+                @{who}
+                {who === meta.owner_handle ? " · host" : ""}
+              </span>
+              <span className="sv-watch-sub" style={{ display: "block" }}>
+                commented {timeAgo(ts)}
+              </span>
+            </span>
+          </div>
+        ))}
+
+        {isLive && others > 0 && (
+          <div className="sv-watch-row">
+            <span
+              className="sv-watch-avatar tnum"
+              style={{ background: "var(--faint)" }}
+              aria-hidden
+            >
+              +{others}
+            </span>
+            <span className="sv-watch-sub">
+              and {fmtInt(others)} {others === 1 ? "other" : "others"} watching
+            </span>
           </div>
         )}
       </div>
     </aside>
   );
+}
+
+function InfoRow({
+  label,
+  value,
+  href,
+}: {
+  label: string;
+  value: string;
+  href?: string;
+}) {
+  return (
+    <div className="sv-info-row">
+      <dt>{label}</dt>
+      <dd className="tnum" title={value}>
+        {href ? (
+          <a
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ color: "var(--green)", textDecoration: "underline" }}
+          >
+            ↗ {value}
+          </a>
+        ) : (
+          value
+        )}
+      </dd>
+    </div>
+  );
+}
+
+/** Plain-English reach for the sharing state shown in the info panel. */
+function visibilityLabel(v: SessionDetail["visibility"]): string {
+  switch (v) {
+    case "open":
+      return "Open · no sign-in";
+    case "public":
+      return "Public feed";
+    case "link":
+      return "Anyone with the link";
+    default:
+      return "Private";
+  }
+}
+
+function gitLabel(remote: string, branch?: string | null): string {
+  const label = remote.replace(/^.*[/:]([^/]+\/[^/]+?)(?:\.git)?$/, "$1");
+  return branch ? `${label} @ ${branch}` : label;
+}
+
+const HANDLE_COLORS = ["var(--admin)", "var(--green)", "var(--amber)", "var(--faint)"];
+
+/** Stable swatch per handle, so the same person keeps the same colour. */
+function handleColor(handle: string): string {
+  let h = 0;
+  for (let i = 0; i < handle.length; i++) h = (h * 31 + handle.charCodeAt(i)) | 0;
+  return HANDLE_COLORS[Math.abs(h) % HANDLE_COLORS.length];
+}
+
+function handleInitials(handle: string): string {
+  const parts = handle.replace(/[@_.-]+/g, " ").trim().split(/\s+/);
+  const a = parts[0]?.[0] ?? "?";
+  const b = parts.length > 1 ? parts[1][0] : (parts[0]?.[1] ?? "");
+  return (a + b).toUpperCase();
 }
 
 type SendState = "idle" | "sending" | "sent" | "error";
@@ -1365,95 +1395,53 @@ function Composer({ id, emphasize = false }: { id: string; emphasize?: boolean }
   };
 
   const sending = state === "sending";
+  // The wrap's border colour is driven by CSS off this attribute, so hover /
+  // focus-within can still win — an inline border would beat both.
   const accent =
     state === "sent"
-      ? "var(--green)"
+      ? "green"
       : state === "error"
-        ? "var(--red)"
+        ? "red"
         : emphasize
-          ? "var(--amber)"
-          : "var(--strong)";
+          ? "amber"
+          : undefined;
 
   return (
-    <div style={{ marginTop: 10 }}>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "stretch",
-          border: `1px solid ${accent}`,
-          background: "var(--panel)",
-          transition: "border-color 150ms",
-        }}
-      >
-        <span
-          className="label"
-          aria-hidden
-          style={{
-            display: "flex",
-            alignItems: "center",
-            padding: "0 10px",
-            color: "var(--green)",
-            borderRight: "1px solid var(--hairline)",
-          }}
-        >
-          ⌐
-        </span>
-        <input
-          ref={inputRef}
-          value={text}
-          onChange={(e) => {
-            setText(e.target.value);
-            if (e.target.value.trim()) pingTyping();
-            if (state === "error" || state === "sent") setState("idle");
-          }}
-          onKeyDown={onKeyDown}
-          disabled={sending}
-          placeholder={
-            emphasize
-              ? "CLAUDE IS WAITING — TYPE YOUR INPUT  /  ⌐ SENT TO CLI"
-              : "MESSAGE THE SESSION  /  ⌐ SENT TO CLI"
-          }
-          aria-label="Message the session"
-          spellCheck={false}
-          className="label"
-          style={{
-            flex: 1,
-            minWidth: 0,
-            border: "none",
-            outline: "none",
-            background: "transparent",
-            color: "var(--ink)",
-            padding: "11px 12px",
-            fontSize: 12,
-            letterSpacing: "0.06em",
-            opacity: sending ? 0.6 : 1,
-          }}
-        />
-        <button
-          type="button"
-          onClick={submit}
-          disabled={sending || text.trim().length === 0}
-          className="label"
-          style={{
-            border: "none",
-            borderLeft: `1px solid ${accent}`,
-            background:
-              state === "sent" ? "var(--green)" : "var(--strong)",
-            color: "var(--panel)",
-            padding: "0 16px",
-            fontSize: 11,
-            cursor:
-              sending || text.trim().length === 0 ? "default" : "pointer",
-            opacity: text.trim().length === 0 && state === "idle" ? 0.5 : 1,
-            whiteSpace: "nowrap",
-          }}
-        >
-          {state === "sent"
-            ? "✓ SENT"
-            : sending
-              ? "SENDING…"
-              : "SEND ▸"}
-        </button>
+    <div>
+      <div className="sv-composer-wrap" data-accent={accent}>
+        <div className="sv-composer-box">
+          <span className="sv-composer-glyph" aria-hidden>
+            ⌐
+          </span>
+          <input
+            ref={inputRef}
+            value={text}
+            onChange={(e) => {
+              setText(e.target.value);
+              if (e.target.value.trim()) pingTyping();
+              if (state === "error" || state === "sent") setState("idle");
+            }}
+            onKeyDown={onKeyDown}
+            disabled={sending}
+            placeholder={
+              emphasize
+                ? "CLAUDE IS WAITING — TYPE YOUR INPUT  /  ⌐ SENT TO CLI"
+                : "MESSAGE THE SESSION  /  ⌐ SENT TO CLI"
+            }
+            aria-label="Message the session"
+            spellCheck={false}
+            style={{ opacity: sending ? 0.6 : 1 }}
+          />
+          <button
+            type="button"
+            onClick={submit}
+            disabled={sending || text.trim().length === 0}
+            className="sv-composer-send"
+            data-state={state}
+          >
+            {state === "sent" ? "✓ Sent" : sending ? "Sending…" : "Send ▸"}
+          </button>
+        </div>
       </div>
       {state === "error" && (
         <div
@@ -1505,35 +1493,6 @@ function ViewLink({
     >
       {children}
     </Link>
-  );
-}
-
-function MetaCell({
-  label,
-  value,
-  mono,
-}: {
-  label: string;
-  value: string;
-  mono?: boolean;
-}) {
-  return (
-    <div style={{ minWidth: 0 }}>
-      <div className="label">{label}</div>
-      <div
-        className={mono ? "tnum" : undefined}
-        style={{
-          fontSize: 14,
-          marginTop: 2,
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
-        }}
-        title={value}
-      >
-        {value}
-      </div>
-    </div>
   );
 }
 
@@ -1753,45 +1712,4 @@ function gitWebUrl(remote: string): string | null {
   else if (r.startsWith("ssh://")) r = "https://" + r.slice("ssh://".length).replace(/^git@/, "");
   if (!/^https?:\/\//.test(r)) return null;
   return r;
-}
-
-/** A meta cell that links out to the session's git remote. */
-function GitCell({
-  remote,
-  branch,
-}: {
-  remote: string;
-  branch?: string | null;
-}) {
-  const url = gitWebUrl(remote);
-  const label = remote.replace(/^.*[/:]([^/]+\/[^/]+?)(?:\.git)?$/, "$1");
-  const text = branch ? `${label} @ ${branch}` : label;
-  return (
-    <div style={{ minWidth: 0 }}>
-      <div className="label">Git</div>
-      <div
-        style={{
-          fontSize: 14,
-          marginTop: 2,
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
-        }}
-        title={remote}
-      >
-        {url ? (
-          <a
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ color: "var(--green)", textDecoration: "underline" }}
-          >
-            ↗ {text}
-          </a>
-        ) : (
-          text
-        )}
-      </div>
-    </div>
-  );
 }
