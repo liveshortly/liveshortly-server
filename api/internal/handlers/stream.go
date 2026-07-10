@@ -133,6 +133,17 @@ func (h *Handler) Stream(w http.ResponseWriter, r *http.Request) {
 	_ = h.bus.WatcherTouch(ctx, id, watcher, watcherTTL)
 	defer func() { _ = h.bus.WatcherDrop(detach(r), id, watcher) }()
 
+	// Send the audience size straight away — the session detail this client
+	// already fetched was counted before it joined, so it under-reports by one
+	// until the first heartbeat would otherwise correct it.
+	if n, err := h.bus.WatcherCount(ctx, id); err == nil {
+		if b, mErr := json.Marshal(map[string]any{"type": "watchers", "count": n}); mErr == nil {
+			if !writeData(string(b)) {
+				return
+			}
+		}
+	}
+
 	// 2) replay the buffer in seq order.
 	buffered, err := h.bus.BufferAll(ctx, id)
 	if err == nil {
@@ -185,6 +196,17 @@ func (h *Handler) Stream(w http.ResponseWriter, r *http.Request) {
 			flusher.Flush()
 			// Refresh watcher presence so it doesn't lapse mid-session.
 			_ = h.bus.WatcherTouch(ctx, id, watcher, watcherTTL)
+			// Publish the live audience size to this connection. WatcherTouch
+			// above runs first so this connection counts itself, and the count
+			// call prunes anyone whose refresh window lapsed.
+			if n, err := h.bus.WatcherCount(ctx, id); err == nil {
+				if b, err := json.Marshal(map[string]any{
+					"type":  "watchers",
+					"count": n,
+				}); err == nil && !writeData(string(b)) {
+					return
+				}
+			}
 		}
 	}
 }

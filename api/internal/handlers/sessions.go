@@ -229,11 +229,19 @@ func (h *Handler) GetSession(w http.ResponseWriter, r *http.Request) {
 		s.ForkedFrom = from
 	}
 
+	// How many viewers are watching right now. Only meaningful while live; the
+	// count is an aggregate over anonymous presence tokens. Best-effort (0 on error).
+	watchers := 0
+	if s.Status == "live" {
+		watchers, _ = h.bus.WatcherCount(r.Context(), id)
+	}
+
 	httpx.JSON(w, http.StatusOK, sessionWithEvents{
 		Session:        *s,
 		CanComment:     canComment,
 		IsOwner:        s.OwnerID == p.ID,
 		AgentConnected: agentConnected,
+		WatcherCount:   watchers,
 		Events:         events,
 	})
 }
