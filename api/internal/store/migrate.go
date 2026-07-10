@@ -59,6 +59,16 @@ var migrations = []string{
 	`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS forked_at              TIMESTAMPTZ`,
 	`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS fork_count             INT NOT NULL DEFAULT 0`,
 	`CREATE INDEX IF NOT EXISTS sessions_forked_from_idx ON sessions (forked_from_session_id) WHERE forked_from_session_id IS NOT NULL`,
+
+	// --- Per-user quotas (storage + live concurrency) ---
+	// Mirrors infra/postgres/005-quotas.sql (fresh-volume only — these reach
+	// existing databases). See that file for column semantics.
+	`ALTER TABLE users ADD COLUMN IF NOT EXISTS storage_bytes_used  BIGINT NOT NULL DEFAULT 0`,
+	`ALTER TABLE users ADD COLUMN IF NOT EXISTS storage_limit_bytes BIGINT`,
+	`ALTER TABLE users ADD COLUMN IF NOT EXISTS max_live_sessions   INT`,
+	`ALTER TABLE users ADD COLUMN IF NOT EXISTS quota_exempt        BOOLEAN NOT NULL DEFAULT false`,
+	`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS bytes_used   BIGINT NOT NULL DEFAULT 0`,
+	`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS ended_reason TEXT`,
 }
 
 // Migrate applies the additive, idempotent migrations above. It runs before the

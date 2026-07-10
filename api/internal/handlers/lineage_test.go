@@ -31,7 +31,7 @@ type lineageBody struct {
 func setupForkWithSource(t *testing.T, d testutil.Deps, ownerID string, n int) (srcID, forkID string) {
 	t.Helper()
 	ctx := context.Background()
-	src, err := d.Store.CreateSession(ctx, ownerID, store.NewSessionInput{})
+	src, err := d.Store.CreateSession(ctx, ownerID, store.NewSessionInput{}, 1<<62, 1<<30)
 	if err != nil {
 		t.Fatalf("source session: %v", err)
 	}
@@ -45,7 +45,7 @@ func setupForkWithSource(t *testing.T, d testutil.Deps, ownerID string, n int) (
 		ForkedFromSessionID: &src.ID,
 		ForkedFromSeq:       &snap,
 		Title:               "Fork of source",
-	})
+	}, 1<<62, 1<<30)
 	if err != nil {
 		t.Fatalf("fork session: %v", err)
 	}
@@ -102,7 +102,7 @@ func TestLineage(t *testing.T) {
 
 	// A non-fork session has no prior context: empty lineage, source nil.
 	t.Run("non-fork has empty lineage", func(t *testing.T) {
-		plain, err := d.Store.CreateSession(ctx, ou.ID, store.NewSessionInput{})
+		plain, err := d.Store.CreateSession(ctx, ou.ID, store.NewSessionInput{}, 1<<62, 1<<30)
 		if err != nil {
 			t.Fatalf("plain session: %v", err)
 		}

@@ -47,7 +47,7 @@ func setupOwnedLiveSession(t *testing.T, d testutil.Deps) (owner, other auth.Ide
 	if err != nil {
 		t.Fatalf("other: %v", err)
 	}
-	s, err := d.Store.CreateSession(ctx, ou.ID, store.NewSessionInput{})
+	s, err := d.Store.CreateSession(ctx, ou.ID, store.NewSessionInput{}, 1<<62, 1<<30)
 	if err != nil {
 		t.Fatalf("session: %v", err)
 	}

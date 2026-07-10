@@ -19,6 +19,64 @@ type Store struct {
 	pool *pgxpool.Pool
 }
 
+// Quota enforcement sentinels. Handlers map these to HTTP status codes:
+// ErrConcurrencyLimit → 429, ErrStorageLimit → 413.
+var (
+	// ErrConcurrencyLimit is returned by CreateSession when the owner already has
+	// the maximum number of simultaneous live sessions.
+	ErrConcurrencyLimit = errors.New("live session concurrency limit reached")
+	// ErrStorageLimit is returned by CreateSession when the owner is already at or
+	// over their stored-data limit (a new session would only add more).
+	ErrStorageLimit = errors.New("storage quota exhausted")
+)
+
+// QuotaUsage is a user's current resource usage against their effective limits,
+// surfaced by GET /api/me and the admin user list. Byte/session counts only —
+// never any session content.
+type QuotaUsage struct {
+	StorageBytesUsed  int64 `json:"storage_bytes_used"`
+	StorageLimitBytes int64 `json:"storage_limit_bytes"`
+	LiveSessions      int   `json:"live_sessions"`
+	MaxLiveSessions   int   `json:"max_live_sessions"`
+	QuotaExempt       bool  `json:"quota_exempt"`
+}
+
+// GetQuotaUsage resolves a user's usage + effective limits (override → default),
+// including the current live-session count. defStorageLimit / defMaxLive are the
+// config defaults applied when the user has no per-user override.
+func (st *Store) GetQuotaUsage(ctx context.Context, userID string, defStorageLimit int64, defMaxLive int) (QuotaUsage, error) {
+	const q = `
+		SELECT u.storage_bytes_used,
+		       COALESCE(u.storage_limit_bytes, $2),
+		       COALESCE(u.max_live_sessions, $3),
+		       u.quota_exempt,
+		       (SELECT count(*) FROM sessions s WHERE s.owner_id = u.id AND s.status = 'live')
+		FROM users u WHERE u.id = $1`
+	var qu QuotaUsage
+	err := st.pool.QueryRow(ctx, q, userID, defStorageLimit, defMaxLive).Scan(
+		&qu.StorageBytesUsed, &qu.StorageLimitBytes, &qu.MaxLiveSessions,
+		&qu.QuotaExempt, &qu.LiveSessions,
+	)
+	return qu, err
+}
+
+// SetUserQuota applies per-user quota overrides (super-admin only). A nil field
+// clears that override back to the config default; quotaExempt is always set.
+func (st *Store) SetUserQuota(ctx context.Context, userID string, storageLimitBytes *int64, maxLiveSessions *int, quotaExempt bool) error {
+	const q = `
+		UPDATE users
+		SET storage_limit_bytes = $2, max_live_sessions = $3, quota_exempt = $4
+		WHERE id = $1`
+	tag, err := st.pool.Exec(ctx, q, userID, storageLimitBytes, maxLiveSessions, quotaExempt)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+	return nil
+}
+
 // New returns a Store backed by pool.
 func New(pool *pgxpool.Pool) *Store {
 	return &Store{pool: pool}
@@ -53,6 +111,11 @@ type Session struct {
 	ViewCount   int        `json:"view_count"`
 	CreatedAt   time.Time  `json:"created_at"`
 	EndedAt     *time.Time `json:"ended_at"`
+	// EndedReason is why the session ended: nil/"" for a normal stop, "quota"
+	// when auto-ended because the owner crossed their storage limit mid-stream.
+	EndedReason *string `json:"ended_reason,omitempty"`
+	// BytesUsed is this session's own contribution to the owner's storage total.
+	BytesUsed int64 `json:"bytes_used"`
 	// ClientHandle is the machine principal that captured the session
 	// (e.g. user@hostname), if the CLI reported one. Display-only.
 	ClientHandle *string `json:"client_handle"`
@@ -152,6 +215,13 @@ type AdminUser struct {
 	LastActiveAt *time.Time `json:"last_active_at"`
 	SessionCount int        `json:"session_count"`
 	LiveCount    int        `json:"live_count"`
+	// Quota usage + effective limits (override → default) for the admin's quota
+	// controls. StorageLimitBytes / MaxLiveSessions are the resolved effective
+	// values; QuotaExempt true means both caps are off for this user.
+	StorageBytesUsed  int64 `json:"storage_bytes_used"`
+	StorageLimitBytes int64 `json:"storage_limit_bytes"`
+	MaxLiveSessions   int   `json:"max_live_sessions"`
+	QuotaExempt       bool  `json:"quota_exempt"`
 }
 
 // PublicStats returns the anonymous landing page's proof counts. LiveNow and
@@ -174,17 +244,23 @@ func (st *Store) PublicStats(ctx context.Context) (PublicStats, error) {
 }
 
 // AdminUsers lists every user with rollup activity, most-recently-active first.
-func (st *Store) AdminUsers(ctx context.Context) ([]AdminUser, error) {
+// defStorageLimit / defMaxLive are the config defaults resolved into each row's
+// effective limits when the user has no per-user override.
+func (st *Store) AdminUsers(ctx context.Context, defStorageLimit int64, defMaxLive int) ([]AdminUser, error) {
 	const q = `
 		SELECT u.id, u.handle, COALESCE(u.name, ''), COALESCE(u.email, ''),
 		       COALESCE(u.avatar_url, ''), u.created_at, u.last_login_at,
 		       GREATEST(u.last_login_at, max(s.created_at)) AS last_active,
-		       count(s.id), count(s.id) FILTER (WHERE s.status = 'live')
+		       count(s.id), count(s.id) FILTER (WHERE s.status = 'live'),
+		       u.storage_bytes_used,
+		       COALESCE(u.storage_limit_bytes, $1),
+		       COALESCE(u.max_live_sessions, $2),
+		       u.quota_exempt
 		FROM users u
 		LEFT JOIN sessions s ON s.owner_id = u.id
 		GROUP BY u.id
 		ORDER BY last_active DESC NULLS LAST, u.created_at DESC`
-	rows, err := st.pool.Query(ctx, q)
+	rows, err := st.pool.Query(ctx, q, defStorageLimit, defMaxLive)
 	if err != nil {
 		return nil, err
 	}
@@ -193,7 +269,8 @@ func (st *Store) AdminUsers(ctx context.Context) ([]AdminUser, error) {
 	for rows.Next() {
 		var u AdminUser
 		if err := rows.Scan(&u.ID, &u.Handle, &u.Name, &u.Email, &u.AvatarURL,
-			&u.CreatedAt, &u.LastLoginAt, &u.LastActiveAt, &u.SessionCount, &u.LiveCount); err != nil {
+			&u.CreatedAt, &u.LastLoginAt, &u.LastActiveAt, &u.SessionCount, &u.LiveCount,
+			&u.StorageBytesUsed, &u.StorageLimitBytes, &u.MaxLiveSessions, &u.QuotaExempt); err != nil {
 			return nil, err
 		}
 		out = append(out, u)
@@ -304,7 +381,8 @@ const sessionSelectExpr = `s.id, s.title,
 	s.client_handle, s.git_remote, s.git_branch, s.input_tokens, s.output_tokens,
 	s.published_at, s.hero, s.agent, s.capture_mode,
 	(SELECT count(*) FROM session_shares ssc WHERE ssc.session_id = s.id) AS share_count,
-	s.fork_count, s.forked_from_session_id, s.forked_from_seq, s.forked_at`
+	s.fork_count, s.forked_from_session_id, s.forked_from_seq, s.forked_at,
+	s.ended_reason, s.bytes_used`
 
 const sessionFrom = ` FROM sessions s JOIN users u ON u.id = s.owner_id`
 
@@ -325,6 +403,7 @@ func scanSession(row pgx.Row) (Session, error) {
 		&s.PublishedAt, &s.Hero, &s.Agent, &s.CaptureMode,
 		&s.ShareCount,
 		&s.ForkCount, &s.ForkedFromID, &s.ForkedFromSeq, &s.ForkedAt,
+		&s.EndedReason, &s.BytesUsed,
 	)
 	if s.Tags == nil {
 		s.Tags = []string{}
@@ -343,6 +422,7 @@ func scanSessionShared(row pgx.Row) (Session, error) {
 		&s.PublishedAt, &s.Hero, &s.Agent, &s.CaptureMode,
 		&s.ShareCount,
 		&s.ForkCount, &s.ForkedFromID, &s.ForkedFromSeq, &s.ForkedAt,
+		&s.EndedReason, &s.BytesUsed,
 		&s.SharedRole,
 	)
 	if s.Tags == nil {
@@ -392,7 +472,13 @@ type NewSessionInput struct {
 // Every session gets a friendly generated name (e.g. "luminous-otter-4821") so
 // the list reads nicely regardless of the capture client's directory; the owner
 // can rename it afterwards (which sets custom_title).
-func (st *Store) CreateSession(ctx context.Context, ownerID string, in NewSessionInput) (Session, error) {
+// defStorageLimit / defMaxLive are the config defaults applied when the owner
+// has no per-user override. CreateSession enforces both quotas atomically: it
+// locks the owner's user row (FOR UPDATE) so two parallel `live claude` calls
+// serialize, then checks the live-session count and storage usage before
+// inserting. Over-limit returns ErrConcurrencyLimit / ErrStorageLimit and no
+// session is created. A quota_exempt owner bypasses both checks.
+func (st *Store) CreateSession(ctx context.Context, ownerID string, in NewSessionInput, defStorageLimit int64, defMaxLive int) (Session, error) {
 	title := GenerateSessionName()
 	custom := false
 	if strings.TrimSpace(in.Title) != "" {
@@ -415,44 +501,70 @@ func (st *Store) CreateSession(ctx context.Context, ownerID string, in NewSessio
 			$12::uuid, $13::int, $14::timestamptz)
 		RETURNING id`
 
-	// A plain (non-forked) create is a single INSERT. A forked create additionally
-	// bumps the source's fork_count, so both happen atomically in a transaction.
 	forked := in.ForkedFromSessionID != nil
 	var forkedAt *time.Time
 	if forked {
 		now := time.Now()
 		forkedAt = &now
 	}
+
+	// Everything runs in one tx so the quota check and the insert can't be
+	// interleaved by a concurrent create for the same owner.
+	tx, err := st.pool.Begin(ctx)
+	if err != nil {
+		return Session{}, err
+	}
+	defer tx.Rollback(ctx)
+
+	// Lock the owner row and read effective limits. The lock is what makes the
+	// count-then-insert race-safe: a parallel create blocks here until we commit.
+	var storageUsed, storageLimit int64
+	var maxLive int
+	var exempt bool
+	if err := tx.QueryRow(ctx,
+		`SELECT storage_bytes_used, COALESCE(storage_limit_bytes, $2),
+		        COALESCE(max_live_sessions, $3), quota_exempt
+		 FROM users WHERE id = $1 FOR UPDATE`,
+		ownerID, defStorageLimit, defMaxLive,
+	).Scan(&storageUsed, &storageLimit, &maxLive, &exempt); err != nil {
+		return Session{}, err
+	}
+
+	if !exempt {
+		// Storage: block a new session once the owner is at/over the limit.
+		if storageUsed >= storageLimit {
+			return Session{}, ErrStorageLimit
+		}
+		// Concurrency: block once the owner is at the live-session cap.
+		var live int
+		if err := tx.QueryRow(ctx,
+			`SELECT count(*) FROM sessions WHERE owner_id = $1 AND status = 'live'`,
+			ownerID,
+		).Scan(&live); err != nil {
+			return Session{}, err
+		}
+		if live >= maxLive {
+			return Session{}, ErrConcurrencyLimit
+		}
+	}
+
 	var id string
-	if !forked {
-		if err := st.pool.QueryRow(ctx, ins,
-			ownerID, title, custom, in.Model, in.Framework, tags,
-			in.ClientHandle, in.GitRemote, in.GitBranch, in.Agent, in.CaptureMode,
-			nil, nil, nil,
-		).Scan(&id); err != nil {
-			return Session{}, err
-		}
-	} else {
-		tx, err := st.pool.Begin(ctx)
-		if err != nil {
-			return Session{}, err
-		}
-		defer tx.Rollback(ctx)
-		if err := tx.QueryRow(ctx, ins,
-			ownerID, title, custom, in.Model, in.Framework, tags,
-			in.ClientHandle, in.GitRemote, in.GitBranch, in.Agent, in.CaptureMode,
-			in.ForkedFromSessionID, in.ForkedFromSeq, forkedAt,
-		).Scan(&id); err != nil {
-			return Session{}, err
-		}
+	if err := tx.QueryRow(ctx, ins,
+		ownerID, title, custom, in.Model, in.Framework, tags,
+		in.ClientHandle, in.GitRemote, in.GitBranch, in.Agent, in.CaptureMode,
+		in.ForkedFromSessionID, in.ForkedFromSeq, forkedAt,
+	).Scan(&id); err != nil {
+		return Session{}, err
+	}
+	if forked {
 		if _, err := tx.Exec(ctx,
 			`UPDATE sessions SET fork_count = fork_count + 1 WHERE id = $1`,
 			*in.ForkedFromSessionID); err != nil {
 			return Session{}, err
 		}
-		if err := tx.Commit(ctx); err != nil {
-			return Session{}, err
-		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Session{}, err
 	}
 
 	s, err := st.GetSession(ctx, id)
@@ -649,6 +761,87 @@ func (st *Store) InsertEvent(ctx context.Context, sessionID string, seq int, act
 	return e, nil
 }
 
+// AppendResult carries the persisted event plus the owner's post-insert storage
+// usage against their effective limit, so the caller can detect a mid-stream
+// quota crossing without a second round trip.
+type AppendResult struct {
+	Event        Event
+	StorageUsed  int64 // owner's total stored bytes after this insert
+	StorageLimit int64 // owner's effective storage limit (override or default)
+	Exempt       bool  // owner bypasses quotas
+}
+
+// AppendEvent persists one event and meters its bytes in a single transaction:
+// insert the event, bump the session's event_count + bytes_used, and mirror the
+// byte delta onto the owner's storage_bytes_used. The payload must already be
+// belt-capped by the caller. defStorageLimit is the config default used when the
+// owner has no per-user override. Returns the owner's resulting usage so the
+// caller can auto-end on a crossing.
+func (st *Store) AppendEvent(ctx context.Context, sessionID string, seq int, actor *string, eventType string, payload json.RawMessage, defStorageLimit int64) (AppendResult, error) {
+	if len(payload) == 0 {
+		payload = json.RawMessage("{}")
+	}
+	// The stored JSONB's byte size is what we meter. len(payload) is the exact
+	// byte count we hand to Postgres, so no octet_length round trip is needed.
+	byteLen := int64(len(payload))
+
+	tx, err := st.pool.Begin(ctx)
+	if err != nil {
+		return AppendResult{}, err
+	}
+	defer tx.Rollback(ctx)
+
+	var res AppendResult
+	var out []byte
+	if err := tx.QueryRow(ctx,
+		`INSERT INTO session_events (session_id, seq, actor, event_type, payload)
+		 VALUES ($1, $2, $3, $4, $5)
+		 RETURNING id, session_id, seq, actor, event_type, payload, ts`,
+		sessionID, seq, actor, eventType, []byte(payload),
+	).Scan(&res.Event.ID, &res.Event.SessionID, &res.Event.Seq, &res.Event.Actor,
+		&res.Event.EventType, &out, &res.Event.TS); err != nil {
+		return AppendResult{}, err
+	}
+	res.Event.Payload = json.RawMessage(out)
+
+	var ownerID string
+	if err := tx.QueryRow(ctx,
+		`UPDATE sessions SET event_count = event_count + 1, bytes_used = bytes_used + $2
+		 WHERE id = $1 RETURNING owner_id`,
+		sessionID, byteLen,
+	).Scan(&ownerID); err != nil {
+		return AppendResult{}, err
+	}
+
+	if err := tx.QueryRow(ctx,
+		`UPDATE users SET storage_bytes_used = storage_bytes_used + $2
+		 WHERE id = $1
+		 RETURNING storage_bytes_used, COALESCE(storage_limit_bytes, $3), quota_exempt`,
+		ownerID, byteLen, defStorageLimit,
+	).Scan(&res.StorageUsed, &res.StorageLimit, &res.Exempt); err != nil {
+		return AppendResult{}, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return AppendResult{}, err
+	}
+	return res, nil
+}
+
+// AutoEndQuota ends a live session because its owner crossed their storage
+// limit mid-stream, stamping ended_reason='quota'. Idempotent: a session that is
+// already ended is left untouched. Returns the updated row.
+func (st *Store) AutoEndQuota(ctx context.Context, id string) (*Session, error) {
+	const q = `
+		UPDATE sessions
+		SET status = 'ended', ended_at = now(), ended_reason = 'quota'
+		WHERE id = $1 AND status = 'live'`
+	if _, err := st.pool.Exec(ctx, q, id); err != nil {
+		return nil, err
+	}
+	return st.GetSession(ctx, id)
+}
+
 // IncViewCount bumps view_count by one (best-effort by the caller).
 func (st *Store) IncViewCount(ctx context.Context, id string) error {
 	_, err := st.pool.Exec(ctx, `UPDATE sessions SET view_count = view_count + 1 WHERE id = $1`, id)
@@ -677,8 +870,21 @@ func (st *Store) StopSession(ctx context.Context, id, storageKey string) (*Sessi
 // DeleteSession permanently removes a session row. Its event log
 // (session_events) and share grants (session_shares) are removed automatically
 // via ON DELETE CASCADE. Irreversible — the caller must confirm ownership.
+//
+// Storage is reclaimable: the same statement credits the session's bytes_used
+// back to the owner's storage_bytes_used (GREATEST(0, …) guards against a
+// counter drift ever driving it negative), so deleting a session frees quota.
 func (st *Store) DeleteSession(ctx context.Context, id string) error {
-	_, err := st.pool.Exec(ctx, `DELETE FROM sessions WHERE id = $1`, id)
+	const q = `
+		WITH deleted AS (
+			DELETE FROM sessions WHERE id = $1
+			RETURNING owner_id, bytes_used
+		)
+		UPDATE users u
+		SET storage_bytes_used = GREATEST(0, u.storage_bytes_used - deleted.bytes_used)
+		FROM deleted
+		WHERE u.id = deleted.owner_id`
+	_, err := st.pool.Exec(ctx, q, id)
 	return err
 }
 

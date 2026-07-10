@@ -16,7 +16,7 @@ import {
   type Me,
   type Session,
 } from "@/lib/api";
-import { fmtInt } from "@/lib/utils";
+import { fmtBytes, fmtInt } from "@/lib/utils";
 
 /**
  * Developer profile. Real data where the backend has it (identity, the user's
@@ -100,6 +100,14 @@ export default function ProfilePage() {
         <div className="label" style={{ color: "var(--red)", margin: "14px 0" }}>
           ⚠ {err}
         </div>
+      )}
+
+      {/* Quota usage — REAL, from GET /api/me */}
+      {user && user.storage_limit_bytes != null && (
+        <>
+          <div style={{ height: 16 }} />
+          <UsageMeter user={user} />
+        </>
       )}
 
       {/* Activity heatmap — REAL, derived from session timestamps */}
@@ -190,6 +198,81 @@ export default function ProfilePage() {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+/** Storage + live-session usage against the caller's quota (from /api/me). An
+ *  exempt account shows no caps. Bars turn red as usage nears the limit. */
+function UsageMeter({ user }: { user: Me }) {
+  const used = user.storage_bytes_used ?? 0;
+  const limit = user.storage_limit_bytes ?? 0;
+  const live = user.live_sessions ?? 0;
+  const maxLive = user.max_live_sessions ?? 0;
+  const exempt = !!user.quota_exempt;
+
+  return (
+    <PanelBox title="▤ USAGE & QUOTA" pad>
+      {exempt ? (
+        <div className="label" style={{ color: "var(--amber)" }}>
+          ∞ UNLIMITED — this account is exempt from storage and session limits.
+        </div>
+      ) : (
+        <div style={{ display: "flex", gap: 26, flexWrap: "wrap" }}>
+          <Meter
+            label="Storage"
+            value={fmtBytes(used)}
+            limitLabel={fmtBytes(limit)}
+            pct={limit > 0 ? (used / limit) * 100 : 0}
+          />
+          <Meter
+            label="Live sessions"
+            value={fmtInt(live)}
+            limitLabel={fmtInt(maxLive)}
+            pct={maxLive > 0 ? (live / maxLive) * 100 : 0}
+          />
+        </div>
+      )}
+    </PanelBox>
+  );
+}
+
+function Meter({
+  label,
+  value,
+  limitLabel,
+  pct,
+}: {
+  label: string;
+  value: string;
+  limitLabel: string;
+  pct: number;
+}) {
+  const clamped = Math.min(100, Math.max(0, pct));
+  const tone =
+    pct >= 100 ? "var(--red)" : pct >= 80 ? "var(--amber)" : "var(--green)";
+  return (
+    <div style={{ flex: "1 1 220px", minWidth: 180 }}>
+      <div
+        className="label"
+        style={{ display: "flex", justifyContent: "space-between", gap: 8 }}
+      >
+        <span style={{ color: "var(--muted)" }}>{label}</span>
+        <span className="tnum" style={{ color: "var(--ink)" }}>
+          {value}
+          <span style={{ color: "var(--faint)" }}> / {limitLabel}</span>
+        </span>
+      </div>
+      <div
+        style={{
+          marginTop: 6,
+          height: 6,
+          background: "var(--hairline)",
+          overflow: "hidden",
+        }}
+      >
+        <div style={{ width: `${clamped}%`, height: "100%", background: tone }} />
+      </div>
     </div>
   );
 }
