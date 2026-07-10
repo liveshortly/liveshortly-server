@@ -32,7 +32,7 @@ func TestForkCreateRepro(t *testing.T) {
 	}
 
 	// Source session (normal create) + a couple of events.
-	src, err := st.CreateSession(ctx, owner.ID, NewSessionInput{})
+	src, err := st.CreateSession(ctx, owner.ID, NewSessionInput{}, 1<<62, 1<<30)
 	if err != nil {
 		t.Fatalf("NORMAL create failed: %v", err) // if this fires, the CASE breaks all creates
 	}
@@ -48,7 +48,7 @@ func TestForkCreateRepro(t *testing.T) {
 		Title:               "Fork of " + src.Title,
 		ForkedFromSessionID: &src.ID,
 		ForkedFromSeq:       &seq,
-	})
+	}, 1<<62, 1<<30)
 	if err != nil {
 		t.Fatalf("FORKED create failed: %v", err) // <-- the 500 repro
 	}

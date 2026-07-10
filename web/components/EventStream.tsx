@@ -36,6 +36,8 @@ function markerFor(type: string): { color: string; glyph: string } {
       return { color: "var(--amber)", glyph: "⌐" };
     case "viewer_decision":
       return { color: "var(--green)", glyph: "⏎" };
+    case "quota_exceeded":
+      return { color: "var(--red)", glyph: "⚠" };
     default:
       return { color: "var(--faint)", glyph: "•" };
   }

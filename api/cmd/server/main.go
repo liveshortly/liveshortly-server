@@ -203,6 +203,7 @@ func router(cfg config.Config, h *handlers.Handler, ga *handlers.GoogleAuth, mgr
 			r.Get("/sessions/{id}", h.GetSession)
 			r.Get("/sessions/{id}/lineage", h.Lineage)
 			r.Get("/sessions/{id}/stream", h.Stream)
+			r.Get("/sessions/{id}/summary.md", h.SummaryMarkdown)
 			r.Get("/feed", h.Feed)
 			r.Get("/public/stats", h.PublicStats)
 		})
@@ -215,6 +216,7 @@ func router(cfg config.Config, h *handlers.Handler, ga *handlers.GoogleAuth, mgr
 			// Admin — the handlers enforce the super-admin allowlist (403).
 			r.Get("/admin/stats", h.AdminStats)
 			r.Get("/admin/users", h.AdminUsers)
+			r.Patch("/admin/users/{id}/quota", h.SetUserQuota)
 			r.Get("/admin/sessions", h.AdminSessions)
 
 			r.Get("/sessions", h.ListSessions)

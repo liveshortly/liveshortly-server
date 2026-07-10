@@ -317,16 +317,29 @@ def emit_hook_output(hook_event_name, additional_context):
 def emit(ls_id, event_type, payload, actor="agent", claude_id=None):
     """Fire-and-forget: POST an event to a LiveShortly session.
 
-    Swallows all errors so a hook can never break the session.
+    Swallows all errors so a hook can never break the session. If the server
+    reports the event crossed the owner's storage quota (it auto-ends the
+    session), we stop capturing by clearing the mapping and note how to continue.
     """
     if not ls_id:
         return None
     body = {"event_type": event_type, "payload": payload if payload is not None else {}}
     if actor is not None:
         body["actor"] = actor
-    return post_json(
+    resp = post_json(
         "/api/sessions/" + str(ls_id) + "/events", body, claude_id=claude_id
     )
+    if isinstance(resp, dict) and resp.get("ended") and resp.get("reason") == "quota":
+        # Stop further capture for this session: later hooks find no mapping and
+        # skip. The summary + continuation command are logged for the operator.
+        log(
+            "storage quota reached — session archived. "
+            "summary:", resp.get("summary_url"),
+            "continue:", resp.get("handoff_command"),
+        )
+        if claude_id:
+            clear_mapping(claude_id)
+    return resp
 
 
 def patch_json(path, body, timeout=3, claude_id=None):
@@ -347,6 +360,88 @@ def patch_json(path, body, timeout=3, claude_id=None):
     except Exception as exc:
         log("patch_json failed:", url, exc)
         return None
+
+
+def get_transcript_offset(claude_id):
+    """Byte offset in the transcript up to which assistant turns were emitted.
+
+    Stored on the session mapping so the Stop hook only emits NEW turns. 0 when
+    unset or unreadable.
+    """
+    try:
+        with open(_mapping_path(claude_id)) as f:
+            return int(json.load(f).get("transcript_offset", 0) or 0)
+    except Exception:
+        return 0
+
+
+def mark_transcript_offset(claude_id, offset):
+    """Persist the transcript byte offset through which turns were emitted."""
+    try:
+        path = _mapping_path(claude_id)
+        with open(path) as f:
+            rec = json.load(f)
+        rec["transcript_offset"] = int(offset)
+        with open(path, "w") as f:
+            json.dump(rec, f)
+    except Exception:
+        pass
+
+
+def _assistant_text(obj):
+    """Extract the assistant's plain text from one transcript JSONL entry.
+
+    Returns "" for non-assistant rows or rows with no text (e.g. a pure
+    tool_use turn). Handles both string and content-block message shapes.
+    """
+    if obj.get("type") != "assistant":
+        return ""
+    msg = obj.get("message")
+    if not isinstance(msg, dict):
+        return ""
+    content = msg.get("content")
+    if isinstance(content, str):
+        return content.strip()
+    if not isinstance(content, list):
+        return ""
+    parts = []
+    for block in content:
+        if isinstance(block, dict) and block.get("type") == "text":
+            t = block.get("text")
+            if isinstance(t, str) and t.strip():
+                parts.append(t)
+    return "\n".join(parts).strip()
+
+
+def read_new_assistant_texts(transcript_path, offset):
+    """Read assistant turns appended since `offset`.
+
+    Returns (texts, new_offset): a list of assistant reply strings (skipping
+    empty / tool-only turns) and the byte offset to store for next time. On any
+    error returns ([], offset) so nothing is lost or double-emitted.
+    """
+    if not transcript_path or not os.path.exists(transcript_path):
+        return [], offset
+    try:
+        with open(transcript_path, "rb") as f:
+            f.seek(offset)
+            chunk = f.read()
+            new_offset = f.tell()
+    except OSError:
+        return [], offset
+    texts = []
+    for raw in chunk.splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        try:
+            obj = json.loads(line.decode("utf-8", "replace"))
+        except Exception:
+            continue
+        text = _assistant_text(obj)
+        if text:
+            texts.append(text)
+    return texts, new_offset
 
 
 def detect_model(transcript_path):
