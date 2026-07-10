@@ -1,7 +1,12 @@
 package handlers
 
 import (
+	"encoding/json"
+	"errors"
 	"net/http"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
 
 	"liveshortly/internal/auth"
 	"liveshortly/internal/httpx"
@@ -75,12 +80,67 @@ func (h *Handler) AdminUsers(w http.ResponseWriter, r *http.Request) {
 	if !h.requireAdmin(w, r) {
 		return
 	}
-	users, err := h.store.AdminUsers(r.Context())
+	users, err := h.store.AdminUsers(r.Context(),
+		h.cfg.DefaultStorageLimitBytes, h.cfg.DefaultMaxLiveSessions)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "failed to list users")
 		return
 	}
 	httpx.JSON(w, http.StatusOK, map[string]any{"results": users})
+}
+
+// setUserQuotaReq is the PATCH body for a per-user quota override. A field left
+// null clears that override back to the config default. quota_exempt defaults to
+// false when omitted (i.e. limits enforced) unless explicitly set true.
+type setUserQuotaReq struct {
+	StorageLimitBytes *int64 `json:"storage_limit_bytes"`
+	MaxLiveSessions   *int   `json:"max_live_sessions"`
+	QuotaExempt       *bool  `json:"quota_exempt"`
+}
+
+// SetUserQuota applies per-user quota overrides. Super-admin only.
+// PATCH /api/admin/users/{id}/quota.
+func (h *Handler) SetUserQuota(w http.ResponseWriter, r *http.Request) {
+	if !h.requireAdmin(w, r) {
+		return
+	}
+	userID := chi.URLParam(r, "id")
+
+	var req setUserQuotaReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+	// Reject negative limits — a negative cap is never meaningful. Zero is
+	// allowed (a hard "no new storage / no live sessions" ceiling).
+	if req.StorageLimitBytes != nil && *req.StorageLimitBytes < 0 {
+		httpx.Error(w, http.StatusBadRequest, "storage_limit_bytes must be >= 0")
+		return
+	}
+	if req.MaxLiveSessions != nil && *req.MaxLiveSessions < 0 {
+		httpx.Error(w, http.StatusBadRequest, "max_live_sessions must be >= 0")
+		return
+	}
+	exempt := req.QuotaExempt != nil && *req.QuotaExempt
+
+	if err := h.store.SetUserQuota(r.Context(), userID,
+		req.StorageLimitBytes, req.MaxLiveSessions, exempt); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			httpx.Error(w, http.StatusNotFound, "user not found")
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, "failed to update quota")
+		return
+	}
+
+	// Return the user's resolved usage so the admin UI can update optimistically.
+	qu, err := h.store.GetQuotaUsage(r.Context(), userID,
+		h.cfg.DefaultStorageLimitBytes, h.cfg.DefaultMaxLiveSessions)
+	if err != nil {
+		httpx.JSON(w, http.StatusOK, map[string]any{"ok": true})
+		return
+	}
+	httpx.JSON(w, http.StatusOK, qu)
 }
 
 // AdminSessions lists sessions across all users for a filter (all | live |

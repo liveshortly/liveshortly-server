@@ -56,6 +56,16 @@
         ]
       }
     ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/cli/hooks/stop.py\""
+          }
+        ]
+      }
+    ],
     "SessionEnd": [
       {
         "hooks": [

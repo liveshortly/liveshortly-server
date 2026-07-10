@@ -170,13 +170,25 @@ func (g *GoogleAuth) Me(w http.ResponseWriter, r *http.Request) {
 		httpx.JSON(w, http.StatusUnauthorized, map[string]any{"authenticated": false})
 		return
 	}
-	httpx.JSON(w, http.StatusOK, map[string]any{
+	body := map[string]any{
 		"authenticated": true,
 		"id":            c.UserID,
 		"email":         c.Email,
 		"name":          c.Name,
 		"is_admin":      g.cfg.IsSuperAdmin(c.Email),
-	})
+	}
+	// Attach the caller's quota usage so the web can show a meter and pre-empt a
+	// doomed session before it starts. Best-effort — a lookup failure just omits
+	// it rather than failing the whole /me call.
+	if qu, err := g.store.GetQuotaUsage(r.Context(), c.UserID,
+		g.cfg.DefaultStorageLimitBytes, g.cfg.DefaultMaxLiveSessions); err == nil {
+		body["storage_bytes_used"] = qu.StorageBytesUsed
+		body["storage_limit_bytes"] = qu.StorageLimitBytes
+		body["live_sessions"] = qu.LiveSessions
+		body["max_live_sessions"] = qu.MaxLiveSessions
+		body["quota_exempt"] = qu.QuotaExempt
+	}
+	httpx.JSON(w, http.StatusOK, body)
 }
 
 type tokenReq struct {

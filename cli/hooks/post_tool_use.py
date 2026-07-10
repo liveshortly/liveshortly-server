@@ -19,7 +19,11 @@ from _common import (  # noqa: E402
 )
 
 FILE_WRITE_TOOLS = {"Write", "Edit", "MultiEdit", "NotebookEdit"}
-MAX_OUTPUT_CHARS = 2000
+# Capture the full tool output (up to the server's per-event belt cap). Truncation
+# is a display concern handled by the web/SSE layer, not capture — the stored feed
+# is the source of truth the storage quota meters. 256 KB matches the server belt
+# so we never POST a body the server would only discard.
+MAX_OUTPUT_CHARS = 256 * 1024
 
 
 def best_effort_file_path(tool_input):

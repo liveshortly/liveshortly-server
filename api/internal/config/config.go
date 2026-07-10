@@ -3,6 +3,7 @@ package config
 
 import (
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -35,7 +36,20 @@ type Config struct {
 	// stats surface. Comma-separated via SUPER_ADMIN_EMAILS; defaults to the two
 	// founding admins. Stored lower-cased for case-insensitive matching.
 	SuperAdminEmails []string
+
+	// --- Per-user quotas (launch-blocking) ---
+	// DefaultStorageLimitBytes is the per-user stored-session-data cap applied to
+	// users with no override. Tunable via DEFAULT_STORAGE_LIMIT_BYTES; defaults to
+	// 100 MB. DefaultMaxLiveSessions caps simultaneous live sessions per user.
+	DefaultStorageLimitBytes int64
+	DefaultMaxLiveSessions   int
 }
+
+// MaxEventBytes is the hard per-event storage cap. The event's payload is
+// belt-capped to this size before store so one runaway tool output can't gulp a
+// big fraction of a user's quota or spike memory in a single insert. Fixed (not
+// configurable) by design — it's a safety belt, not a tuning knob.
+const MaxEventBytes = 256 * 1024 // 256 KB
 
 // IsSuperAdmin reports whether the given email is on the super-admin allowlist
 // (case-insensitive). Empty email is never an admin.
@@ -75,7 +89,21 @@ func Load() Config {
 			"rohitsehgal1994@gmail.com,mukulmalviya2@gmail.com,aiatlohar@gmail.com",
 		))),
 		LiveAgentGrace: envDuration("LIVE_AGENT_GRACE", 10*time.Minute),
+
+		DefaultStorageLimitBytes: envInt64("DEFAULT_STORAGE_LIMIT_BYTES", 100*1024*1024),
+		DefaultMaxLiveSessions:   int(envInt64("DEFAULT_MAX_LIVE_SESSIONS", 10)),
 	}
+}
+
+// envInt64 reads a base-10 integer from the environment, falling back to def on
+// an empty or unparseable value (or a value < 0, which is never a valid limit).
+func envInt64(key string, def int64) int64 {
+	if v := os.Getenv(key); v != "" {
+		if n, err := strconv.ParseInt(v, 10, 64); err == nil && n >= 0 {
+			return n
+		}
+	}
+	return def
 }
 
 // envDuration reads a Go duration string (e.g. "10m", "45s") from the

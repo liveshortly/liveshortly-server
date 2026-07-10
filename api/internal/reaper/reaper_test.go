@@ -23,11 +23,11 @@ func TestReapNeverTouchesPluginSessions(t *testing.T) {
 	}
 
 	// A: a Live-shim session (opened an agent stream). B: a plugin session.
-	a, err := d.Store.CreateSession(ctx, owner.ID, store.NewSessionInput{})
+	a, err := d.Store.CreateSession(ctx, owner.ID, store.NewSessionInput{}, 1<<62, 1<<30)
 	if err != nil {
 		t.Fatalf("create A: %v", err)
 	}
-	b, err := d.Store.CreateSession(ctx, owner.ID, store.NewSessionInput{})
+	b, err := d.Store.CreateSession(ctx, owner.ID, store.NewSessionInput{}, 1<<62, 1<<30)
 	if err != nil {
 		t.Fatalf("create B: %v", err)
 	}
@@ -80,7 +80,7 @@ func TestReapSkipsConnectedAgent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create owner: %v", err)
 	}
-	s, err := d.Store.CreateSession(ctx, owner.ID, store.NewSessionInput{})
+	s, err := d.Store.CreateSession(ctx, owner.ID, store.NewSessionInput{}, 1<<62, 1<<30)
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
