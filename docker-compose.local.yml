@@ -1,0 +1,42 @@
+# Local full stack WITH Google auth — an override on top of docker-compose.yml.
+#
+# Adds an nginx front so web + api share one origin (http://localhost:8080),
+# which is what makes the session cookie and Google OAuth work locally exactly
+# like production. Without it, the cross-origin cookie between web:3000 and
+# api:8000 is dropped and login silently fails.
+#
+# Run:
+#   cp .env.local.example .env.local     # fill in the two Google secrets
+#   docker compose --env-file .env.local \
+#     -f docker-compose.yml -f docker-compose.local.yml up -d --build
+#
+# Then open http://localhost:8080 (NOT :3000 — auth only works via :8080).
+services:
+  api:
+    environment:
+      # Drives OAuth allowed host + cookie Secure flag (http here → non-secure,
+      # so the cookie is accepted over plain localhost).
+      WEB_BASE_URL: http://localhost:8080
+      OAUTH_ALLOWED_HOSTS: localhost:8080
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      SESSION_SECRET: ${SESSION_SECRET}
+
+  web:
+    build:
+      args:
+        # Baked into the browser bundle — the browser calls the api through nginx
+        # at the same origin. Changing this needs --build.
+        NEXT_PUBLIC_API_URL: http://localhost:8080
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8080
+      API_INTERNAL_URL: http://api:8000
+
+  nginx:
+    image: nginx:1.27-alpine
+    depends_on: [api, web]
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./deploy/nginx/local.conf:/etc/nginx/conf.d/default.conf:ro
+    networks: [liveshortly]

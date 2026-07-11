@@ -1,0 +1,97 @@
+name: CI
+
+# Runs on every PR and on main. `deploy.yml` ships main to production; this
+# workflow is the gate in front of it — make it a required status check on
+# main so nothing merges that could not build and boot.
+#
+# The `stack` job is a real deployment: it builds the SAME prod images from
+# docker-compose.prod.yml and boots the whole stack (postgres, redis, api,
+# web) inside the runner, then smoke-tests it. Ephemeral, free, and it fails
+# for exactly the reasons a prod deploy would.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# One run per ref. A new push to a PR cancels the stale run; main never cancels.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  api:
+    name: api — vet + test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: api/go.mod
+          cache-dependency-path: api/go.sum
+
+      - run: go vet ./...
+        working-directory: api
+
+      # Store/bus tests that need a live Postgres self-skip unless LS_TEST_DB is
+      # set, so this stays hermetic.
+      - run: go test ./...
+        working-directory: api
+
+  hooks:
+    name: hooks — syntax
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      # Hooks are stdlib-only and have no test suite; a syntax check is the
+      # whole safety net. A broken hook silently kills capture in every session.
+      - run: python -m compileall -q cli/hooks
+
+  stack:
+    name: stack — build prod images + boot + smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      # Layer cache across runs — the Next.js build is the slow part.
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Write CI env
+        run: |
+          cat > .env <<'EOF'
+          POSTGRES_USER=liveshortly
+          POSTGRES_PASSWORD=ci-not-a-secret
+          POSTGRES_DB=liveshortly
+          CORS_ORIGINS=*
+          NEXT_PUBLIC_API_URL=http://localhost:8000
+          API_INTERNAL_URL=http://api:8000
+          EOF
+          # .env.auth is `required: false` in compose; without it the api boots
+          # with OAuth disabled, which is what we want for a smoke test.
+
+      - name: Build and boot the production stack
+        run: docker compose -f docker-compose.prod.yml up -d --build --wait --wait-timeout 600
+
+      - name: Smoke test
+        run: |
+          set -euo pipefail
+          curl -fsS http://127.0.0.1:8000/health | tee /dev/stderr | grep -q '"ok":true'
+          code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000)
+          echo "web / -> $code"
+          [ "$code" = "200" ]
+          # A session round-trip: unauthenticated writes must be rejected, not 500.
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:8000/api/sessions)
+          echo "unauthenticated POST /api/sessions -> $code"
+          [ "$code" = "401" ]
+
+      - name: Dump logs on failure
+        if: failure()
+        run: docker compose -f docker-compose.prod.yml logs --no-color --tail=200
+
+      - name: Tear down
+        if: always()
+        run: docker compose -f docker-compose.prod.yml down -v
