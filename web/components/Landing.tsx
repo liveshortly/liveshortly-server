@@ -17,6 +17,7 @@ import {
 import { fmtInt } from "@/lib/utils";
 
 const INSTALL_CMD = "curl -fsSL https://liveshortly.com/i.sh | bash";
+const LOGIN_CMD = "live login";
 const RUN_CMD = "live claude";
 const TYPEWRITER_WORDS = ["write software", "collab", "blog"];
 const SEARCH_DEBOUNCE_MS = 300;
@@ -640,6 +641,9 @@ function Card({ session }: { session: Session }) {
    ──────────────────────────────────────────────────────────────────────── */
 
 function HowItWorks() {
+  // Cycle-type `live login` → `live claude` in step 2 so both commands show,
+  // animated. The copy button still copies the run command, unchanged.
+  const typedCmd = useTypewriter([LOGIN_CMD, RUN_CMD]);
   return (
     <section className="lp-how-wrap">
       <div className="lp-sec-head">
@@ -674,13 +678,17 @@ function HowItWorks() {
             <span className="lp-how-h">Run Live Claude</span>
           </div>
           <div className="lp-how-d">
-            live wraps Claude Code and opens a session, printing your share URL
-            the moment it starts streaming.
+            Sign in once with <code>live login</code>, then <code>live claude</code>{" "}
+            wraps Claude Code and opens a session, printing your share URL the
+            moment it starts streaming.
           </div>
           <div className="lp-how-code">
             <span className="cmd">
               <b>$</b>
-              {RUN_CMD}
+              <span className="lp-cmd-type">{typedCmd}</span>
+              <span className="lp-cmd-caret" aria-hidden>
+                ▋
+              </span>
             </span>
             <CopyButton command={RUN_CMD} className="lp-how-copy" />
           </div>
