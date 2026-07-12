@@ -466,9 +466,6 @@ function MarketingHero({
             </span>
             Get Started — Sign Up Free
           </button>
-          <Link href="/feed" className="lp-btn ghost">
-            Browse live sessions
-          </Link>
         </div>
       </div>
 

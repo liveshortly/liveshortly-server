@@ -1368,7 +1368,6 @@ a {
   flex-shrink: 0;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: center;
 }
 .lp-btn {
   display: inline-flex;
