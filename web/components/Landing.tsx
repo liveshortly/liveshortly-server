@@ -470,12 +470,6 @@ function MarketingHero({
             Browse live sessions
           </Link>
         </div>
-
-        <div className="lp-code">
-          <span aria-hidden>⇩</span>
-          <code>{INSTALL_CMD}</code>
-          <CopyButton command={INSTALL_CMD} />
-        </div>
       </div>
 
       <Demo />
