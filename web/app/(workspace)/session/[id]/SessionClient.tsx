@@ -3,6 +3,7 @@
 import { use, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import Avatar from "@/components/Avatar";
 import Badge from "@/components/Badge";
 import DeleteSessionButton from "@/components/DeleteSessionButton";
 import EventStream from "@/components/EventStream";
@@ -353,9 +354,9 @@ export default function SessionViewer({
           >
             THIS SESSION ISN&apos;T OPEN TO ANONYMOUS VIEWERS.
           </div>
-          <div className="label" style={{ marginTop: 16 }}>
-            <a href={loginUrl()} style={{ color: "var(--green)" }}>
-              ◂ SIGN IN
+          <div style={{ marginTop: 16 }}>
+            <a href={loginUrl()} className="lp-signin-btn">
+              SIGN IN
             </a>
           </div>
         </div>
@@ -758,7 +759,6 @@ export default function SessionViewer({
               live={isLive}
               ownerHandle={meta?.owner_handle ?? null}
               framework={meta?.framework}
-              claudeWorking={showClaudeWorking}
             />
           </div>
 
@@ -773,17 +773,13 @@ export default function SessionViewer({
             />
           )}
 
-          {/* Desktop: the bordered chip sits below the stream feed. On mobile the
-              same signal renders as the mockup's light inline line inside
-              MobileEventFeed (last item in the thread), so hide this one there. */}
+          {/* "Claude is working" chip, pinned above the composer on both desktop
+              and mobile. Kept OUT of the scrollable feed so it stays visible —
+              rendering it as the last thread item buried it below the fold on
+              mobile (it only showed after scrolling to the very bottom). */}
           {showClaudeWorking && (
-            <div className="ls-desktop-typing" style={{ padding: "8px 2px 0" }}>
+            <div style={{ padding: "8px 2px 0" }}>
               <TypingIndicator label="CLAUDE IS WORKING" tone="green" />
-              <style>{`
-                @media (max-width: 860px) {
-                  .ls-desktop-typing { display: none; }
-                }
-              `}</style>
             </div>
           )}
 
@@ -1075,13 +1071,7 @@ function SessionInfoPanel({
 
         {speakers.map(([who, ts]) => (
           <div key={who} className="sv-watch-row">
-            <span
-              className="sv-watch-avatar"
-              style={{ background: handleColor(who) }}
-              aria-hidden
-            >
-              {handleInitials(who)}
-            </span>
+            <Avatar seed={who} size={24} className="sv-watch-avatar" title={who} />
             <span style={{ minWidth: 0 }}>
               <span className="sv-watch-name">
                 @{who}

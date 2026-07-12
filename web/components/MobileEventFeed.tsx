@@ -4,7 +4,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { SessionEvent } from "@/lib/api";
 import { agentTitle, localTime } from "@/lib/utils";
-import TypingIndicator from "@/components/TypingIndicator";
+import Avatar from "@/components/Avatar";
 
 // Same boundary/work-type rules as EventStream — kept in sync deliberately
 // rather than shared, since the two renderers group events differently
@@ -110,16 +110,11 @@ export default function MobileEventFeed({
   live,
   ownerHandle,
   framework,
-  claudeWorking,
 }: {
   events: SessionEvent[];
   live?: boolean;
   ownerHandle?: string | null;
   framework?: string | null;
-  /** When true, append the mockup's light "CLAUDE IS WORKING" line as the last
-   *  item in the thread (indented under the avatar column). Debounced upstream
-   *  so it doesn't strobe on every SSE frame. */
-  claudeWorking?: boolean;
 }) {
   const events = rawEvents.filter((e) => !HIDDEN_EVENT_TYPES.has(e.event_type));
   const { turns, leadingWork } = buildTurns(events);
@@ -164,9 +159,18 @@ export default function MobileEventFeed({
 
         return (
           <div key={e.id} className="mfeed-msg">
-            <div className={`mfeed-avatar mfeed-avatar-${role}`} aria-hidden>
-              {avatarText}
-            </div>
+            {role === "claude" ? (
+              <div className="mfeed-avatar mfeed-avatar-claude" aria-hidden>
+                {avatarText}
+              </div>
+            ) : (
+              <Avatar
+                seed={name.replace(/^@/, "")}
+                size={24}
+                className={`mfeed-avatar mfeed-avatar-${role}`}
+                title={name}
+              />
+            )}
             <div className="mfeed-body">
               <div className="mfeed-head">
                 <span className={`mfeed-name mfeed-name-${role}`}>{name}</span>
@@ -196,10 +200,6 @@ export default function MobileEventFeed({
           </div>
         );
       })}
-
-      {claudeWorking && (
-        <TypingIndicator label="CLAUDE IS WORKING" tone="green" variant="inline" />
-      )}
     </div>
   );
 }

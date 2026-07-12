@@ -244,6 +244,12 @@ docker compose up -d --build
 | 🐘 Postgres | `localhost:5432` | `sessions`, `session_events` |
 | 🧠 Redis | `localhost:6379` | seq · buffer · pub/sub · pending |
 
+> 🐘 **Port clash?** If you already run a local Postgres on `5432`, DBeaver/psql
+> will hit *that* one (and fail with `role "liveshortly" does not exist`). Either
+> stop it, or remap the container: set `POSTGRES_PORT=5433` in `.env`, `docker
+> compose up -d postgres`, and connect DBeaver to `localhost:5433`. The api is
+> unaffected — it reaches Postgres over the docker network, not the host port.
+
 **Kick the tires without Claude:**
 
 ```bash
@@ -263,6 +269,46 @@ curl -s localhost:8000/api/sessions/$ID/comments/pending   # → the message, on
 ```
 
 Open **http://localhost:3000** and your session is in the index.
+
+### Sign in locally (Google OAuth)
+
+The base stack boots with login **disabled** (no Google credentials). To exercise
+real Google sign-in on `localhost`, drop the OAuth secrets into a **gitignored**
+`.env.auth` — the api's compose service loads it automatically (`required: false`,
+so without the file the api still boots with auth off):
+
+```bash
+cat > .env.auth <<EOF
+GOOGLE_CLIENT_ID=<your-client-id>.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=<your-client-secret>
+SESSION_SECRET=$(openssl rand -hex 32)
+# Single origin: the web server proxies /auth + /api + /device to the api (see
+# web/next.config.ts rewrites), so the whole OAuth round-trip and the session
+# cookie stay on localhost:3000. http keeps the cookie non-Secure so it sticks.
+WEB_BASE_URL=http://localhost:3000
+# Sentinel matching no request Host → forces the http :3000 callback base
+# instead of defaulting the redirect scheme to https (the local http trap).
+OAUTH_ALLOWED_HOSTS=none.invalid
+EOF
+
+docker compose up -d api          # reload the api with the new env
+```
+
+In the **Google Cloud Console** OAuth client (APIs & Services → Credentials), add:
+
+| Field | Value |
+|---|---|
+| Authorised JavaScript origin | `http://localhost:3000` |
+| Authorised redirect URI | `http://localhost:3000/auth/google/callback` |
+
+Then open **http://localhost:3000**, click **Sign In**, and you land back logged in.
+
+> **Why it's all on `:3000`.** In production, web + api sit behind one domain, so
+> the browser's same-origin relative URLs (`/auth/google/login`, `/api/*`) just
+> work. Locally they're split origins (`:3000` web / `:8000` api), so the web
+> server proxies the api-owned prefixes (`web/next.config.ts` `rewrites`) to
+> re-create that single origin — otherwise the Sign In button 404s and every
+> browser→api call fails.
 
 ---
 
