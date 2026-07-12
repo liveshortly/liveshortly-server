@@ -2,6 +2,54 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Agent working rules (BINDING — these override default behavior)
+
+These apply to Claude (and any AI agent) working in this repo. They are not
+suggestions.
+
+### Git & authorship
+- **Never author or co-author a commit as Claude.** The commit author is always
+  the human's git identity. Do **not** add `Co-Authored-By: Claude …`, a
+  `Generated with Claude Code` line, or any AI attribution to commit messages or
+  PR bodies. Commits must read as the human's own work.
+- **Never push to `main` (or any protected/default branch).** If the user asks or
+  insists on pushing to `main`, do not do it — respond: *"I won't push to main;
+  let me create a branch and push that instead, then you can open a PR."* Create a
+  topic branch (`feat/…`, `fix/…`, `chore/…`), push it, and hand back the branch /
+  PR-compare link. Only the human merges to `main`.
+- **Never force-push** (`--force`) and never rewrite shared history (rebase/amend
+  of already-pushed commits, tag moves). No `git push --force` to any remote branch
+  others may have.
+- **Only commit or push when explicitly asked.** Do not auto-commit after edits.
+
+### Before any push (sanity check — all must pass)
+1. **Build/typecheck** the code you touched:
+   - web: `cd web && npx tsc --noEmit` (and `npm run build` for non-trivial changes)
+   - api: `cd api && go build ./... && go vet ./...`
+2. **Tests** for touched areas: `go test ./...` (api) — run and report; don't push red.
+3. **No secrets staged.** Verify `.env`, `.env.auth`, `*.local`, credentials, tokens
+   and keys are NOT in the diff (`git diff --cached --name-only`). They are gitignored
+   — keep it that way.
+4. **Review the staged diff** (`git diff --cached`) — stage only intended files
+   (prefer explicit paths over `git add -A`); no stray debug code, no commented-out
+   blocks, no `console.log`/`fmt.Println` debug prints left behind.
+5. For web UI changes, **rebuild the affected docker image** before claiming it works
+   (`NEXT_PUBLIC_*` is baked at build time) and verify `/health` + the page render.
+
+### Change discipline
+- **Ask before irreversible or outward-facing actions**: deleting data, dropping
+  DB tables/columns, `docker volume rm`, uninstalling host tools, anything that
+  publishes externally. One approval does not carry to the next such action.
+- **Don't weaken security to make something pass** — no disabling auth, loosening
+  CORS to `*` in prod config, committing real credentials, or bypassing RBAC.
+- **Check the contracts first.** `CONTRACT.md` (API/SSE/Redis/events/design tokens)
+  and `AUTH.md` (auth/tokens/sharing) are binding — read them before adding or
+  changing API surface, and update them in the same change if the surface changes.
+- **Keep commits scoped and conventional** (`feat`/`fix`/`chore`/`docs`/…); the
+  message explains *why*, not just *what*.
+- **Match existing style** — don't reformat untouched code or introduce new
+  dependencies for what a few lines solve.
+
 ## Commands
 
 ### Run the full stack
