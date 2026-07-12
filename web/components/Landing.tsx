@@ -641,9 +641,9 @@ function Card({ session }: { session: Session }) {
    ──────────────────────────────────────────────────────────────────────── */
 
 function HowItWorks() {
-  // Cycle-type `live login` → `live claude` in step 2 so both commands show,
-  // animated. The copy button still copies the run command, unchanged.
-  const typedCmd = useTypewriter([LOGIN_CMD, RUN_CMD]);
+  // Type the full one-liner `live login && live claude` in step 2, animated.
+  const RUN_FLOW = `${LOGIN_CMD} && ${RUN_CMD}`;
+  const typedCmd = useTypewriter([RUN_FLOW]);
   return (
     <section className="lp-how-wrap">
       <div className="lp-sec-head">
@@ -690,7 +690,7 @@ function HowItWorks() {
                 ▋
               </span>
             </span>
-            <CopyButton command={RUN_CMD} className="lp-how-copy" />
+            <CopyButton command={RUN_FLOW} className="lp-how-copy" />
           </div>
           <div className="lp-how-sub" style={{ color: "var(--green)" }}>
             ▸ Streaming · liveshortly.com/session/…
