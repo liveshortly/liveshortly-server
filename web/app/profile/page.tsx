@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import ActivityHeatmap from "@/components/ActivityHeatmap";
+import GenAvatar from "@/components/Avatar";
 import SessionCard from "@/components/SessionCard";
 import {
   PanelBox,
@@ -278,7 +279,6 @@ function Meter({
 }
 
 function Avatar({ user, handle }: { user: Me | null; handle: string | null }) {
-  const initial = (user?.name ?? handle ?? "?").slice(0, 1).toUpperCase();
   if (user?.picture) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
@@ -297,20 +297,10 @@ function Avatar({ user, handle }: { user: Me | null; handle: string | null }) {
     );
   }
   return (
-    <div
-      style={{
-        width: 64,
-        height: 64,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "var(--strong)",
-        color: "var(--panel)",
-        fontSize: 26,
-        fontWeight: 700,
-      }}
-    >
-      {initial}
-    </div>
+    <GenAvatar
+      seed={user?.id ?? handle ?? user?.name}
+      size={64}
+      title={user?.name ?? handle ?? "Account"}
+    />
   );
 }

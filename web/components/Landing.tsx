@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import BrandMark from "@/components/BrandMark";
 import ThemeToggle from "@/components/ThemeToggle";
+import Avatar from "@/components/Avatar";
 import {
   getFeed,
   getLiveFeed,
@@ -15,7 +16,7 @@ import {
 } from "@/lib/api";
 import { fmtInt } from "@/lib/utils";
 
-const INSTALL_CMD = "curl -fsSL https://liveshortly.com/install.sh | bash";
+const INSTALL_CMD = "curl -fsSL https://liveshortly.com/i.sh | bash";
 const RUN_CMD = "live claude";
 const TYPEWRITER_WORDS = ["write software", "collab", "blog"];
 const SEARCH_DEBOUNCE_MS = 300;
@@ -156,20 +157,6 @@ function LandingInner() {
           </button>
         </div>
       </div>
-
-      <Sidebar
-        live={live}
-        recent={recent}
-        creators={creators}
-        tags={tags}
-        loaded={loaded}
-        onSignIn={signIn}
-        onSearch={focusSearch}
-        onTag={(t) => {
-          setQuery(t);
-          focusSearch();
-        }}
-      />
 
       <div className="lp-main">
         <div className="lp-main-inner">
@@ -586,14 +573,13 @@ function Proof({
         <div className="lp-proof-watch">
           <div className="lp-proof-avatars">
             {liveOwners.map((h) => (
-              <span
+              <Avatar
                 key={h}
+                seed={h}
+                size={26}
                 className="lp-proof-avatar"
-                style={{ background: avatarColor(h) }}
                 title={`@${h}`}
-              >
-                {initials(h)}
-              </span>
+              />
             ))}
           </div>
           <span className="lp-proof-watch-label">
@@ -655,9 +641,10 @@ function Card({ session }: { session: Session }) {
 
 function HowItWorks() {
   return (
-    <>
+    <section className="lp-how-wrap">
       <div className="lp-sec-head">
         <h2 className="lp-sec-title">How it works</h2>
+        <span className="lp-how-eyebrow">◦ Get started in 3 steps</span>
       </div>
       <div className="lp-how">
         <div className="lp-how-step">
@@ -720,7 +707,7 @@ function HowItWorks() {
           </div>
         </div>
       </div>
-    </>
+    </section>
   );
 }
 

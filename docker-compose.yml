@@ -43,6 +43,12 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    # Google OAuth + session secret for local login. Optional: without the file
+    # the api still boots (auth disabled). Values here don't override the ones
+    # set explicitly in `environment:` below.
+    env_file:
+      - path: .env.auth
+        required: false
     environment:
       PORT: 8000
       DATABASE_URL: postgresql://${POSTGRES_USER:-liveshortly}:${POSTGRES_PASSWORD:-liveshortly}@postgres:5432/${POSTGRES_DB:-liveshortly}

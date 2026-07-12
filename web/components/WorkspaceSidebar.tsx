@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/components/AuthContext";
 import BrandMark from "@/components/BrandMark";
+import Avatar from "@/components/Avatar";
 import { listSessions, type Session } from "@/lib/api";
 import { timeAgo } from "@/lib/utils";
 
@@ -200,9 +201,13 @@ export default function WorkspaceSidebar() {
       </div>
 
       <Link href="/profile" className="ws-profile-footer">
-        <span className="ws-profile-avatar" aria-hidden>
-          {(user?.name ?? user?.email ?? "?").slice(0, 1).toUpperCase()}
-        </span>
+        <Avatar
+          seed={user?.id ?? user?.email ?? user?.name}
+          size={28}
+          rounded={false}
+          className="ws-profile-avatar"
+          title={user?.name ?? user?.email ?? "Account"}
+        />
         <span className="ws-profile-info">
           <span className="ws-profile-name">
             {user?.name ?? user?.email ?? "Account"}

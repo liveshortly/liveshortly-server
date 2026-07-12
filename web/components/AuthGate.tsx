@@ -138,17 +138,7 @@ function GuestHeader() {
         </Link>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <ThemeToggle />
-          <a
-            href={loginUrl()}
-            className="label"
-            style={{
-              border: "1px solid var(--strong)",
-              padding: "6px 12px",
-              fontSize: 10,
-              color: "var(--ink)",
-              whiteSpace: "nowrap",
-            }}
-          >
+          <a href={loginUrl()} className="lp-signin-btn">
             SIGN IN
           </a>
         </div>
