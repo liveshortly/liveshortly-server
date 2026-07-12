@@ -273,42 +273,47 @@ Open **http://localhost:3000** and your session is in the index.
 ### Sign in locally (Google OAuth)
 
 The base stack boots with login **disabled** (no Google credentials). To exercise
-real Google sign-in on `localhost`, drop the OAuth secrets into a **gitignored**
-`.env.auth` — the api's compose service loads it automatically (`required: false`,
-so without the file the api still boots with auth off):
+real Google sign-in — **and live SSE streaming** — locally, run the stack behind
+the local **nginx** front (`docker-compose.local.yml`), which serves web + api on
+**one origin** `http://localhost:8080`, exactly like production.
+
+> **Don't use plain `:3000` for a live session.** The base web server proxies
+> `/api/*` through Next.js `rewrites`, which **buffer SSE** — the initial replay
+> shows on refresh, but live events never stream in. nginx (`local.conf`) sets
+> `proxy_buffering off`, so `:8080` streams correctly. It also gives OAuth + the
+> `ls_session` cookie a single origin (split `:3000`/`:8000` drops the cookie).
+
+**1.** Drop the OAuth secrets into a **gitignored** `.env.auth` — the api compose
+service loads it automatically (`required: false`, so without it the api still
+boots with auth off):
 
 ```bash
 cat > .env.auth <<EOF
 GOOGLE_CLIENT_ID=<your-client-id>.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=<your-client-secret>
 SESSION_SECRET=$(openssl rand -hex 32)
-# Single origin: the web server proxies /auth + /api + /device to the api (see
-# web/next.config.ts rewrites), so the whole OAuth round-trip and the session
-# cookie stay on localhost:3000. http keeps the cookie non-Secure so it sticks.
-WEB_BASE_URL=http://localhost:3000
-# Sentinel matching no request Host → forces the http :3000 callback base
-# instead of defaulting the redirect scheme to https (the local http trap).
-OAUTH_ALLOWED_HOSTS=none.invalid
 EOF
-
-docker compose up -d api          # reload the api with the new env
 ```
 
-In the **Google Cloud Console** OAuth client (APIs & Services → Credentials), add:
+`docker-compose.local.yml` pins `WEB_BASE_URL` / `OAUTH_ALLOWED_HOSTS` to
+`localhost:8080` (overriding anything in `.env.auth`), so you don't set them here.
+
+**2.** Bring up the full single-origin stack:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
+```
+
+**3.** In the **Google Cloud Console** OAuth client (APIs & Services →
+Credentials), add:
 
 | Field | Value |
 |---|---|
-| Authorised JavaScript origin | `http://localhost:3000` |
-| Authorised redirect URI | `http://localhost:3000/auth/google/callback` |
+| Authorised JavaScript origin | `http://localhost:8080` |
+| Authorised redirect URI | `http://localhost:8080/auth/google/callback` |
 
-Then open **http://localhost:3000**, click **Sign In**, and you land back logged in.
-
-> **Why it's all on `:3000`.** In production, web + api sit behind one domain, so
-> the browser's same-origin relative URLs (`/auth/google/login`, `/api/*`) just
-> work. Locally they're split origins (`:3000` web / `:8000` api), so the web
-> server proxies the api-owned prefixes (`web/next.config.ts` `rewrites`) to
-> re-create that single origin — otherwise the Sign In button 404s and every
-> browser→api call fails.
+Then open **http://localhost:8080** (NOT `:3000`), click **Sign In**, and you land
+back logged in — with live sessions streaming in real time.
 
 ---
 

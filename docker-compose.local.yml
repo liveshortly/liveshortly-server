@@ -5,22 +5,23 @@
 # like production. Without it, the cross-origin cookie between web:3000 and
 # api:8000 is dropped and login silently fails.
 #
-# Run:
-#   cp .env.local.example .env.local     # fill in the two Google secrets
-#   docker compose --env-file .env.local \
-#     -f docker-compose.yml -f docker-compose.local.yml up -d --build
+# Run (Google secrets come from .env.auth, loaded straight into the api):
+#   docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
 #
-# Then open http://localhost:8080 (NOT :3000 — auth only works via :8080).
+# Then open http://localhost:8080 (NOT :3000 — auth + live SSE only work via
+# nginx here). The base :3000 web port proxies /api through Next.js rewrites,
+# which buffer SSE, so live streaming never arrives there.
 services:
   api:
+    # GOOGLE_CLIENT_ID / SECRET / SESSION_SECRET come from .env.auth, already
+    # loaded by the base compose (env_file, required:false).
     environment:
-      # Drives OAuth allowed host + cookie Secure flag (http here → non-secure,
+      # Force the single nginx origin. These WIN over the same keys in
+      # .env.auth (which are set to :3000), so OAuth + cookie use :8080.
+      # Drives OAuth allowed host + cookie Secure flag (http → non-secure,
       # so the cookie is accepted over plain localhost).
       WEB_BASE_URL: http://localhost:8080
       OAUTH_ALLOWED_HOSTS: localhost:8080
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
-      SESSION_SECRET: ${SESSION_SECRET}
 
   web:
     build:
