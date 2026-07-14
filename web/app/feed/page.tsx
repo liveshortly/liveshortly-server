@@ -2,7 +2,8 @@
 
 import Feed from "@/components/Feed";
 
-/** /feed — alias of the landing page (kept so existing links keep working). */
+/** /feed — full browse/search feed. Reached by anonymous guests directly and
+ *  by authenticated users via the topbar search or "See all" links. */
 export default function FeedRoute() {
   return <Feed />;
 }

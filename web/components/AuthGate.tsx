@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AuthContext } from "@/components/AuthContext";
+import AppShell from "@/components/AppShell";
 import BrandMark from "@/components/BrandMark";
-import HudHeader from "@/components/HudHeader";
 import Landing from "@/components/Landing";
 import ThemeToggle from "@/components/ThemeToggle";
 import { loginUrl, me as fetchMe, type Me } from "@/lib/api";
@@ -91,8 +91,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider value={user}>
-      <HudHeader user={user} />
-      <main className="app-main">{children}</main>
+      <AppShell user={user}>{children}</AppShell>
     </AuthContext.Provider>
   );
 }
