@@ -91,7 +91,15 @@ of forks made from a session and is present on every row (feed/list included).
 | POST | `/api/sessions/{id}/decision` | `{"decision":"allow"\|"deny"}` | `201 Event` (viewer answers a permission prompt, live only) |
 | GET  | `/api/sessions/{id}/decision` | — | `200 {"decision":"allow"\|"deny"\|null,"watchers":int}` (owner; pops once) |
 | GET  | `/api/stats` | — | `200 {"total_sessions":int,"live_now":int,"ended":int,"total_events":int}` |
+| GET  | `/api/me/activity` | — | `200 {"results":[ActivityItem]}` (caller's own recent activity, newest first, capped at 6) |
 | PATCH | `/api/admin/users/{id}/quota` | `{"storage_limit_bytes"?:int\|null,"max_live_sessions"?:int\|null,"quota_exempt"?:bool}` | `200 QuotaUsage` (super-admin; a null field clears that override to the default) |
+
+`ActivityItem`: `{"kind":"went_live"\|"published"\|"comment"\|"share","actor"?:string,"session_id":string,"session_title":string,"ts":string}`.
+`went_live`/`published` are the caller's own sessions (no `actor`); `comment` is a
+`viewer_comment` event on a session the caller owns (`actor` = commenter's handle);
+`share` is a grant where the caller is the `grantee` (`actor` = the granter's
+handle). Merged from `sessions`, `session_events` and `session_shares` — no new
+tables, no persisted "activity log".
 
 - `q` search: case-insensitive match on `title` OR any tag.
 - `status` default `all`; `limit` default 30 (max 100); `offset` default 0.

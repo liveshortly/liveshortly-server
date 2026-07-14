@@ -28,6 +28,25 @@ func (h *Handler) Stats(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, s)
 }
 
+const activityLimit = 6
+
+// Activity returns the caller's recent personal activity — sessions they
+// started/published, comments received, and shares granted to them.
+// GET /api/me/activity.
+func (h *Handler) Activity(w http.ResponseWriter, r *http.Request) {
+	p, ok := auth.Principal(r.Context())
+	if !ok {
+		httpx.Error(w, http.StatusUnauthorized, "no principal")
+		return
+	}
+	items, err := h.store.Activity(r.Context(), p.ID, p.Email, activityLimit)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to compute activity")
+		return
+	}
+	httpx.JSON(w, http.StatusOK, map[string]any{"results": items})
+}
+
 // PublicStats returns the aggregate proof counts shown on the anonymous
 // landing page. No principal required. GET /api/public/stats.
 func (h *Handler) PublicStats(w http.ResponseWriter, r *http.Request) {

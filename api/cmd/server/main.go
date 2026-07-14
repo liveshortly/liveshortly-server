@@ -213,6 +213,7 @@ func router(cfg config.Config, h *handlers.Handler, ga *handlers.GoogleAuth, mgr
 			r.Use(auth.Authn(mgr))
 
 			r.Get("/stats", h.Stats)
+			r.Get("/me/activity", h.Activity)
 			// Admin — the handlers enforce the super-admin allowlist (403).
 			r.Get("/admin/stats", h.AdminStats)
 			r.Get("/admin/users", h.AdminUsers)
