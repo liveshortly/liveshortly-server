@@ -203,21 +203,6 @@ a {
   }
 }
 
-/* Slim the global HudHeader on mobile — the stat tiles + status/clock line
-   stack it to 4+ rows and eat the viewport (worst behind the session viewer).
-   Drop them and let the wordmark + user block sit on one compact strip.
-   !important overrides the inline display/flex styles the header sets. */
-@media (max-width: 720px) {
-  .hud-stats,
-  .hud-statusline {
-    display: none !important;
-  }
-  .hud-wordmark {
-    min-width: 0 !important;
-    flex: 1 1 auto !important;
-  }
-}
-
 /* Session viewer — full-height, widened column. Breaks out of the 1180px
    .app-main to use more horizontal real estate (capped at 1440), and fills the
    viewport below the global header so the split window is full height. */
@@ -239,15 +224,15 @@ a {
 }
 
 /* ── Workspace shell (ChatGPT-style): persistent session sidebar + main pane.
-   Fills the viewport below the HudHeader (~148px), full-bleed, and cancels the
-   .app-main padding it's nested inside so it sits flush under the header. */
+   Fills the full viewport below the single-row v3 topbar (56px, see
+   .v3-topbar below) — the shell owns the whole layout now, so unlike the old
+   HudHeader-era version there's no outer .app-main padding to cancel. */
 .workspace {
   display: flex;
-  height: calc(100vh - 148px);
+  height: calc(100vh - 56px);
   min-height: 480px;
   overflow: hidden;
   position: relative;
-  margin: -20px calc(50% - 50vw) -56px; /* cancel .app-main 20/16/56 pad + full-bleed */
 }
 .ws-sidebar {
   /* 232px — the v3 rail width shared by every screen in designs/version3. */
@@ -264,30 +249,83 @@ a {
   width: 100%;
   min-height: 0;
 }
-/* Only shown when the sidebar is acting as the mobile drawer (see the
-   820px breakpoint below) — on desktop it's a permanent panel sitting
-   right next to HudHeader, which already has the logo and profile/sign-out,
-   so repeating them here would just duplicate both. */
-.ws-brand {
-  display: none;
-  align-items: center;
-  gap: 9px;
+/* Header row — "⌂ Your Sessions →", links to /hud. The topbar now carries
+   the wordmark, so this row doesn't repeat it. */
+.ws-head {
   flex-shrink: 0;
-  padding: 14px 12px 10px;
-  border-bottom: 1px solid var(--hairline);
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  padding: 12px 10px 8px;
+}
+.ws-head-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 4px 4px 6px;
   color: var(--ink);
 }
-.ws-profile-footer {
-  display: none;
-  align-items: center;
-  gap: 10px;
+.ws-head-link:hover {
+  color: var(--green);
+}
+.ws-head-arrow {
+  color: var(--faint);
+  font-size: 11px;
+}
+.ws-head-link:hover .ws-head-arrow {
+  color: var(--green);
+}
+/* All / Live / Shared filter tabs. */
+.ws-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 0 10px 10px;
   flex-shrink: 0;
-  padding: 10px 12px;
+}
+.ws-tab {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 5px 10px;
+  border: 1px solid var(--hairline);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: inherit;
+}
+.ws-tab[aria-pressed="true"] {
+  color: var(--green);
+  border-color: var(--green);
+}
+.ws-admin-link {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+  padding: 9px 14px;
+  border-top: 1px dashed var(--hairline);
+  color: var(--admin);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+}
+.ws-admin-link:hover {
+  background: var(--panel2);
+}
+.ws-profile-footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  padding: 10px 8px 10px 12px;
   border-top: 1px solid var(--hairline);
   color: var(--ink);
+}
+.ws-profile-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
 }
 .ws-profile-avatar {
   width: 28px;
@@ -322,10 +360,22 @@ a {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.ws-profile-arrow {
+.ws-signout {
   flex-shrink: 0;
-  color: var(--faint);
-  font-size: 14px;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--hairline);
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  cursor: pointer;
+}
+.ws-signout:hover {
+  color: var(--red);
+  border-color: var(--red);
 }
 .ws-main {
   flex: 1;
@@ -360,8 +410,7 @@ a {
 }
 @media (max-width: 820px) {
   .workspace {
-    height: calc(100vh - 128px);
-    margin: -14px calc(50% - 50vw) -48px;
+    height: calc(100vh - 52px);
   }
   .ws-toggle {
     display: inline-flex;
@@ -387,13 +436,6 @@ a {
     transition: transform 180ms ease;
     box-shadow: 4px 0 16px var(--shadow);
   }
-  /* Now that the sidebar is a drawer instead of a permanent panel next to
-     HudHeader, it's the only nav visible while the drawer is open — so the
-     logo and profile row earn their keep here. */
-  .ws-brand,
-  .ws-profile-footer {
-    display: flex;
-  }
   .workspace[data-drawer="open"] .ws-sidebar {
     transform: none;
   }
@@ -416,6 +458,688 @@ a {
    mounted; the toggle is display:none above 820px regardless. */
 .workspace:has(.session-page) .ws-toggle {
   display: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Authenticated topbar (v3) — designs/version3/feed.html `.topbar`.
+   Sits above .workspace as a single full-width row; `.v3-app` just stacks
+   the two vertically. Prefixed `v3-` to distinguish from the anonymous
+   landing topbar (`lp-`), which has its own sign-in CTA instead of a search
+   pill's account actions.
+   ═══════════════════════════════════════════════════════════════════════ */
+.v3-app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+}
+.v3-topbar {
+  flex-shrink: 0;
+  height: 56px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 16px;
+  padding: 0 18px;
+  border-bottom: 1px solid var(--hairline);
+  background: var(--panel);
+}
+.v3-brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  flex-shrink: 0;
+  color: var(--ink);
+}
+.v3-searchpill {
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--hairline);
+  background: var(--bg);
+  padding: 9px 16px;
+  color: var(--faint);
+  font-size: 12px;
+}
+.v3-searchpill input {
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  width: 100%;
+}
+.v3-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-shrink: 0;
+}
+.v3-install-link {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.v3-install-link:hover {
+  color: var(--ink);
+}
+.v3-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  color: var(--muted);
+  font-size: 14px;
+}
+.v3-icon-btn:hover {
+  color: var(--ink);
+}
+@media (max-width: 760px) {
+  .v3-searchpill,
+  .v3-install-link {
+    display: none;
+  }
+  .v3-topbar {
+    height: 52px;
+    grid-template-columns: auto auto;
+    justify-content: space-between;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Home feed (v3) — designs/version3/feed.html `.main` + `.rightpanel`.
+   The authenticated home page's hero, Live Now / Recently Published grids,
+   and the platform-stats right rail. Prefixed `hf-`.
+   ═══════════════════════════════════════════════════════════════════════ */
+.v3-page-wrap {
+  display: flex;
+  align-items: flex-start;
+  min-height: 100%;
+}
+.v3-page-main {
+  flex: 1;
+  min-width: 0;
+  padding: 22px 26px 40px;
+}
+.v3-page-rightpanel {
+  flex: 0 0 264px;
+  align-self: stretch;
+  border-left: 1px solid var(--hairline);
+  background: var(--panel);
+  padding: 18px;
+}
+.v3-eyebrow {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--green);
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+.hf-hero {
+  position: relative;
+  padding: 34px 30px;
+  background: var(--grad-hero);
+  border: 1px solid var(--hairline);
+  margin-bottom: 30px;
+  display: flex;
+  align-items: flex-end;
+  gap: 22px;
+  min-height: 168px;
+}
+:root[data-theme="light"] .hf-hero {
+  background: var(--panel2);
+}
+.hf-hero-badge {
+  width: 96px;
+  height: 96px;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40px;
+  flex-shrink: 0;
+  color: #fff;
+}
+:root[data-theme="light"] .hf-hero-badge {
+  background: var(--panel);
+  border-color: var(--hairline);
+  color: var(--green);
+}
+.hf-hero-text {
+  min-width: 0;
+}
+.hf-hero-text .hk {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: rgba(255, 255, 255, 0.75);
+  margin-bottom: 6px;
+}
+:root[data-theme="light"] .hf-hero-text .hk {
+  color: var(--muted);
+}
+.hf-hero-text .ht {
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #fff;
+  line-height: 1.15;
+}
+:root[data-theme="light"] .hf-hero-text .ht {
+  color: var(--ink);
+  font-weight: 700;
+}
+.hf-hero-text .hs {
+  margin-top: 8px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.8);
+}
+:root[data-theme="light"] .hf-hero-text .hs {
+  color: var(--muted);
+}
+.hf-hero-snippet {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.85);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+:root[data-theme="light"] .hf-hero-snippet {
+  color: var(--muted);
+}
+.hf-hero-snippet .glyph {
+  color: var(--green);
+  flex-shrink: 0;
+}
+.hf-hero-loading {
+  border: 1px solid var(--hairline);
+  background: var(--panel);
+  padding: 28px 16px;
+  margin-bottom: 30px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 11px;
+}
+.v3-sec-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 30px 0 14px;
+}
+.v3-sec-title {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+  color: var(--ink);
+}
+.v3-sec-title.live {
+  color: var(--green);
+}
+.v3-sec-link {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--faint);
+}
+.v3-sec-link:hover {
+  color: var(--ink);
+}
+.hf-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 14px;
+}
+.hf-card {
+  border: 1px solid var(--hairline);
+  background: var(--panel2);
+  overflow: hidden;
+  transition: transform 150ms, border-color 150ms, box-shadow 150ms;
+  display: block;
+}
+.hf-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--strong);
+  box-shadow: 0 10px 24px -14px var(--shadow);
+}
+.hf-card-art {
+  height: 108px;
+  background: var(--grad-hero);
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 9px 10px;
+}
+.hf-card-badge {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 3px 8px;
+  background: rgba(0, 0, 0, 0.35);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  backdrop-filter: blur(4px);
+}
+:root[data-theme="light"] .hf-card-badge {
+  background: var(--panel);
+  border: 1px solid var(--hairline);
+  color: var(--muted);
+}
+.hf-card-badge.live {
+  color: #baffce;
+}
+:root[data-theme="light"] .hf-card-badge.live {
+  color: var(--green);
+}
+.hf-card-watch {
+  position: absolute;
+  right: 10px;
+  bottom: -14px;
+  background: var(--green);
+  color: #06210f;
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  padding: 7px 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 150ms, transform 150ms;
+  box-shadow: 0 8px 18px -6px rgba(0, 0, 0, 0.5);
+}
+:root[data-theme="light"] .hf-card-watch {
+  box-shadow: none;
+}
+.hf-card:hover .hf-card-watch {
+  opacity: 1;
+  transform: translateY(0);
+}
+.hf-card-body {
+  padding: 12px 12px 13px;
+}
+.hf-card-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.3;
+  margin-bottom: 5px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.hf-card-meta {
+  font-size: 10px;
+  color: var(--faint);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.hf-card-meta .m {
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.v3-empty {
+  border: 1px dashed var(--hairline);
+  padding: 22px 16px;
+  text-align: center;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--faint);
+}
+.v3-rp-title {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+  margin-bottom: 14px;
+  color: var(--ink);
+}
+.v3-rp-stat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.v3-rp-stat {
+  border: 1px solid var(--hairline);
+  padding: 12px;
+  background: var(--panel2);
+}
+.v3-rp-stat .v {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.v3-rp-stat .l {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--faint);
+  margin-top: 2px;
+}
+@media (max-width: 1080px) {
+  .v3-page-rightpanel {
+    display: none;
+  }
+}
+@media (max-width: 760px) {
+  .v3-page-main {
+    padding: 18px 16px 32px;
+  }
+  .hf-hero {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 24px 18px;
+  }
+  .hf-hero-text .ht {
+    font-size: 24px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   My HUD (v3) — designs/version3/hud.html `.main` + `.rightpanel`.
+   Resume hero, Live/Archive/Shared-with-me row lists, and a right rail of
+   real weekly stats, personal activity, model usage and top tags. Shares
+   the wrap/main/rightpanel skeleton with the home feed (.v3-page-wrap etc.) but
+   its own hero/rows/rightpanel content, prefixed `hud-`.
+   ═══════════════════════════════════════════════════════════════════════ */
+.hud-hero {
+  position: relative;
+  padding: 30px;
+  background: var(--grad-hero);
+  border: 1px solid var(--hairline);
+  margin-bottom: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 22px;
+  min-height: 108px;
+  flex-wrap: wrap;
+}
+:root[data-theme="light"] .hud-hero {
+  background: var(--panel2);
+}
+.hud-hero-text .hk {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: rgba(255, 255, 255, 0.75);
+  margin-bottom: 6px;
+}
+:root[data-theme="light"] .hud-hero-text .hk {
+  color: var(--muted);
+}
+.hud-hero-text .ht {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+:root[data-theme="light"] .hud-hero-text .ht {
+  color: var(--ink);
+  font-weight: 700;
+}
+.hud-hero-text .hs {
+  margin-top: 6px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.8);
+}
+:root[data-theme="light"] .hud-hero-text .hs {
+  color: var(--muted);
+}
+.hud-hero-cta {
+  border: 1px solid var(--green);
+  background: var(--green);
+  color: var(--panel);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 10px 18px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.hud-hero-snippet {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.85);
+}
+:root[data-theme="light"] .hud-hero-snippet {
+  color: var(--muted);
+}
+.hud-hero-snippet .glyph {
+  color: var(--green);
+}
+.hud-idle {
+  border: 1px dashed var(--hairline);
+  background: var(--panel);
+  padding: 22px 24px;
+  margin-bottom: 26px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.hud-idle code {
+  color: var(--green);
+}
+
+.hud-rows {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--hairline);
+  overflow: hidden;
+}
+.hud-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--hairline);
+  background: var(--panel2);
+}
+.hud-row:last-child {
+  border-bottom: none;
+}
+.hud-row:hover {
+  background: var(--bg);
+}
+.hud-row-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  color: inherit;
+}
+.hud-row-swatch {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  background: var(--grad-hero);
+  position: relative;
+}
+.hud-row-play {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.35);
+  color: #fff;
+  opacity: 0;
+  font-size: 13px;
+}
+.hud-row:hover .hud-row-play {
+  opacity: 1;
+}
+.hud-row-title {
+  font-size: 12.5px;
+  color: var(--ink);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hud-row-sub {
+  font-size: 10px;
+  color: var(--faint);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hud-row-badge {
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 3px 8px;
+  border: 1px solid var(--hairline);
+  color: var(--muted);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.hud-row-badge.live {
+  color: var(--green);
+  border-color: var(--green);
+}
+.hud-row-icons {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+  flex-shrink: 0;
+  padding-left: 14px;
+}
+.hud-rbtn {
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border: 1px solid var(--hairline);
+  background: transparent;
+  color: var(--ink);
+  padding: 5px 9px;
+  cursor: pointer;
+  white-space: nowrap;
+  font-family: inherit;
+}
+.hud-rbtn:hover {
+  border-color: var(--strong);
+}
+.hud-rbtn.danger {
+  color: var(--red);
+}
+.hud-rbtn.danger:hover {
+  border-color: var(--red);
+}
+.hud-row-events {
+  font-size: 10px;
+  color: var(--faint);
+  text-align: right;
+  width: 64px;
+  flex-shrink: 0;
+}
+
+.hud-rp-activity-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--hairline);
+}
+.hud-rp-activity-row:last-child {
+  border-bottom: none;
+}
+.hud-rp-activity-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-top: 5px;
+  flex-shrink: 0;
+}
+.hud-rp-activity-text {
+  font-size: 10.5px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+.hud-rp-activity-text b {
+  color: var(--ink);
+  font-weight: 700;
+}
+.hud-rp-activity-time {
+  font-size: 9px;
+  color: var(--faint);
+  margin-top: 3px;
+}
+.hud-rp-bar-row {
+  margin-bottom: 10px;
+}
+.hud-rp-bar-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--muted);
+  margin-bottom: 5px;
+}
+.hud-rp-bar-track {
+  height: 6px;
+  background: var(--panel2);
+  border: 1px solid var(--hairline);
+  overflow: hidden;
+}
+.hud-rp-bar-fill {
+  height: 100%;
+  background: var(--green);
+}
+.hud-rp-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+  padding: 5px 10px;
+  border: 1px solid var(--hairline);
+  color: var(--muted);
+  margin: 0 6px 6px 0;
+}
+
+@media (max-width: 760px) {
+  .hud-row-events {
+    display: none;
+  }
+  .hud-hero {
+    padding: 22px 18px;
+  }
 }
 
 /* Twitch-style split: stream on the left, viewer chat on the right. The body
@@ -531,10 +1255,10 @@ a {
     overflow-y: auto;
     padding: 2px 2px 4px;
   }
-  /* Full-screen the signed-in mobile session viewer. The global header is
-     hidden on session pages (see the .hud-header rule below), so reclaim the
-     ~128px it reserved: let the workspace own the whole viewport and the thread
-     fill it, with the composer / "session ended" line pinned to the bottom —
+  /* Full-screen the signed-in mobile session viewer. The topbar is hidden on
+     session pages (see the .v3-topbar rule below), so reclaim the space it
+     reserved: let the workspace own the whole viewport and the thread fill
+     it, with the composer / "session ended" line pinned to the bottom —
      instead of a fixed-height 66vh pane leaving dead grey space beneath it.
      Scoped to .ws-main / :has(.session-page) so the anonymous viewer (no
      workspace, page scrolls) keeps its current behaviour. */
@@ -572,20 +1296,16 @@ a {
   /* Compact mobile header (matches design/session-viewer-mobile.html): drop the
      full meta grid, tags, view-links, session-id and badge cluster; surface a
      slim "● LIVE · model · ◔ watching" line under the title instead. */
-  /* The back link is replaced on mobile by the hamburger inside the topbar. */
-  .session-backlink {
-    display: none;
-  }
   /* On the mobile session viewer the page has its OWN topbar (☰ hamburger +
      title + ⚙ gear) and the left drawer already carries every nav target
-     (Feed, HUD, Profile, session history, sign-out). So the global HudHeader
-     that AuthGate stacks ABOVE the workspace — the brand row (LiveShortly +
-     theme toggle + user + sign-out) and the FEED/HUD/PROFILE/ADMIN tab nav —
-     is redundant chrome here; hide it. The header lives OUTSIDE .workspace (a
-     sibling before <main>), so this is scoped via body:has(.session-page),
-     which is true only on the session viewer, and only inside this mobile
-     query — desktop and the HUD/feed/profile pages keep the full header. */
-  body:has(.session-page) .hud-header {
+     (Feed, HUD, Profile, session history, sign-out). So the global v3 topbar
+     that AppShell stacks ABOVE the workspace — brand + search + theme toggle
+     + avatar — is redundant chrome here; hide it. The topbar lives OUTSIDE
+     .workspace (a sibling before <main>), so this is scoped via
+     body:has(.session-page), which is true only on the session viewer, and
+     only inside this mobile query — desktop and every other page keep the
+     full topbar. */
+  body:has(.session-page) .v3-topbar {
     display: none;
   }
   .session-hamburger {
@@ -2131,17 +2851,41 @@ a {
   border-bottom: 1px solid var(--hairline);
 }
 .sv-panel-cover {
-  height: 120px;
+  height: 140px;
   background: var(--grad-hero);
   border: 1px solid var(--hairline);
   margin-bottom: 14px;
 }
+.sv-panel-title-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
 .sv-panel-title {
+  flex: 1;
+  min-width: 0;
   font-size: 13px;
   font-weight: 700;
   color: var(--ink);
   line-height: 1.3;
   word-break: break-word;
+}
+.sv-panel-share {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+}
+.sv-panel-share:hover {
+  color: var(--ink);
+  border-color: var(--strong);
 }
 .sv-panel-sub {
   font-size: 10.5px;
@@ -2291,6 +3035,14 @@ a {
   padding: 11px 12px;
   font-size: 11.5px;
   letter-spacing: 0.02em;
+  transition: padding 150ms, font-size 150ms;
+}
+/* Grows on hover or while typing (:focus-within) — same as the compact-to-
+   expanded feel in designs/version3/session-viewer.html. */
+.sv-composer-wrap:hover .sv-composer-box input,
+.sv-composer-wrap:focus-within .sv-composer-box input {
+  padding: 16px 14px 8px;
+  font-size: 12.5px;
 }
 .sv-composer-send {
   border: none;
@@ -2362,5 +3114,335 @@ a {
   }
   .sv-composer {
     padding-bottom: max(8px, env(safe-area-inset-bottom));
+  }
+}
+
+/* ── chat thread — designs/version3/session-viewer.html `.chat-thread`.
+   EventStream.tsx renders prompts/responses/viewer comments/work blocks
+   with these classes; the grouping/reply-quote/permission-pill logic lives
+   entirely in that component, this is styling only. ── */
+.chat-thread {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 14px 0;
+  display: flex;
+  flex-direction: column;
+}
+.trow {
+  display: flex;
+  padding: 6px 20px;
+}
+.trow.right {
+  justify-content: flex-end;
+}
+.trow.left {
+  justify-content: flex-start;
+}
+.trow.center {
+  justify-content: center;
+  padding: 4px 20px;
+}
+
+.bubble {
+  max-width: 76%;
+  min-width: 0;
+  border: 1px solid var(--hairline);
+  padding: 7px 11px;
+}
+.bubble.prompt {
+  border-color: var(--strong);
+  border-right: 3px solid var(--strong);
+  background: color-mix(in srgb, var(--amber) 6%, var(--panel2));
+}
+.bubble.response {
+  border-color: var(--green);
+  border-left: 3px solid var(--green);
+  background: var(--panel2);
+}
+.bubble.viewer {
+  border-color: var(--amber);
+  border-left: 3px solid var(--amber);
+  background: color-mix(in srgb, var(--amber) 9%, var(--panel2));
+}
+
+.bubble-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  margin-bottom: 5px;
+}
+.bubble-head .who.prompt-who {
+  color: var(--strong);
+}
+.bubble-head .who.response-who {
+  color: var(--green);
+}
+.bubble-head .who.viewer-who {
+  color: var(--amber);
+}
+.bubble-time {
+  color: var(--faint);
+  font-weight: 400;
+}
+
+.reply-quote {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  border-left: 3px solid var(--amber);
+  background: color-mix(in srgb, var(--amber) 10%, var(--panel2));
+  padding: 4px 8px;
+  margin-bottom: 7px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.reply-quote .rq-who {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--amber);
+  font-weight: 700;
+}
+.reply-quote .rq-body {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+
+.bubble-body {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.bubble-body code {
+  background: var(--bg);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 12px;
+  color: var(--green);
+}
+
+.sys-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--hairline);
+  background: var(--panel2);
+  color: var(--muted);
+  padding: 4px 12px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.sys-pill .sp-glyph {
+  color: var(--amber);
+}
+.sys-pill .sp-time {
+  color: var(--faint);
+}
+
+/* Collapsible work block (tool calls / file writes between a prompt and its response) */
+.work {
+  padding: 6px 20px;
+}
+.work-box {
+  border: 1px solid var(--hairline);
+  border-left: 3px solid var(--muted);
+  background: var(--panel2);
+  overflow: hidden;
+}
+.work-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  padding: 7px 11px;
+  cursor: pointer;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-family: inherit;
+}
+.work-chevron {
+  color: var(--faint);
+  width: 10px;
+  flex-shrink: 0;
+  display: inline-block;
+  transition: transform 120ms;
+}
+.work-who {
+  color: var(--green);
+}
+.work-chip {
+  border: 1px solid;
+  padding: 1px 7px;
+  font-size: 9px;
+}
+.work-chip.red {
+  border-color: var(--red);
+  color: var(--red);
+}
+.work-chip.amber {
+  border-color: var(--amber);
+  color: var(--amber);
+}
+.work-dur {
+  margin-left: auto;
+  color: var(--faint);
+}
+.work-body {
+  border-top: 1px solid var(--hairline);
+}
+.work.collapsed .work-body {
+  display: none;
+}
+.work.collapsed .work-chevron {
+  transform: rotate(-90deg);
+}
+.work-step {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 5px 11px 5px 30px;
+  font-size: 12px;
+}
+.work-step .glyph {
+  flex-shrink: 0;
+}
+.work-step .verb {
+  text-transform: uppercase;
+  font-size: 9.5px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.work-step .path {
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex: 1;
+}
+.work-step .wtime {
+  margin-left: auto;
+  color: var(--faint);
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 860px) {
+  .trow {
+    padding: 5px 14px;
+  }
+  .work {
+    padding: 5px 14px;
+  }
+  .bubble {
+    max-width: 92%;
+  }
+}
+
+/* ── session actions dropdown — designs/version3/session-viewer.html
+   `.shero-gear`/`.gear-menu`, named with this page's existing `sv-` prefix.
+   Desktop (>=900px) only; mobile keeps its own `.session-gear-btn`/`.msheet`
+   bottom sheet (see the 860px query above and SessionClient.tsx). ── */
+.sv-hero-gear-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+.sv-hero-gear {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid var(--hairline);
+  background: var(--panel2);
+  color: var(--ink);
+  font-size: 13px;
+  cursor: pointer;
+}
+.sv-hero-gear:hover {
+  background: var(--panel);
+}
+.sv-gear-menu {
+  position: absolute;
+  top: 36px;
+  right: 0;
+  min-width: 192px;
+  background: var(--panel);
+  border: 1px solid var(--hairline);
+  box-shadow: 0 10px 26px -8px var(--shadow);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 40;
+}
+.sv-gm-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+  border: none;
+  background: transparent;
+  color: var(--ink);
+  padding: 9px 10px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.sv-gm-item:hover {
+  background: var(--panel2);
+}
+.sv-gm-item:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.sv-gm-item.danger {
+  color: var(--red);
+}
+.sv-gm-item.danger:hover {
+  background: var(--red);
+  color: #fff;
+}
+.sv-gm-sep {
+  height: 1px;
+  background: var(--hairline);
+  margin: 4px 2px;
+}
+/* Wraps a real action component (PublishAction, ShareToTwitter, etc.) as a
+   menu row — those components render their own compact pill buttons, so this
+   just gives each one a full-width row instead of restyling their buttons
+   (which are shared with the HUD row actions and the mobile sheet). */
+.sv-gm-item-wrap {
+  padding: 2px 4px;
+}
+.sv-gm-item-wrap > * {
+  width: 100%;
+}
+@media (max-width: 860px) {
+  .sv-hero-gear-wrap {
+    display: none;
   }
 }

@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import FeedTile from "@/components/FeedTile";
 import { getFeed, type Session } from "@/lib/api";
 import { fmtInt, timeAgo } from "@/lib/utils";
@@ -10,15 +11,26 @@ const SEARCH_DEBOUNCE_MS = 300;
 const PAGE_SIZE = 24;
 const TRENDING_COUNT = 4;
 
-export default function Feed({
-  showPlaceholderHero = true,
-}: {
+type FeedProps = {
   /** Skip the value-prop hero when there's nothing to feature yet — set to
    *  false when the caller (e.g. the landing page) already has its own. */
   showPlaceholderHero?: boolean;
-} = {}) {
-  const [query, setQuery] = useState("");
-  const [debounced, setDebounced] = useState("");
+};
+
+export default function Feed(props: FeedProps = {}) {
+  return (
+    <Suspense fallback={null}>
+      <FeedInner {...props} />
+    </Suspense>
+  );
+}
+
+function FeedInner({ showPlaceholderHero = true }: FeedProps) {
+  // Seeded from ?q=… so the topbar search (which navigates to /feed?q=…)
+  // lands directly on results.
+  const initialQuery = useSearchParams().get("q")?.trim() ?? "";
+  const [query, setQuery] = useState(initialQuery);
+  const [debounced, setDebounced] = useState(initialQuery);
   const [items, setItems] = useState<Session[]>([]);
   const [cursor, setCursor] = useState<string>("");
   const [loading, setLoading] = useState(false);

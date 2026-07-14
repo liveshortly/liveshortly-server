@@ -198,6 +198,20 @@ export function stats(signal?: AbortSignal): Promise<Stats> {
   return getJSON<Stats>("/api/stats", signal);
 }
 
+/** One entry in the caller's personal activity feed — see CONTRACT.md. */
+export interface ActivityItem {
+  kind: "went_live" | "published" | "comment" | "share";
+  actor?: string;
+  session_id: string;
+  session_title: string;
+  ts: string;
+}
+
+export async function activity(signal?: AbortSignal): Promise<ActivityItem[]> {
+  const r = await getJSON<{ results: ActivityItem[] }>("/api/me/activity", signal);
+  return r.results;
+}
+
 /** Aggregate proof counts for the anonymous landing page. No auth required. */
 export interface PublicStats {
   total_sessions: number;

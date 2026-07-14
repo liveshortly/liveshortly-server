@@ -4,18 +4,19 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/components/AuthContext";
-import BrandMark from "@/components/BrandMark";
 import Avatar from "@/components/Avatar";
-import { listSessions, type Session } from "@/lib/api";
+import { listSessions, logout as apiLogout, type Session } from "@/lib/api";
 import { timeAgo } from "@/lib/utils";
 
 const POLL_MS = 5000;
 
+type Tab = "all" | "live" | "shared";
+
 /**
- * ChatGPT-style session list. Lives in the workspace layout so it persists as
- * the user navigates between the HUD and individual sessions. Groups the user's
- * own sessions (LIVE pinned, then archived by recency) plus a "shared with me"
- * section, with a search filter. Each row links to /session/{id}.
+ * ChatGPT-style session list. Lives in the app shell so it persists as the
+ * user navigates between pages. Groups the user's own sessions (LIVE pinned,
+ * then archived by recency) plus a "shared with me" section, with a search
+ * filter and All/Live/Shared tabs. Each row links to /session/{id}.
  */
 export default function WorkspaceSidebar() {
   const pathname = usePathname() || "";
@@ -27,6 +28,8 @@ export default function WorkspaceSidebar() {
   const [mine, setMine] = useState<Session[] | null>(null);
   const [shared, setShared] = useState<Session[] | null>(null);
   const [q, setQ] = useState("");
+  const [tab, setTab] = useState<Tab>("all");
+  const [signingOut, setSigningOut] = useState(false);
 
   // Poll both lists so live status + new sessions show up without a reload.
   useEffect(() => {
@@ -94,15 +97,49 @@ export default function WorkspaceSidebar() {
 
   const loading = mine == null;
 
+  const showLive = tab !== "shared" && groups.live.length > 0;
+  const showBuckets = tab === "all" ? groups.buckets : [];
+  const showShared = tab !== "live" && groups.shared.length > 0;
+  const empty =
+    !loading && !showLive && showBuckets.length === 0 && !showShared;
+
+  const signOut = async () => {
+    setSigningOut(true);
+    try {
+      await apiLogout();
+    } catch {
+      // Ignore — reloading re-checks auth and falls back to the login screen.
+    }
+    window.location.assign("/");
+  };
+
   return (
     <div className="ws-sidebar-inner">
-      <Link href="/feed" className="ws-brand" aria-label="Go to the feed">
-        <BrandMark />
-        LiveShortly
-      </Link>
+      <div className="ws-head">
+        <Link href="/hud" className="ws-head-link" title="Open My HUD">
+          <span className="label">⌂ Your Sessions</span>
+          <span className="ws-head-arrow" aria-hidden>
+            →
+          </span>
+        </Link>
+      </div>
+
+      <div className="ws-tabs">
+        {(["all", "live", "shared"] as Tab[]).map((t) => (
+          <button
+            key={t}
+            type="button"
+            className="ws-tab"
+            aria-pressed={tab === t}
+            onClick={() => setTab(t)}
+          >
+            {t}
+          </button>
+        ))}
+      </div>
 
       {/* Search */}
-      <div style={{ padding: "10px 10px 6px" }}>
+      <div style={{ padding: "0 10px 8px" }}>
         <div
           style={{
             display: "flex",
@@ -155,7 +192,7 @@ export default function WorkspaceSidebar() {
           </div>
         ) : (
           <>
-            {groups.live.length > 0 && (
+            {showLive && (
               <Group label="◉ LIVE" tone="green">
                 {groups.live.map((s) => (
                   <Row key={s.id} s={s} active={s.id === activeId} live />
@@ -163,7 +200,7 @@ export default function WorkspaceSidebar() {
               </Group>
             )}
 
-            {groups.buckets.map((b) => (
+            {showBuckets.map((b) => (
               <Group key={b.label} label={b.label.toUpperCase()}>
                 {b.items.map((s) => (
                   <Row key={s.id} s={s} active={s.id === activeId} />
@@ -171,7 +208,7 @@ export default function WorkspaceSidebar() {
               </Group>
             ))}
 
-            {groups.shared.length > 0 && (
+            {showShared && (
               <Group label="🔗 SHARED WITH ME">
                 {groups.shared.map((s) => (
                   <Row key={s.id} s={s} active={s.id === activeId} shared />
@@ -179,47 +216,60 @@ export default function WorkspaceSidebar() {
               </Group>
             )}
 
-            {groups.live.length === 0 &&
-              groups.buckets.length === 0 &&
-              groups.shared.length === 0 && (
-                <div
-                  className="label"
-                  style={{ color: "var(--faint)", padding: "18px 6px", lineHeight: 1.6 }}
-                >
-                  {needle ? "NO MATCHES" : "NO SESSIONS YET"}
-                  {!needle && (
-                    <div style={{ marginTop: 8, textTransform: "none", letterSpacing: 0, fontSize: 12 }}>
-                      Run{" "}
-                      <code style={{ color: "var(--green)" }}>live claude</code>{" "}
-                      to start one.
-                    </div>
-                  )}
-                </div>
-              )}
+            {empty && (
+              <div
+                className="label"
+                style={{ color: "var(--faint)", padding: "18px 6px", lineHeight: 1.6 }}
+              >
+                {needle ? "NO MATCHES" : "NO SESSIONS YET"}
+                {!needle && tab === "all" && (
+                  <div style={{ marginTop: 8, textTransform: "none", letterSpacing: 0, fontSize: 12 }}>
+                    Run{" "}
+                    <code style={{ color: "var(--green)" }}>live claude</code>{" "}
+                    to start one.
+                  </div>
+                )}
+              </div>
+            )}
           </>
         )}
       </div>
 
-      <Link href="/profile" className="ws-profile-footer">
-        <Avatar
-          seed={user?.id ?? user?.email ?? user?.name}
-          size={28}
-          rounded={false}
-          className="ws-profile-avatar"
-          title={user?.name ?? user?.email ?? "Account"}
-        />
-        <span className="ws-profile-info">
-          <span className="ws-profile-name">
-            {user?.name ?? user?.email ?? "Account"}
+      {user?.is_admin && (
+        <Link href="/admin" className="ws-admin-link">
+          <span aria-hidden>★</span> ADMIN
+        </Link>
+      )}
+
+      <div className="ws-profile-footer">
+        <Link href="/profile" className="ws-profile-link">
+          <Avatar
+            seed={user?.id ?? user?.email ?? user?.name}
+            size={28}
+            rounded={false}
+            className="ws-profile-avatar"
+            title={user?.name ?? user?.email ?? "Account"}
+          />
+          <span className="ws-profile-info">
+            <span className="ws-profile-name">
+              {user?.name ?? user?.email ?? "Account"}
+            </span>
+            {user?.email && (
+              <span className="ws-profile-email">{user.email}</span>
+            )}
           </span>
-          {user?.email && (
-            <span className="ws-profile-email">{user.email}</span>
-          )}
-        </span>
-        <span className="ws-profile-arrow" aria-hidden>
-          ›
-        </span>
-      </Link>
+        </Link>
+        <button
+          type="button"
+          onClick={signOut}
+          disabled={signingOut}
+          className="ws-signout"
+          title="Sign out"
+          aria-label="Sign out"
+        >
+          {signingOut ? "…" : "⎋"}
+        </button>
+      </div>
     </div>
   );
 }

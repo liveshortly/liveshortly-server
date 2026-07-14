@@ -27,6 +27,7 @@ import {
   renameSession,
   stopSession,
   streamUrl,
+  type Session,
   type SessionDetail,
   type SessionEvent,
 } from "@/lib/api";
@@ -53,11 +54,9 @@ export default function SessionViewer({
   const [needsAuth, setNeedsAuth] = useState(false);
   const [deleted, setDeleted] = useState(false);
   const [conn, setConn] = useState<Connection>("idle");
-  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
-  const linkBtnRef = useRef<HTMLButtonElement>(null);
   // Mobile-only: the ⚙ actions sheet, and its own Share Link trigger (kept
-  // separate from the desktop one above since both can be simultaneously
-  // mounted — the desktop button just sits hidden via CSS on narrow screens).
+  // separate from SessionActionsMenu's own — the desktop trigger sits
+  // hidden via CSS on narrow screens, so both can be simultaneously mounted).
   const [moreOpen, setMoreOpen] = useState(false);
   const [mobileLinkOpen, setMobileLinkOpen] = useState(false);
   const mobileLinkBtnRef = useRef<HTMLButtonElement>(null);
@@ -408,20 +407,6 @@ export default function SessionViewer({
 
   return (
     <div className="session-page">
-      <Link
-        href="/"
-        className="label session-backlink"
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 6,
-          color: "var(--muted)",
-          marginBottom: 14,
-        }}
-      >
-        ◂ BACK TO HUD
-      </Link>
-
       {err && (
         <div
           className="label"
@@ -639,76 +624,24 @@ export default function SessionViewer({
             )}
             {meta && <Badge status={meta.status} size="md" />}
             </div>
-            <div className="session-actions">
-              {/* Continue this session (handoff) — available to anyone who can read it. */}
-              {meta && <HandoffButton sessionId={meta.id} />}
-              {/* Share to X — makes it public (owner) + opens a pre-filled tweet. */}
-              {meta && (
-                <ShareToTwitter
-                  session={meta}
-                  onChanged={(u) => setMeta((m) => (m ? { ...m, ...u } : m))}
-                />
-              )}
-              {/* Publish / Unpublish — owner only, beside the status badge. */}
-              {meta?.is_owner && (
-                <PublishAction
-                  session={meta}
-                  onChanged={(u) => setMeta((m) => (m ? { ...m, ...u } : m))}
-                />
-              )}
-              {meta?.is_owner && (
-                <span style={{ display: "inline-block" }}>
-                  <button
-                    ref={linkBtnRef}
-                    type="button"
-                    onClick={() => setLinkDialogOpen((v) => !v)}
-                    className="label"
-                    aria-haspopup="dialog"
-                    aria-expanded={linkDialogOpen}
-                    style={{
-                      border: "1px solid var(--strong)",
-                      background: linkDialogOpen ? "var(--strong)" : "transparent",
-                      color: linkDialogOpen ? "var(--panel)" : "var(--ink)",
-                      padding: "5px 10px",
-                      fontSize: 10,
-                      cursor: "pointer",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    ⊕ SHARE LINK
-                  </button>
-                  {linkDialogOpen && (
-                    <PublicLinkDialog
-                      sessionId={id}
-                      title={meta.title}
-                      visibility={meta.visibility ?? "private"}
-                      anchorEl={linkBtnRef.current}
-                      onClose={() => setLinkDialogOpen(false)}
-                      onChanged={(u) => setMeta((m) => (m ? { ...m, ...u } : m))}
-                    />
-                  )}
-                </span>
-              )}
-              {meta?.is_owner && meta.status === "live" && (
-                <EndButton
-                  id={id}
-                  onEnded={() =>
-                    setMeta((m) =>
-                      m
-                        ? { ...m, status: "ended", ended_at: new Date().toISOString() }
-                        : m,
-                    )
-                  }
-                />
-              )}
-              {meta?.is_owner && (
-                <DeleteSessionButton
-                  id={id}
-                  onDeleted={() => router.push("/hud")}
-                />
-              )}
-            </div>
-            {/* Mobile-only: collapses the row above into a single ⚙ button. */}
+            {/* Desktop (>860px): actions live behind a gear dropdown, matching
+                design/version3/session-viewer.html's `.shero-gear`. */}
+            {meta && (
+              <SessionActionsMenu
+                id={id}
+                meta={meta}
+                onMetaChange={(u) => setMeta((m) => (m ? { ...m, ...u } : m))}
+                onEnded={() =>
+                  setMeta((m) =>
+                    m
+                      ? { ...m, status: "ended", ended_at: new Date().toISOString() }
+                      : m,
+                  )
+                }
+                onDeleted={() => router.push("/hud")}
+              />
+            )}
+            {/* Mobile-only: the same actions in a bottom sheet. */}
             {meta && (
               <button
                 type="button"
@@ -824,6 +757,7 @@ export default function SessionViewer({
           events={events}
           eventTotal={eventTotal}
           isLive={isLive}
+          onMetaChange={(u) => setMeta((m) => (m ? { ...m, ...u } : m))}
         />
       </div>
 
@@ -942,6 +876,123 @@ export default function SessionViewer({
   );
 }
 
+/** Desktop (>860px) session actions — a `⚙` trigger opening a dropdown of the
+ *  same real action components the mobile bottom sheet uses (just reparented,
+ *  not restyled — each keeps its own compact button chrome, shared with the
+ *  HUD row actions). Closes on an outside click or Escape. */
+function SessionActionsMenu({
+  id,
+  meta,
+  onMetaChange,
+  onEnded,
+  onDeleted,
+}: {
+  id: string;
+  meta: SessionDetail;
+  onMetaChange: (u: Session) => void;
+  onEnded: () => void;
+  onDeleted: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [linkOpen, setLinkOpen] = useState(false);
+  const linkBtnRef = useRef<HTMLButtonElement>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("click", onDocClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("click", onDocClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div className="sv-hero-gear-wrap" ref={wrapRef}>
+      <button
+        type="button"
+        className="sv-hero-gear"
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label="Session actions"
+        title="Session actions"
+      >
+        ⚙
+      </button>
+      {open && (
+        <div className="sv-gear-menu" role="menu">
+          <div className="sv-gm-item-wrap">
+            <HandoffButton sessionId={meta.id} fullWidth />
+          </div>
+          <div className="sv-gm-item-wrap">
+            <ShareToTwitter session={meta} onChanged={onMetaChange} />
+          </div>
+          {meta.is_owner && (
+            <div className="sv-gm-item-wrap">
+              <PublishAction session={meta} onChanged={onMetaChange} />
+            </div>
+          )}
+          {meta.is_owner && (
+            <div className="sv-gm-item-wrap" style={{ position: "relative" }}>
+              <button
+                ref={linkBtnRef}
+                type="button"
+                onClick={() => setLinkOpen((v) => !v)}
+                className="label"
+                aria-haspopup="dialog"
+                aria-expanded={linkOpen}
+                style={{
+                  width: "100%",
+                  border: "1px solid var(--strong)",
+                  background: linkOpen ? "var(--strong)" : "transparent",
+                  color: linkOpen ? "var(--panel)" : "var(--ink)",
+                  padding: "5px 10px",
+                  fontSize: 10,
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                ⊕ SHARE LINK
+              </button>
+              {linkOpen && (
+                <PublicLinkDialog
+                  sessionId={id}
+                  title={meta.title}
+                  visibility={meta.visibility ?? "private"}
+                  anchorEl={linkBtnRef.current}
+                  onClose={() => setLinkOpen(false)}
+                  onChanged={onMetaChange}
+                />
+              )}
+            </div>
+          )}
+          {(meta.is_owner || meta.status === "live") && <div className="sv-gm-sep" />}
+          {meta.is_owner && meta.status === "live" && (
+            <div className="sv-gm-item-wrap">
+              <EndButton id={id} onEnded={onEnded} />
+            </div>
+          )}
+          {meta.is_owner && (
+            <div className="sv-gm-item-wrap">
+              <DeleteSessionButton id={id} onDeleted={onDeleted} />
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** Right-hand panel: what this session IS (model, framework, reach, git, tags)
  *  and who is around. The v3 mock has no separate chat column — viewer comments
  *  bubble inline in the thread — so this replaces it.
@@ -956,12 +1007,14 @@ function SessionInfoPanel({
   events,
   eventTotal,
   isLive,
+  onMetaChange,
 }: {
   id: string;
   meta: SessionDetail | null;
   events: SessionEvent[];
   eventTotal: number;
   isLive: boolean;
+  onMetaChange: (u: Session) => void;
 }) {
   // Distinct speakers, most recent first — real handles from real comments.
   const speakers = useMemo(() => {
@@ -985,6 +1038,9 @@ function SessionInfoPanel({
   const watchers = meta?.watcher_count ?? 0;
   const others = Math.max(0, watchers - speakers.length);
 
+  const [linkOpen, setLinkOpen] = useState(false);
+  const linkBtnRef = useRef<HTMLButtonElement>(null);
+
   if (!meta) return <aside className="sv-panel" aria-busy />;
 
   const tokens = (meta.input_tokens ?? 0) + (meta.output_tokens ?? 0);
@@ -994,7 +1050,35 @@ function SessionInfoPanel({
     <aside className="sv-panel" aria-label="Session info">
       <div className="sv-panel-hero">
         <div className="sv-panel-cover" aria-hidden />
-        <div className="sv-panel-title">{meta.title || "untitled session"}</div>
+        <div className="sv-panel-title-row">
+          <div className="sv-panel-title">{meta.title || "untitled session"}</div>
+          {meta.is_owner && (
+            <span style={{ position: "relative" }}>
+              <button
+                ref={linkBtnRef}
+                type="button"
+                className="sv-panel-share"
+                onClick={() => setLinkOpen((v) => !v)}
+                aria-haspopup="dialog"
+                aria-expanded={linkOpen}
+                aria-label="Share this session"
+                title="Share this session"
+              >
+                +
+              </button>
+              {linkOpen && (
+                <PublicLinkDialog
+                  sessionId={id}
+                  title={meta.title}
+                  visibility={meta.visibility ?? "private"}
+                  anchorEl={linkBtnRef.current}
+                  onClose={() => setLinkOpen(false)}
+                  onChanged={onMetaChange}
+                />
+              )}
+            </span>
+          )}
+        </div>
         <div className="sv-panel-sub">@{meta.owner_handle}</div>
 
         <div className="sv-panel-h">Session info</div>
