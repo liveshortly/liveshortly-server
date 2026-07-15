@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -1134,4 +1135,126 @@ func (st *Store) Stats(ctx context.Context, userID, email string) (Stats, error)
 	var s Stats
 	err := st.pool.QueryRow(ctx, q, userID, email).Scan(&s.TotalSessions, &s.LiveNow, &s.Ended, &s.TotalEvents)
 	return s, err
+}
+
+// ActivityItem is one entry in a user's personal activity feed: sessions they
+// started or published, comments received on their sessions, and shares
+// granted to them. Actor is the handle of whoever acted (commenter, sharer);
+// empty for went_live/published, which are always the caller's own action.
+type ActivityItem struct {
+	Kind         string    `json:"kind"` // "went_live" | "published" | "comment" | "share"
+	Actor        string    `json:"actor,omitempty"`
+	SessionID    string    `json:"session_id"`
+	SessionTitle string    `json:"session_title"`
+	TS           time.Time `json:"ts"`
+}
+
+// perKindLimit caps how many rows each activity source contributes before the
+// merged, sorted result is truncated to the caller's requested limit — so one
+// prolific source (e.g. many comments) can't crowd out the others.
+const activityPerKindLimit = 8
+
+// Activity returns the caller's most recent personal activity — their own
+// went-live/published sessions, comments received on sessions they own, and
+// shares granted to them — merged and sorted newest first, capped at limit.
+func (st *Store) Activity(ctx context.Context, userID, email string, limit int) ([]ActivityItem, error) {
+	var items []ActivityItem
+
+	wentLive, err := st.pool.Query(ctx,
+		`SELECT id, title, created_at FROM sessions
+		 WHERE owner_id = $1 ORDER BY created_at DESC LIMIT $2`,
+		userID, activityPerKindLimit)
+	if err != nil {
+		return nil, err
+	}
+	for wentLive.Next() {
+		var it ActivityItem
+		if err := wentLive.Scan(&it.SessionID, &it.SessionTitle, &it.TS); err != nil {
+			wentLive.Close()
+			return nil, err
+		}
+		it.Kind = "went_live"
+		items = append(items, it)
+	}
+	wentLive.Close()
+	if err := wentLive.Err(); err != nil {
+		return nil, err
+	}
+
+	published, err := st.pool.Query(ctx,
+		`SELECT id, title, published_at FROM sessions
+		 WHERE owner_id = $1 AND published_at IS NOT NULL
+		 ORDER BY published_at DESC LIMIT $2`,
+		userID, activityPerKindLimit)
+	if err != nil {
+		return nil, err
+	}
+	for published.Next() {
+		var it ActivityItem
+		if err := published.Scan(&it.SessionID, &it.SessionTitle, &it.TS); err != nil {
+			published.Close()
+			return nil, err
+		}
+		it.Kind = "published"
+		items = append(items, it)
+	}
+	published.Close()
+	if err := published.Err(); err != nil {
+		return nil, err
+	}
+
+	comments, err := st.pool.Query(ctx,
+		`SELECT se.session_id, s.title, se.payload->>'username', se.ts
+		 FROM session_events se JOIN sessions s ON s.id = se.session_id
+		 WHERE s.owner_id = $1 AND se.event_type = 'viewer_comment'
+		 ORDER BY se.ts DESC LIMIT $2`,
+		userID, activityPerKindLimit)
+	if err != nil {
+		return nil, err
+	}
+	for comments.Next() {
+		var it ActivityItem
+		if err := comments.Scan(&it.SessionID, &it.SessionTitle, &it.Actor, &it.TS); err != nil {
+			comments.Close()
+			return nil, err
+		}
+		it.Kind = "comment"
+		items = append(items, it)
+	}
+	comments.Close()
+	if err := comments.Err(); err != nil {
+		return nil, err
+	}
+
+	shares, err := st.pool.Query(ctx,
+		`SELECT sh.session_id, s.title,
+		        COALESCE(NULLIF(u.name,''), NULLIF(u.email,''), u.handle), sh.created_at
+		 FROM session_shares sh
+		 JOIN sessions s ON s.id = sh.session_id
+		 JOIN users u ON u.id = sh.created_by
+		 WHERE sh.grantee_user_id = $1 OR lower(sh.grantee_email) = lower($2)
+		 ORDER BY sh.created_at DESC LIMIT $3`,
+		userID, email, activityPerKindLimit)
+	if err != nil {
+		return nil, err
+	}
+	for shares.Next() {
+		var it ActivityItem
+		if err := shares.Scan(&it.SessionID, &it.SessionTitle, &it.Actor, &it.TS); err != nil {
+			shares.Close()
+			return nil, err
+		}
+		it.Kind = "share"
+		items = append(items, it)
+	}
+	shares.Close()
+	if err := shares.Err(); err != nil {
+		return nil, err
+	}
+
+	sort.Slice(items, func(i, j int) bool { return items[i].TS.After(items[j].TS) })
+	if len(items) > limit {
+		items = items[:limit]
+	}
+	return items, nil
 }

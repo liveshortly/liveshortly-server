@@ -163,7 +163,9 @@ function group(events: SessionEvent[]): Item[] {
   return items;
 }
 
-/** Chat-transcript event log. Auto-scrolls to bottom when new events arrive. */
+/** Chat-transcript event log. Auto-scrolls to bottom when new events arrive.
+ *  Markup matches designs/version3/session-viewer.html's `.chat-thread` /
+ *  `.trow` / `.bubble` / `.work` / `.sys-pill` classes (globals.css). */
 export default function EventStream({
   events: rawEvents,
   live,
@@ -223,14 +225,11 @@ export default function EventStream({
     <div
       ref={scrollRef}
       onScroll={onScroll}
+      className="chat-thread"
       style={{
         border: "1px solid var(--strong)",
         background: "var(--bg)",
-        ...(fill
-          ? { flex: 1, minHeight: 0 }
-          : { height: "min(64vh, 620px)" }),
-        overflowY: "auto",
-        padding: "12px 0",
+        ...(fill ? { flex: 1, minHeight: 0 } : { height: "min(64vh, 620px)" }),
       }}
     >
       {items.length === 0 ? (
@@ -255,27 +254,11 @@ export default function EventStream({
           if (!BUBBLE_TYPES.has(e.event_type)) {
             const m = markerFor(e.event_type);
             return (
-              <div
-                key={e.id}
-                ref={setRef(e.id)}
-                style={{ display: "flex", justifyContent: "center", padding: "4px 12px" }}
-              >
-                <div
-                  className="label tnum"
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 8,
-                    maxWidth: "82%",
-                    border: "1px solid var(--hairline)",
-                    background: "var(--panel)",
-                    color: "var(--muted)",
-                    padding: "3px 10px",
-                    fontSize: 10,
-                  }}
-                  title={systemLine(e)}
-                >
-                  <span style={{ color: m.color }}>{m.glyph}</span>
+              <div key={e.id} ref={setRef(e.id)} className="trow center">
+                <div className="sys-pill tnum" title={systemLine(e)}>
+                  <span className="sp-glyph" style={{ color: m.color }}>
+                    {m.glyph}
+                  </span>
                   <span style={{ color: m.color }}>{e.event_type}</span>
                   <span
                     style={{
@@ -289,7 +272,7 @@ export default function EventStream({
                   >
                     {systemLine(e)}
                   </span>
-                  <span style={{ color: "var(--faint)" }}>{localTime(e.ts)}</span>
+                  <span className="sp-time">{localTime(e.ts)}</span>
                 </div>
               </div>
             );
@@ -300,17 +283,8 @@ export default function EventStream({
           const isResponse = e.event_type === "response";
           const isViewer = e.event_type === "viewer_comment";
           const side: "left" | "right" = isPrompt ? "right" : "left";
-
-          const accent = isResponse
-            ? "var(--green)"
-            : isViewer
-              ? "var(--amber)"
-              : "var(--strong)";
-          const tint = isResponse
-            ? "var(--panel)"
-            : isViewer
-              ? "color-mix(in srgb, var(--amber) 8%, var(--panel))"
-              : "color-mix(in srgb, var(--amber) 6%, var(--panel))";
+          const bubbleKind = isResponse ? "response" : isViewer ? "viewer" : "prompt";
+          const whoKind = isResponse ? "response-who" : isViewer ? "viewer-who" : "prompt-who";
 
           const senderLabel = isResponse
             ? agentLabel
@@ -331,40 +305,11 @@ export default function EventStream({
           }
 
           return (
-            <div
-              key={e.id}
-              ref={setRef(e.id)}
-              style={{
-                display: "flex",
-                justifyContent: side === "right" ? "flex-end" : "flex-start",
-                padding: "6px 12px",
-              }}
-            >
-              <div
-                style={{
-                  maxWidth: "82%",
-                  minWidth: 0,
-                  border: `1px solid ${accent}`,
-                  borderRadius: 3,
-                  background: tint,
-                  [side === "right" ? "borderRight" : "borderLeft"]:
-                    `3px solid ${accent}`,
-                  padding: "6px 10px",
-                }}
-              >
-                <div
-                  className="label tnum"
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    gap: 12,
-                    color: accent,
-                    fontSize: 10,
-                    marginBottom: 4,
-                  }}
-                >
-                  <span>{senderLabel}</span>
-                  <span style={{ color: "var(--faint)" }} title={e.ts}>
+            <div key={e.id} ref={setRef(e.id)} className={`trow ${side}`}>
+              <div className={`bubble ${bubbleKind}`}>
+                <div className="bubble-head tnum">
+                  <span className={`who ${whoKind}`}>{senderLabel}</span>
+                  <span className="bubble-time" title={e.ts}>
                     {localTime(e.ts)}
                   </span>
                 </div>
@@ -373,20 +318,10 @@ export default function EventStream({
                   <button
                     type="button"
                     onClick={() => scrollToEvent(quote!.id)}
-                    style={{
-                      display: "block",
-                      width: "100%",
-                      textAlign: "left",
-                      border: "none",
-                      borderLeft: "3px solid var(--amber)",
-                      background: "color-mix(in srgb, var(--amber) 9%, var(--panel))",
-                      padding: "3px 8px",
-                      marginBottom: 6,
-                      cursor: "pointer",
-                    }}
+                    className="reply-quote"
                     title="Jump to the message this replies to"
                   >
-                    <span className="label" style={{ color: "var(--amber)", fontSize: 9 }}>
+                    <span className="rq-who">
                       ↩ REPLYING TO{" "}
                       {quote.event_type === "viewer_comment"
                         ? `@${handleOf(quote, addressed ?? "viewer")} · VIEWER`
@@ -396,36 +331,16 @@ export default function EventStream({
                             ? "YOU"
                             : `@${handleOf(quote, me)}`}
                     </span>
-                    <span
-                      style={{
-                        display: "block",
-                        fontSize: 11,
-                        color: "var(--muted)",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {truncate(bodyText(quote), 80)}
-                    </span>
+                    <span className="rq-body">{truncate(bodyText(quote), 80)}</span>
                   </button>
                 )}
 
                 {isResponse ? (
-                  <div className="md" style={{ fontSize: 13, color: "var(--ink)" }}>
+                  <div className="bubble-body md">
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>{body}</ReactMarkdown>
                   </div>
                 ) : (
-                  <div
-                    style={{
-                      fontSize: 13,
-                      whiteSpace: "pre-wrap",
-                      wordBreak: "break-word",
-                      color: "var(--ink)",
-                    }}
-                  >
-                    {body}
-                  </div>
+                  <div className="bubble-body">{body}</div>
                 )}
               </div>
             </div>
@@ -459,120 +374,54 @@ function WorkBlock({
     : 0;
 
   return (
-    <div ref={setRef(events[0].id)} style={{ padding: "6px 12px" }}>
-      <div
-        style={{
-          border: "1px solid var(--hairline)",
-          background: "var(--panel)",
-          borderLeft: "3px solid var(--muted)",
-        }}
-      >
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          className="label tnum"
-          style={{
-            width: "100%",
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            border: "none",
-            background: "transparent",
-            color: "var(--muted)",
-            padding: "6px 10px",
-            cursor: "pointer",
-            fontSize: 10,
-          }}
-        >
-          <span style={{ color: "var(--faint)" }}>{open ? "▾" : "▸"}</span>
-          <span style={{ color: "var(--green)" }}>{agentLabel}</span>
+    <div ref={setRef(events[0].id)} className={`work${open ? "" : " collapsed"}`}>
+      <div className="work-box">
+        <button type="button" onClick={() => setOpen((v) => !v)} className="work-toggle tnum">
+          <span className="work-chevron">▾</span>
+          <span className="work-who">{agentLabel}</span>
           <span>· {events.length} step{events.length === 1 ? "" : "s"}</span>
-          {files > 0 && <Chip tone="red">{files} file{files === 1 ? "" : "s"}</Chip>}
-          {runs > 0 && <Chip tone="amber">{runs} run{runs === 1 ? "" : "s"}</Chip>}
+          {files > 0 && (
+            <span className="work-chip red">
+              {files} file{files === 1 ? "" : "s"}
+            </span>
+          )}
+          {runs > 0 && (
+            <span className="work-chip amber">
+              {runs} run{runs === 1 ? "" : "s"}
+            </span>
+          )}
           {dur > 0 && (
-            <span style={{ marginLeft: "auto", color: "var(--faint)" }}>
+            <span className="work-dur">
               {dur < 1000 ? `${dur}ms` : `${(dur / 1000).toFixed(1)}s`}
             </span>
           )}
         </button>
-        {open && (
-          <div style={{ borderTop: "1px solid var(--hairline)" }}>
-            {events.map((e) => {
-              const { verb, path, detail } = workStep(e);
-              const m = markerFor(e.event_type);
-              return (
-                <div
-                  key={e.id}
-                  style={{
-                    display: "flex",
-                    alignItems: "baseline",
-                    gap: 8,
-                    padding: "4px 10px 4px 24px",
-                    fontSize: 12,
-                  }}
-                >
-                  <span style={{ color: m.color }}>{m.glyph}</span>
-                  <span className="label" style={{ color: m.color, fontSize: 10 }}>
-                    {verb}
+        <div className="work-body">
+          {events.map((e) => {
+            const { verb, path, detail } = workStep(e);
+            const m = markerFor(e.event_type);
+            return (
+              <div key={e.id} className="work-step">
+                <span className="glyph" style={{ color: m.color }}>
+                  {m.glyph}
+                </span>
+                <span className="verb" style={{ color: m.color }}>
+                  {verb}
+                </span>
+                <span className="path tnum" title={path}>
+                  {path}
+                </span>
+                {detail && (
+                  <span className="label" style={{ color: "var(--faint)" }}>
+                    {detail}
                   </span>
-                  <span
-                    className="tnum"
-                    style={{
-                      color: "var(--ink)",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                      minWidth: 0,
-                    }}
-                    title={path}
-                  >
-                    {path}
-                  </span>
-                  {detail && (
-                    <span className="label" style={{ color: "var(--faint)" }}>
-                      {detail}
-                    </span>
-                  )}
-                  <span
-                    className="label tnum"
-                    style={{ marginLeft: "auto", color: "var(--faint)", flexShrink: 0 }}
-                  >
-                    {localTime(e.ts)}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        )}
+                )}
+                <span className="wtime tnum">{localTime(e.ts)}</span>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
-  );
-}
-
-const CHIP_COLOR: Record<"red" | "amber" | "ink", string> = {
-  red: "var(--red)",
-  amber: "var(--amber)",
-  ink: "var(--muted)",
-};
-
-function Chip({
-  children,
-  tone,
-}: {
-  children: React.ReactNode;
-  tone: "red" | "amber" | "ink";
-}) {
-  const color = CHIP_COLOR[tone];
-  return (
-    <span
-      style={{
-        border: `1px solid ${tone === "ink" ? "var(--hairline)" : color}`,
-        color,
-        padding: "1px 6px",
-        fontSize: 9,
-      }}
-    >
-      {children}
-    </span>
   );
 }
