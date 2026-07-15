@@ -1,8 +1,8 @@
 "use client";
 
-import Feed from "@/components/Feed";
+import HomeFeed from "@/components/HomeFeed";
 
-/** Landing page — the public Feed of published sessions. */
+/** Authenticated home page — designs/version3/feed.html. */
 export default function Page() {
-  return <Feed />;
+  return <HomeFeed />;
 }
