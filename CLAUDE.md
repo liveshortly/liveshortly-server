@@ -60,6 +60,30 @@ docker compose down           # stop + remove containers
 docker compose up -d --build web  # rebuild only the web (needed after NEXT_PUBLIC_API_URL change)
 ```
 
+### Run locally WITH Google auth (single-origin — use this for login/SSE)
+The base stack above serves web on `:3000` and api on `:8000` — **two origins**, so
+the session cookie is dropped and Google login fails with `redirect_uri_mismatch`.
+For anything touching auth or live SSE, run the nginx single-origin overlay, which
+fronts both on **one origin (`http://localhost:8080`)**:
+```bash
+cp .env.local.example .env.local   # first time only; fill in the two Google secrets
+docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
+```
+Then open **http://localhost:8080** (NOT `:3000`). Notes:
+- Google secrets (`GOOGLE_CLIENT_ID/SECRET`, `SESSION_SECRET`) load from `.env.auth`
+  (base compose `env_file`, `required:false`). The overlay forces
+  `WEB_BASE_URL=http://localhost:8080` + `OAUTH_ALLOWED_HOSTS=localhost:8080`, which
+  win over `.env.auth`, so the OAuth `redirect_uri` = `http://localhost:8080/auth/google/callback`.
+  That exact URI **must** be an Authorized redirect URI on the Google OAuth client.
+- `redirect_uri` is derived server-side from the request Host (`authweb.go:requestBase`):
+  Host not in `OAUTH_ALLOWED_HOSTS` → falls back to `WEB_BASE_URL`. That's why `:3000`
+  (base stack) mismatches — it never matches an allowed host.
+- Optional remote access over `tailscale serve`: add the MagicDNS host to
+  `OAUTH_ALLOWED_HOSTS` (comma-separated) in `docker-compose.local.yml`, and nginx
+  `deploy/nginx/local.conf` maps `X-Forwarded-Proto` per-host (`http` for localhost,
+  `https` for `*.ts.net`) so the redirect_uri + cookie Secure flag are correct.
+  Register that host's `/auth/google/callback` in the Google console too.
+
 ### API (Go)
 ```bash
 cd api

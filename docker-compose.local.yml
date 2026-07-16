@@ -21,7 +21,10 @@ services:
       # Drives OAuth allowed host + cookie Secure flag (http → non-secure,
       # so the cookie is accepted over plain localhost).
       WEB_BASE_URL: http://localhost:8080
-      OAUTH_ALLOWED_HOSTS: localhost:8080
+      # localhost stays the fallback origin; the Tailscale MagicDNS host is
+      # allowlisted so login over `tailscale serve` redirects back to itself
+      # (https) instead of falling back to localhost.
+      OAUTH_ALLOWED_HOSTS: localhost:8080,mini.dhole-hoki.ts.net
 
   web:
     build:
