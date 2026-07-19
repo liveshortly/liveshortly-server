@@ -3626,3 +3626,85 @@ a {
   background: var(--green);
   animation: liveBlink 1.4s ease-in-out infinite;
 }
+
+/* ── profile dropdown menu (topbar + sidebar footer) ── */
+.pm-wrap {
+  position: relative;
+  display: inline-flex;
+}
+.pm-trigger {
+  display: inline-flex;
+  align-items: center;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+.pm-menu {
+  position: absolute;
+  z-index: 40;
+  min-width: 168px;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  background: var(--panel2);
+  border: 1px solid var(--hairline);
+  box-shadow: 0 8px 24px var(--shadow);
+  animation: pmGrow 120ms ease-out;
+}
+.pm-down {
+  top: calc(100% + 6px);
+  transform-origin: top;
+}
+.pm-up {
+  bottom: calc(100% + 6px);
+  transform-origin: bottom;
+}
+.pm-align-start {
+  left: 0;
+}
+.pm-align-end {
+  right: 0;
+}
+@keyframes pmGrow {
+  from {
+    opacity: 0;
+    transform: scaleY(0.85) translateY(var(--pm-shift, -4px));
+  }
+  to {
+    opacity: 1;
+    transform: scaleY(1) translateY(0);
+  }
+}
+.pm-up {
+  --pm-shift: 4px;
+}
+.pm-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--ink);
+  padding: 8px 10px;
+  cursor: pointer;
+}
+.pm-item:hover {
+  background: var(--panel);
+}
+.pm-admin {
+  color: var(--admin);
+}
+.pm-signout {
+  color: var(--red);
+}
+.pm-item:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
