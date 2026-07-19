@@ -5,7 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/components/AuthContext";
 import Avatar from "@/components/Avatar";
-import { listSessions, logout as apiLogout, type Session } from "@/lib/api";
+import { listSessions, type Session } from "@/lib/api";
+import ProfileMenu from "@/components/ProfileMenu";
 import { timeAgo } from "@/lib/utils";
 
 const POLL_MS = 5000;
@@ -29,7 +30,6 @@ export default function WorkspaceSidebar() {
   const [shared, setShared] = useState<Session[] | null>(null);
   const [q, setQ] = useState("");
   const [tab, setTab] = useState<Tab>("all");
-  const [signingOut, setSigningOut] = useState(false);
 
   // Poll both lists so live status + new sessions show up without a reload.
   useEffect(() => {
@@ -102,16 +102,6 @@ export default function WorkspaceSidebar() {
   const showShared = tab !== "live" && groups.shared.length > 0;
   const empty =
     !loading && !showLive && showBuckets.length === 0 && !showShared;
-
-  const signOut = async () => {
-    setSigningOut(true);
-    try {
-      await apiLogout();
-    } catch {
-      // Ignore — reloading re-checks auth and falls back to the login screen.
-    }
-    window.location.assign("/");
-  };
 
   return (
     <div className="ws-sidebar-inner">
@@ -235,41 +225,29 @@ export default function WorkspaceSidebar() {
         )}
       </div>
 
-      {user?.is_admin && (
-        <Link href="/admin" className="ws-admin-link">
-          <span aria-hidden>★</span> ADMIN
-        </Link>
-      )}
-
-      <div className="ws-profile-footer">
-        <Link href="/profile" className="ws-profile-link">
-          <Avatar
-            seed={user?.id ?? user?.email ?? user?.name}
-            size={28}
-            rounded={false}
-            className="ws-profile-avatar"
-            title={user?.name ?? user?.email ?? "Account"}
-          />
-          <span className="ws-profile-info">
-            <span className="ws-profile-name">
-              {user?.name ?? user?.email ?? "Account"}
+      {user && (
+        <div className="ws-profile-footer">
+          <ProfileMenu user={user} direction="up" align="start">
+            <span className="ws-profile-link">
+              <Avatar
+                seed={user.id ?? user.email ?? user.name}
+                size={28}
+                rounded={false}
+                className="ws-profile-avatar"
+                title={user.name ?? user.email ?? "Account"}
+              />
+              <span className="ws-profile-info">
+                <span className="ws-profile-name">
+                  {user.name ?? user.email ?? "Account"}
+                </span>
+                {user.email && (
+                  <span className="ws-profile-email">{user.email}</span>
+                )}
+              </span>
             </span>
-            {user?.email && (
-              <span className="ws-profile-email">{user.email}</span>
-            )}
-          </span>
-        </Link>
-        <button
-          type="button"
-          onClick={signOut}
-          disabled={signingOut}
-          className="ws-signout"
-          title="Sign out"
-          aria-label="Sign out"
-        >
-          {signingOut ? "…" : "⎋"}
-        </button>
-      </div>
+          </ProfileMenu>
+        </div>
+      )}
     </div>
   );
 }
