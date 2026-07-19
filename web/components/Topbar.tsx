@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import BrandMark from "@/components/BrandMark";
 import ThemeToggle from "@/components/ThemeToggle";
 import Avatar from "@/components/Avatar";
+import ProfileMenu from "@/components/ProfileMenu";
 import type { Me } from "@/lib/api";
 
 /**
@@ -81,13 +82,14 @@ export default function Topbar({ user }: { user: Me }) {
           🔗
         </Link>
         <ThemeToggle />
-        <Link href="/profile" aria-label="Your profile" title={user.name ?? user.email ?? "Profile"}>
+        <ProfileMenu user={user} direction="down" align="end">
           <Avatar
             seed={user.id ?? user.email ?? user.name}
             size={30}
             rounded={false}
+            title={user.name ?? user.email ?? "Account"}
           />
-        </Link>
+        </ProfileMenu>
       </div>
     </div>
   );
