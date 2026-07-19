@@ -3448,3 +3448,115 @@ a {
     display: none;
   }
 }
+
+/* ── first-run onboarding (HomeFeed, zero-session user) ── */
+.ob-wrap {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 24px 0 48px;
+}
+.ob-title {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  margin: 10px 0 0;
+  text-wrap: balance;
+}
+.ob-sub {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 12px 0 28px;
+  max-width: 60ch;
+}
+.ob-sub code,
+.ob-step-s code {
+  background: var(--panel);
+  border: 1px solid var(--hairline);
+  padding: 1px 5px;
+  font-size: 0.9em;
+}
+.ob-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+.ob-steps li {
+  display: flex;
+  gap: 16px;
+}
+.ob-step-n {
+  flex: none;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--green);
+  width: 26px;
+}
+.ob-step-body {
+  min-width: 0;
+  flex: 1;
+}
+.ob-step-t {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink);
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.ob-step-s {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+  margin-top: 8px;
+}
+.ob-cmd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--hairline);
+  background: var(--panel);
+  padding: 9px 12px;
+}
+.ob-cmd code {
+  font-size: 12.5px;
+  color: var(--ink);
+  overflow-x: auto;
+  white-space: nowrap;
+}
+.ob-cmd-prompt {
+  color: var(--faint);
+  user-select: none;
+}
+.ob-cmd-copy {
+  flex: none;
+  border: 1px solid var(--hairline);
+  background: var(--bg);
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 4px 9px;
+  cursor: pointer;
+}
+.ob-cmd-copy:hover {
+  color: var(--ink);
+  border-color: var(--muted);
+}
+.ob-guide-link {
+  display: inline-block;
+  margin-top: 30px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--green);
+}
+.ob-guide-link:hover {
+  text-decoration: underline;
+}

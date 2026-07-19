@@ -72,6 +72,21 @@ export default function HomeFeed() {
     [items, featured],
   );
 
+  // Gate on stats so a brand-new user (never created a session) sees the
+  // minimal onboarding rather than a flash of the busy public feed.
+  if (statsData === null) {
+    return (
+      <div className="v3-page-wrap">
+        <div className="v3-page-main">
+          <div className="v3-empty">LOADING…</div>
+        </div>
+      </div>
+    );
+  }
+  if (statsData.total_sessions === 0) {
+    return <Onboarding />;
+  }
+
   return (
     <div className="v3-page-wrap">
       <div className="v3-page-main">
@@ -139,6 +154,86 @@ export default function HomeFeed() {
           </div>
         </div>
       </aside>
+    </div>
+  );
+}
+
+/**
+ * Inline first-run onboarding — shown only when the signed-in user has never
+ * created a session (stats.total_sessions === 0). Minimal by design: get them
+ * to install the CLI and stream their first session, which then replaces this.
+ */
+function Onboarding() {
+  return (
+    <div className="v3-page-wrap">
+      <div className="v3-page-main">
+        <div className="ob-wrap">
+          <div className="v3-eyebrow">◈ Get started</div>
+          <h1 className="ob-title">Stream your first session</h1>
+          <p className="ob-sub">
+            LiveShortly turns any Claude Code session into a live, replayable,
+            shareable feed. Install the CLI and wrap Claude with{" "}
+            <code>live</code> — your sessions show up right here.
+          </p>
+
+          <ol className="ob-steps">
+            <li>
+              <span className="ob-step-n tnum">01</span>
+              <div className="ob-step-body">
+                <div className="ob-step-t">Install the CLI</div>
+                <CopyCmd cmd="curl -fsSL https://liveshortly.com/i.sh | bash" />
+              </div>
+            </li>
+            <li>
+              <span className="ob-step-n tnum">02</span>
+              <div className="ob-step-body">
+                <div className="ob-step-t">Run a session</div>
+                <CopyCmd cmd="live claude" />
+                <div className="ob-step-s">
+                  Sign in once with <code>live login</code>, then{" "}
+                  <code>live claude</code> wraps Claude Code and opens a session.
+                </div>
+              </div>
+            </li>
+            <li>
+              <span className="ob-step-n tnum">03</span>
+              <div className="ob-step-body">
+                <div className="ob-step-t">Watch it here</div>
+                <div className="ob-step-s">
+                  Your session streams live and lands in this space — share a
+                  private link or publish it to the public feed.
+                </div>
+              </div>
+            </li>
+          </ol>
+
+          <Link href="/install" className="ob-guide-link">
+            Full install guide →
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CopyCmd({ cmd }: { cmd: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="ob-cmd">
+      <code>
+        <span className="ob-cmd-prompt">$</span> {cmd}
+      </code>
+      <button
+        type="button"
+        className="ob-cmd-copy"
+        onClick={() => {
+          navigator.clipboard?.writeText(cmd);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        }}
+      >
+        {copied ? "copied" : "copy"}
+      </button>
     </div>
   );
 }
