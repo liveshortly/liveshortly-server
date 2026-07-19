@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import BrandMark from "@/components/BrandMark";
 import ThemeToggle from "@/components/ThemeToggle";
 import Avatar from "@/components/Avatar";
@@ -13,9 +13,21 @@ import type { Me } from "@/lib/api";
  * submits to /feed?q=… (Feed.tsx seeds its query from that param); the
  * notifications icon is decorative (no backend notification feed exists).
  */
+const HOME_TABS = [
+  { key: "live", href: "/?tab=live", label: "Live now" },
+  { key: "feed", href: "/?tab=feed", label: "◈ Feed" },
+  { key: "published", href: "/?tab=published", label: "▣ Published" },
+] as const;
+
 export default function Topbar({ user }: { user: Me }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const params = useSearchParams();
   const [q, setQ] = useState("");
+
+  // Tabs are active only on the home route; default to Feed there.
+  const onHome = pathname === "/";
+  const activeTab = onHome ? params.get("tab") ?? "feed" : null;
 
   const submitSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,6 +41,19 @@ export default function Topbar({ user }: { user: Me }) {
         <BrandMark />
         LiveShortly
       </Link>
+
+      <nav className="v3-htabs" aria-label="Feed views">
+        {HOME_TABS.map((t) => (
+          <Link
+            key={t.key}
+            href={t.href}
+            className={`v3-htab${activeTab === t.key ? " on" : ""}`}
+          >
+            {t.key === "live" && <span className="live-dot" aria-hidden />}
+            {t.label}
+          </Link>
+        ))}
+      </nav>
 
       <form className="v3-searchpill" onSubmit={submitSearch} role="search">
         <span aria-hidden>⌕</span>
