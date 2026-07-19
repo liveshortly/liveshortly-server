@@ -18,7 +18,7 @@ const STORAGE_KEY = "ls-theme";
  * First-time visitors (no saved preference) land on dark — only an explicit
  * "system" choice falls back to following the OS preference.
  */
-export const themeInitScript = `(function(){try{var m=localStorage.getItem('${STORAGE_KEY}');if(m==='light'||m==='dark'){document.documentElement.setAttribute('data-theme',m);}else if(m==='system'){document.documentElement.removeAttribute('data-theme');}else{document.documentElement.setAttribute('data-theme','dark');}}catch(e){}})();`;
+export const themeInitScript = `(function(){try{var m=localStorage.getItem('${STORAGE_KEY}');var d=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;var t=(m==='light'||m==='dark')?m:(m==='system'?(d?'dark':'light'):'dark');document.documentElement.setAttribute('data-theme',t);}catch(e){}})();`;
 
 type Ctx = {
   mode: ThemeMode;
@@ -36,11 +36,15 @@ function systemPrefersDark(): boolean {
   );
 }
 
-/** Apply a mode to the <html> element (removing the attr for system mode). */
+/**
+ * Apply a mode to the <html> element. System mode is resolved to an explicit
+ * light/dark data-theme (rather than removing the attr) so the light-only
+ * component overrides apply the same in system-light as in manual light.
+ */
 function apply(mode: ThemeMode) {
-  const el = document.documentElement;
-  if (mode === "system") el.removeAttribute("data-theme");
-  else el.setAttribute("data-theme", mode);
+  const effective =
+    mode === "system" ? (systemPrefersDark() ? "dark" : "light") : mode;
+  document.documentElement.setAttribute("data-theme", effective);
 }
 
 export default function ThemeProvider({ children }: { children: ReactNode }) {
@@ -76,8 +80,12 @@ export default function ThemeProvider({ children }: { children: ReactNode }) {
     compute();
     if (mode !== "system") return;
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    mq.addEventListener("change", compute);
-    return () => mq.removeEventListener("change", compute);
+    const onChange = () => {
+      apply(mode); // re-resolve the explicit data-theme on OS change
+      compute();
+    };
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
   }, [mode]);
 
   const setMode = (m: ThemeMode) => {
