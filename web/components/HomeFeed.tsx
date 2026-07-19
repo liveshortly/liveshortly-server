@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import FeedCard from "@/components/FeedCard";
 import {
   getFeed,
@@ -24,9 +25,17 @@ const RECENT_SHOWN = 10;
  * view_count as a side effect, so polling it just to read a number would
  * inflate real view counts.
  */
+type HomeTab = "feed" | "live" | "published";
+
 export default function HomeFeed() {
   const [items, setItems] = useState<Session[] | null>(null);
   const [statsData, setStatsData] = useState<Stats | null>(null);
+  // Active tab comes from the URL (?tab=) so the header tabs — which live in
+  // the global Topbar and navigate here — drive which section shows.
+  const params = useSearchParams();
+  const raw = params.get("tab");
+  const tab: HomeTab =
+    raw === "live" || raw === "published" ? raw : "feed";
 
   useEffect(() => {
     const ctrl = new AbortController();
@@ -83,58 +92,46 @@ export default function HomeFeed() {
       </div>
     );
   }
-  if (statsData.total_sessions === 0) {
+  // First-run onboarding takes over the Feed tab for a zero-session user; the
+  // Live / Published tabs still let them browse the public feed.
+  if (statsData.total_sessions === 0 && tab === "feed") {
     return <Onboarding />;
   }
 
   return (
     <div className="v3-page-wrap">
       <div className="v3-page-main">
-        <div className="v3-eyebrow">◈ Feed</div>
+        {tab === "feed" && items !== null && <Hero session={featured} />}
 
-        {items !== null && <Hero session={featured} />}
+        {tab === "live" &&
+          (items === null ? (
+            <div className="v3-empty">LOADING…</div>
+          ) : live.length > 0 ? (
+            <div className="hf-grid">
+              {live.map((s) => (
+                <FeedCard key={s.id} session={s} />
+              ))}
+            </div>
+          ) : (
+            <div className="v3-empty">
+              NO LIVE SESSIONS RIGHT NOW — START ONE FROM YOUR TERMINAL
+            </div>
+          ))}
 
-        <div className="v3-sec-head">
-          <span className="v3-sec-title live">◉ Live now</span>
-          {live.length > 0 && (
-            <span className="v3-sec-link">{live.length} streaming</span>
-          )}
-        </div>
-        {items === null ? (
-          <div className="v3-empty">LOADING…</div>
-        ) : live.length > 0 ? (
-          <div className="hf-grid">
-            {live.map((s) => (
-              <FeedCard key={s.id} session={s} />
-            ))}
-          </div>
-        ) : (
-          <div className="v3-empty">
-            NO LIVE SESSIONS RIGHT NOW — START ONE FROM YOUR TERMINAL
-          </div>
-        )}
-
-        <div className="v3-sec-head">
-          <span className="v3-sec-title">Recently published</span>
-          <Link href="/feed" className="v3-sec-link">
-            See all →
-          </Link>
-        </div>
-        {items === null ? (
-          <div className="v3-empty">LOADING…</div>
-        ) : recent.length > 0 ? (
-          <div className="hf-grid">
-            {recent.slice(0, RECENT_SHOWN).map((s) => (
-              <FeedCard key={s.id} session={s} />
-            ))}
-          </div>
-        ) : (
-          !featured && (
+        {tab === "published" &&
+          (items === null ? (
+            <div className="v3-empty">LOADING…</div>
+          ) : recent.length > 0 ? (
+            <div className="hf-grid">
+              {recent.slice(0, RECENT_SHOWN).map((s) => (
+                <FeedCard key={s.id} session={s} />
+              ))}
+            </div>
+          ) : (
             <div className="v3-empty">
               NO PUBLISHED SESSIONS YET — PUBLISH ONE FROM YOUR HUD
             </div>
-          )
-        )}
+          ))}
       </div>
 
       <aside className="v3-page-rightpanel">

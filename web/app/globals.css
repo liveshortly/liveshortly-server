@@ -477,12 +477,40 @@ a {
   flex-shrink: 0;
   height: 56px;
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  /* Brand column is sized to the sidebar rail (232px) minus the topbar's own
+     left padding (18px) and the grid gap (16px), so the tabs line up exactly
+     with the content column's left edge and the wordmark gets breathing room. */
+  grid-template-columns: 198px auto 1fr auto;
   align-items: center;
   gap: 16px;
   padding: 0 18px;
   border-bottom: 1px solid var(--hairline);
   background: var(--panel);
+}
+.v3-htabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.v3-htab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 11px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+}
+.v3-htab:hover {
+  color: var(--ink);
+}
+.v3-htab.on {
+  color: var(--ink);
+  border-bottom-color: var(--green);
 }
 .v3-brand {
   display: flex;
@@ -3559,4 +3587,26 @@ a {
 }
 .ob-guide-link:hover {
   text-decoration: underline;
+}
+
+.v3-htab .live-dot {
+  width: 9px;
+  height: 9px;
+  animation: liveBlink 1.4s ease-in-out infinite;
+}
+@keyframes liveBlink {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--green) 55%, transparent);
+  }
+  50% {
+    opacity: 0.35;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 0%, transparent);
+  }
+}
+@media (max-width: 760px) {
+  .v3-htabs {
+    display: none;
+  }
 }
