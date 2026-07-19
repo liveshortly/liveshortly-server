@@ -1039,7 +1039,6 @@ function SessionInfoPanel({
   return (
     <aside className="sv-panel" aria-label="Session info">
       <div className="sv-panel-hero">
-        <div className="sv-panel-cover" aria-hidden />
         <div className="sv-panel-title-row">
           <div className="sv-panel-title">{meta.title || "untitled session"}</div>
           {meta.is_owner && (

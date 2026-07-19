@@ -2884,12 +2884,6 @@ a {
   padding: 16px;
   border-bottom: 1px solid var(--hairline);
 }
-.sv-panel-cover {
-  height: 140px;
-  background: var(--grad-hero);
-  border: 1px solid var(--hairline);
-  margin-bottom: 14px;
-}
 .sv-panel-title-row {
   display: flex;
   align-items: flex-start;
