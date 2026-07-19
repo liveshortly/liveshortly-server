@@ -70,11 +70,10 @@ export default function SessionViewer({
   const [mobileLinkOpen, setMobileLinkOpen] = useState(false);
   const mobileLinkBtnRef = useRef<HTMLButtonElement>(null);
   const titleRef = useRef<TitleBlockHandle>(null);
-  // Ephemeral "viewer is typing" presence (from SSE typing frames).
-  const [viewerTyping, setViewerTyping] = useState<{
-    who: string;
-    until: number;
-  } | null>(null);
+  // Ephemeral "viewer is typing" presence (from SSE typing frames). A map so
+  // multiple viewers typing at once all show — keyed by handle, value is the
+  // expiry timestamp.
+  const [typers, setTypers] = useState<Map<string, number>>(new Map());
 
   const seen = useRef<Set<string>>(new Set());
 
@@ -165,10 +164,9 @@ export default function SessionViewer({
         }
         if (t === "typing") {
           const d = data as { who?: string; until?: number };
-          setViewerTyping({
-            who: d.who || "viewer",
-            until: d.until ?? Date.now() + 4000,
-          });
+          const who = d.who || "viewer";
+          const until = d.until ?? Date.now() + 4000;
+          setTypers((m) => new Map(m).set(who, until));
           return;
         }
       }
@@ -221,18 +219,28 @@ export default function SessionViewer({
   }, [events]);
   const inputPending = isLive && !!inputRequest;
 
-  // Expire the viewer-typing indicator when its window lapses.
+  // Prune expired typers once a second while any are active.
   useEffect(() => {
-    if (!viewerTyping) return;
-    const ms = viewerTyping.until - Date.now();
-    if (ms <= 0) {
-      setViewerTyping(null);
-      return;
-    }
-    const t = setTimeout(() => setViewerTyping(null), ms);
-    return () => clearTimeout(t);
-  }, [viewerTyping]);
-  const viewerIsTyping = !!viewerTyping && viewerTyping.until > Date.now();
+    if (typers.size === 0) return;
+    const iv = setInterval(() => {
+      setTypers((m) => {
+        const now = Date.now();
+        let changed = false;
+        const next = new Map(m);
+        for (const [who, until] of next) {
+          if (until <= now) {
+            next.delete(who);
+            changed = true;
+          }
+        }
+        return changed ? next : m;
+      });
+    }, 1000);
+    return () => clearInterval(iv);
+  }, [typers.size]);
+  const activeTypers = [...typers.entries()]
+    .filter(([, until]) => until > Date.now())
+    .map(([who]) => who);
 
   // "Claude is working" is inferred from live stream state: the last event is
   // active work and the turn hasn't ended / isn't waiting on input.
@@ -690,22 +698,42 @@ export default function SessionViewer({
             </span>
           </div>
 
-          <div className="desktop-feed-wrap">
-            <EventStream
-              events={events}
-              live={isLive}
-              ownerHandle={meta?.owner_handle ?? null}
-              framework={meta?.framework}
-              fill
-            />
-          </div>
-          <div className="mobile-feed-wrap">
-            <MobileEventFeed
-              events={events}
-              live={isLive}
-              ownerHandle={meta?.owner_handle ?? null}
-              framework={meta?.framework}
-            />
+          {/* Feed area is position:relative so the typing indicators overlay the
+              bottom of the chat itself (Claude working + every active viewer)
+              instead of sitting between the feed and composer and resizing it. */}
+          <div className="sv-feed-area">
+            <div className="desktop-feed-wrap">
+              <EventStream
+                events={events}
+                live={isLive}
+                ownerHandle={meta?.owner_handle ?? null}
+                framework={meta?.framework}
+                fill
+              />
+            </div>
+            <div className="mobile-feed-wrap">
+              <MobileEventFeed
+                events={events}
+                live={isLive}
+                ownerHandle={meta?.owner_handle ?? null}
+                framework={meta?.framework}
+              />
+            </div>
+
+            {(showClaudeWorking || activeTypers.length > 0) && (
+              <div className="sv-typing-overlay">
+                {showClaudeWorking && (
+                  <TypingIndicator label="CLAUDE IS WORKING" tone="green" />
+                )}
+                {activeTypers.map((who) => (
+                  <TypingIndicator
+                    key={who}
+                    label={`@${who} IS TYPING`}
+                    tone="amber"
+                  />
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Input-requested banner — CLI is waiting for input (non-blocking). */}
@@ -717,29 +745,6 @@ export default function SessionViewer({
               canReply={isLive && meta?.can_comment !== false}
               canDecide={isLive && meta?.is_owner === true}
             />
-          )}
-
-          {/* "Claude is working" chip, pinned above the composer on both desktop
-              and mobile. Kept OUT of the scrollable feed so it stays visible —
-              rendering it as the last thread item buried it below the fold on
-              mobile (it only showed after scrolling to the very bottom). */}
-          {showClaudeWorking && (
-            <div style={{ padding: "8px 2px 0" }}>
-              <TypingIndicator label="CLAUDE IS WORKING" tone="green" />
-            </div>
-          )}
-
-          {/* A viewer typing into the session, surfaced just above the composer.
-              Viewer comments themselves render inline in the thread (EventStream
-              and MobileEventFeed both bubble `viewer_comment`), which is why the
-              v3 viewer has no separate chat column. */}
-          {viewerIsTyping && viewerTyping && (
-            <div style={{ padding: "6px 2px 0" }}>
-              <TypingIndicator
-                label={`@${viewerTyping.who} IS TYPING`}
-                tone="amber"
-              />
-            </div>
           )}
 
           {/* Composer, pinned to the bottom of THIS box (a fixed-height flex
