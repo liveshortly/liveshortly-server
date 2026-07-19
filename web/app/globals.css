@@ -3708,3 +3708,15 @@ a {
   opacity: 0.6;
   cursor: default;
 }
+
+/* sidebar footer: profile dropdown trigger fills the row */
+.ws-profile-footer .pm-wrap,
+.ws-profile-footer .pm-trigger {
+  width: 100%;
+}
+.ws-profile-footer .pm-trigger .ws-profile-link {
+  width: 100%;
+}
+.ws-profile-footer .pm-menu {
+  min-width: 100%;
+}
