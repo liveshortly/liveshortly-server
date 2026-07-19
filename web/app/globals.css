@@ -2810,13 +2810,14 @@ a {
 .sv-hero {
   position: relative;
   flex-shrink: 0;
-  padding: 14px 20px;
+  padding: 18px 20px;
   background: var(--grad-hero);
   border: 1px solid var(--hairline);
   border-bottom-width: 1px;
   display: flex;
   align-items: center;
   gap: 14px;
+  margin-top: 14px;
   margin-bottom: 12px;
 }
 :root[data-theme="light"] .sv-hero {
@@ -3137,6 +3138,7 @@ a {
     border-bottom: 1px solid var(--hairline);
     background: var(--bg);
     padding: 10px 2px;
+    margin-top: 0;
     margin-bottom: 10px;
     align-items: flex-start;
   }
@@ -3719,4 +3721,49 @@ a {
 }
 .ws-profile-footer .pm-menu {
   min-width: 100%;
+}
+
+/* ── session viewer: inline desktop action row (replaces gear dropdown) ── */
+.sv-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+}
+.sv-act,
+.sv-action-row > button,
+.sv-action-row .sv-act-pop > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--strong);
+  background: transparent;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 5px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+/* Hover highlight on every action button (the reused components set an inline
+   background, so override it) — matches the Rename button's feedback. */
+.sv-action-row button:not(.on):hover {
+  background: var(--panel) !important;
+}
+.sv-act.on {
+  background: var(--strong);
+  color: var(--panel);
+}
+.sv-act-pop {
+  position: relative;
+  display: inline-flex;
+}
+/* Desktop-only: on mobile the ⚙ sheet owns the actions. */
+@media (max-width: 860px) {
+  .sv-action-row {
+    display: none;
+  }
 }
