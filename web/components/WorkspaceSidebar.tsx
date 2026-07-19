@@ -1,11 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthContext";
 import Avatar from "@/components/Avatar";
-import { listSessions, logout as apiLogout, type Session } from "@/lib/api";
+import { listSessions, renameSession, type Session } from "@/lib/api";
+import ProfileMenu from "@/components/ProfileMenu";
+import SessionContextMenu from "@/components/SessionContextMenu";
+import SessionStatusDot from "@/components/SessionStatusDot";
 import { timeAgo } from "@/lib/utils";
 
 const POLL_MS = 5000;
@@ -29,7 +32,29 @@ export default function WorkspaceSidebar() {
   const [shared, setShared] = useState<Session[] | null>(null);
   const [q, setQ] = useState("");
   const [tab, setTab] = useState<Tab>("all");
-  const [signingOut, setSigningOut] = useState(false);
+  const [ctx, setCtx] = useState<{
+    s: Session;
+    isOwner: boolean;
+    x: number;
+    y: number;
+  } | null>(null);
+
+  const openCtx = (s: Session, isOwner: boolean, e: React.MouseEvent) => {
+    e.preventDefault();
+    setCtx({ s, isOwner, x: e.clientX, y: e.clientY });
+  };
+  const patchSession = (u: Session) => {
+    const map = (arr: Session[] | null) =>
+      arr?.map((x) => (x.id === u.id ? { ...x, ...u } : x)) ?? arr;
+    setMine(map);
+    setShared(map);
+  };
+  const dropSession = (idToDrop: string) => {
+    const filt = (arr: Session[] | null) =>
+      arr?.filter((x) => x.id !== idToDrop) ?? arr;
+    setMine(filt);
+    setShared(filt);
+  };
 
   // Poll both lists so live status + new sessions show up without a reload.
   useEffect(() => {
@@ -102,16 +127,6 @@ export default function WorkspaceSidebar() {
   const showShared = tab !== "live" && groups.shared.length > 0;
   const empty =
     !loading && !showLive && showBuckets.length === 0 && !showShared;
-
-  const signOut = async () => {
-    setSigningOut(true);
-    try {
-      await apiLogout();
-    } catch {
-      // Ignore — reloading re-checks auth and falls back to the login screen.
-    }
-    window.location.assign("/");
-  };
 
   return (
     <div className="ws-sidebar-inner">
@@ -195,7 +210,7 @@ export default function WorkspaceSidebar() {
             {showLive && (
               <Group label="◉ LIVE" tone="green">
                 {groups.live.map((s) => (
-                  <Row key={s.id} s={s} active={s.id === activeId} live />
+                  <Row key={s.id} s={s} active={s.id === activeId} live onCtx={openCtx} onRenamed={patchSession} />
                 ))}
               </Group>
             )}
@@ -203,7 +218,7 @@ export default function WorkspaceSidebar() {
             {showBuckets.map((b) => (
               <Group key={b.label} label={b.label.toUpperCase()}>
                 {b.items.map((s) => (
-                  <Row key={s.id} s={s} active={s.id === activeId} />
+                  <Row key={s.id} s={s} active={s.id === activeId} onCtx={openCtx} onRenamed={patchSession} />
                 ))}
               </Group>
             ))}
@@ -211,7 +226,7 @@ export default function WorkspaceSidebar() {
             {showShared && (
               <Group label="🔗 SHARED WITH ME">
                 {groups.shared.map((s) => (
-                  <Row key={s.id} s={s} active={s.id === activeId} shared />
+                  <Row key={s.id} s={s} active={s.id === activeId} shared onCtx={openCtx} onRenamed={patchSession} />
                 ))}
               </Group>
             )}
@@ -235,41 +250,41 @@ export default function WorkspaceSidebar() {
         )}
       </div>
 
-      {user?.is_admin && (
-        <Link href="/admin" className="ws-admin-link">
-          <span aria-hidden>★</span> ADMIN
-        </Link>
+      {user && (
+        <div className="ws-profile-footer">
+          <ProfileMenu user={user} direction="up" align="start">
+            <span className="ws-profile-link">
+              <Avatar
+                seed={user.id ?? user.email ?? user.name}
+                size={28}
+                rounded={false}
+                className="ws-profile-avatar"
+                title={user.name ?? user.email ?? "Account"}
+              />
+              <span className="ws-profile-info">
+                <span className="ws-profile-name">
+                  {user.name ?? user.email ?? "Account"}
+                </span>
+                {user.email && (
+                  <span className="ws-profile-email">{user.email}</span>
+                )}
+              </span>
+            </span>
+          </ProfileMenu>
+        </div>
       )}
 
-      <div className="ws-profile-footer">
-        <Link href="/profile" className="ws-profile-link">
-          <Avatar
-            seed={user?.id ?? user?.email ?? user?.name}
-            size={28}
-            rounded={false}
-            className="ws-profile-avatar"
-            title={user?.name ?? user?.email ?? "Account"}
-          />
-          <span className="ws-profile-info">
-            <span className="ws-profile-name">
-              {user?.name ?? user?.email ?? "Account"}
-            </span>
-            {user?.email && (
-              <span className="ws-profile-email">{user.email}</span>
-            )}
-          </span>
-        </Link>
-        <button
-          type="button"
-          onClick={signOut}
-          disabled={signingOut}
-          className="ws-signout"
-          title="Sign out"
-          aria-label="Sign out"
-        >
-          {signingOut ? "…" : "⎋"}
-        </button>
-      </div>
+      {ctx && (
+        <SessionContextMenu
+          session={ctx.s}
+          isOwner={ctx.isOwner}
+          x={ctx.x}
+          y={ctx.y}
+          onClose={() => setCtx(null)}
+          onChanged={patchSession}
+          onDeleted={() => dropSession(ctx.s.id)}
+        />
+      )}
     </div>
   );
 }
@@ -309,16 +324,63 @@ function Row({
   active,
   live,
   shared,
+  onCtx,
+  onRenamed,
 }: {
   s: Session;
   active: boolean;
   live?: boolean;
   shared?: boolean;
+  onCtx?: (s: Session, isOwner: boolean, e: React.MouseEvent) => void;
+  onRenamed?: (u: Session) => void;
 }) {
+  const router = useRouter();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(s.title);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const open = () => router.push(`/session/${s.id}`);
+
+  const save = async () => {
+    const t = draft.trim();
+    if (t && t !== s.title) {
+      try {
+        await renameSession(s.id, t);
+        onRenamed?.({ ...s, title: t });
+      } catch {
+        /* ignore — the name simply won't change */
+      }
+    }
+    setEditing(false);
+  };
+
+  // Title single-click opens (deferred so a double-click can cancel and edit);
+  // clicking the rest of the row opens instantly.
+  const onTitleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (shared) return open(); // non-owner: no rename
+    if (timer.current) return;
+    timer.current = setTimeout(() => {
+      timer.current = null;
+      open();
+    }, 180);
+  };
+  const onTitleDouble = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (timer.current) {
+      clearTimeout(timer.current);
+      timer.current = null;
+    }
+    if (shared) return;
+    setDraft(s.title);
+    setEditing(true);
+  };
+
   return (
-    <Link
-      href={`/session/${s.id}`}
+    <div
       title={s.title || "untitled session"}
+      onClick={() => !editing && open()}
+      onContextMenu={(e) => onCtx?.(s, !shared, e)}
       style={{
         display: "flex",
         alignItems: "center",
@@ -327,32 +389,11 @@ function Row({
         borderLeft: `2px solid ${active ? "var(--green)" : "transparent"}`,
         background: active ? "var(--panel2)" : "transparent",
         minWidth: 0,
+        cursor: "pointer",
       }}
       className="ws-row"
     >
-      <span
-        aria-hidden
-        style={{
-          position: "relative",
-          flexShrink: 0,
-          width: 26,
-          height: 26,
-          background: "var(--grad-hero)",
-          border: "1px solid var(--hairline)",
-        }}
-      >
-        {live && (
-          <span
-            className="live-dot"
-            style={{
-              position: "absolute",
-              right: -3,
-              bottom: -3,
-              boxShadow: "0 0 0 2px var(--panel)",
-            }}
-          />
-        )}
-      </span>
+      <SessionStatusDot s={s} shared={shared} live={live} />
       <span
         style={{
           flex: 1,
@@ -362,18 +403,39 @@ function Row({
           gap: 2,
         }}
       >
-        <span
-          style={{
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-            fontSize: 12,
-            color: active ? "var(--ink)" : "var(--muted)",
-            fontWeight: active ? 600 : 400,
-          }}
-        >
-          {s.title || "untitled session"}
-        </span>
+        {editing ? (
+          <input
+            autoFocus
+            value={draft}
+            className="ws-row-rename"
+            onClick={(e) => e.stopPropagation()}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={save}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") save();
+              if (e.key === "Escape") {
+                setDraft(s.title);
+                setEditing(false);
+              }
+            }}
+          />
+        ) : (
+          <span
+            onClick={onTitleClick}
+            onDoubleClick={onTitleDouble}
+            title={shared ? undefined : "Double-click to rename"}
+            style={{
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              fontSize: 12,
+              color: active ? "var(--ink)" : "var(--muted)",
+              fontWeight: active ? 600 : 400,
+            }}
+          >
+            {s.title || "untitled session"}
+          </span>
+        )}
         <span
           style={{
             fontSize: 9.5,
@@ -396,6 +458,13 @@ function Row({
       >
         {live ? "LIVE" : timeAgo(s.ended_at ?? s.created_at)}
       </span>
-    </Link>
+    </div>
   );
 }
+
+/**
+ * Single status dot per row (replaces the old swatch icon):
+ *   green (blinking) = live · blue = published · amber = shared · gray = ended.
+ * Priority live > published > shared > ended, so a live-and-published session
+ * reads as live.
+ */

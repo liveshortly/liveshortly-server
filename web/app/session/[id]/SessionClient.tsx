@@ -1,6 +1,14 @@
 "use client";
 
-import { use, useEffect, useMemo, useRef, useState } from "react";
+import {
+  use,
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Avatar from "@/components/Avatar";
@@ -10,6 +18,7 @@ import EventStream from "@/components/EventStream";
 import MobileEventFeed from "@/components/MobileEventFeed";
 import PriorContext from "@/components/PriorContext";
 import PublicLinkDialog from "@/components/PublicLinkDialog";
+import ShareDialog from "@/components/ShareDialog";
 import PublishAction from "@/components/PublishAction";
 import HandoffButton from "@/components/HandoffButton";
 import ShareToTwitter from "@/components/ShareToTwitter";
@@ -60,11 +69,11 @@ export default function SessionViewer({
   const [moreOpen, setMoreOpen] = useState(false);
   const [mobileLinkOpen, setMobileLinkOpen] = useState(false);
   const mobileLinkBtnRef = useRef<HTMLButtonElement>(null);
-  // Ephemeral "viewer is typing" presence (from SSE typing frames).
-  const [viewerTyping, setViewerTyping] = useState<{
-    who: string;
-    until: number;
-  } | null>(null);
+  const titleRef = useRef<TitleBlockHandle>(null);
+  // Ephemeral "viewer is typing" presence (from SSE typing frames). A map so
+  // multiple viewers typing at once all show — keyed by handle, value is the
+  // expiry timestamp.
+  const [typers, setTypers] = useState<Map<string, number>>(new Map());
 
   const seen = useRef<Set<string>>(new Set());
 
@@ -155,10 +164,9 @@ export default function SessionViewer({
         }
         if (t === "typing") {
           const d = data as { who?: string; until?: number };
-          setViewerTyping({
-            who: d.who || "viewer",
-            until: d.until ?? Date.now() + 4000,
-          });
+          const who = d.who || "viewer";
+          const until = d.until ?? Date.now() + 4000;
+          setTypers((m) => new Map(m).set(who, until));
           return;
         }
       }
@@ -211,18 +219,28 @@ export default function SessionViewer({
   }, [events]);
   const inputPending = isLive && !!inputRequest;
 
-  // Expire the viewer-typing indicator when its window lapses.
+  // Prune expired typers once a second while any are active.
   useEffect(() => {
-    if (!viewerTyping) return;
-    const ms = viewerTyping.until - Date.now();
-    if (ms <= 0) {
-      setViewerTyping(null);
-      return;
-    }
-    const t = setTimeout(() => setViewerTyping(null), ms);
-    return () => clearTimeout(t);
-  }, [viewerTyping]);
-  const viewerIsTyping = !!viewerTyping && viewerTyping.until > Date.now();
+    if (typers.size === 0) return;
+    const iv = setInterval(() => {
+      setTypers((m) => {
+        const now = Date.now();
+        let changed = false;
+        const next = new Map(m);
+        for (const [who, until] of next) {
+          if (until <= now) {
+            next.delete(who);
+            changed = true;
+          }
+        }
+        return changed ? next : m;
+      });
+    }, 1000);
+    return () => clearInterval(iv);
+  }, [typers.size]);
+  const activeTypers = [...typers.entries()]
+    .filter(([, until]) => until > Date.now())
+    .map(([who]) => who);
 
   // "Claude is working" is inferred from live stream state: the last event is
   // active work and the turn hasn't ended / isn't waiting on input.
@@ -450,32 +468,30 @@ export default function SessionViewer({
           </Link>
         )}
 
-        <div className="sv-hero-art" aria-hidden />
 
         <div className="sv-hero-main">
           <div className="sv-hero-eyebrow">
-            {meta && (
-              <span
-                className={`sv-hero-badge${meta.status === "live" ? "" : " ended"}`}
-                title={
-                  meta.ended_reason === "quota"
-                    ? "Auto-ended — owner reached their storage quota"
-                    : undefined
-                }
-              >
-                {meta.status === "live" && <span className="live-dot" />}
-                {meta.status === "live"
-                  ? "Live"
-                  : meta.ended_reason === "quota"
-                    ? "Ended · quota"
-                    : "Ended"}
-              </span>
-            )}
+            {meta &&
+              (meta.status === "live" ? (
+                <span className="sv-live-dot" title="Live" aria-label="Live" />
+              ) : (
+                <span
+                  className="sv-hero-badge ended"
+                  title={
+                    meta.ended_reason === "quota"
+                      ? "Auto-ended — owner reached their storage quota"
+                      : undefined
+                  }
+                >
+                  {meta.ended_reason === "quota" ? "Ended · quota" : "Ended"}
+                </span>
+              ))}
             <span>Session · {frameworkLabel(meta?.framework)}</span>
             <span style={{ color: "var(--faint)" }}>{shortId(id)}</span>
           </div>
 
           <TitleBlock
+            ref={titleRef}
             meta={meta}
             loadingLabel={err ? "—" : "loading…"}
             onRenamed={(title) => setMeta((m) => (m ? { ...m, title } : m))}
@@ -517,6 +533,25 @@ export default function SessionViewer({
                   : `· ◔ ${fmtInt(meta.view_count ?? 0)} views`}
               </span>
             </div>
+          )}
+
+          {/* Desktop action row — replaces the gear dropdown, sits next to the
+              name. Hidden on mobile (≤860px), where the ⚙ sheet takes over. */}
+          {meta && (
+            <SessionActionRow
+              id={id}
+              meta={meta}
+              onMetaChange={(u) => setMeta((m) => (m ? { ...m, ...u } : m))}
+              onEnded={() =>
+                setMeta((m) =>
+                  m
+                    ? { ...m, status: "ended", ended_at: new Date().toISOString() }
+                    : m,
+                )
+              }
+              onDeleted={() => router.push("/hud")}
+              onRename={() => titleRef.current?.begin()}
+            />
           )}
         </div>
           <div
@@ -624,24 +659,8 @@ export default function SessionViewer({
             )}
             {meta && <Badge status={meta.status} size="md" />}
             </div>
-            {/* Desktop (>860px): actions live behind a gear dropdown, matching
-                design/version3/session-viewer.html's `.shero-gear`. */}
-            {meta && (
-              <SessionActionsMenu
-                id={id}
-                meta={meta}
-                onMetaChange={(u) => setMeta((m) => (m ? { ...m, ...u } : m))}
-                onEnded={() =>
-                  setMeta((m) =>
-                    m
-                      ? { ...m, status: "ended", ended_at: new Date().toISOString() }
-                      : m,
-                  )
-                }
-                onDeleted={() => router.push("/hud")}
-              />
-            )}
-            {/* Mobile-only: the same actions in a bottom sheet. */}
+            {/* Mobile-only: the same actions in a bottom sheet (desktop uses the
+                inline action row next to the title). */}
             {meta && (
               <button
                 type="button"
@@ -677,22 +696,42 @@ export default function SessionViewer({
             </span>
           </div>
 
-          <div className="desktop-feed-wrap">
-            <EventStream
-              events={events}
-              live={isLive}
-              ownerHandle={meta?.owner_handle ?? null}
-              framework={meta?.framework}
-              fill
-            />
-          </div>
-          <div className="mobile-feed-wrap">
-            <MobileEventFeed
-              events={events}
-              live={isLive}
-              ownerHandle={meta?.owner_handle ?? null}
-              framework={meta?.framework}
-            />
+          {/* Feed area is position:relative so the typing indicators overlay the
+              bottom of the chat itself (Claude working + every active viewer)
+              instead of sitting between the feed and composer and resizing it. */}
+          <div className="sv-feed-area">
+            <div className="desktop-feed-wrap">
+              <EventStream
+                events={events}
+                live={isLive}
+                ownerHandle={meta?.owner_handle ?? null}
+                framework={meta?.framework}
+                fill
+              />
+            </div>
+            <div className="mobile-feed-wrap">
+              <MobileEventFeed
+                events={events}
+                live={isLive}
+                ownerHandle={meta?.owner_handle ?? null}
+                framework={meta?.framework}
+              />
+            </div>
+
+            {(showClaudeWorking || activeTypers.length > 0) && (
+              <div className="sv-typing-overlay">
+                {showClaudeWorking && (
+                  <TypingIndicator label="CLAUDE IS WORKING" tone="green" />
+                )}
+                {activeTypers.map((who) => (
+                  <TypingIndicator
+                    key={who}
+                    label={`@${who} IS TYPING`}
+                    tone="amber"
+                  />
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Input-requested banner — CLI is waiting for input (non-blocking). */}
@@ -704,29 +743,6 @@ export default function SessionViewer({
               canReply={isLive && meta?.can_comment !== false}
               canDecide={isLive && meta?.is_owner === true}
             />
-          )}
-
-          {/* "Claude is working" chip, pinned above the composer on both desktop
-              and mobile. Kept OUT of the scrollable feed so it stays visible —
-              rendering it as the last thread item buried it below the fold on
-              mobile (it only showed after scrolling to the very bottom). */}
-          {showClaudeWorking && (
-            <div style={{ padding: "8px 2px 0" }}>
-              <TypingIndicator label="CLAUDE IS WORKING" tone="green" />
-            </div>
-          )}
-
-          {/* A viewer typing into the session, surfaced just above the composer.
-              Viewer comments themselves render inline in the thread (EventStream
-              and MobileEventFeed both bubble `viewer_comment`), which is why the
-              v3 viewer has no separate chat column. */}
-          {viewerIsTyping && viewerTyping && (
-            <div style={{ padding: "6px 2px 0" }}>
-              <TypingIndicator
-                label={`@${viewerTyping.who} IS TYPING`}
-                tone="amber"
-              />
-            </div>
           )}
 
           {/* Composer, pinned to the bottom of THIS box (a fixed-height flex
@@ -880,115 +896,65 @@ export default function SessionViewer({
  *  same real action components the mobile bottom sheet uses (just reparented,
  *  not restyled — each keeps its own compact button chrome, shared with the
  *  HUD row actions). Closes on an outside click or Escape. */
-function SessionActionsMenu({
+/** Inline desktop action row next to the session title (replaces the gear
+ *  dropdown). Rename · Fork · Share to X · Publish · Share (users) · Link ·
+ *  End (live) · Delete. Hidden ≤860px, where the ⚙ sheet takes over. */
+function SessionActionRow({
   id,
   meta,
   onMetaChange,
   onEnded,
   onDeleted,
+  onRename,
 }: {
   id: string;
   meta: SessionDetail;
   onMetaChange: (u: Session) => void;
   onEnded: () => void;
   onDeleted: () => void;
+  onRename: () => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const [linkOpen, setLinkOpen] = useState(false);
-  const linkBtnRef = useRef<HTMLButtonElement>(null);
-  const wrapRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDocClick = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("click", onDocClick);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("click", onDocClick);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
+  const [shareOpen, setShareOpen] = useState(false);
+  const shareBtnRef = useRef<HTMLButtonElement>(null);
 
   return (
-    <div className="sv-hero-gear-wrap" ref={wrapRef}>
-      <button
-        type="button"
-        className="sv-hero-gear"
-        onClick={() => setOpen((v) => !v)}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-label="Session actions"
-        title="Session actions"
-      >
-        ⚙
-      </button>
-      {open && (
-        <div className="sv-gear-menu" role="menu">
-          <div className="sv-gm-item-wrap">
-            <HandoffButton sessionId={meta.id} fullWidth />
-          </div>
-          <div className="sv-gm-item-wrap">
-            <ShareToTwitter session={meta} onChanged={onMetaChange} />
-          </div>
-          {meta.is_owner && (
-            <div className="sv-gm-item-wrap">
-              <PublishAction session={meta} onChanged={onMetaChange} />
-            </div>
-          )}
-          {meta.is_owner && (
-            <div className="sv-gm-item-wrap" style={{ position: "relative" }}>
-              <button
-                ref={linkBtnRef}
-                type="button"
-                onClick={() => setLinkOpen((v) => !v)}
-                className="label"
-                aria-haspopup="dialog"
-                aria-expanded={linkOpen}
-                style={{
-                  width: "100%",
-                  border: "1px solid var(--strong)",
-                  background: linkOpen ? "var(--strong)" : "transparent",
-                  color: linkOpen ? "var(--panel)" : "var(--ink)",
-                  padding: "5px 10px",
-                  fontSize: 10,
-                  cursor: "pointer",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                ⊕ SHARE LINK
-              </button>
-              {linkOpen && (
-                <PublicLinkDialog
-                  sessionId={id}
-                  title={meta.title}
-                  visibility={meta.visibility ?? "private"}
-                  anchorEl={linkBtnRef.current}
-                  onClose={() => setLinkOpen(false)}
-                  onChanged={onMetaChange}
-                />
-              )}
-            </div>
-          )}
-          {(meta.is_owner || meta.status === "live") && <div className="sv-gm-sep" />}
-          {meta.is_owner && meta.status === "live" && (
-            <div className="sv-gm-item-wrap">
-              <EndButton id={id} onEnded={onEnded} />
-            </div>
-          )}
-          {meta.is_owner && (
-            <div className="sv-gm-item-wrap">
-              <DeleteSessionButton id={id} onDeleted={onDeleted} />
-            </div>
-          )}
-        </div>
+    <div className="sv-action-row">
+      {meta.is_owner && (
+        <button type="button" className="sv-act" onClick={onRename}>
+          ✎ Rename
+        </button>
       )}
+      <HandoffButton sessionId={meta.id} />
+      {meta.is_owner && (
+        <span className="sv-act-pop">
+          <button
+            ref={shareBtnRef}
+            type="button"
+            className={`sv-act${shareOpen ? " on" : ""}`}
+            onClick={() => setShareOpen((v) => !v)}
+            aria-haspopup="dialog"
+            aria-expanded={shareOpen}
+          >
+            ◉ Share…
+          </button>
+          {shareOpen && (
+            <ShareDialog
+              sessionId={id}
+              title={meta.title}
+              anchorEl={shareBtnRef.current}
+              onClose={() => setShareOpen(false)}
+            />
+          )}
+        </span>
+      )}
+      <ShareToTwitter session={meta} onChanged={onMetaChange} />
+      {meta.is_owner && (
+        <PublishAction session={meta} onChanged={onMetaChange} />
+      )}
+      {meta.is_owner && meta.status === "live" && (
+        <EndButton id={id} onEnded={onEnded} />
+      )}
+      {meta.is_owner && <DeleteSessionButton id={id} onDeleted={onDeleted} />}
     </div>
   );
 }
@@ -1049,7 +1015,6 @@ function SessionInfoPanel({
   return (
     <aside className="sv-panel" aria-label="Session info">
       <div className="sv-panel-hero">
-        <div className="sv-panel-cover" aria-hidden />
         <div className="sv-panel-title-row">
           <div className="sv-panel-title">{meta.title || "untitled session"}</div>
           {meta.is_owner && (
@@ -1125,20 +1090,6 @@ function SessionInfoPanel({
         )}
 
         {/* Alternate views of the same events. Compose is owner-only. */}
-        <div
-          style={{
-            display: "flex",
-            gap: 8,
-            flexWrap: "wrap",
-            marginTop: 14,
-            paddingTop: 12,
-            borderTop: "1px dashed var(--hairline)",
-          }}
-        >
-          <ViewLink href={`/replay/${id}`}>▶ REPLAY</ViewLink>
-          <ViewLink href={`/story/${id}`}>✎ DEV STORY</ViewLink>
-          {meta.is_owner && <ViewLink href={`/compose/${id}`}>✎ COMPOSE</ViewLink>}
-        </div>
       </div>
 
       <div className="sv-watch-head">
@@ -1554,41 +1505,18 @@ function streamLabel(conn: Connection, isLive: boolean): string {
   }
 }
 
-/** A compact link to an alternate view of this session (replay / story / compose). */
-function ViewLink({
-  href,
-  children,
-}: {
-  href: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <Link
-      href={href}
-      className="label"
-      style={{
-        border: "1px solid var(--hairline)",
-        background: "var(--panel)",
-        color: "var(--ink)",
-        padding: "5px 10px",
-        fontSize: 10,
-      }}
-    >
-      {children}
-    </Link>
-  );
-}
+export type TitleBlockHandle = { begin: () => void };
 
-/** Session title with an owner-only inline rename affordance. */
-function TitleBlock({
-  meta,
-  loadingLabel,
-  onRenamed,
-}: {
-  meta: SessionDetail | null;
-  loadingLabel: string;
-  onRenamed: (title: string) => void;
-}) {
+/** Session title. Rename is triggered from the action row via an imperative
+ *  `begin()` handle (the inline pencil box was removed). */
+const TitleBlock = forwardRef<
+  TitleBlockHandle,
+  {
+    meta: SessionDetail | null;
+    loadingLabel: string;
+    onRenamed: (title: string) => void;
+  }
+>(function TitleBlock({ meta, loadingLabel, onRenamed }, ref) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const [saving, setSaving] = useState(false);
@@ -1602,6 +1530,8 @@ function TitleBlock({
     setEditing(true);
     setTimeout(() => inputRef.current?.select(), 0);
   };
+
+  useImperativeHandle(ref, () => ({ begin }));
 
   const save = async () => {
     if (!meta) return;
@@ -1705,38 +1635,22 @@ function TitleBlock({
       }}
     >
       <h1
+        onDoubleClick={meta?.is_owner ? begin : undefined}
+        title={meta?.is_owner ? "Double-click to rename" : undefined}
         style={{
           fontSize: 19,
           fontWeight: 700,
           margin: 0,
           letterSpacing: "-0.01em",
           wordBreak: "break-word",
+          cursor: meta?.is_owner ? "text" : undefined,
         }}
       >
         {meta?.title ?? loadingLabel}
       </h1>
-      {meta?.is_owner && (
-        <button
-          type="button"
-          onClick={begin}
-          aria-label="Rename session"
-          title="Rename session"
-          className="label"
-          style={{
-            border: "none",
-            background: "transparent",
-            cursor: "pointer",
-            color: "var(--faint)",
-            fontSize: 13,
-            padding: 0,
-          }}
-        >
-          ✎
-        </button>
-      )}
     </div>
   );
-}
+});
 
 /** Owner-only END control with a two-click confirm (no blocking dialog). */
 function EndButton({ id, onEnded }: { id: string; onEnded: () => void }) {

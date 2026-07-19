@@ -20,6 +20,7 @@
   --red: #c0392b;
   --amber: #a9810f;
   --admin: #7c3aed; /* super-admin surface accent (violet) */
+  --blue: #2f6fe0; /* published-session status dot */
 
   --shadow: rgba(20, 22, 26, 0.16);
 
@@ -49,6 +50,7 @@
   --red: #e7705f;
   --amber: #d9ad52;
   --admin: #b794f6; /* super-admin accent (dark) */
+    --blue: #6ba5ff;
 
   --shadow: rgba(0, 0, 0, 0.45);
 
@@ -73,6 +75,7 @@
     --red: #e7705f;
     --amber: #d9ad52;
     --admin: #b794f6;
+    --blue: #6ba5ff;
     --shadow: rgba(0, 0, 0, 0.45);
     color-scheme: dark;
   }
@@ -477,12 +480,40 @@ a {
   flex-shrink: 0;
   height: 56px;
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  /* Brand column is sized to the sidebar rail (232px) minus the topbar's own
+     left padding (18px) and the grid gap (16px), so the tabs line up exactly
+     with the content column's left edge and the wordmark gets breathing room. */
+  grid-template-columns: 198px auto 1fr auto;
   align-items: center;
   gap: 16px;
   padding: 0 18px;
   border-bottom: 1px solid var(--hairline);
   background: var(--panel);
+}
+.v3-htabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.v3-htab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 11px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+}
+.v3-htab:hover {
+  color: var(--ink);
+}
+.v3-htab.on {
+  color: var(--ink);
+  border-bottom-color: var(--green);
 }
 .v3-brand {
   display: flex;
@@ -496,7 +527,7 @@ a {
 }
 .v3-searchpill {
   width: 100%;
-  max-width: 480px;
+  max-width: 820px;
   margin: 0 auto;
   display: flex;
   align-items: center;
@@ -575,7 +606,13 @@ a {
 }
 .v3-page-rightpanel {
   flex: 0 0 264px;
-  align-self: stretch;
+  /* Pinned: the rail stays put while the middle column scrolls. Sticks to the
+     top of the scroll viewport and scrolls its own overflow if it's tall. */
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  max-height: 100vh;
+  overflow-y: auto;
   border-left: 1px solid var(--hairline);
   background: var(--panel);
   padding: 18px;
@@ -1724,8 +1761,10 @@ a {
   grid-row: 1;
   display: grid;
   /* Symmetric side columns so the center pill sits at true page center,
-     not merely centered within an off-center middle track. */
-  grid-template-columns: 1fr auto 1fr;
+     not merely centered within an off-center middle track. The center track
+     is a bounded width (not `auto`) so the search pill actually stretches to
+     it instead of collapsing to its intrinsic content width. */
+  grid-template-columns: 1fr minmax(0, 820px) 1fr;
   align-items: center;
   gap: 16px;
   padding: 0 18px;
@@ -2777,13 +2816,14 @@ a {
 .sv-hero {
   position: relative;
   flex-shrink: 0;
-  padding: 14px 20px;
+  padding: 18px 20px;
   background: var(--grad-hero);
   border: 1px solid var(--hairline);
   border-bottom-width: 1px;
   display: flex;
   align-items: center;
   gap: 14px;
+  margin-top: 14px;
   margin-bottom: 12px;
 }
 :root[data-theme="light"] .sv-hero {
@@ -2849,12 +2889,6 @@ a {
 .sv-panel-hero {
   padding: 16px;
   border-bottom: 1px solid var(--hairline);
-}
-.sv-panel-cover {
-  height: 140px;
-  background: var(--grad-hero);
-  border: 1px solid var(--hairline);
-  margin-bottom: 14px;
 }
 .sv-panel-title-row {
   display: flex;
@@ -2987,9 +3021,28 @@ a {
 }
 
 /* ── composer (grows on hover/focus, per the mock) ── */
+.sv-feed-area {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.sv-typing-overlay {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  align-items: flex-start;
+  pointer-events: none;
+  z-index: 3;
+}
 .sv-composer {
   flex-shrink: 0;
-  padding-top: 12px;
+  padding: 14px 2px 12px;
 }
 .sv-composer-wrap {
   border: 1px solid var(--strong);
@@ -3104,6 +3157,7 @@ a {
     border-bottom: 1px solid var(--hairline);
     background: var(--bg);
     padding: 10px 2px;
+    margin-top: 0;
     margin-bottom: 10px;
     align-items: flex-start;
   }
@@ -3386,9 +3440,9 @@ a {
   top: 36px;
   right: 0;
   min-width: 192px;
-  background: var(--panel);
+  background: var(--panel2);
   border: 1px solid var(--hairline);
-  box-shadow: 0 10px 26px -8px var(--shadow);
+  box-shadow: 0 8px 26px var(--shadow);
   padding: 6px;
   display: flex;
   flex-direction: column;
@@ -3445,4 +3499,568 @@ a {
   .sv-hero-gear-wrap {
     display: none;
   }
+}
+
+/* ── first-run onboarding (HomeFeed, zero-session user) ── */
+.ob-wrap {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 24px 0 48px;
+}
+.ob-title {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  margin: 10px 0 0;
+  text-wrap: balance;
+}
+.ob-sub {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 12px 0 28px;
+  max-width: 60ch;
+}
+.ob-sub code,
+.ob-step-s code {
+  background: var(--panel);
+  border: 1px solid var(--hairline);
+  padding: 1px 5px;
+  font-size: 0.9em;
+}
+.ob-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+.ob-steps li {
+  display: flex;
+  gap: 16px;
+}
+.ob-step-n {
+  flex: none;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--green);
+  width: 26px;
+}
+.ob-step-body {
+  min-width: 0;
+  flex: 1;
+}
+.ob-step-t {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink);
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.ob-step-s {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+  margin-top: 8px;
+}
+.ob-cmd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--hairline);
+  background: var(--panel);
+  padding: 9px 12px;
+}
+.ob-cmd code {
+  font-size: 12.5px;
+  color: var(--ink);
+  overflow-x: auto;
+  white-space: nowrap;
+}
+.ob-cmd-prompt {
+  color: var(--faint);
+  user-select: none;
+}
+.ob-cmd-copy {
+  flex: none;
+  border: 1px solid var(--hairline);
+  background: var(--bg);
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 4px 9px;
+  cursor: pointer;
+}
+.ob-cmd-copy:hover {
+  color: var(--ink);
+  border-color: var(--muted);
+}
+.ob-guide-link {
+  display: inline-block;
+  margin-top: 30px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--green);
+}
+.ob-guide-link:hover {
+  text-decoration: underline;
+}
+
+.v3-htab .live-dot {
+  width: 9px;
+  height: 9px;
+  animation: liveBlink 1.4s ease-in-out infinite;
+}
+@keyframes liveBlink {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--green) 55%, transparent);
+  }
+  50% {
+    opacity: 0.35;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 0%, transparent);
+  }
+}
+@media (max-width: 760px) {
+  .v3-htabs {
+    display: none;
+  }
+}
+
+/* ── sidebar row status dot (replaces the swatch icon) ── */
+.ws-status-dot {
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--faint);
+}
+.ws-status-dot-live {
+  background: var(--green);
+  animation: liveBlink 1.4s ease-in-out infinite;
+}
+
+/* ── profile dropdown menu (topbar + sidebar footer) ── */
+.pm-wrap {
+  position: relative;
+  display: inline-flex;
+}
+.pm-trigger {
+  display: inline-flex;
+  align-items: center;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+.pm-menu {
+  position: absolute;
+  z-index: 40;
+  min-width: 168px;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  background: var(--panel2);
+  border: 1px solid var(--hairline);
+  box-shadow: 0 8px 24px var(--shadow);
+  animation: pmGrow 120ms ease-out;
+}
+.pm-down {
+  top: calc(100% + 6px);
+  transform-origin: top;
+}
+.pm-up {
+  bottom: calc(100% + 6px);
+  transform-origin: bottom;
+}
+.pm-align-start {
+  left: 0;
+}
+.pm-align-end {
+  right: 0;
+}
+@keyframes pmGrow {
+  from {
+    opacity: 0;
+    transform: scaleY(0.85) translateY(var(--pm-shift, -4px));
+  }
+  to {
+    opacity: 1;
+    transform: scaleY(1) translateY(0);
+  }
+}
+.pm-up {
+  --pm-shift: 4px;
+}
+.pm-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--ink);
+  padding: 8px 10px;
+  cursor: pointer;
+}
+.pm-item:hover {
+  background: var(--panel);
+}
+.pm-admin {
+  color: var(--admin);
+}
+.pm-signout {
+  color: var(--red);
+}
+.pm-item:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* sidebar footer: profile dropdown trigger fills the row */
+.ws-profile-footer .pm-wrap,
+.ws-profile-footer .pm-trigger {
+  width: 100%;
+}
+.ws-profile-footer .pm-trigger .ws-profile-link {
+  width: 100%;
+}
+.ws-profile-footer .pm-menu {
+  min-width: 100%;
+}
+
+/* ── session viewer: inline desktop action row (replaces gear dropdown) ── */
+.sv-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+}
+.sv-act,
+.sv-action-row > button,
+.sv-action-row .sv-act-pop > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--strong);
+  background: transparent;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 5px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+/* Hover highlight on every action button (the reused components set an inline
+   background, so override it) — matches the Rename button's feedback. */
+.sv-action-row button:not(.on):not(.pub-pop-go):not(.cf-yes):not(.cf-no):hover {
+  background: var(--panel) !important;
+}
+.sv-act.on {
+  background: var(--strong);
+  color: var(--panel);
+}
+.sv-act-pop {
+  position: relative;
+  display: inline-flex;
+}
+/* Desktop-only: on mobile the ⚙ sheet owns the actions. */
+@media (max-width: 860px) {
+  .sv-action-row {
+    display: none;
+  }
+}
+
+/* ── sidebar right-click context menu ── */
+.ctx-menu {
+  position: fixed;
+  z-index: 60;
+  min-width: 210px;
+  max-width: 270px;
+  display: flex;
+  flex-direction: column;
+  padding: 5px;
+  background: var(--panel2);
+  border: 1px solid var(--hairline);
+  box-shadow: 0 10px 30px var(--shadow);
+  animation: pmGrow 110ms ease-out;
+  transform-origin: top;
+}
+.ctx-title {
+  font-size: 11px;
+  color: var(--muted);
+  padding: 6px 8px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--hairline);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Every menu item — my own (.ctx-item/.ctx-actbtn) and the reused action
+   buttons (.ctx-row button) — renders identically: left-aligned, uppercase,
+   same size/padding, so the menu reads as one consistent list. */
+.ctx-item,
+.ctx-actbtn,
+.ctx-row button {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 9px !important;
+  width: 100% !important;
+  text-align: left !important;
+  background: none;
+  border: none !important;
+  font: inherit;
+  font-size: 11.5px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.06em !important;
+  color: var(--ink);
+  padding: 8px 10px !important;
+  cursor: pointer;
+}
+.ctx-item:hover,
+.ctx-actbtn:hover,
+.ctx-row button:not(.on):not(.pub-pop-go):not(.cf-yes):not(.cf-no):hover {
+  background: var(--panel) !important;
+}
+.ctx-actbtn.on {
+  background: var(--strong);
+  color: var(--panel);
+}
+.ctx-sep {
+  height: 1px;
+  background: var(--hairline);
+  margin: 4px 0;
+}
+.ctx-row {
+  display: flex;
+}
+.ctx-rename {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+}
+.ctx-rename input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 12px;
+  border: 1px solid var(--strong);
+  background: var(--bg);
+  color: var(--ink);
+  padding: 4px 6px;
+}
+.ctx-rename button {
+  border: 1px solid var(--strong);
+  background: var(--strong);
+  color: var(--panel);
+  font-size: 10px;
+  padding: 0 8px;
+  cursor: pointer;
+}
+
+/* ── publish reach-choice popover ── */
+.pub-wrap {
+  position: relative;
+  display: inline-flex;
+}
+.ctx-row .pub-wrap {
+  width: 100%;
+}
+.pub-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 50;
+  width: 262px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px;
+  background: var(--panel2);
+  border: 1px solid var(--strong);
+  box-shadow: 0 8px 26px var(--shadow);
+}
+.pub-pop-h {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  padding: 2px 4px 8px;
+  border-bottom: 1px solid var(--hairline);
+  margin-bottom: 4px;
+}
+.pub-opt {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 7px 6px;
+  cursor: pointer;
+}
+.pub-opt:hover {
+  background: var(--panel);
+}
+.pub-opt input {
+  margin-top: 3px;
+  flex: none;
+  accent-color: var(--green);
+}
+.pub-opt-body {
+  display: flex;
+  flex-direction: column;
+}
+.pub-opt-t {
+  font-size: 12px;
+  color: var(--ink);
+}
+.pub-opt-sub {
+  font-size: 10px;
+  color: var(--faint);
+  margin-top: 2px;
+  line-height: 1.4;
+}
+.pub-pop-go {
+  margin-top: 6px;
+  border: 1px solid var(--strong);
+  background: var(--strong);
+  color: var(--panel);
+  font-family: inherit;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 8px;
+  cursor: pointer;
+  text-align: center;
+}
+.pub-pop-go:hover {
+  opacity: 0.9;
+}
+.pub-pop-go:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* ── destructive confirm popover (delete / unpublish) ── */
+.cf-wrap {
+  position: relative;
+  display: inline-flex;
+}
+.ctx-row .cf-wrap {
+  width: 100%;
+}
+.cf-trigger {
+  border: 1px solid var(--red);
+  background: transparent;
+  color: var(--red);
+  font-family: inherit;
+  font-size: 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.cf-trigger.on {
+  background: color-mix(in srgb, var(--red) 12%, transparent);
+}
+.cf-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 55;
+  width: 244px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  background: var(--panel2);
+  border: 1px solid var(--red);
+  box-shadow: 0 8px 26px var(--shadow);
+  text-align: left;
+}
+.cf-msg {
+  font-size: 12px;
+  color: var(--ink);
+  line-height: 1.5;
+}
+.cf-row {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+.cf-no,
+.cf-yes {
+  font-family: inherit;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+.cf-no {
+  border: 1px solid var(--hairline);
+  background: transparent;
+  color: var(--muted);
+}
+.cf-no:hover {
+  background: var(--panel);
+}
+.cf-yes {
+  border: 1px solid var(--red);
+  background: var(--red);
+  color: #fff;
+}
+.cf-yes:hover {
+  opacity: 0.9;
+}
+.cf-no:disabled,
+.cf-yes:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+/* In the flattened context menu, keep the confirm popover's own buttons intact
+   (don't let the generic ctx-row flatten strip their borders/bg). */
+.ctx-row .cf-pop button {
+  border: 1px solid var(--red) !important;
+  width: auto !important;
+  padding: 6px 12px !important;
+}
+.ctx-row .cf-pop .cf-no {
+  border-color: var(--hairline) !important;
+}
+
+/* inline rename input in a sidebar row */
+.ws-row-rename {
+  width: 100%;
+  font: inherit;
+  font-size: 12px;
+  border: 1px solid var(--strong);
+  background: var(--bg);
+  color: var(--ink);
+  padding: 2px 5px;
+  outline: none;
+}
+
+/* Live indicator in the session hero — a bare blinking dot (halftone pulse),
+   no bordered "LIVE" pill. */
+.sv-live-dot {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--green);
+  animation: liveBlink 1.4s ease-in-out infinite;
 }

@@ -720,8 +720,8 @@ function Footer() {
           @ironfisto
         </a>{" "}
         ·{" "}
-        <a href="https://x.com/sec_r0" target="_blank" rel="noopener noreferrer">
-          @sec_r0
+        <a href="https://x.com/whorsehgal" target="_blank" rel="noopener noreferrer">
+          @whorsehgal
         </a>
       </span>
       <span>© {year} LiveShortly · All rights reserved</span>

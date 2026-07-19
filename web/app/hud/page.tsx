@@ -5,6 +5,7 @@ import Link from "next/link";
 import ShareDialog from "@/components/ShareDialog";
 import PublishAction from "@/components/PublishAction";
 import DeleteSessionButton from "@/components/DeleteSessionButton";
+import SessionStatusDot from "@/components/SessionStatusDot";
 import {
   activity as fetchActivity,
   listSessions,
@@ -272,9 +273,7 @@ function Row({
   return (
     <div className="hud-row">
       <Link href={`/session/${session.id}`} className="hud-row-link">
-        <div className="hud-row-swatch">
-          <div className="hud-row-play">▶</div>
-        </div>
+        <SessionStatusDot s={session} shared={shared} live={live} />
         <div style={{ minWidth: 0, flex: 1 }}>
           <div className="hud-row-title">{session.title || "untitled session"}</div>
           <div className="hud-row-sub">

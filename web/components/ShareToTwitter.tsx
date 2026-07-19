@@ -92,13 +92,7 @@ export default function ShareToTwitter({
         opacity: busy ? 0.6 : 1,
       }}
     >
-      {busy
-        ? "GOING PUBLIC…"
-        : err
-          ? "⚠ RETRY"
-          : compact
-            ? "𝕏 SHARE"
-            : "𝕏 SHARE TO X"}
+      {busy ? "GOING PUBLIC…" : err ? "⚠ RETRY" : "SHARE 𝕏"}
     </button>
   );
 }

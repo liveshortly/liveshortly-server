@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import FeedCard from "@/components/FeedCard";
 import {
   getFeed,
@@ -24,9 +25,17 @@ const RECENT_SHOWN = 10;
  * view_count as a side effect, so polling it just to read a number would
  * inflate real view counts.
  */
+type HomeTab = "feed" | "live" | "published";
+
 export default function HomeFeed() {
   const [items, setItems] = useState<Session[] | null>(null);
   const [statsData, setStatsData] = useState<Stats | null>(null);
+  // Active tab comes from the URL (?tab=) so the header tabs — which live in
+  // the global Topbar and navigate here — drive which section shows.
+  const params = useSearchParams();
+  const raw = params.get("tab");
+  const tab: HomeTab =
+    raw === "live" || raw === "published" ? raw : "feed";
 
   useEffect(() => {
     const ctrl = new AbortController();
@@ -72,54 +81,57 @@ export default function HomeFeed() {
     [items, featured],
   );
 
+  // Gate on stats so a brand-new user (never created a session) sees the
+  // minimal onboarding rather than a flash of the busy public feed.
+  if (statsData === null) {
+    return (
+      <div className="v3-page-wrap">
+        <div className="v3-page-main">
+          <div className="v3-empty">LOADING…</div>
+        </div>
+      </div>
+    );
+  }
+  // First-run onboarding takes over the Feed tab for a zero-session user; the
+  // Live / Published tabs still let them browse the public feed.
+  if (statsData.total_sessions === 0 && tab === "feed") {
+    return <Onboarding />;
+  }
+
   return (
     <div className="v3-page-wrap">
       <div className="v3-page-main">
-        <div className="v3-eyebrow">◈ Feed</div>
+        {tab === "feed" && items !== null && <Hero session={featured} />}
 
-        {items !== null && <Hero session={featured} />}
+        {tab === "live" &&
+          (items === null ? (
+            <div className="v3-empty">LOADING…</div>
+          ) : live.length > 0 ? (
+            <div className="hf-grid">
+              {live.map((s) => (
+                <FeedCard key={s.id} session={s} />
+              ))}
+            </div>
+          ) : (
+            <div className="v3-empty">
+              NO LIVE SESSIONS RIGHT NOW — START ONE FROM YOUR TERMINAL
+            </div>
+          ))}
 
-        <div className="v3-sec-head">
-          <span className="v3-sec-title live">◉ Live now</span>
-          {live.length > 0 && (
-            <span className="v3-sec-link">{live.length} streaming</span>
-          )}
-        </div>
-        {items === null ? (
-          <div className="v3-empty">LOADING…</div>
-        ) : live.length > 0 ? (
-          <div className="hf-grid">
-            {live.map((s) => (
-              <FeedCard key={s.id} session={s} />
-            ))}
-          </div>
-        ) : (
-          <div className="v3-empty">
-            NO LIVE SESSIONS RIGHT NOW — START ONE FROM YOUR TERMINAL
-          </div>
-        )}
-
-        <div className="v3-sec-head">
-          <span className="v3-sec-title">Recently published</span>
-          <Link href="/feed" className="v3-sec-link">
-            See all →
-          </Link>
-        </div>
-        {items === null ? (
-          <div className="v3-empty">LOADING…</div>
-        ) : recent.length > 0 ? (
-          <div className="hf-grid">
-            {recent.slice(0, RECENT_SHOWN).map((s) => (
-              <FeedCard key={s.id} session={s} />
-            ))}
-          </div>
-        ) : (
-          !featured && (
+        {tab === "published" &&
+          (items === null ? (
+            <div className="v3-empty">LOADING…</div>
+          ) : recent.length > 0 ? (
+            <div className="hf-grid">
+              {recent.slice(0, RECENT_SHOWN).map((s) => (
+                <FeedCard key={s.id} session={s} />
+              ))}
+            </div>
+          ) : (
             <div className="v3-empty">
               NO PUBLISHED SESSIONS YET — PUBLISH ONE FROM YOUR HUD
             </div>
-          )
-        )}
+          ))}
       </div>
 
       <aside className="v3-page-rightpanel">
@@ -139,6 +151,86 @@ export default function HomeFeed() {
           </div>
         </div>
       </aside>
+    </div>
+  );
+}
+
+/**
+ * Inline first-run onboarding — shown only when the signed-in user has never
+ * created a session (stats.total_sessions === 0). Minimal by design: get them
+ * to install the CLI and stream their first session, which then replaces this.
+ */
+function Onboarding() {
+  return (
+    <div className="v3-page-wrap">
+      <div className="v3-page-main">
+        <div className="ob-wrap">
+          <div className="v3-eyebrow">◈ Get started</div>
+          <h1 className="ob-title">Stream your first session</h1>
+          <p className="ob-sub">
+            LiveShortly turns any Claude Code session into a live, replayable,
+            shareable feed. Install the CLI and wrap Claude with{" "}
+            <code>live</code> — your sessions show up right here.
+          </p>
+
+          <ol className="ob-steps">
+            <li>
+              <span className="ob-step-n tnum">01</span>
+              <div className="ob-step-body">
+                <div className="ob-step-t">Install the CLI</div>
+                <CopyCmd cmd="curl -fsSL https://liveshortly.com/i.sh | bash" />
+              </div>
+            </li>
+            <li>
+              <span className="ob-step-n tnum">02</span>
+              <div className="ob-step-body">
+                <div className="ob-step-t">Run a session</div>
+                <CopyCmd cmd="live claude" />
+                <div className="ob-step-s">
+                  Sign in once with <code>live login</code>, then{" "}
+                  <code>live claude</code> wraps Claude Code and opens a session.
+                </div>
+              </div>
+            </li>
+            <li>
+              <span className="ob-step-n tnum">03</span>
+              <div className="ob-step-body">
+                <div className="ob-step-t">Watch it here</div>
+                <div className="ob-step-s">
+                  Your session streams live and lands in this space — share a
+                  private link or publish it to the public feed.
+                </div>
+              </div>
+            </li>
+          </ol>
+
+          <Link href="/install" className="ob-guide-link">
+            Full install guide →
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CopyCmd({ cmd }: { cmd: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="ob-cmd">
+      <code>
+        <span className="ob-cmd-prompt">$</span> {cmd}
+      </code>
+      <button
+        type="button"
+        className="ob-cmd-copy"
+        onClick={() => {
+          navigator.clipboard?.writeText(cmd);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        }}
+      >
+        {copied ? "copied" : "copy"}
+      </button>
     </div>
   );
 }
