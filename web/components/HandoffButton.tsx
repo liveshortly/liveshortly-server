@@ -105,21 +105,33 @@ export default function HandoffButton({
         <div
           role="dialog"
           aria-label="Handoff command"
-          style={{
-            position: "absolute",
-            top: up ? undefined : "calc(100% + 6px)",
-            bottom: up ? "calc(100% + 6px)" : undefined,
-            // Align to the trigger's left edge: in the inline action row the
-            // button sits on the left, so a right-anchored popover would spill
-            // leftward over the sidebar. Full-width (mobile sheet) is unaffected.
-            left: 0,
-            zIndex: 40,
-            width: "min(92vw, 420px)",
-            border: "1px solid var(--strong)",
-            background: "var(--panel2)",
-            padding: 12,
-            boxShadow: "0 8px 26px var(--shadow)",
-          }}
+          style={
+            fullWidth
+              ? {
+                  // In the mobile sheet: expand in-flow, full width, so it
+                  // never floats off-screen.
+                  position: "static",
+                  width: "100%",
+                  marginTop: 6,
+                  border: "1px solid var(--strong)",
+                  background: "var(--panel2)",
+                  padding: 12,
+                }
+              : {
+                  position: "absolute",
+                  top: up ? undefined : "calc(100% + 6px)",
+                  bottom: up ? "calc(100% + 6px)" : undefined,
+                  // Left-align to the trigger; a right-anchored popover would
+                  // spill over the sidebar in the inline action row.
+                  left: 0,
+                  zIndex: 40,
+                  width: "min(92vw, 420px)",
+                  border: "1px solid var(--strong)",
+                  background: "var(--panel2)",
+                  padding: 12,
+                  boxShadow: "0 8px 26px var(--shadow)",
+                }
+          }
         >
           <div
             className="label"

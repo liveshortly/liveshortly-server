@@ -12,6 +12,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Avatar from "@/components/Avatar";
+import BrandMark from "@/components/BrandMark";
 import Badge from "@/components/Badge";
 import DeleteSessionButton from "@/components/DeleteSessionButton";
 import EventStream from "@/components/EventStream";
@@ -468,6 +469,11 @@ export default function SessionViewer({
           </Link>
         )}
 
+        {/* Mobile-only brand mark in the sticky session header (the global topbar
+            is hidden on the session viewer). */}
+        <Link href="/" className="sv-hero-brand" aria-label="LiveShortly home">
+          <BrandMark />
+        </Link>
 
         <div className="sv-hero-main">
           <div className="sv-hero-eyebrow">

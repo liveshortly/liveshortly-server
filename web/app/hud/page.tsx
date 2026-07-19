@@ -102,7 +102,7 @@ export default function Page() {
   const topTags = useMemo(() => rollupTags(mine ?? []), [mine]);
 
   const ownerActions = (s: Session) => (
-    <div className="hud-row-icons">
+    <RowActionsGear>
       <PublishAction session={s} onChanged={updateMine} />
       <ShareAction
         session={s}
@@ -111,7 +111,7 @@ export default function Page() {
         onClose={() => setShareFor(null)}
       />
       <DeleteSessionButton id={s.id} onDeleted={() => removeMine(s.id)} compact />
-    </div>
+    </RowActionsGear>
   );
 
   const resumeSession = live[0] ?? null;
@@ -291,6 +291,37 @@ function Row({
         <div className="hud-row-events tnum">{fmtInt(session.event_count)} ev</div>
       </Link>
       {actions}
+    </div>
+  );
+}
+
+/**
+ * Row actions. Desktop shows them inline; mobile collapses them behind a ⚙ gear
+ * that opens a dropdown, so the session name has room on a phone.
+ */
+function RowActionsGear({ children }: { children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [open]);
+  return (
+    <div className="hud-row-actions" ref={ref}>
+      <button
+        type="button"
+        className="hud-row-gear"
+        onClick={() => setOpen((v) => !v)}
+        aria-label="Session actions"
+        aria-expanded={open}
+      >
+        ⚙
+      </button>
+      <div className={`hud-row-icons${open ? " open" : ""}`}>{children}</div>
     </div>
   );
 }

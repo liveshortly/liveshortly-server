@@ -106,7 +106,7 @@ export default function Popover({
         position: "fixed",
         top: pos?.top ?? -9999,
         left: pos?.left ?? -9999,
-        zIndex: 70,
+        zIndex: 250,
         width,
         maxHeight: `calc(100vh - ${MARGIN * 2}px)`,
         overflowY: "auto",
