@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthContext";
 import Avatar from "@/components/Avatar";
-import { listSessions, type Session } from "@/lib/api";
+import { listSessions, renameSession, type Session } from "@/lib/api";
 import ProfileMenu from "@/components/ProfileMenu";
 import SessionContextMenu from "@/components/SessionContextMenu";
+import SessionStatusDot from "@/components/SessionStatusDot";
 import { timeAgo } from "@/lib/utils";
 
 const POLL_MS = 5000;
@@ -209,7 +210,7 @@ export default function WorkspaceSidebar() {
             {showLive && (
               <Group label="◉ LIVE" tone="green">
                 {groups.live.map((s) => (
-                  <Row key={s.id} s={s} active={s.id === activeId} live onCtx={openCtx} />
+                  <Row key={s.id} s={s} active={s.id === activeId} live onCtx={openCtx} onRenamed={patchSession} />
                 ))}
               </Group>
             )}
@@ -217,7 +218,7 @@ export default function WorkspaceSidebar() {
             {showBuckets.map((b) => (
               <Group key={b.label} label={b.label.toUpperCase()}>
                 {b.items.map((s) => (
-                  <Row key={s.id} s={s} active={s.id === activeId} onCtx={openCtx} />
+                  <Row key={s.id} s={s} active={s.id === activeId} onCtx={openCtx} onRenamed={patchSession} />
                 ))}
               </Group>
             ))}
@@ -225,7 +226,7 @@ export default function WorkspaceSidebar() {
             {showShared && (
               <Group label="🔗 SHARED WITH ME">
                 {groups.shared.map((s) => (
-                  <Row key={s.id} s={s} active={s.id === activeId} shared onCtx={openCtx} />
+                  <Row key={s.id} s={s} active={s.id === activeId} shared onCtx={openCtx} onRenamed={patchSession} />
                 ))}
               </Group>
             )}
@@ -324,17 +325,61 @@ function Row({
   live,
   shared,
   onCtx,
+  onRenamed,
 }: {
   s: Session;
   active: boolean;
   live?: boolean;
   shared?: boolean;
   onCtx?: (s: Session, isOwner: boolean, e: React.MouseEvent) => void;
+  onRenamed?: (u: Session) => void;
 }) {
+  const router = useRouter();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(s.title);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const open = () => router.push(`/session/${s.id}`);
+
+  const save = async () => {
+    const t = draft.trim();
+    if (t && t !== s.title) {
+      try {
+        await renameSession(s.id, t);
+        onRenamed?.({ ...s, title: t });
+      } catch {
+        /* ignore — the name simply won't change */
+      }
+    }
+    setEditing(false);
+  };
+
+  // Title single-click opens (deferred so a double-click can cancel and edit);
+  // clicking the rest of the row opens instantly.
+  const onTitleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (shared) return open(); // non-owner: no rename
+    if (timer.current) return;
+    timer.current = setTimeout(() => {
+      timer.current = null;
+      open();
+    }, 180);
+  };
+  const onTitleDouble = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (timer.current) {
+      clearTimeout(timer.current);
+      timer.current = null;
+    }
+    if (shared) return;
+    setDraft(s.title);
+    setEditing(true);
+  };
+
   return (
-    <Link
-      href={`/session/${s.id}`}
+    <div
       title={s.title || "untitled session"}
+      onClick={() => !editing && open()}
       onContextMenu={(e) => onCtx?.(s, !shared, e)}
       style={{
         display: "flex",
@@ -344,10 +389,11 @@ function Row({
         borderLeft: `2px solid ${active ? "var(--green)" : "transparent"}`,
         background: active ? "var(--panel2)" : "transparent",
         minWidth: 0,
+        cursor: "pointer",
       }}
       className="ws-row"
     >
-      <StatusDot s={s} shared={shared} live={live} />
+      <SessionStatusDot s={s} shared={shared} live={live} />
       <span
         style={{
           flex: 1,
@@ -357,18 +403,39 @@ function Row({
           gap: 2,
         }}
       >
-        <span
-          style={{
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-            fontSize: 12,
-            color: active ? "var(--ink)" : "var(--muted)",
-            fontWeight: active ? 600 : 400,
-          }}
-        >
-          {s.title || "untitled session"}
-        </span>
+        {editing ? (
+          <input
+            autoFocus
+            value={draft}
+            className="ws-row-rename"
+            onClick={(e) => e.stopPropagation()}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={save}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") save();
+              if (e.key === "Escape") {
+                setDraft(s.title);
+                setEditing(false);
+              }
+            }}
+          />
+        ) : (
+          <span
+            onClick={onTitleClick}
+            onDoubleClick={onTitleDouble}
+            title={shared ? undefined : "Double-click to rename"}
+            style={{
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              fontSize: 12,
+              color: active ? "var(--ink)" : "var(--muted)",
+              fontWeight: active ? 600 : 400,
+            }}
+          >
+            {s.title || "untitled session"}
+          </span>
+        )}
         <span
           style={{
             fontSize: 9.5,
@@ -391,7 +458,7 @@ function Row({
       >
         {live ? "LIVE" : timeAgo(s.ended_at ?? s.created_at)}
       </span>
-    </Link>
+    </div>
   );
 }
 
@@ -401,38 +468,3 @@ function Row({
  * Priority live > published > shared > ended, so a live-and-published session
  * reads as live.
  */
-function StatusDot({
-  s,
-  shared,
-  live,
-}: {
-  s: Session;
-  shared?: boolean;
-  live?: boolean;
-}) {
-  const isLive = live || s.status === "live";
-  const isShared =
-    shared ||
-    s.visibility === "link" ||
-    s.visibility === "public" ||
-    s.visibility === "open";
-
-  let color = "var(--faint)";
-  let label = "ended";
-  if (s.published_at) {
-    color = "var(--blue)";
-    label = "published";
-  } else if (isShared) {
-    color = "var(--amber)";
-    label = "shared";
-  }
-
-  return (
-    <span
-      className={`ws-status-dot${isLive ? " ws-status-dot-live" : ""}`}
-      style={isLive ? undefined : { background: color }}
-      title={isLive ? "live" : label}
-      aria-label={isLive ? "live" : label}
-    />
-  );
-}
