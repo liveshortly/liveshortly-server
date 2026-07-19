@@ -7,6 +7,7 @@ import { useAuth } from "@/components/AuthContext";
 import Avatar from "@/components/Avatar";
 import { listSessions, type Session } from "@/lib/api";
 import ProfileMenu from "@/components/ProfileMenu";
+import SessionContextMenu from "@/components/SessionContextMenu";
 import { timeAgo } from "@/lib/utils";
 
 const POLL_MS = 5000;
@@ -30,6 +31,29 @@ export default function WorkspaceSidebar() {
   const [shared, setShared] = useState<Session[] | null>(null);
   const [q, setQ] = useState("");
   const [tab, setTab] = useState<Tab>("all");
+  const [ctx, setCtx] = useState<{
+    s: Session;
+    isOwner: boolean;
+    x: number;
+    y: number;
+  } | null>(null);
+
+  const openCtx = (s: Session, isOwner: boolean, e: React.MouseEvent) => {
+    e.preventDefault();
+    setCtx({ s, isOwner, x: e.clientX, y: e.clientY });
+  };
+  const patchSession = (u: Session) => {
+    const map = (arr: Session[] | null) =>
+      arr?.map((x) => (x.id === u.id ? { ...x, ...u } : x)) ?? arr;
+    setMine(map);
+    setShared(map);
+  };
+  const dropSession = (idToDrop: string) => {
+    const filt = (arr: Session[] | null) =>
+      arr?.filter((x) => x.id !== idToDrop) ?? arr;
+    setMine(filt);
+    setShared(filt);
+  };
 
   // Poll both lists so live status + new sessions show up without a reload.
   useEffect(() => {
@@ -185,7 +209,7 @@ export default function WorkspaceSidebar() {
             {showLive && (
               <Group label="◉ LIVE" tone="green">
                 {groups.live.map((s) => (
-                  <Row key={s.id} s={s} active={s.id === activeId} live />
+                  <Row key={s.id} s={s} active={s.id === activeId} live onCtx={openCtx} />
                 ))}
               </Group>
             )}
@@ -193,7 +217,7 @@ export default function WorkspaceSidebar() {
             {showBuckets.map((b) => (
               <Group key={b.label} label={b.label.toUpperCase()}>
                 {b.items.map((s) => (
-                  <Row key={s.id} s={s} active={s.id === activeId} />
+                  <Row key={s.id} s={s} active={s.id === activeId} onCtx={openCtx} />
                 ))}
               </Group>
             ))}
@@ -201,7 +225,7 @@ export default function WorkspaceSidebar() {
             {showShared && (
               <Group label="🔗 SHARED WITH ME">
                 {groups.shared.map((s) => (
-                  <Row key={s.id} s={s} active={s.id === activeId} shared />
+                  <Row key={s.id} s={s} active={s.id === activeId} shared onCtx={openCtx} />
                 ))}
               </Group>
             )}
@@ -248,6 +272,18 @@ export default function WorkspaceSidebar() {
           </ProfileMenu>
         </div>
       )}
+
+      {ctx && (
+        <SessionContextMenu
+          session={ctx.s}
+          isOwner={ctx.isOwner}
+          x={ctx.x}
+          y={ctx.y}
+          onClose={() => setCtx(null)}
+          onChanged={patchSession}
+          onDeleted={() => dropSession(ctx.s.id)}
+        />
+      )}
     </div>
   );
 }
@@ -287,16 +323,19 @@ function Row({
   active,
   live,
   shared,
+  onCtx,
 }: {
   s: Session;
   active: boolean;
   live?: boolean;
   shared?: boolean;
+  onCtx?: (s: Session, isOwner: boolean, e: React.MouseEvent) => void;
 }) {
   return (
     <Link
       href={`/session/${s.id}`}
       title={s.title || "untitled session"}
+      onContextMenu={(e) => onCtx?.(s, !shared, e)}
       style={{
         display: "flex",
         alignItems: "center",
