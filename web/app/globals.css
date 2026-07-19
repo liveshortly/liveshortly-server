@@ -496,7 +496,7 @@ a {
 }
 .v3-searchpill {
   width: 100%;
-  max-width: 480px;
+  max-width: 820px;
   margin: 0 auto;
   display: flex;
   align-items: center;
@@ -1724,8 +1724,10 @@ a {
   grid-row: 1;
   display: grid;
   /* Symmetric side columns so the center pill sits at true page center,
-     not merely centered within an off-center middle track. */
-  grid-template-columns: 1fr auto 1fr;
+     not merely centered within an off-center middle track. The center track
+     is a bounded width (not `auto`) so the search pill actually stretches to
+     it instead of collapsing to its intrinsic content width. */
+  grid-template-columns: 1fr minmax(0, 820px) 1fr;
   align-items: center;
   gap: 16px;
   padding: 0 18px;
