@@ -577,15 +577,58 @@ a {
 .v3-icon-btn:hover {
   color: var(--ink);
 }
+/* Mobile drawer toggle — chat-UI hamburger at the far left of the header.
+   Desktop keeps the persistent sidebar, so it's hidden there. */
+.v3-menu-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--hairline);
+  background: transparent;
+  color: var(--ink);
+  font-size: 16px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
 @media (max-width: 760px) {
   .v3-searchpill,
   .v3-install-link {
     display: none;
   }
+  /* Header becomes a flex chat-bar: [☰] [brand] … [theme] [avatar], with the
+     Live/Feed/Published tabs wrapping onto a full-width scrollable second row. */
   .v3-topbar {
-    height: 52px;
-    grid-template-columns: auto auto;
-    justify-content: space-between;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    height: auto;
+    gap: 8px 10px;
+    padding: 8px 12px;
+  }
+  .v3-menu-btn {
+    display: inline-flex;
+    order: 0;
+  }
+  .v3-brand {
+    order: 1;
+  }
+  .v3-top-actions {
+    order: 2;
+    margin-left: auto;
+    gap: 8px;
+  }
+  .v3-htabs {
+    order: 3;
+    display: flex;
+    width: 100%;
+    overflow-x: auto;
+    gap: 4px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .v3-htab {
+    white-space: nowrap;
   }
 }
 
@@ -997,7 +1040,6 @@ a {
   display: flex;
   flex-direction: column;
   border: 1px solid var(--hairline);
-  overflow: hidden;
 }
 .hud-row {
   display: flex;
@@ -2623,6 +2665,33 @@ a {
   font-weight: 700;
   color: var(--green);
 }
+/* <details> collapsible (mobile). Hide the native marker; a chevron shows only
+   on mobile, where the section starts collapsed. Desktop stays open. */
+.lp-how-summary {
+  cursor: pointer;
+  list-style: none;
+}
+.lp-how-summary::-webkit-details-marker {
+  display: none;
+}
+.lp-how-summary::after {
+  content: "▸";
+  color: var(--green);
+  margin-left: 8px;
+  transition: transform 150ms ease;
+  display: none;
+}
+@media (max-width: 760px) {
+  .lp-how-summary::after {
+    display: inline-block;
+  }
+  .lp-how-wrap[open] .lp-how-summary::after {
+    transform: rotate(90deg);
+  }
+  .lp-how-wrap[open] .lp-how {
+    margin-top: 14px;
+  }
+}
 .lp-how {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -2779,12 +2848,22 @@ a {
   .lp-topbar {
     grid-template-columns: auto 1fr auto;
   }
+  /* Stats: a compact wrapping row (not a tall column) with no vertical rules. */
   .lp-proof {
-    flex-direction: column;
-    align-items: flex-start;
+    gap: 6px 18px;
+    padding: 12px 16px;
+  }
+  .lp-proof-sep {
+    display: none;
   }
   .lp-proof-watch {
     margin-left: 0;
+  }
+  /* Cards: the empty media strip wastes space on a phone — shrink it so the
+     views/live badge still shows without the big blank block. */
+  .lp-card-art {
+    height: 44px;
+    padding: 7px 9px;
   }
   .lp-mkt-hero {
     grid-template-columns: 1fr;
@@ -2792,9 +2871,9 @@ a {
   }
   .lp-mkt-title {
     font-size: 24px;
-  }
-  .lp-mkt-title br {
-    display: none;
+    /* Keep the animated word on its own line and reserve height for it, so the
+       typewriter growing/shrinking never resizes the hero box. */
+    min-height: 3.6em;
   }
   .lp-how {
     grid-template-columns: 1fr;
@@ -3032,7 +3111,7 @@ a {
   position: absolute;
   left: 10px;
   right: 10px;
-  bottom: 10px;
+  bottom: 3px;
   display: flex;
   flex-direction: column;
   gap: 5px;
@@ -3042,7 +3121,7 @@ a {
 }
 .sv-composer {
   flex-shrink: 0;
-  padding: 14px 2px 12px;
+  padding: 6px 2px 12px;
 }
 .sv-composer-wrap {
   border: 1px solid var(--strong);
@@ -3629,11 +3708,6 @@ a {
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 0%, transparent);
   }
 }
-@media (max-width: 760px) {
-  .v3-htabs {
-    display: none;
-  }
-}
 
 /* ── sidebar row status dot (replaces the swatch icon) ── */
 .ws-status-dot {
@@ -4063,4 +4137,176 @@ a {
   border-radius: 50%;
   background: var(--green);
   animation: liveBlink 1.4s ease-in-out infinite;
+}
+
+/* Mobile: featured session hero is far smaller — the big square badge + tall
+   min-height waste a phone screen. */
+@media (max-width: 760px) {
+  .hf-hero {
+    padding: 16px;
+    min-height: 0;
+    gap: 12px;
+    margin-bottom: 18px;
+    align-items: center;
+  }
+  .hf-hero-badge {
+    width: 44px;
+    height: 44px;
+    font-size: 20px;
+  }
+}
+
+/* ── global app footer ── */
+.v3-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 20px 24px;
+  border-top: 1px solid var(--hairline);
+  color: var(--faint);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.v3-footer-brand {
+  color: var(--green);
+  font-weight: 700;
+}
+.v3-footer-links {
+  display: flex;
+  gap: 14px;
+}
+.v3-footer a {
+  color: var(--muted);
+}
+.v3-footer a:hover {
+  color: var(--ink);
+}
+@media (max-width: 760px) {
+  .v3-footer {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+}
+
+/* ── HUD row actions: inline on desktop, gear dropdown on mobile ── */
+.hud-row-actions {
+  position: relative;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+.hud-row-gear {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--hairline);
+  background: transparent;
+  color: var(--ink);
+  font-size: 15px;
+  cursor: pointer;
+}
+.hud-row-actions .hud-row-icons {
+  margin-left: 0;
+  padding-left: 0;
+}
+@media (max-width: 760px) {
+  /* Dot already conveys status — reclaim its width for the session name. */
+  .hud-row-badge {
+    display: none;
+  }
+  .hud-row-gear {
+    display: inline-flex;
+  }
+  .hud-row-actions .hud-row-icons {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    z-index: 20;
+    display: none;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 186px;
+    padding: 7px;
+    background: var(--panel2);
+    border: 1px solid var(--hairline);
+    box-shadow: 0 8px 26px var(--shadow);
+  }
+  .hud-row-actions .hud-row-icons.open {
+    display: flex;
+  }
+  .hud-row-actions .hud-row-icons > * {
+    width: 100%;
+  }
+}
+
+/* ── mobile actions sheet: uniform full-width buttons, inline popovers ── */
+.msheet-row-wrap {
+  width: 100%;
+}
+.msheet-row-wrap > *,
+.msheet-row-wrap .pub-wrap,
+.msheet-row-wrap .cf-wrap {
+  display: block;
+  width: 100%;
+}
+.msheet-row-wrap button {
+  width: 100% !important;
+  justify-content: center !important;
+}
+/* Popovers expand in-flow inside the sheet instead of floating off-screen. */
+.msheet .pub-pop,
+.msheet .cf-pop {
+  position: static;
+  width: 100%;
+  margin-top: 6px;
+  box-shadow: none;
+}
+.msheet .pub-pop-go,
+.msheet .cf-yes,
+.msheet .cf-no {
+  width: 100% !important;
+}
+.msheet .cf-row {
+  flex-direction: column;
+}
+
+/* Mobile session sticky header brand — [☰] [LS] [session name] [⚙]. */
+.sv-hero-brand {
+  display: none;
+}
+@media (max-width: 860px) {
+  .sv-hero-brand {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+}
+
+/* Fork command popover in the sheet: COPY stays auto-width so the command input
+   keeps its space (the blanket full-width rule squished it). */
+.msheet [aria-label="Handoff command"] button {
+  width: auto !important;
+  flex-shrink: 0;
+}
+
+/* Phone: typing / working indicators are tiny so they don't dominate the chat. */
+@media (max-width: 760px) {
+  .sv-typing-overlay {
+    left: 6px;
+    right: 6px;
+    bottom: 2px;
+    gap: 3px;
+  }
+  .sv-typing-overlay > * {
+    font-size: 8px !important;
+    padding: 3px 6px !important;
+    letter-spacing: 0.03em !important;
+    gap: 5px !important;
+  }
 }
