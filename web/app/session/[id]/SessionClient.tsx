@@ -471,23 +471,21 @@ export default function SessionViewer({
 
         <div className="sv-hero-main">
           <div className="sv-hero-eyebrow">
-            {meta && (
-              <span
-                className={`sv-hero-badge${meta.status === "live" ? "" : " ended"}`}
-                title={
-                  meta.ended_reason === "quota"
-                    ? "Auto-ended — owner reached their storage quota"
-                    : undefined
-                }
-              >
-                {meta.status === "live" && <span className="live-dot" />}
-                {meta.status === "live"
-                  ? "Live"
-                  : meta.ended_reason === "quota"
-                    ? "Ended · quota"
-                    : "Ended"}
-              </span>
-            )}
+            {meta &&
+              (meta.status === "live" ? (
+                <span className="sv-live-dot" title="Live" aria-label="Live" />
+              ) : (
+                <span
+                  className="sv-hero-badge ended"
+                  title={
+                    meta.ended_reason === "quota"
+                      ? "Auto-ended — owner reached their storage quota"
+                      : undefined
+                  }
+                >
+                  {meta.ended_reason === "quota" ? "Ended · quota" : "Ended"}
+                </span>
+              ))}
             <span>Session · {frameworkLabel(meta?.framework)}</span>
             <span style={{ color: "var(--faint)" }}>{shortId(id)}</span>
           </div>
