@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { generateHandoff, type Handoff } from "@/lib/api";
 
 /**
@@ -24,6 +24,24 @@ export default function HandoffButton({
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(false);
   const [copied, setCopied] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  // Dismiss the command popover on outside-click or Escape.
+  useEffect(() => {
+    if (!ho) return;
+    const onDown = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
+        setHo(null);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setHo(null);
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [ho]);
 
   const open = async () => {
     if (ho) {
@@ -55,6 +73,7 @@ export default function HandoffButton({
   const up = placement === "up";
   return (
     <div
+      ref={wrapRef}
       style={{
         position: "relative",
         display: fullWidth ? "block" : "inline-flex",
@@ -90,7 +109,10 @@ export default function HandoffButton({
             position: "absolute",
             top: up ? undefined : "calc(100% + 6px)",
             bottom: up ? "calc(100% + 6px)" : undefined,
-            right: 0,
+            // Align to the trigger's left edge: in the inline action row the
+            // button sits on the left, so a right-anchored popover would spill
+            // leftward over the sidebar. Full-width (mobile sheet) is unaffected.
+            left: 0,
             zIndex: 40,
             width: "min(92vw, 420px)",
             border: "1px solid var(--strong)",
