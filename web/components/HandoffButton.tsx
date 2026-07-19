@@ -85,7 +85,7 @@ export default function HandoffButton({
         onClick={open}
         disabled={busy}
         className="label"
-        title="Continue this session as a new session you own (any agent)"
+        title="Fork this session as a new session you own (any agent)"
         style={{
           border: `1px solid ${err ? "var(--red)" : "var(--strong)"}`,
           background: "transparent",
@@ -98,7 +98,7 @@ export default function HandoffButton({
           width: fullWidth ? "100%" : undefined,
         }}
       >
-        {busy ? "…" : err ? "⚠ RETRY" : "⑃ CONTINUE"}
+        {busy ? "…" : err ? "⚠ RETRY" : "⑃ FORK"}
       </button>
 
       {ho && (
@@ -125,7 +125,7 @@ export default function HandoffButton({
             className="label"
             style={{ color: "var(--muted)", marginBottom: 8, letterSpacing: "0.06em" }}
           >
-            RUN TO CONTINUE THIS SESSION
+            RUN TO FORK THIS SESSION
           </div>
           <div style={{ display: "flex", gap: 6, alignItems: "stretch" }}>
             <input
