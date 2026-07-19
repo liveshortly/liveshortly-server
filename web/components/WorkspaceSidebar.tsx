@@ -330,29 +330,7 @@ function Row({
       }}
       className="ws-row"
     >
-      <span
-        aria-hidden
-        style={{
-          position: "relative",
-          flexShrink: 0,
-          width: 26,
-          height: 26,
-          background: "var(--grad-hero)",
-          border: "1px solid var(--hairline)",
-        }}
-      >
-        {live && (
-          <span
-            className="live-dot"
-            style={{
-              position: "absolute",
-              right: -3,
-              bottom: -3,
-              boxShadow: "0 0 0 2px var(--panel)",
-            }}
-          />
-        )}
-      </span>
+      <StatusDot s={s} shared={shared} live={live} />
       <span
         style={{
           flex: 1,
@@ -397,5 +375,47 @@ function Row({
         {live ? "LIVE" : timeAgo(s.ended_at ?? s.created_at)}
       </span>
     </Link>
+  );
+}
+
+/**
+ * Single status dot per row (replaces the old swatch icon):
+ *   green (blinking) = live · blue = published · amber = shared · gray = ended.
+ * Priority live > published > shared > ended, so a live-and-published session
+ * reads as live.
+ */
+function StatusDot({
+  s,
+  shared,
+  live,
+}: {
+  s: Session;
+  shared?: boolean;
+  live?: boolean;
+}) {
+  const isLive = live || s.status === "live";
+  const isShared =
+    shared ||
+    s.visibility === "link" ||
+    s.visibility === "public" ||
+    s.visibility === "open";
+
+  let color = "var(--faint)";
+  let label = "ended";
+  if (s.published_at) {
+    color = "var(--blue)";
+    label = "published";
+  } else if (isShared) {
+    color = "var(--amber)";
+    label = "shared";
+  }
+
+  return (
+    <span
+      className={`ws-status-dot${isLive ? " ws-status-dot-live" : ""}`}
+      style={isLive ? undefined : { background: color }}
+      title={isLive ? "live" : label}
+      aria-label={isLive ? "live" : label}
+    />
   );
 }
