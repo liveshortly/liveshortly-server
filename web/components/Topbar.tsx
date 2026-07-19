@@ -20,7 +20,15 @@ const HOME_TABS = [
   { key: "published", href: "/?tab=published", label: "▣ Published" },
 ] as const;
 
-export default function Topbar({ user }: { user: Me }) {
+export default function Topbar({
+  user,
+  onMenu,
+  menuOpen,
+}: {
+  user: Me;
+  onMenu?: () => void;
+  menuOpen?: boolean;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -38,6 +46,18 @@ export default function Topbar({ user }: { user: Me }) {
 
   return (
     <div className="v3-topbar">
+      {onMenu && (
+        <button
+          type="button"
+          className="v3-menu-btn"
+          onClick={onMenu}
+          aria-label={menuOpen ? "Hide sessions" : "Show sessions"}
+          aria-expanded={menuOpen}
+        >
+          {menuOpen ? "✕" : "☰"}
+        </button>
+      )}
+
       <Link href="/" className="v3-brand" aria-label="LiveShortly home">
         <BrandMark />
         LiveShortly

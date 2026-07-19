@@ -443,7 +443,7 @@ function MarketingHero({
             : "LiveShortly"}
         </div>
         <h1 className="lp-mkt-title">
-          Watch Agent
+          Watch Agent{" "}
           <br />
           <span className="lp-tw-word">{word}</span>
           <span className="lp-tw-cursor" aria-hidden /> — live.
@@ -635,12 +635,21 @@ function HowItWorks() {
   // Type the full one-liner `live login && live claude` in step 2, animated.
   const RUN_FLOW = `${LOGIN_CMD} && ${RUN_CMD}`;
   const typedCmd = useTypewriter([RUN_FLOW]);
+  // Collapsed by default on mobile (tap the header to expand); open on desktop.
+  const [open, setOpen] = useState(true);
+  useEffect(() => {
+    setOpen(!window.matchMedia("(max-width: 760px)").matches);
+  }, []);
   return (
-    <section className="lp-how-wrap">
-      <div className="lp-sec-head">
+    <details
+      className="lp-how-wrap"
+      open={open}
+      onToggle={(e) => setOpen(e.currentTarget.open)}
+    >
+      <summary className="lp-sec-head lp-how-summary">
         <h2 className="lp-sec-title">How it works</h2>
         <span className="lp-how-eyebrow">◦ Get started in 3 steps</span>
-      </div>
+      </summary>
       <div className="lp-how">
         <div className="lp-how-step">
           <div className="lp-how-head">
@@ -706,7 +715,7 @@ function HowItWorks() {
           </div>
         </div>
       </div>
-    </section>
+    </details>
   );
 }
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { SessionEvent } from "@/lib/api";
@@ -121,6 +122,25 @@ export default function MobileEventFeed({
   const owner = ownerHandle && ownerHandle.trim() ? ownerHandle.trim() : "you";
   const agent = agentTitle(framework);
 
+  // Auto-scroll the feed's scroll container (the .mobile-feed-wrap parent) to
+  // the bottom as new events arrive — unless the viewer has scrolled up to read.
+  const rootRef = useRef<HTMLDivElement>(null);
+  const stick = useRef(true);
+  useEffect(() => {
+    const scroller = rootRef.current?.parentElement;
+    if (scroller && stick.current) scroller.scrollTop = scroller.scrollHeight;
+  }, [events.length]);
+  useEffect(() => {
+    const scroller = rootRef.current?.parentElement;
+    if (!scroller) return;
+    const onScroll = () => {
+      stick.current =
+        scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 80;
+    };
+    scroller.addEventListener("scroll", onScroll, { passive: true });
+    return () => scroller.removeEventListener("scroll", onScroll);
+  }, []);
+
   if (turns.length === 0 && leadingWork.length === 0) {
     return (
       <div className="label" style={{ padding: "24px 16px", color: "var(--faint)" }}>
@@ -130,7 +150,7 @@ export default function MobileEventFeed({
   }
 
   return (
-    <div>
+    <div ref={rootRef}>
       {leadingWork.length > 0 && (
         <div className="mfeed-msg">
           <div className="mfeed-avatar mfeed-avatar-claude" aria-hidden>

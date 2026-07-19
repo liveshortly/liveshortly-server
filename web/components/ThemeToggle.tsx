@@ -2,19 +2,19 @@
 
 import { useTheme, type ThemeMode } from "@/components/ThemeProvider";
 
-const ORDER: ThemeMode[] = ["light", "dark", "system"];
+const ORDER: ThemeMode[] = ["system", "light", "dark"];
 const GLYPH: Record<ThemeMode, string> = {
+  system: "◐",
   light: "☀",
   dark: "☾",
-  system: "◐",
 };
 const NEXT_LABEL: Record<ThemeMode, string> = {
+  system: "LIGHT",
   light: "DARK",
   dark: "SYSTEM",
-  system: "LIGHT",
 };
 
-/** Compact theme switcher — click cycles light → dark → system. */
+/** Icon-only theme switcher — click cycles system → light → dark. */
 export default function ThemeToggle() {
   const { mode, setMode } = useTheme();
   const next = ORDER[(ORDER.indexOf(mode) + 1) % ORDER.length];
@@ -23,25 +23,14 @@ export default function ThemeToggle() {
     <button
       type="button"
       onClick={() => setMode(next)}
-      className="label"
+      className="v3-icon-btn"
       aria-label={`Theme: ${mode}. Switch to ${NEXT_LABEL[mode].toLowerCase()}.`}
       title={`Theme: ${mode} — click for ${NEXT_LABEL[mode].toLowerCase()}`}
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 6,
-        border: "1px solid var(--hairline)",
-        background: "transparent",
-        color: "var(--muted)",
-        padding: "5px 9px",
-        cursor: "pointer",
-        whiteSpace: "nowrap",
-      }}
+      style={{ background: "transparent", cursor: "pointer" }}
     >
-      <span aria-hidden style={{ fontSize: 13, lineHeight: 1 }}>
+      <span aria-hidden style={{ fontSize: 15, lineHeight: 1 }}>
         {GLYPH[mode]}
       </span>
-      {mode.toUpperCase()}
     </button>
   );
 }

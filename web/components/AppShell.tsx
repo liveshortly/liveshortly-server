@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import Topbar from "@/components/Topbar";
+import AppFooter from "@/components/AppFooter";
 import WorkspaceSidebar from "@/components/WorkspaceSidebar";
 import { WorkspaceDrawerContext } from "@/components/WorkspaceDrawerContext";
 import type { Me } from "@/lib/api";
@@ -45,18 +46,13 @@ export default function AppShell({
 
   return (
     <div className="v3-app">
-      <Topbar user={user} />
+      <Topbar
+        user={user}
+        onMenu={() => setDrawer((v) => !v)}
+        menuOpen={drawer}
+      />
       <WorkspaceDrawerContext.Provider value={drawerCtx}>
         <div className="workspace" data-drawer={drawer ? "open" : "closed"}>
-          <button
-            type="button"
-            className="ws-toggle label"
-            onClick={() => setDrawer((v) => !v)}
-            aria-label={drawer ? "Hide sessions" : "Show sessions"}
-          >
-            {drawer ? "✕ SESSIONS" : "☰ SESSIONS"}
-          </button>
-
           <aside className="ws-sidebar" onClick={() => setDrawer(false)}>
             <WorkspaceSidebar />
           </aside>
@@ -69,6 +65,9 @@ export default function AppShell({
             ) : (
               <div className="ws-content">{children}</div>
             )}
+            {/* Global footer — hidden on the session viewer, which fills the
+                pane and scrolls internally. */}
+            {!pathname.startsWith("/session/") && <AppFooter />}
           </main>
         </div>
       </WorkspaceDrawerContext.Provider>
