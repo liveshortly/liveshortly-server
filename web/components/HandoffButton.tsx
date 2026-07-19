@@ -116,9 +116,9 @@ export default function HandoffButton({
             zIndex: 40,
             width: "min(92vw, 420px)",
             border: "1px solid var(--strong)",
-            background: "var(--panel)",
+            background: "var(--panel2)",
             padding: 12,
-            boxShadow: "0 6px 24px rgba(0,0,0,0.18)",
+            boxShadow: "0 8px 26px var(--shadow)",
           }}
         >
           <div

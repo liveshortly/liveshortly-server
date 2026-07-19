@@ -460,7 +460,6 @@ export default function SessionViewer({
           </Link>
         )}
 
-        <div className="sv-hero-art" aria-hidden />
 
         <div className="sv-hero-main">
           <div className="sv-hero-eyebrow">
@@ -912,9 +911,7 @@ function SessionActionRow({
   onDeleted: () => void;
   onRename: () => void;
 }) {
-  const [linkOpen, setLinkOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
-  const linkBtnRef = useRef<HTMLButtonElement>(null);
   const shareBtnRef = useRef<HTMLButtonElement>(null);
 
   return (
@@ -925,10 +922,6 @@ function SessionActionRow({
         </button>
       )}
       <HandoffButton sessionId={meta.id} />
-      <ShareToTwitter session={meta} onChanged={onMetaChange} />
-      {meta.is_owner && (
-        <PublishAction session={meta} onChanged={onMetaChange} />
-      )}
       {meta.is_owner && (
         <span className="sv-act-pop">
           <button
@@ -951,29 +944,9 @@ function SessionActionRow({
           )}
         </span>
       )}
+      <ShareToTwitter session={meta} onChanged={onMetaChange} />
       {meta.is_owner && (
-        <span className="sv-act-pop">
-          <button
-            ref={linkBtnRef}
-            type="button"
-            className={`sv-act${linkOpen ? " on" : ""}`}
-            onClick={() => setLinkOpen((v) => !v)}
-            aria-haspopup="dialog"
-            aria-expanded={linkOpen}
-          >
-            ⊕ Link
-          </button>
-          {linkOpen && (
-            <PublicLinkDialog
-              sessionId={id}
-              title={meta.title}
-              visibility={meta.visibility ?? "private"}
-              anchorEl={linkBtnRef.current}
-              onClose={() => setLinkOpen(false)}
-              onChanged={onMetaChange}
-            />
-          )}
-        </span>
+        <PublishAction session={meta} onChanged={onMetaChange} />
       )}
       {meta.is_owner && meta.status === "live" && (
         <EndButton id={id} onEnded={onEnded} />
@@ -1114,20 +1087,6 @@ function SessionInfoPanel({
         )}
 
         {/* Alternate views of the same events. Compose is owner-only. */}
-        <div
-          style={{
-            display: "flex",
-            gap: 8,
-            flexWrap: "wrap",
-            marginTop: 14,
-            paddingTop: 12,
-            borderTop: "1px dashed var(--hairline)",
-          }}
-        >
-          <ViewLink href={`/replay/${id}`}>▶ REPLAY</ViewLink>
-          <ViewLink href={`/story/${id}`}>✎ DEV STORY</ViewLink>
-          {meta.is_owner && <ViewLink href={`/compose/${id}`}>✎ COMPOSE</ViewLink>}
-        </div>
       </div>
 
       <div className="sv-watch-head">
@@ -1543,31 +1502,6 @@ function streamLabel(conn: Connection, isLive: boolean): string {
   }
 }
 
-/** A compact link to an alternate view of this session (replay / story / compose). */
-function ViewLink({
-  href,
-  children,
-}: {
-  href: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <Link
-      href={href}
-      className="label"
-      style={{
-        border: "1px solid var(--hairline)",
-        background: "var(--panel)",
-        color: "var(--ink)",
-        padding: "5px 10px",
-        fontSize: 10,
-      }}
-    >
-      {children}
-    </Link>
-  );
-}
-
 export type TitleBlockHandle = { begin: () => void };
 
 /** Session title. Rename is triggered from the action row via an imperative
@@ -1698,12 +1632,15 @@ const TitleBlock = forwardRef<
       }}
     >
       <h1
+        onDoubleClick={meta?.is_owner ? begin : undefined}
+        title={meta?.is_owner ? "Double-click to rename" : undefined}
         style={{
           fontSize: 19,
           fontWeight: 700,
           margin: 0,
           letterSpacing: "-0.01em",
           wordBreak: "break-word",
+          cursor: meta?.is_owner ? "text" : undefined,
         }}
       >
         {meta?.title ?? loadingLabel}
