@@ -183,6 +183,21 @@ main() {
   command -v tmux >/dev/null 2>&1 \
     || say "tip: install tmux — required for 'live codex', and it gives 'live claude' clean permission popups."
 
+  # ── 4b. Point the CLI at the hosted service ─────────────────────────────────
+  # Without this the binary falls back to localhost:8000 and `live login` fails
+  # with "connection refused". Only written when absent, so a dev's existing
+  # host.json (or an explicit LIVESHORTLY_API_URL) is never clobbered. Override
+  # the target with LIVE_API_URL / LIVE_WEB_URL for self-hosted deployments.
+  local host_dir="$HOME/.liveshortly"
+  local host_file="$host_dir/host.json"
+  if [ ! -f "$host_file" ]; then
+    local api_url="${LIVE_API_URL:-https://liveshortly.com}"
+    local web_url="${LIVE_WEB_URL:-https://liveshortly.com}"
+    mkdir -p "$host_dir"
+    printf '{"api_url":"%s","web_url":"%s"}\n' "$api_url" "$web_url" > "$host_file"
+    say "configured host → $api_url"
+  fi
+
   # ── 5. Sign in (device flow opens your browser; no typing needed) ───────────
   if [ -n "$NO_LOGIN" ]; then
     say "skipping sign-in. Run: live login"
