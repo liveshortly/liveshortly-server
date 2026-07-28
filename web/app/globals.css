@@ -592,6 +592,91 @@ a {
   cursor: pointer;
   flex-shrink: 0;
 }
+/* New session — start a run on one of your own machines, from the browser.
+   Only rendered when the account has an online host (see NewSessionButton). */
+.ns-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+.ns-btn {
+  font: inherit;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+  padding: 6px 10px;
+  color: var(--bg);
+  background: var(--green);
+  border: 1px solid var(--green);
+  cursor: pointer;
+}
+.ns-btn:hover {
+  filter: brightness(1.08);
+}
+.ns-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 60;
+  width: 320px;
+  max-width: calc(100vw - 24px);
+  padding: 14px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 12%);
+}
+.ns-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+.ns-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+.ns-select {
+  font: inherit;
+  font-size: 12px;
+  padding: 6px 8px;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  /* Registered paths are long; never let one widen the panel. */
+  max-width: 100%;
+}
+.ns-start {
+  font: inherit;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  width: 100%;
+  padding: 8px;
+  margin-top: 2px;
+  color: var(--bg);
+  background: var(--ink);
+  border: 1px solid var(--ink);
+  cursor: pointer;
+}
+.ns-start:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.ns-error {
+  font-size: 11px;
+  line-height: 1.4;
+  margin-bottom: 8px;
+  color: var(--red);
+}
+.ns-hint {
+  font-size: 10.5px;
+  line-height: 1.4;
+  margin-top: 8px;
+  color: var(--muted);
+}
+
 @media (max-width: 760px) {
   .v3-searchpill,
   .v3-install-link {

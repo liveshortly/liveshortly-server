@@ -139,6 +139,61 @@ not yet acked for free, and duplicates between a live push and a later drain are
 the client's problem. `POST …/comments` and `POST …/decision` publish to
 `session:{id}:agent` in addition to their existing queue/emit behavior.
 
+## Hosts (web-spawned sessions)
+A **host** is one of the caller's own machines running `live daemon`. It holds a
+command stream open so the owner can start a session from the browser instead of
+typing `live <agent>` in a terminal. Hosts are Redis-only — an offline machine
+is not listed, because it is not spawnable.
+
+### Host
+```json
+{
+  "id": "laptop",           // daemon-chosen, [A-Za-z0-9_-]{1,64}
+  "name": "rohit's macbook",
+  "hostname": "rohit-mbp", "os": "darwin", "arch": "arm64",
+  "dirs":   ["/Users/rohit/code/api"],   // absolute; the spawn allowlist
+  "agents": ["claude","codex"],          // subset of claude|codex|gemini
+  "seen_at": "RFC3339"
+}
+```
+
+| Method | Path | Body | Response |
+|---|---|---|---|
+| POST | `/api/hosts/register` | `{"host_id","name"?,"hostname"?,"os"?,"arch"?,"dirs":[abs paths],"agents":[…]}` | `200 {"host_id","ttl_secs","registered":true}` — `400` on a bad id, a relative path, or no supported agent |
+| GET | `/api/hosts` | — | `200 {"hosts":[Host]}` — the caller's ONLINE machines only |
+| GET | `/api/hosts/{id}/stream` | — | `200` SSE command stream (owner only, Bearer) — `404` if the host has not registered |
+
+`POST /api/sessions` gains `{"host_id"?, "cwd"?}`. When `host_id` is set, `agent`
+is read as a **spawnable binary name** (`claude`/`codex`/`gemini`), not a
+framework label — the server maps it to the same `framework`/`capture_mode` the
+CLI would have reported. The response carries
+`"spawn": {"host_id","agent","cwd","status":"requested"|"failed","error"?}`.
+`requested` means the command was published, NOT that the agent is up; the
+session page tracks that separately via `agent_connected`.
+
+### SSE: `GET /api/hosts/{id}/stream` (daemon)
+Frames: `{"type":"connected","host_id"}`, then
+`{"type":"spawn","session_id","agent","cwd","title"}` per web-created session,
+plus `: hb` comments every 15s. Each heartbeat refreshes the host record, so the
+machine leaves the picker ~90s after the daemon dies (immediately on a clean
+disconnect).
+
+### Security model (binding)
+A spawn command is remote code execution on the owner's machine, authorized by
+their web session. Three rules bound it, and the daemon re-checks all three
+locally because it must not trust the server:
+1. The server **never sends an argv** — only an agent NAME from a fixed
+   allowlist. The daemon builds the command line itself.
+2. The working directory must be one the **daemon itself registered**. Both ends
+   reject anything else; `filepath.Clean` runs before the check so traversal
+   cannot escape the allowlist.
+3. Every Redis key is namespaced by the owning user id, so a host id guessed or
+   replayed by another user addresses a different key space and can never reach
+   this user's machine.
+
+Validation runs **before** the session row is created, so a bad host/dir/agent
+never leaves an orphaned live session against the caller's concurrency quota.
+
 ## Live plumbing (Redis)
 - `session:{id}:seq` — `INCR` to allocate the next event seq atomically.
 - `session:{id}:buffer` — `RPUSH` each event JSON; `LRANGE 0 -1` to replay.
@@ -157,6 +212,12 @@ the client's problem. `POST …/comments` and `POST …/decision` publish to
   agent-stream connect. The abandoned-agent reaper only ends sessions that have
   it, so legacy plugin/hook sessions (which never open an agent stream) are never
   reaped.
+- `host:{user}:{host}` — host record JSON (`SET`, TTL 90s, refreshed each
+  heartbeat of the host stream). Its presence IS the "machine is online" signal.
+- `host:{user}:{host}:cmd` — pub/sub channel carrying spawn commands to that
+  machine's `live daemon`.
+- `user:{user}:hosts` — SET of host ids; `HostList` prunes ids whose record has
+  lapsed, so a crashed daemon self-heals out of the picker.
 On stop: archive the buffer to storage as `sessions/{id}/raw.json`, persist events to
 `session_events`, set `status='ended'`, `ended_at=now()`, publish a `session_ended`
 control message, and delete the buffer key.

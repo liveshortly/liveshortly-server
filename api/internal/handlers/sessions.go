@@ -31,6 +31,24 @@ type createSessionReq struct {
 	ForkedFrom          *string `json:"forked_from"`
 	ForkedFromSessionID *string `json:"forked_from_session_id"`
 	ForkedFromSeq       *int    `json:"forked_from_seq"`
+
+	// Web-spawned session: start the agent on one of the caller's own machines
+	// running `live daemon`, instead of the caller running `live <agent>`
+	// themselves. HostID selects the machine, Cwd the (pre-registered) working
+	// directory, and Agent is then read as a spawnable binary name — "claude",
+	// "codex" or "gemini" — not as a framework label. See hosts.go for the
+	// security model.
+	HostID *string `json:"host_id"`
+	Cwd    *string `json:"cwd"`
+}
+
+// frameworkForAgent maps a spawnable binary name to the framework/capture
+// labels the CLI would have reported for the same run, so a web-spawned session
+// is indistinguishable from a terminal-started one in the feed.
+var frameworkForAgent = map[string]struct{ framework, captureMode string }{
+	"claude": {"claude-code", "hooks"},
+	"codex":  {"codex", "rollout"},
+	"gemini": {"gemini-cli", "pty"},
 }
 
 // CreateSession creates a new live session owned by the principal.
@@ -67,6 +85,31 @@ func (h *Handler) CreateSession(w http.ResponseWriter, r *http.Request) {
 		// Title is deliberately left empty for normal creates: the store generates
 		// a friendly codename regardless of the client's directory (owner renames
 		// later). Only a fork sets an explicit title (below).
+	}
+
+	// Web-spawned create: validate the target machine BEFORE creating anything,
+	// so a bad host/dir/agent never leaves an orphaned live session behind. The
+	// session is labelled exactly as the CLI would have labelled it.
+	var spawn *spawnTarget
+	if req.HostID != nil && strings.TrimSpace(*req.HostID) != "" {
+		agent := ""
+		if req.Agent != nil {
+			agent = *req.Agent
+		}
+		cwd := ""
+		if req.Cwd != nil {
+			cwd = *req.Cwd
+		}
+		t, err := h.resolveSpawn(r.Context(), p.ID, *req.HostID, agent, cwd)
+		if err != nil {
+			httpx.Error(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		spawn = &t
+		labels := frameworkForAgent[t.agent]
+		in.Agent = &labels.framework
+		in.Framework = &labels.framework
+		in.CaptureMode = &labels.captureMode
 	}
 
 	// Forked create: resolve + authorize the source, then seed the new session
@@ -123,11 +166,25 @@ func (h *Handler) CreateSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	httpx.JSON(w, http.StatusCreated, sessionWithURL{
+	// The machine is told last: the session must exist before the daemon can
+	// attach to it. A publish failure is reported on the response rather than
+	// unwound — the session is real, it just has no agent yet, and the session
+	// page already renders that state (agent_connected=false).
+	out := sessionWithURL{
 		Session: s,
 		URL:     "/session/" + s.ID,
 		Handoff: bundle,
-	})
+	}
+	if spawn != nil {
+		info := &spawnInfo{HostID: spawn.hostID, Agent: spawn.agent, Cwd: spawn.cwd, Status: "requested"}
+		if err := h.publishSpawn(r.Context(), p.ID, *spawn, s.ID, s.Title); err != nil {
+			info.Status = "failed"
+			info.Error = err.Error()
+		}
+		out.Spawn = info
+	}
+
+	httpx.JSON(w, http.StatusCreated, out)
 }
 
 // normStr trims a pointer string, returning nil for empty/whitespace values.

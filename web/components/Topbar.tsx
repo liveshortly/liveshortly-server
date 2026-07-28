@@ -7,6 +7,7 @@ import BrandMark from "@/components/BrandMark";
 import ThemeToggle from "@/components/ThemeToggle";
 import Avatar from "@/components/Avatar";
 import ProfileMenu from "@/components/ProfileMenu";
+import NewSessionButton from "@/components/NewSessionButton";
 import type { Me } from "@/lib/api";
 
 /**
@@ -88,6 +89,8 @@ export default function Topbar({
       </form>
 
       <div className="v3-top-actions">
+        {/* Renders only for accounts with a machine running `live daemon`. */}
+        <NewSessionButton />
         <Link href="/install" className="v3-install-link" title="Install the CLI">
           ⇩ Install CLI
         </Link>

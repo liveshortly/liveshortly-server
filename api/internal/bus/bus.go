@@ -34,6 +34,13 @@ func agentSeenKey(id string) string { return fmt.Sprintf("session:%s:agent_seen"
 func deviceKey(dc string) string   { return "device:" + dc }
 func userCodeKey(uc string) string { return "usercode:" + uc }
 
+// Host (a machine running `live daemon`) keys. Every key is namespaced by the
+// OWNING user id, so a host id chosen by one user's daemon can never address
+// another user's host — ownership holds by construction, not by a lookup.
+func hostKey(userID, hostID string) string     { return fmt.Sprintf("host:%s:%s", userID, hostID) }
+func hostChanKey(userID, hostID string) string { return fmt.Sprintf("host:%s:%s:cmd", userID, hostID) }
+func userHostsKey(userID string) string        { return fmt.Sprintf("user:%s:hosts", userID) }
+
 // pendingTTL bounds how long an undrained viewer comment lingers in the queue.
 // Kept in step with the live-session idle timeout so a comment never expires
 // before the session it targets is reaped.
@@ -179,6 +186,82 @@ func (b *Bus) AgentSeenSet(ctx context.Context, sessionID string) error {
 func (b *Bus) AgentSeen(ctx context.Context, sessionID string) (bool, error) {
 	n, err := b.rdb.Exists(ctx, agentSeenKey(sessionID)).Result()
 	return n > 0, err
+}
+
+// --- Hosts: web-spawned sessions -----------------------------------------
+
+// HostTTL is how long a registered host stays listed without a refresh. The
+// daemon refreshes on every heartbeat of its command stream, so the record
+// lapsing means the machine went away and it stops being spawnable.
+const HostTTL = 90 * time.Second
+
+// HostSet writes (or refreshes) the host record JSON and adds it to the user's
+// host set. The set entry outlives the record on purpose: HostList treats a
+// missing record as offline and prunes the id, so a crashed daemon self-heals.
+func (b *Bus) HostSet(ctx context.Context, userID, hostID, recordJSON string) error {
+	if err := b.rdb.Set(ctx, hostKey(userID, hostID), recordJSON, HostTTL).Err(); err != nil {
+		return err
+	}
+	key := userHostsKey(userID)
+	if err := b.rdb.SAdd(ctx, key, hostID).Err(); err != nil {
+		return err
+	}
+	return b.rdb.Expire(ctx, key, 30*24*time.Hour).Err()
+}
+
+// HostGet returns the host record JSON, or ok=false when the host is offline
+// (record lapsed) or was never registered by this user.
+func (b *Bus) HostGet(ctx context.Context, userID, hostID string) (string, bool, error) {
+	v, err := b.rdb.Get(ctx, hostKey(userID, hostID)).Result()
+	if err == redis.Nil {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, err
+	}
+	return v, true, nil
+}
+
+// HostList returns the record JSON of every host of this user that is online
+// right now, pruning ids whose record has lapsed.
+func (b *Bus) HostList(ctx context.Context, userID string) ([]string, error) {
+	ids, err := b.rdb.SMembers(ctx, userHostsKey(userID)).Result()
+	if err != nil {
+		return nil, err
+	}
+	out := make([]string, 0, len(ids))
+	for _, id := range ids {
+		rec, ok, err := b.HostGet(ctx, userID, id)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			_ = b.rdb.SRem(ctx, userHostsKey(userID), id).Err()
+			continue
+		}
+		out = append(out, rec)
+	}
+	return out, nil
+}
+
+// HostDrop removes a host record on clean daemon shutdown.
+func (b *Bus) HostDrop(ctx context.Context, userID, hostID string) error {
+	if err := b.rdb.Del(ctx, hostKey(userID, hostID)).Err(); err != nil {
+		return err
+	}
+	return b.rdb.SRem(ctx, userHostsKey(userID), hostID).Err()
+}
+
+// PublishHost sends a command JSON (currently only "spawn") to a host's command
+// channel, consumed by that machine's `live daemon`.
+func (b *Bus) PublishHost(ctx context.Context, userID, hostID string, payload []byte) error {
+	return b.rdb.Publish(ctx, hostChanKey(userID, hostID), payload).Err()
+}
+
+// SubscribeHost returns a PubSub on a host's command channel. The caller owns
+// it and must Close it (typically when ctx is cancelled).
+func (b *Bus) SubscribeHost(ctx context.Context, userID, hostID string) *redis.PubSub {
+	return b.rdb.Subscribe(ctx, hostChanKey(userID, hostID))
 }
 
 // --- Live viewer presence (watchers) -------------------------------------
