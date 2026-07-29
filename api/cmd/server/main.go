@@ -220,6 +220,13 @@ func router(cfg config.Config, h *handlers.Handler, ga *handlers.GoogleAuth, mgr
 			r.Patch("/admin/users/{id}/quota", h.SetUserQuota)
 			r.Get("/admin/sessions", h.AdminSessions)
 
+			// Hosts — the caller's own machines running `live daemon`, which
+			// let a session be started from the browser. Owner-only; every key
+			// is namespaced by principal (see handlers/hosts.go).
+			r.Post("/hosts/register", h.RegisterHost)
+			r.Get("/hosts", h.ListHosts)
+			r.Get("/hosts/{id}/stream", h.HostStream)
+
 			r.Get("/sessions", h.ListSessions)
 			r.Post("/sessions", h.CreateSession)
 			r.Patch("/sessions/{id}", h.PatchSession)

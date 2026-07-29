@@ -31,6 +31,20 @@ type sessionWithURL struct {
 	store.Session
 	URL     string          `json:"url"`
 	Handoff *handoff.Bundle `json:"handoff,omitempty"`
+	// Spawn is present only when the session was started on one of the owner's
+	// machines from the web (see hosts.go).
+	Spawn *spawnInfo `json:"spawn,omitempty"`
+}
+
+// spawnInfo reports what was asked of the machine and whether the request got
+// out. "requested" means the command was published, NOT that the agent is up —
+// the session page tracks that separately via agent_connected.
+type spawnInfo struct {
+	HostID string `json:"host_id"`
+	Agent  string `json:"agent"`
+	Cwd    string `json:"cwd"`
+	Status string `json:"status"` // requested | failed
+	Error  string `json:"error,omitempty"`
 }
 
 // sessionWithEvents flattens a Session and adds its event log plus the caller's
