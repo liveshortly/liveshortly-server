@@ -27,6 +27,24 @@ say()  { printf '\033[32m[live-install]\033[0m %s\n' "$*"; }
 warn() { printf '\033[33m[live-install]\033[0m %s\n' "$*" >&2; }
 fail() { printf '\033[31m[live-install]\033[0m %s\n' "$*" >&2; exit 1; }
 
+# interactive — is there a human at a terminal we can prompt?
+#
+# NOT `[ -t 0 ]`. Under the documented install (`curl … | bash`) stdin IS the
+# script pipe, so a stdin test is false for every user who follows the README —
+# which silently skipped both the /usr/local/bin install and the sign-in, and
+# left them to "open a new terminal, then run live login". /dev/tty is the
+# controlling terminal regardless of what stdin is piped from, and it is
+# genuinely absent in CI/cron, which is exactly when we must not prompt.
+#
+# It has to OPEN /dev/tty, not test it: the device node exists with mode rw for
+# everyone even in a session that has no controlling terminal, so `[ -r /dev/tty ]`
+# is true in CI and would hang the install on a device flow nobody can approve.
+# Only the open fails (ENXIO).
+# Redirection order matters: stderr must be silenced BEFORE the /dev/tty open,
+# or bash reports "Device not configured" on the real stderr as it processes
+# the redirections left to right.
+interactive() { : 2>/dev/null < /dev/tty; }
+
 # fetch <url> [dest] — dest of "-" (default) means stdout.
 fetch() {
   local url="$1" dest="${2:--}"
@@ -143,7 +161,7 @@ main() {
     local existing; existing="$(command -v live 2>/dev/null || true)"
     if [ -n "$existing" ]; then
       BIN_DIR="$(dirname "$(readlink "$existing" 2>/dev/null || echo "$existing")")"
-    elif [ -w /usr/local/bin ] || { [ -t 0 ] && command -v sudo >/dev/null 2>&1; }; then
+    elif [ -w /usr/local/bin ] || { interactive && command -v sudo >/dev/null 2>&1; }; then
       BIN_DIR=/usr/local/bin
     else
       BIN_DIR="$HOME/.local/bin"
@@ -183,32 +201,19 @@ main() {
   command -v tmux >/dev/null 2>&1 \
     || say "tip: install tmux — required for 'live codex', and it gives 'live claude' clean permission popups."
 
-  # ── 4b. Point the CLI at the hosted service ─────────────────────────────────
-  # Without this the binary falls back to localhost:8000 and `live login` fails
-  # with "connection refused". Only written when absent, so a dev's existing
-  # host.json (or an explicit LIVESHORTLY_API_URL) is never clobbered. Override
-  # the target with LIVE_API_URL / LIVE_WEB_URL for self-hosted deployments.
-  local host_dir="$HOME/.liveshortly"
-  local host_file="$host_dir/host.json"
-  if [ ! -f "$host_file" ]; then
-    local api_url="${LIVE_API_URL:-https://liveshortly.com}"
-    local web_url="${LIVE_WEB_URL:-https://liveshortly.com}"
-    mkdir -p "$host_dir"
-    printf '{"api_url":"%s","web_url":"%s"}\n' "$api_url" "$web_url" > "$host_file"
-    say "configured host → $api_url"
-  fi
-
   # ── 5. Sign in (device flow opens your browser; no typing needed) ───────────
   if [ -n "$NO_LOGIN" ]; then
     say "skipping sign-in. Run: live login"
   elif "$BIN_DIR/live" whoami >/dev/null 2>&1; then
     say "already signed in: $("$BIN_DIR/live" whoami 2>/dev/null | head -1)"
-  elif [ -t 0 ]; then
+  elif interactive; then
     say "signing in — approve the request in your browser"
-    "$BIN_DIR/live" login
+    # Read from the terminal, not stdin: stdin is the install script itself
+    # when this ran as `curl … | bash`.
+    "$BIN_DIR/live" login < /dev/tty
   else
-    # Piped from curl with no terminal: a device flow nobody can approve would
-    # just hang forever. Tell them what to run instead.
+    # Truly headless (CI/cron): a device flow nobody can approve would just
+    # hang forever. Tell them what to run instead.
     say "non-interactive install — finish with: live login"
   fi
 
