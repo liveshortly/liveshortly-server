@@ -728,3 +728,74 @@ export async function logout(): Promise<void> {
 export function loginUrl(): string {
   return `${browserBase()}/auth/google/login`;
 }
+
+// ── Hosts: start a session on your own machine, from the browser ─────────────
+
+/** One of the caller's machines running `live daemon`. Only ONLINE machines are
+ *  ever returned — an offline one is not spawnable, so it is not listed. */
+export interface Host {
+  id: string;
+  name: string;
+  hostname: string;
+  os: string;
+  arch: string;
+  /** Absolute directories the daemon registered. A session may only be spawned
+   *  in one of these — the browser cannot name an arbitrary path. */
+  dirs: string[];
+  /** Spawnable agents this machine reported: subset of claude | codex | gemini. */
+  agents: string[];
+  seen_at: string;
+}
+
+/** List the caller's online machines. GET /api/hosts. */
+export async function listHosts(signal?: AbortSignal): Promise<Host[]> {
+  const data = await getJSON<{ hosts: Host[] | null }>("/api/hosts", signal);
+  return data.hosts ?? [];
+}
+
+/** What the server did with a spawn request. `requested` means the command was
+ *  published to the machine, NOT that the agent is up yet — the session page
+ *  reports that separately via `agent_connected`. */
+export interface SpawnInfo {
+  host_id: string;
+  agent: string;
+  cwd: string;
+  status: "requested" | "failed";
+  error?: string;
+}
+
+export interface CreatedSession extends Session {
+  url: string;
+  spawn?: SpawnInfo;
+}
+
+/** Create a session and start the agent on one of the caller's own machines.
+ *  POST /api/sessions with host_id — `agent` here is a binary name
+ *  (claude|codex|gemini), and `cwd` must be a directory that host registered. */
+export async function createSessionOnHost(
+  hostId: string,
+  agent: string,
+  cwd: string,
+  signal?: AbortSignal,
+): Promise<CreatedSession> {
+  const res = await fetch(`${browserBase()}/api/sessions`, {
+    method: "POST",
+    signal,
+    credentials: "include",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ host_id: hostId, agent, cwd }),
+  });
+  if (!res.ok) {
+    // The server explains exactly what it rejected (offline host, unregistered
+    // directory, unavailable agent) — surface that, not a bare status.
+    let detail = `${res.status} ${res.statusText}`;
+    try {
+      const body = (await res.json()) as { error?: string };
+      if (body?.error) detail = body.error;
+    } catch {
+      /* non-JSON error body — keep the status line */
+    }
+    throw new ApiError(res.status, detail);
+  }
+  return (await res.json()) as CreatedSession;
+}
