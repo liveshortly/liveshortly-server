@@ -202,6 +202,22 @@ function Onboarding() {
                 </div>
               </div>
             </li>
+            {/* The "+ New session" button only renders once a machine is
+                connected, so a first-run user would never learn the daemon
+                exists. Say it here, where they still have a terminal open. */}
+            <li>
+              <span className="ob-step-n tnum">04</span>
+              <div className="ob-step-body">
+                <div className="ob-step-t">Optional · start from the browser</div>
+                <CopyCmd cmd="live daemon" />
+                <div className="ob-step-s">
+                  Leave it running in a project and a{" "}
+                  <strong>+ New session</strong> button appears up top — pick a
+                  machine, an agent and a directory, and the run starts there. No
+                  terminal needed after that.
+                </div>
+              </div>
+            </li>
           </ol>
 
           <Link href="/install" className="ob-guide-link">
