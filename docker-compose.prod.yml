@@ -47,7 +47,15 @@ services:
       redis: { condition: service_healthy }
     environment:
       PORT: 8000
-      DATABASE_URL: postgresql://${POSTGRES_USER:-liveshortly}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-liveshortly}
+      # Defaults to the bundled postgres service. Set DATABASE_URL in the
+      # server's .env to point at a managed database instead (the deploy
+      # workflow excludes .env from rsync, so it survives deploys). Rolling
+      # back is deleting that line and restarting the api.
+      #
+      # A managed database must be in the SAME REGION as this box: the api
+      # issues several queries per request, so every millisecond of round-trip
+      # is paid multiple times per page.
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-liveshortly}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-liveshortly}}
       REDIS_URL: redis://redis:6379
       STORAGE_PATH: /app/data/sessions
       CORS_ORIGINS: ${CORS_ORIGINS:-https://server.liveshortly.com}
