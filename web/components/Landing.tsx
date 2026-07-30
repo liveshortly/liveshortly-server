@@ -19,6 +19,7 @@ import { fmtInt } from "@/lib/utils";
 const INSTALL_CMD = "curl -fsSL https://liveshortly.com/i.sh | bash";
 const LOGIN_CMD = "live login";
 const RUN_CMD = "live claude";
+const DAEMON_CMD = "live daemon";
 const TYPEWRITER_WORDS = ["write software", "collab", "blog"];
 const SEARCH_DEBOUNCE_MS = 300;
 const RECENT_LIMIT = 24;
@@ -712,6 +713,42 @@ function HowItWorks() {
                 {b}
               </span>
             ))}
+          </div>
+        </div>
+      </div>
+
+      {/* The daemon is the one feature nobody discovers on their own: the UI
+          that would advertise it (the "+ New session" button) only appears once
+          a machine is connected, so it stays invisible to exactly the people
+          who have not connected one. This is where they find out it exists. */}
+      <div className="lp-daemon">
+        <div className="lp-daemon-copy">
+          <div className="lp-daemon-eyebrow">◦ Or skip the terminal entirely</div>
+          <h3 className="lp-daemon-title">Start sessions from the browser</h3>
+          <p className="lp-daemon-d">
+            Leave <code>live daemon</code> running in a project and{" "}
+            <b>+ New session</b> appears on the site. Pick the machine, the agent
+            and the directory, and it starts a real run there — same hooks, same
+            permission gating, same feed as if you had typed{" "}
+            <code>live claude</code> yourself. Take it over locally at any time.
+          </p>
+          <div className="lp-daemon-note">
+            Only the directories you name can ever be used, and only{" "}
+            <code>claude</code>, <code>codex</code> or <code>gemini</code> can be
+            started. Your machine builds the command — the server only names an
+            agent.
+          </div>
+        </div>
+        <div className="lp-daemon-cmds">
+          <div className="lp-how-code">
+            <span className="cmd">
+              <b>$</b>
+              {DAEMON_CMD}
+            </span>
+            <CopyButton command={DAEMON_CMD} className="lp-how-copy" />
+          </div>
+          <div className="lp-daemon-cmd-note">
+            offers the current directory — repeat <code>--dir</code> for more
           </div>
         </div>
       </div>

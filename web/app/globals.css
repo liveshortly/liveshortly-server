@@ -2892,6 +2892,54 @@ a {
   padding: 4px 9px;
 }
 
+/* Daemon callout — sits under the three steps rather than becoming a fourth
+   column, because it is optional and the three steps are the core flow. */
+.lp-daemon {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 320px);
+  gap: 18px;
+  align-items: start;
+  margin-top: 14px;
+  padding: 18px;
+  border: 1px solid var(--hairline);
+  border-left: 2px solid var(--green);
+  background: var(--panel2);
+}
+.lp-daemon-eyebrow {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  color: var(--green);
+}
+.lp-daemon-title {
+  font-size: 15px;
+  margin: 6px 0 8px;
+}
+.lp-daemon-d {
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--ink);
+  margin: 0;
+}
+.lp-daemon-note {
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--muted);
+  margin-top: 10px;
+}
+.lp-daemon-cmd-note {
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--muted);
+  margin-top: 8px;
+}
+@media (max-width: 760px) {
+  .lp-daemon {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .lp-foot {
   display: flex;
   flex-wrap: wrap;
