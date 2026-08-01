@@ -4443,3 +4443,474 @@ a {
     gap: 5px !important;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Sessions browser (v4) — designs/version4/sessions/index.html `.main`
+   content below the page-head: tabs/sort/filter toolbar, tag filter strip,
+   list/grid session rows with select-mode + bulk actions. The hero and
+   rightpanel are pixel-identical to /hud (.hud-hero*, SessionsRightRail),
+   so those are reused as-is and not redefined here. Prefixed `s4-`.
+   ═══════════════════════════════════════════════════════════════════════ */
+.s4-page-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+.s4-page-title {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+.s4-page-title .tnum {
+  color: var(--faint);
+  font-weight: 600;
+  font-size: 15px;
+  margin-left: 6px;
+}
+.s4-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.s4-btn {
+  border: 1px solid var(--hairline);
+  background: var(--panel2);
+  color: var(--ink);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 8px 14px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.s4-btn:hover {
+  border-color: var(--strong);
+}
+.s4-btn.primary {
+  border-color: var(--green);
+  background: var(--green);
+  color: var(--panel);
+}
+.s4-view-toggle {
+  display: flex;
+  border: 1px solid var(--hairline);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.s4-view-toggle button {
+  border: none;
+  background: var(--panel2);
+  color: var(--muted);
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+  font-size: 13px;
+  font-family: inherit;
+}
+.s4-view-toggle button + button {
+  border-left: 1px solid var(--hairline);
+}
+.s4-view-toggle button.active {
+  background: var(--green);
+  color: var(--panel);
+}
+
+.s4-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--hairline);
+}
+.s4-tabs {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.s4-tab {
+  border: 1px solid transparent;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 7px 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.s4-tab:hover {
+  color: var(--ink);
+}
+.s4-tab.active {
+  background: var(--panel2);
+  border-color: var(--hairline);
+  color: var(--ink);
+}
+.s4-tab .n {
+  font-size: 9.5px;
+  color: var(--faint);
+  background: var(--bg);
+  border: 1px solid var(--hairline);
+  padding: 1px 6px;
+}
+.s4-tab.active .n {
+  color: var(--green);
+  border-color: var(--green);
+}
+.s4-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+.s4-filter-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--hairline);
+  background: var(--panel2);
+  padding: 7px 12px;
+  font-size: 11.5px;
+  color: var(--faint);
+}
+.s4-filter-search input {
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  width: 150px;
+}
+/* Plain <select> (not a custom listbox) styled as a pill — matches the
+   Machine/Agent/Directory pickers in NewSessionButton.tsx, so the sort
+   control follows the same real-app convention instead of the mockup's
+   from-scratch JS dropdown. */
+.s4-sort-select {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 1px solid var(--hairline);
+  background-color: var(--panel2);
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='9' height='6'><path d='M1 1l3.5 3.5L8 1' stroke='%2394979c' stroke-width='1.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  color: var(--ink);
+  font: inherit;
+  font-size: 11px;
+  padding: 7px 26px 7px 10px;
+  cursor: pointer;
+}
+.s4-sort-select:hover {
+  border-color: var(--strong);
+}
+
+.s4-tag-strip {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.s4-tag-chip {
+  font: inherit;
+  font-size: 10px;
+  padding: 4px 10px;
+  border: 1px solid var(--hairline);
+  color: var(--muted);
+  cursor: pointer;
+  background: var(--panel2);
+}
+.s4-tag-chip:hover {
+  color: var(--ink);
+  border-color: var(--strong);
+}
+.s4-tag-chip.active {
+  background: var(--green);
+  border-color: var(--green);
+  color: var(--panel);
+}
+
+/* ── list view ── */
+.s4-rows {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--hairline);
+}
+.s4-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--hairline);
+  background: var(--panel2);
+}
+.s4-row:last-child {
+  border-bottom: none;
+}
+.s4-row:hover {
+  background: var(--bg);
+}
+.s4-row-check {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  accent-color: var(--green);
+  cursor: pointer;
+}
+.s4-row-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  color: inherit;
+}
+.s4-row-title {
+  font-size: 12.5px;
+  color: var(--ink);
+  font-weight: 600;
+}
+.s4-row-sub {
+  font-size: 10px;
+  color: var(--faint);
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.s4-tag {
+  font-size: 9px;
+  color: var(--muted);
+  background: var(--bg);
+  border: 1px solid var(--hairline);
+  padding: 1px 6px;
+}
+.s4-badge {
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 3px 8px;
+  border: 1px solid var(--hairline);
+  color: var(--muted);
+  flex-shrink: 0;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.s4-badge.live {
+  color: var(--green);
+  border-color: var(--green);
+}
+.s4-badge.published {
+  color: var(--blue);
+  border-color: var(--blue);
+}
+.s4-badge.shared {
+  color: var(--admin);
+  border-color: var(--admin);
+}
+.s4-row-meta {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-shrink: 0;
+}
+.s4-row-watchers {
+  font-size: 10px;
+  color: var(--faint);
+  width: 52px;
+}
+.s4-row-events {
+  font-size: 10px;
+  color: var(--faint);
+  text-align: right;
+  width: 56px;
+  flex-shrink: 0;
+}
+.s4-row-icons {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 120ms;
+}
+.s4-row:hover .s4-row-icons,
+.s4-row:focus-within .s4-row-icons {
+  opacity: 1;
+}
+.s4-rbtn {
+  font: inherit;
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border: 1px solid var(--hairline);
+  background: transparent;
+  color: var(--ink);
+  padding: 5px 9px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.s4-rbtn:hover {
+  border-color: var(--strong);
+}
+.s4-rbtn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.s4-rbtn.danger {
+  color: var(--red);
+}
+.s4-rbtn.danger:hover {
+  border-color: var(--red);
+}
+
+/* ── grid view ── */
+.s4-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 14px;
+}
+.s4-gcard {
+  border: 1px solid var(--hairline);
+  background: var(--panel2);
+  overflow: hidden;
+  position: relative;
+  cursor: pointer;
+}
+.s4-gcard:hover {
+  border-color: var(--strong);
+}
+.s4-gcard-cover {
+  height: 108px;
+  background: var(--grad-hero);
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 10px;
+}
+.s4-gcard-play {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.25);
+  color: #fff;
+  opacity: 0;
+  font-size: 20px;
+  pointer-events: none;
+}
+.s4-gcard:hover .s4-gcard-play {
+  opacity: 1;
+}
+.s4-gcard-body {
+  padding: 12px 14px 14px;
+}
+.s4-gcard-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 5px;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.s4-gcard-sub {
+  font-size: 10px;
+  color: var(--faint);
+  margin-bottom: 8px;
+}
+.s4-gcard-tags {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.s4-gcard-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 10px;
+  border-top: 1px dashed var(--hairline);
+}
+.s4-gcard-stats {
+  font-size: 9.5px;
+  color: var(--faint);
+  display: flex;
+  gap: 10px;
+}
+.s4-gcard-icons {
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 120ms;
+}
+.s4-gcard:hover .s4-gcard-icons,
+.s4-gcard:focus-within .s4-gcard-icons {
+  opacity: 1;
+}
+.s4-gcard-icons .s4-rbtn {
+  padding: 4px 7px;
+  font-size: 9px;
+}
+
+.s4-empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--faint);
+  font-size: 12px;
+  border: 1px dashed var(--hairline);
+}
+
+.s4-bulk-bar {
+  position: sticky;
+  bottom: 0;
+  margin-top: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border: 1px solid var(--hairline);
+  background: var(--panel2);
+  box-shadow: 0 4px 18px var(--shadow);
+}
+.s4-bulk-count {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.s4-bulk-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+@media (max-width: 760px) {
+  .s4-toolbar-right {
+    width: 100%;
+  }
+  .s4-filter-search {
+    flex: 1;
+  }
+  .s4-filter-search input {
+    width: 100%;
+  }
+  .s4-row-meta,
+  .s4-row-events {
+    display: none;
+  }
+}
