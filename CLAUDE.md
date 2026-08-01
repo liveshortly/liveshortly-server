@@ -175,4 +175,10 @@ Auth requires: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `OAUTH_REDIRECT_URL`,
 
 ### Production deploy
 
-`docker-compose.prod.yml` + host nginx reverse proxy + Cloudflare TLS termination. See `deploy/DEPLOY.md` for the full procedure.
+Two EC2 boxes in **us-west-1**: `liveshortly-app` (host nginx + api + web via
+`docker-compose.prod.yml`) and `liveshortly-redis` (redis only, no public
+ingress). Postgres is **Supabase**, not a container — prod runs no postgres and
+no redis service, so `docker-compose.prod.yml` is much smaller than the dev
+compose. `DATABASE_URL` and `REDIS_URL` come from `.env.auth`, written by the
+deploy workflow from GitHub secrets. Cloudflare terminates TLS. See
+`deploy/DEPLOY.md` for the full procedure.
