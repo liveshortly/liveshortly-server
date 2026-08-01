@@ -37,9 +37,18 @@ suggestions.
    (`NEXT_PUBLIC_*` is baked at build time) and verify `/health` + the page render.
 
 ### Change discipline
+- **NEVER touch Supabase.** The production database is Supabase, and Claude does
+  not connect to it, query it, migrate it, apply SQL to it, or change its
+  settings — not to "just check" the schema, not to verify a deploy, not
+  read-only. The only exception is an explicit, manual, in-the-moment
+  instruction from the human naming the operation. A `DATABASE_URL` being
+  present in the environment is **not** permission to use it; assume any
+  credential you can see is there for the running service, not for you.
+  If you think a schema change is needed, say so and stop — the human runs it.
 - **Ask before irreversible or outward-facing actions**: deleting data, dropping
-  DB tables/columns, `docker volume rm`, uninstalling host tools, anything that
-  publishes externally. One approval does not carry to the next such action.
+  DB tables/columns, removing a systemd unit or its state directory,
+  uninstalling host tools, anything that publishes externally. One approval does
+  not carry to the next such action.
 - **Don't weaken security to make something pass** — no disabling auth, loosening
   CORS to `*` in prod config, committing real credentials, or bypassing RBAC.
 - **Check the contracts first.** `CONTRACT.md` (API/SSE/Redis/events/design tokens)
@@ -175,10 +184,17 @@ Auth requires: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `OAUTH_REDIRECT_URL`,
 
 ### Production deploy
 
-Two EC2 boxes in **us-west-1**: `liveshortly-app` (host nginx + api + web via
-`docker-compose.prod.yml`) and `liveshortly-redis` (redis only, no public
-ingress). Postgres is **Supabase**, not a container — prod runs no postgres and
-no redis service, so `docker-compose.prod.yml` is much smaller than the dev
-compose. `DATABASE_URL` and `REDIS_URL` come from `.env.auth`, written by the
-deploy workflow from GitHub secrets. Cloudflare terminates TLS. See
-`deploy/DEPLOY.md` for the full procedure.
+**Production does not use Docker.** Two EC2 boxes in **us-west-1**:
+
+- `liveshortly-app` — host nginx, plus `liveshortly-api` (static Go binary) and
+  `liveshortly-web` (Next.js `output: standalone`) as **systemd units**, both
+  running as the unprivileged `liveshortly` user bound to loopback.
+- `liveshortly-redis` — redis via apt/systemd, no public IPv4, no route out.
+
+Postgres is **Supabase**. Both artifacts are built on the GitHub runner and
+shipped as files — nothing is compiled on the box, and there is no manual deploy
+path. Config lives in `/etc/liveshortly/{api,web}.env`, written by the deploy
+workflow from GitHub secrets on every run.
+
+Docker remains **local-dev only** (`docker-compose.yml`, `docker-compose.local.yml`).
+Don't reintroduce a prod compose file. See `deploy/DEPLOY.md`.

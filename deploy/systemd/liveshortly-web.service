@@ -1,0 +1,36 @@
+[Unit]
+Description=LiveShortly Web (Next.js standalone)
+Documentation=https://github.com/liveshortly/liveshortly-server
+After=network-online.target liveshortly-api.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=liveshortly
+Group=liveshortly
+WorkingDirectory=/opt/liveshortly/web
+EnvironmentFile=/etc/liveshortly/web.env
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=2
+
+# Behind the host nginx — same reasoning as the api, do not listen publicly.
+Environment=NODE_ENV=production
+Environment=HOSTNAME=127.0.0.1
+Environment=PORT=3000
+Environment=NEXT_TELEMETRY_DISABLED=1
+
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictSUIDSGID=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target
