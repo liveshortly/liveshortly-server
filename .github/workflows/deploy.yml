@@ -1,9 +1,14 @@
 name: Deploy to production
 
 # Auto-deploy to server.liveshortly.com on every push to main.
+#
+# Both artifacts are built HERE, on the runner, and shipped as files: the api is
+# a static CGO-free Go binary, the web is a Next.js `output: standalone` bundle.
+# The box runs them as plain systemd services — no Docker, no build tooling, and
+# no 2 GB swap needed to survive a Next.js build on a 1 GB instance.
+#
 # Uses a dedicated SSH deploy key (secret DEPLOY_SSH_KEY) + pinned host key
-# (secret DEPLOY_KNOWN_HOSTS). Rsyncs the repo to the box, then rebuilds the
-# docker stack. The prod .env on the box is preserved (excluded from rsync).
+# (secret DEPLOY_KNOWN_HOSTS).
 
 on:
   push:
@@ -20,10 +25,8 @@ env:
   # Supabase project) — stable across stop/start.
   DEPLOY_HOST: 54.241.47.92
   DEPLOY_USER: ubuntu
-  DEPLOY_PATH: /home/ubuntu/LiveShortly
-  # Keepalives so the long, silent Go compile doesn't let an idle middlebox drop
-  # the SSH connection (a quiet build can exceed NAT/idle timeouts → broken pipe).
   SSH_OPTS: -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o ServerAliveInterval=20 -o ServerAliveCountMax=30 -o BatchMode=yes
+  PUBLIC_ORIGIN: https://server.liveshortly.com
 
 jobs:
   deploy:
@@ -31,10 +34,53 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      # ---------- build ----------
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
         with:
-          # Full history so we can diff the pushed range and rebuild only the
-          # service(s) that actually changed.
-          fetch-depth: 0
+          go-version-file: api/go.mod
+          cache-dependency-path: api/go.sum
+
+      - name: Build api
+        working-directory: api
+        run: |
+          go vet ./...
+          go test ./...
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+            go build -trimpath -ldflags="-s -w" -o "${GITHUB_WORKSPACE}/dist/api/server" ./cmd/server
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Build web
+        working-directory: web
+        env:
+          # Baked into the browser bundle at build time — the browser calls the
+          # public origin, which nginx routes to the api.
+          NEXT_PUBLIC_API_URL: ${{ env.PUBLIC_ORIGIN }}
+          # next.config.ts evaluates rewrites() at BUILD time, so this has to be
+          # the production value here, not just in the service env.
+          API_INTERNAL_URL: http://127.0.0.1:8000
+          NEXT_TELEMETRY_DISABLED: "1"
+        run: |
+          npm ci
+          npx tsc --noEmit
+          npm run build
+          # Assemble what `output: standalone` expects at runtime: the server and
+          # its pruned node_modules, plus static/ and public/ which it does NOT copy.
+          mkdir -p "${GITHUB_WORKSPACE}/dist/web"
+          cp -r .next/standalone/. "${GITHUB_WORKSPACE}/dist/web/"
+          mkdir -p "${GITHUB_WORKSPACE}/dist/web/.next"
+          cp -r .next/static "${GITHUB_WORKSPACE}/dist/web/.next/static"
+          [ -d public ] && cp -r public "${GITHUB_WORKSPACE}/dist/web/public" || true
+
+      # ---------- ship ----------
 
       - name: Configure SSH
         run: |
@@ -48,29 +94,19 @@ jobs:
           ssh-keyscan -T 10 -t rsa,ed25519 "${DEPLOY_HOST}" >> ~/.ssh/known_hosts 2>/dev/null || true
           chmod 644 ~/.ssh/known_hosts
 
-      - name: Rsync code to server
+      - name: Write service env files (from secrets)
         run: |
-          rsync -az --delete \
-            --exclude '.git' \
-            --exclude 'node_modules' \
-            --exclude '.next' \
-            --exclude '.env' \
-            --exclude '.env.auth' \
-            --exclude 'data/' \
-            --exclude 'build.log' \
-            -e "ssh ${SSH_OPTS}" \
-            ./ "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/"
-
-      - name: Write server secrets (DB, Redis, Google OAuth)
-        run: |
-          # Refuse to overwrite a working .env.auth with a half-empty one: a
-          # missing secret here would take the api down on the next restart.
+          # Refuse to write a half-empty env file: a missing secret would take
+          # the api down on the next restart, and the cause would be non-obvious.
           for s in DATABASE_URL REDIS_URL GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET SESSION_SECRET; do
             eval "v=\$$s"
-            [ -n "$v" ] || { echo "::error::secret $s is empty — refusing to write .env.auth"; exit 1; }
+            [ -n "$v" ] || { echo "::error::secret $s is empty — refusing to write the service env"; exit 1; }
           done
           ssh ${SSH_OPTS} "${DEPLOY_USER}@${DEPLOY_HOST}" \
-            "cat > ${DEPLOY_PATH}/.env.auth && chmod 600 ${DEPLOY_PATH}/.env.auth" <<EOF
+            "sudo install -d -m 750 -o root -g liveshortly /etc/liveshortly && \
+             sudo tee /etc/liveshortly/api.env >/dev/null && \
+             sudo chmod 640 /etc/liveshortly/api.env && \
+             sudo chown root:liveshortly /etc/liveshortly/api.env" <<EOF
           DATABASE_URL=${DATABASE_URL}
           REDIS_URL=${REDIS_URL}
           GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
@@ -78,49 +114,70 @@ jobs:
           SESSION_SECRET=${SESSION_SECRET}
           OAUTH_ALLOWED_HOSTS=liveshortly.com,server.liveshortly.com
           WEB_BASE_URL=https://liveshortly.com
+          CORS_ORIGINS=${PUBLIC_ORIGIN},https://liveshortly.com
+          DEFAULT_USER_HANDLE=rsehgal
+          EOF
+          ssh ${SSH_OPTS} "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "sudo tee /etc/liveshortly/web.env >/dev/null && \
+             sudo chmod 640 /etc/liveshortly/web.env && \
+             sudo chown root:liveshortly /etc/liveshortly/web.env" <<EOF
+          NEXT_PUBLIC_API_URL=${PUBLIC_ORIGIN}
+          API_INTERNAL_URL=http://127.0.0.1:8000
           EOF
         env:
-          # Supabase pooler URI. Must be the SAME REGION as this box — the api
-          # issues several queries per request, so every millisecond of
-          # round-trip is paid multiple times per page.
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          # redis://:<password>@<private IP of the redis box>:6379
           REDIS_URL: ${{ secrets.REDIS_URL }}
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
 
-      - name: Decide which services to rebuild
-        id: changed
+      - name: Rsync build artifacts, nginx conf and unit files
         run: |
-          BEFORE="${{ github.event.before }}"
-          # Rebuild everything when there's no valid base (manual run, first push,
-          # or the base commit isn't in history) — the safe fallback.
-          if [ -z "$BEFORE" ] \
-            || [ "$BEFORE" = "0000000000000000000000000000000000000000" ] \
-            || ! git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
-            echo "services=api web" >> "$GITHUB_OUTPUT"
-            echo "→ rebuild: api web (no valid diff base)"
-            exit 0
-          fi
-          FILES="$(git diff --name-only "$BEFORE" "${{ github.sha }}")"
-          echo "changed files:"; echo "$FILES"
-          SVCS=""
-          echo "$FILES" | grep -qE '^api/' && SVCS="$SVCS api"
-          echo "$FILES" | grep -qE '^web/' && SVCS="$SVCS web"
-          # Compose or deploy-plumbing changes → rebuild both, to be safe.
-          echo "$FILES" | grep -qE '^docker-compose|^deploy/' && SVCS="api web"
-          SVCS="$(echo $SVCS | xargs -n1 | sort -u | xargs)"
-          echo "services=$SVCS" >> "$GITHUB_OUTPUT"
-          echo "→ rebuild: '${SVCS:-<none — config-only up>}'"
-
-      - name: Build & restart stack
-        run: |
-          # Pipe the remote build script over SSH (avoids fragile inline
-          # heredocs); it rebuilds only the changed services (no full-stack down)
-          # and reports its exit code back.
+          # Staged in a PERSISTENT directory, not /tmp, so rsync's delta transfer
+          # has a previous version to diff against. web/public carries ~190 MB of
+          # CLI release binaries; re-uploading those on every deploy because the
+          # staging dir was wiped would dominate the run.
           ssh ${SSH_OPTS} "${DEPLOY_USER}@${DEPLOY_HOST}" \
-            "bash -s -- ${{ steps.changed.outputs.services }}" < deploy/remote-build.sh
+            "mkdir -p ~/staging/api ~/staging/web ~/staging/units"
+          rsync -az --delete -e "ssh ${SSH_OPTS}" \
+            dist/api/ "${DEPLOY_USER}@${DEPLOY_HOST}:staging/api/"
+          rsync -az --delete -e "ssh ${SSH_OPTS}" \
+            dist/web/ "${DEPLOY_USER}@${DEPLOY_HOST}:staging/web/"
+          rsync -az --delete -e "ssh ${SSH_OPTS}" \
+            deploy/systemd/ "${DEPLOY_USER}@${DEPLOY_HOST}:staging/units/"
+          rsync -az -e "ssh ${SSH_OPTS}" \
+            deploy/nginx/server.liveshortly.com.conf "${DEPLOY_USER}@${DEPLOY_HOST}:staging/nginx.conf"
+
+      - name: Install and restart services
+        run: |
+          ssh ${SSH_OPTS} "${DEPLOY_USER}@${DEPLOY_HOST}" 'bash -euo pipefail -s' <<'REMOTE'
+          sudo install -d -o liveshortly -g liveshortly /opt/liveshortly /opt/liveshortly/api /opt/liveshortly/web
+          sudo install -d -o liveshortly -g liveshortly /var/lib/liveshortly /var/lib/liveshortly/sessions
+
+          sudo cp ~/staging/units/*.service /etc/systemd/system/
+          sudo systemctl daemon-reload
+
+          # api: replace the binary by rename — atomic, and a running process
+          # keeps its open inode until it is actually restarted.
+          sudo install -o liveshortly -g liveshortly -m 755 ~/staging/api/server /opt/liveshortly/api/server.new
+          sudo mv /opt/liveshortly/api/server.new /opt/liveshortly/api/server
+
+          # web: Next's standalone server resolves chunks relative to its cwd, so
+          # a half-replaced directory serves broken pages. Stop, sync, start —
+          # the sync is a local delta copy, so this is a couple of seconds.
+          sudo systemctl stop liveshortly-web || true
+          sudo rsync -a --delete ~/staging/web/ /opt/liveshortly/web/
+          sudo chown -R liveshortly:liveshortly /opt/liveshortly/web
+
+          sudo systemctl enable liveshortly-api liveshortly-web
+          sudo systemctl restart liveshortly-api
+          sudo systemctl start liveshortly-web
+
+          sudo cp ~/staging/nginx.conf /etc/nginx/sites-available/server.liveshortly.com.conf
+          sudo ln -sf /etc/nginx/sites-available/server.liveshortly.com.conf /etc/nginx/sites-enabled/
+          sudo rm -f /etc/nginx/sites-enabled/default
+          sudo nginx -t && sudo systemctl reload nginx
+          REMOTE
 
       - name: Health check (origin, over SSH)
         run: |
@@ -129,9 +186,14 @@ jobs:
           # whether the deploy is healthy.
           for i in $(seq 1 12); do
             code=$(ssh ${SSH_OPTS} "${DEPLOY_USER}@${DEPLOY_HOST}" \
-              "curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/health" || true)
-            echo "attempt $i: origin /health -> ${code}"
-            [ "$code" = "200" ] && echo "✅ deploy healthy" && exit 0
+              "curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/health" || true)
+            web=$(ssh ${SSH_OPTS} "${DEPLOY_USER}@${DEPLOY_HOST}" \
+              "curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000" || true)
+            echo "attempt $i: api /health -> ${code}, web -> ${web}"
+            [ "$code" = "200" ] && [ "$web" = "200" ] && echo "✅ deploy healthy" && exit 0
             sleep 5
           done
-          echo "❌ health check failed"; exit 1
+          echo "❌ health check failed — recent service logs:"
+          ssh ${SSH_OPTS} "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "sudo journalctl -u liveshortly-api -u liveshortly-web -n 40 --no-pager" || true
+          exit 1

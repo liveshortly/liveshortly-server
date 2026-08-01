@@ -62,37 +62,48 @@ It has no public IPv4 and there is no NAT gateway, so `apt-get` and `docker pull
 will hang. That is deliberate — it saves the IPv4 charge on a box nothing
 connects to from outside. Two consequences:
 
-- **Rebuild it from the AMI `liveshortly-redis-base-1`**, not from a stock Ubuntu
-  image — a bare instance here cannot bootstrap itself. Launch with
-  `--no-associate-public-ip-address --private-ip-address 172.31.23.65` so
-  `REDIS_URL` stays valid. Cloud-init regenerates the SSH host key, so
-  `ssh-keygen -R 172.31.23.65` after replacing it.
-- **To patch the OS**, temporarily give it a route out: allocate an Elastic IP,
-  associate it, `apt-get upgrade`, then disassociate **and release** it.
-  An allocated-but-unattached EIP is billed.
+- **Rebuilding it**: launch stock Ubuntu 24.04 with
+  `--no-associate-public-ip-address --private-ip-address 172.31.23.65` (so
+  `REDIS_URL` stays valid), attach a temporary Elastic IP, run
+  `deploy/provision-redis-box.sh <password>`, then disassociate **and release**
+  the EIP. Cloud-init regenerates the SSH host key, so `ssh-keygen -R
+  172.31.23.65` locally afterwards.
+- **To patch the OS**, the same temporary-EIP cycle. An allocated-but-unattached
+  EIP is billed, so release it, don't just disassociate it.
 
 ## 3. App box: secrets
 
-Two files on the box, both excluded from rsync so they survive deploys:
+`/etc/liveshortly/api.env` and `/etc/liveshortly/web.env`, both **written by the
+deploy workflow** from GitHub secrets on every run (mode 640, `root:liveshortly`).
+`api.env` carries `DATABASE_URL` (Supabase), `REDIS_URL`
+(`redis://:<password>@172.31.23.65:6379`) and the Google OAuth values.
 
-- **`.env`** — non-secret build config; copy from `.env.production.example` once.
-- **`.env.auth`** — secrets, **written by the deploy workflow** from GitHub
-  secrets on every run. Contains `DATABASE_URL` (Supabase), `REDIS_URL`
-  (`redis://:<password>@172.31.23.65:6379`), and the Google OAuth values.
+Nothing is configured by hand on the box — the workflow is the only writer, so a
+rebuilt box is fully configured by re-running the deploy.
 
-The prod compose declares `.env.auth` as `required: true` — without it the api
-fails at startup rather than booting with no database.
+The workflow refuses to write a partial env file: a missing secret would
+otherwise take the api down on its next restart, with a non-obvious cause.
 
-## 4. Build & run
+## 4. Services
+
+The api is a static Go binary at `/opt/liveshortly/api/server`; the web is a
+Next.js standalone bundle at `/opt/liveshortly/web`. Both run as the unprivileged
+`liveshortly` user under systemd, bound to loopback, with nginx in front.
 
 ```bash
-cd ~/LiveShortly
-docker compose -f docker-compose.prod.yml up -d --build
+systemctl status liveshortly-api liveshortly-web
+journalctl -u liveshortly-api -f
 curl -s localhost:8000/health        # {"ok":true,...}
 curl -s localhost:3000 -o /dev/null -w '%{http_code}\n'   # 200
 ```
 
+Neither service is built on the box. Both artifacts are built on the GitHub
+runner and shipped as files — which is why this instance needs no Go, no build
+tooling, and no swap headroom for a Next.js build.
+
 ## 5. nginx
+
+Installed by the deploy workflow on every run. By hand:
 
 ```bash
 sudo cp deploy/nginx/server.liveshortly.com.conf /etc/nginx/sites-available/
@@ -112,10 +123,15 @@ is not reachable directly by IP — grey-clouding the record will break the site
 
 ## Updating later
 
-Push to `main`; `.github/workflows/deploy.yml` rsyncs, writes `.env.auth`,
-rebuilds only the changed services, and health-checks the origin. Manually:
+Push to `main`. `.github/workflows/deploy.yml` builds both artifacts on the
+runner, ships them, writes the env files, restarts the units and health-checks
+the origin. There is no manual path and no build step on the box.
 
-```bash
-cd ~/LiveShortly && docker compose -f docker-compose.prod.yml up -d --build
-# changed NEXT_PUBLIC_API_URL? the web bundle is build-time → the --build above rebuilds it.
-```
+`NEXT_PUBLIC_API_URL` is baked into the browser bundle at build time — it is set
+in the workflow, not on the server, so changing it means editing the workflow.
+
+## Local development still uses Docker
+
+`docker-compose.yml` and `docker-compose.local.yml` are unchanged and remain the
+way to run the stack locally with Postgres and Redis. Only *production* moved off
+Docker; don't reintroduce a prod compose file.

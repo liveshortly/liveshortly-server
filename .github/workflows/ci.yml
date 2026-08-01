@@ -4,10 +4,11 @@ name: CI
 # workflow is the gate in front of it — make it a required status check on
 # main so nothing merges that could not build and boot.
 #
-# The `stack` job is a real deployment: it builds the SAME prod images from
-# docker-compose.prod.yml and boots the whole stack (postgres, redis, api,
-# web) inside the runner, then smoke-tests it. Ephemeral, free, and it fails
-# for exactly the reasons a prod deploy would.
+# The `stack` job is a real deployment: it builds the api binary and the web
+# standalone bundle exactly as deploy.yml does, runs them as plain processes
+# (which is what production does — no Docker there), and smoke-tests them
+# against throwaway Postgres and Redis service containers. Ephemeral, free, and
+# it fails for exactly the reasons a prod deploy would.
 
 on:
   pull_request:
@@ -51,30 +52,88 @@ jobs:
       - run: python -m compileall -q cli/hooks
 
   stack:
-    name: stack — build prod images + boot + smoke test
+    name: stack — build artifacts + boot as services + smoke test
     runs-on: ubuntu-latest
     timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: liveshortly
+          POSTGRES_PASSWORD: ci-not-a-secret
+          POSTGRES_DB: liveshortly
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U liveshortly -d liveshortly"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://liveshortly:ci-not-a-secret@127.0.0.1:5432/liveshortly?sslmode=disable
+      REDIS_URL: redis://127.0.0.1:6379
+      CORS_ORIGINS: "*"
+      NEXT_PUBLIC_API_URL: http://127.0.0.1:8000
+      API_INTERNAL_URL: http://127.0.0.1:8000
+
     steps:
       - uses: actions/checkout@v4
 
-      # Layer cache across runs — the Next.js build is the slow part.
-      - uses: docker/setup-buildx-action@v3
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: api/go.mod
+          cache-dependency-path: api/go.sum
 
-      - name: Write CI env
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Apply schema
+        # Every file, in order. Note the old prod compose only ever mounted
+        # init.sql and 002-auth.sql, so a stack that boots on those alone proves
+        # less than it looks — apply the lot.
         run: |
-          cat > .env <<'EOF'
-          POSTGRES_USER=liveshortly
-          POSTGRES_PASSWORD=ci-not-a-secret
-          POSTGRES_DB=liveshortly
-          CORS_ORIGINS=*
-          NEXT_PUBLIC_API_URL=http://localhost:8000
-          API_INTERNAL_URL=http://api:8000
-          EOF
-          # .env.auth is `required: false` in compose; without it the api boots
-          # with OAuth disabled, which is what we want for a smoke test.
+          for f in api/infra/postgres/*.sql; do
+            echo "==> $f"
+            psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -q -f "$f"
+          done
 
-      - name: Build and boot the production stack
-        run: docker compose -f docker-compose.prod.yml up -d --build --wait --wait-timeout 600
+      - name: Build api
+        working-directory: api
+        run: CGO_ENABLED=0 go build -trimpath -o "${GITHUB_WORKSPACE}/dist/server" ./cmd/server
+
+      - name: Build web
+        working-directory: web
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+        run: |
+          npm ci
+          npm run build
+          mkdir -p "${GITHUB_WORKSPACE}/dist/web"
+          cp -r .next/standalone/. "${GITHUB_WORKSPACE}/dist/web/"
+          mkdir -p "${GITHUB_WORKSPACE}/dist/web/.next"
+          cp -r .next/static "${GITHUB_WORKSPACE}/dist/web/.next/static"
+          [ -d public ] && cp -r public "${GITHUB_WORKSPACE}/dist/web/public" || true
+
+      - name: Boot both services
+        env:
+          STORAGE_PATH: ${{ github.workspace }}/dist/sessions
+        run: |
+          mkdir -p "${STORAGE_PATH}"
+          BIND_ADDR=127.0.0.1 PORT=8000 ./dist/server > /tmp/api.log 2>&1 &
+          (cd dist/web && HOSTNAME=127.0.0.1 PORT=3000 NODE_ENV=production node server.js > /tmp/web.log 2>&1 &)
+          for i in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:8000/health >/dev/null 2>&1 && \
+            curl -fsS http://127.0.0.1:3000 -o /dev/null 2>&1 && break
+            sleep 2
+          done
 
       - name: Smoke test
         run: |
@@ -87,11 +146,13 @@ jobs:
           code=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:8000/api/sessions)
           echo "unauthenticated POST /api/sessions -> $code"
           [ "$code" = "401" ]
+          # BIND_ADDR must actually confine the listener — prod relies on this to
+          # keep the api off the box's public interface.
+          ss -lntp | grep ':8000' | grep -q '127.0.0.1:8000'
+          echo "api bound to loopback only ✓"
 
       - name: Dump logs on failure
         if: failure()
-        run: docker compose -f docker-compose.prod.yml logs --no-color --tail=200
-
-      - name: Tear down
-        if: always()
-        run: docker compose -f docker-compose.prod.yml down -v
+        run: |
+          echo "===== api ====="; tail -n 100 /tmp/api.log || true
+          echo "===== web ====="; tail -n 100 /tmp/web.log || true
