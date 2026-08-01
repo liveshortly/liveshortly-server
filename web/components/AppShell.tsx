@@ -13,7 +13,7 @@ import type { Me } from "@/lib/api";
 // (fills the pane, handles its own height/scroll) and the home/HUD pages
 // (their main+rightpanel already span edge to edge per the feed.html /
 // hud.html mocks).
-const FULL_BLEED_EXACT = ["/", "/hud"];
+const FULL_BLEED_EXACT = ["/", "/hud", "/sessions"];
 const FULL_BLEED_PREFIX = ["/session/"];
 const isFullBleed = (pathname: string) =>
   FULL_BLEED_EXACT.includes(pathname) ||
