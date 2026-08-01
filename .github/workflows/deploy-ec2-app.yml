@@ -1,0 +1,109 @@
+name: Deploy app to EC2 (CloudFormation box)
+
+# Manual-only: ships app code to the CloudFormation-provisioned box (see
+# deploy-infra.yml / deploy/aws/) via rsync + SSH, same mechanism as deploy.yml
+# uses for server.liveshortly.com — reuses the SAME DEPLOY_SSH_KEY /
+# DEPLOY_KNOWN_HOSTS secrets, since that box's EC2 key pair (KeyPairName
+# parameter in ec2-stack.yaml) is set to match that same key.
+#
+# Differs from deploy.yml in three ways:
+#   - manual trigger only (workflow_dispatch), no auto-deploy on push to main
+#     — this is a separate, newer box, not the one main pushes should hit yet.
+#   - builds with docker-compose.prod-ec2.yml (no bundled postgres — this
+#     box's DB is Supabase).
+#   - writes the full production .env itself (DATABASE_URL comes from the
+#     DATABASE_URL repo secret; CORS/OAuth/API URL are derived from the
+#     `domain` input, apex + www) instead of relying on a manually-created
+#     .env on the box.
+#
+# Full rebuild every run (api + web) rather than diffing changed files —
+# manual/infrequent runs don't need the incremental logic deploy.yml has for
+# its every-push trigger.
+
+on:
+  workflow_dispatch:
+    inputs:
+      host:
+        description: "Elastic IP / hostname of the EC2 box (SSH target — from the deploy-infra.yml stack output)"
+        required: true
+      domain:
+        description: "Public domain this box serves (apex — www.<domain> is included automatically for OAuth/CORS)"
+        default: "nears.io"
+
+concurrency:
+  group: production-deploy-ec2
+  cancel-in-progress: false
+
+env:
+  DEPLOY_USER: ubuntu
+  DEPLOY_PATH: /home/ubuntu/LiveShortly
+  SSH_OPTS: -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o ServerAliveInterval=20 -o ServerAliveCountMax=30 -o BatchMode=yes
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "${{ secrets.DEPLOY_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          # This box is new/newer than the pinned secret, so also scan its
+          # actual key at deploy time (appends — the secret's keys still apply
+          # if valid for other hosts).
+          ssh-keyscan -T 10 -t rsa,ed25519 "${{ github.event.inputs.host }}" >> ~/.ssh/known_hosts 2>/dev/null || true
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Derive domain-based env
+        id: dom
+        run: |
+          set -euo pipefail
+          DOMAIN="${{ github.event.inputs.domain }}"
+          echo "base_url=https://${DOMAIN}" >> "$GITHUB_OUTPUT"
+          echo "cors_origins=https://${DOMAIN},https://www.${DOMAIN}" >> "$GITHUB_OUTPUT"
+          echo "allowed_hosts=${DOMAIN},www.${DOMAIN}" >> "$GITHUB_OUTPUT"
+
+      - name: Rsync code to server
+        run: |
+          rsync -az --delete \
+            --exclude '.git' \
+            --exclude 'node_modules' \
+            --exclude '.next' \
+            --exclude '.env' \
+            --exclude '.env.auth' \
+            --exclude 'data/' \
+            --exclude 'build.log' \
+            -e "ssh ${SSH_OPTS}" \
+            ./ "${DEPLOY_USER}@${{ github.event.inputs.host }}:${DEPLOY_PATH}/"
+
+      - name: Write production .env on server (from secrets + inputs)
+        run: |
+          ssh ${SSH_OPTS} "${DEPLOY_USER}@${{ github.event.inputs.host }}" \
+            "cat > ${DEPLOY_PATH}/.env && chmod 600 ${DEPLOY_PATH}/.env" <<EOF
+          DATABASE_URL=${{ secrets.DATABASE_URL }}
+          CORS_ORIGINS=${{ steps.dom.outputs.cors_origins }}
+          NEXT_PUBLIC_API_URL=${{ steps.dom.outputs.base_url }}
+          API_INTERNAL_URL=http://api:8000
+          EOF
+
+      - name: Write Google OAuth env on server (from secrets)
+        run: |
+          ssh ${SSH_OPTS} "${DEPLOY_USER}@${{ github.event.inputs.host }}" \
+            "cat > ${DEPLOY_PATH}/.env.auth && chmod 600 ${DEPLOY_PATH}/.env.auth" <<EOF
+          GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
+          SESSION_SECRET=${{ secrets.SESSION_SECRET }}
+          OAUTH_ALLOWED_HOSTS=${{ steps.dom.outputs.allowed_hosts }}
+          WEB_BASE_URL=${{ steps.dom.outputs.base_url }}
+          EOF
+
+      - name: Build & start stack (docker-compose.prod-ec2.yml)
+        env:
+          COMPOSE_FILE: docker-compose.prod-ec2.yml
+        run: |
+          ssh ${SSH_OPTS} "${DEPLOY_USER}@${{ github.event.inputs.host }}" \
+            "COMPOSE_FILE=${COMPOSE_FILE} bash -s -- api web" < deploy/remote-build.sh
