@@ -1,16 +1,17 @@
-# Deploying LiveShortly to `server.liveshortly.com`
+# Deploying LiveShortly to `liveshortly.com`
 
-Two Ubuntu EC2 boxes in **us-west-1**, behind Cloudflare. Docker for the app,
-host nginx as the reverse proxy. Cloudflare terminates TLS; the origin serves
-HTTP on :80. Postgres is Supabase (managed, external); Redis has its own box.
+Two Ubuntu EC2 boxes in **us-west-1**. Host nginx is the reverse proxy and
+**terminates TLS itself** with a Let's Encrypt certificate — the DNS record is
+DNS-only (grey cloud), so nothing else is in front to do it. Postgres is Supabase
+(managed, external); Redis has its own box.
 
 ```
-Internet ──HTTPS──▶ Cloudflare ──HTTP:80──▶ liveshortly-app  (Elastic IP 54.241.47.92)
-                                              nginx (host)
-                                              ├── /             ▶ web  127.0.0.1:3000
-                                              └── /api, /health ▶ api  127.0.0.1:8000
-                                                                   ├─ VPC ─▶ liveshortly-redis 172.31.23.65:6379
-                                                                   └─ TLS ─▶ Supabase Postgres (us-west-1)
+Internet ──HTTPS:443──▶ liveshortly-app  (Elastic IP 54.241.47.92)
+      (:80 301s here)      nginx (host) — terminates TLS, Let's Encrypt
+                             ├── /             ▶ web  127.0.0.1:3000
+                             └── /api, /health ▶ api  127.0.0.1:8000
+                                                  ├─ VPC ─▶ liveshortly-redis 172.31.23.65:6379
+                                                  └─ TLS ─▶ Supabase Postgres (us-west-1)
 ```
 
 Why us-west-1: the api issues several queries per request, so the box must sit
@@ -21,7 +22,7 @@ multiple times per page.
 
 | Name | Type | Disk | Public IPv4 | Reachable from |
 |---|---|---|---|---|
-| `liveshortly-app` | t3.micro | 20 GB gp3 | Elastic IP `54.241.47.92` | :22 world (key auth only, for CI), :80 **Cloudflare ranges only** |
+| `liveshortly-app` | t3.micro | 20 GB gp3 | Elastic IP `54.241.47.92` | :22 world (key auth only, for CI), :80 + :443 world |
 | `liveshortly-redis` | t3.micro | 8 GB gp3 | **none** | :22 and :6379 **from the app box's SG only** |
 
 Both in `us-west-1a` (same AZ → no cross-AZ transfer cost, lowest redis latency).
@@ -32,25 +33,38 @@ ssh -i ~/.ssh/ro-mini.pem ubuntu@54.241.47.92                          # app box
 ssh -i ~/.ssh/ro-mini.pem -J ubuntu@54.241.47.92 ubuntu@172.31.23.65   # redis box, via the app box
 ```
 
-The app box keeps an Elastic IP so the address survives stop/start — the
-Cloudflare A record and `DEPLOY_HOST` both hardcode it. Note that since Feb 2024
-AWS bills every public IPv4 the same whether it is Elastic or auto-assigned, so
-the EIP is free stability, not an extra charge.
+The app box keeps an Elastic IP so the address survives stop/start — the DNS A
+record and `DEPLOY_HOST` both hardcode it. Note that since Feb 2024 AWS bills
+every public IPv4 the same whether it is Elastic or auto-assigned, so the EIP is
+free stability, not an extra charge.
+
+`:80` must stay open to the world: Let's Encrypt renews over HTTP-01 and reaches
+the origin directly. Locking it to Cloudflare ranges would silently break renewal
+and the cert would expire ~60 days later.
 
 ## 1. Host prep
 
-The **app box** is provisioned by EC2 user-data at first boot: 2 GB swap, docker
-+ compose plugin, nginx, rsync. Nothing to do by hand on a fresh launch.
+Run `deploy/provision-app-box.sh` once on a fresh instance: service account,
+Node 20 runtime, directory layout, nginx. Then issue the certificate:
+
+```bash
+sudo certbot certonly --webroot -w /var/www/acme -d liveshortly.com \
+  --non-interactive --agree-tos -m <you@example.com>
+```
+
+The nginx config serves `/.well-known/acme-challenge/` from `/var/www/acme`
+ahead of the HTTPS redirect, so renewal keeps working unattended.
 
 ## 2. Redis box
 
-Redis runs as a single container, password-protected, with AOF persistence.
-The password lives in `/etc/redis/redis.conf` (chmod 400, owned by redis's uid)
-rather than on the command line, so it is not visible in `ps` or `docker inspect`.
+Redis is an apt package under systemd, password-protected, with AOF persistence.
+The password lives in `/etc/redis/liveshortly.conf` (chmod 600, owned by redis),
+included from the packaged `redis.conf` — a drop-in, so an apt upgrade shipping a
+new `redis.conf` cannot silently drop authentication.
 
 ```bash
-docker ps                      # redis, Up
-docker exec redis redis-cli -a "$(sudo sed -n 's/^requirepass //p' /etc/redis/redis.conf)" ping   # PONG
+systemctl status redis-server
+redis-cli -a "$(sudo sed -n 's/^requirepass //p' /etc/redis/liveshortly.conf)" ping   # PONG
 ```
 
 `maxmemory 512mb` with `maxmemory-policy noeviction`: a session's event buffer
@@ -58,8 +72,7 @@ must not be silently evicted mid-stream — better that writes fail loudly.
 
 ### This box has no outbound internet
 
-It has no public IPv4 and there is no NAT gateway, so `apt-get` and `docker pull`
-will hang. That is deliberate — it saves the IPv4 charge on a box nothing
+It has no public IPv4 and there is no NAT gateway, so `apt-get` will hang. That is deliberate — it saves the IPv4 charge on a box nothing
 connects to from outside. Two consequences:
 
 - **Rebuilding it**: launch stock Ubuntu 24.04 with
@@ -106,20 +119,27 @@ tooling, and no swap headroom for a Next.js build.
 Installed by the deploy workflow on every run. By hand:
 
 ```bash
-sudo cp deploy/nginx/server.liveshortly.com.conf /etc/nginx/sites-available/
-sudo ln -sf /etc/nginx/sites-available/server.liveshortly.com.conf /etc/nginx/sites-enabled/
+sudo cp deploy/nginx/liveshortly.com.conf /etc/nginx/sites-available/
+sudo ln -sf /etc/nginx/sites-available/liveshortly.com.conf /etc/nginx/sites-enabled/
 sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-## 6. Cloudflare
+## 6. DNS / TLS
 
-Point `server.liveshortly.com` at **54.241.47.92** (proxied, orange cloud).
-SSL/TLS mode **Flexible** (Cloudflare HTTPS → origin HTTP:80). For **Full
-(strict)**, install an origin cert and add a `:443` server block.
+`liveshortly.com` A → **54.241.47.92**, currently **DNS-only (grey cloud)** on
+Cloudflare nameservers. nginx terminates TLS with a Let's Encrypt cert; `:80`
+301s to `:443`.
 
-The app box only accepts :80 from Cloudflare's published ranges, so the origin
-is not reachable directly by IP — grey-clouding the record will break the site.
+If you later switch the record to **proxied (orange cloud)**, set SSL/TLS mode to
+**Full (strict)** — never Flexible. Flexible makes Cloudflare fetch the origin
+over `:80`, which this config redirects back to https, giving an infinite
+redirect loop. The `$ls_upgrade_to_https` map in the nginx conf prevents the loop
+for Full/Full (strict), where Cloudflare arrives on `:443`.
+
+`www` and `server` subdomains have no A record today. They are in `server_name`
+but NOT in the certificate — add them to the `certbot` `-d` list before pointing
+DNS at them, or TLS will fail for those names.
 
 ## Updating later
 

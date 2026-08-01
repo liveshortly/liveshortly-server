@@ -1,6 +1,6 @@
 name: Deploy to production
 
-# Auto-deploy to server.liveshortly.com on every push to main.
+# Auto-deploy to liveshortly.com on every push to main.
 #
 # Both artifacts are built HERE, on the runner, and shipped as files: the api is
 # a static CGO-free Go binary, the web is a Next.js `output: standalone` bundle.
@@ -26,7 +26,7 @@ env:
   DEPLOY_HOST: 54.241.47.92
   DEPLOY_USER: ubuntu
   SSH_OPTS: -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o ServerAliveInterval=20 -o ServerAliveCountMax=30 -o BatchMode=yes
-  PUBLIC_ORIGIN: https://server.liveshortly.com
+  PUBLIC_ORIGIN: https://liveshortly.com
 
 jobs:
   deploy:
@@ -112,9 +112,9 @@ jobs:
           GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
           GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
           SESSION_SECRET=${SESSION_SECRET}
-          OAUTH_ALLOWED_HOSTS=liveshortly.com,server.liveshortly.com
+          OAUTH_ALLOWED_HOSTS=liveshortly.com,www.liveshortly.com
           WEB_BASE_URL=https://liveshortly.com
-          CORS_ORIGINS=${PUBLIC_ORIGIN},https://liveshortly.com
+          CORS_ORIGINS=${PUBLIC_ORIGIN}
           DEFAULT_USER_HANDLE=rsehgal
           EOF
           ssh ${SSH_OPTS} "${DEPLOY_USER}@${DEPLOY_HOST}" \
@@ -146,7 +146,7 @@ jobs:
           rsync -az --delete -e "ssh ${SSH_OPTS}" \
             deploy/systemd/ "${DEPLOY_USER}@${DEPLOY_HOST}:staging/units/"
           rsync -az -e "ssh ${SSH_OPTS}" \
-            deploy/nginx/server.liveshortly.com.conf "${DEPLOY_USER}@${DEPLOY_HOST}:staging/nginx.conf"
+            deploy/nginx/liveshortly.com.conf "${DEPLOY_USER}@${DEPLOY_HOST}:staging/nginx.conf"
 
       - name: Install and restart services
         run: |
@@ -173,8 +173,9 @@ jobs:
           sudo systemctl restart liveshortly-api
           sudo systemctl start liveshortly-web
 
-          sudo cp ~/staging/nginx.conf /etc/nginx/sites-available/server.liveshortly.com.conf
-          sudo ln -sf /etc/nginx/sites-available/server.liveshortly.com.conf /etc/nginx/sites-enabled/
+          sudo cp ~/staging/nginx.conf /etc/nginx/sites-available/liveshortly.com.conf
+          sudo ln -sf /etc/nginx/sites-available/liveshortly.com.conf /etc/nginx/sites-enabled/
+          sudo rm -f /etc/nginx/sites-enabled/server.liveshortly.com.conf
           sudo rm -f /etc/nginx/sites-enabled/default
           sudo nginx -t && sudo systemctl reload nginx
           REMOTE
