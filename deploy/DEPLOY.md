@@ -22,7 +22,7 @@ multiple times per page.
 
 | Name | Type | Disk | Public IPv4 | Reachable from |
 |---|---|---|---|---|
-| `liveshortly-app` | t3.micro | 20 GB gp3 | Elastic IP `54.241.47.92` | :22 world (key auth only, for CI), :80 + :443 world |
+| `liveshortly-app` | t3.micro | 20 GB gp3 | Elastic IP `54.241.47.92` | :22 world (key auth only, for CI), :80 + :443 **Cloudflare ranges only** |
 | `liveshortly-redis` | t3.micro | 8 GB gp3 | **none** | :22 and :6379 **from the app box's SG only** |
 
 Both in `us-west-1a` (same AZ → no cross-AZ transfer cost, lowest redis latency).
@@ -38,9 +38,22 @@ record and `DEPLOY_HOST` both hardcode it. Note that since Feb 2024 AWS bills
 every public IPv4 the same whether it is Elastic or auto-assigned, so the EIP is
 free stability, not an extra charge.
 
-`:80` must stay open to the world: Let's Encrypt renews over HTTP-01 and reaches
-the origin directly. Locking it to Cloudflare ranges would silently break renewal
-and the cert would expire ~60 days later.
+`:80` and `:443` admit Cloudflare's published ranges only, so the origin cannot
+be reached by IP and nobody can bypass the WAF/rate limiting by skipping the
+proxy. HTTP-01 renewal still works because Let's Encrypt resolves the name to
+Cloudflare, which forwards the challenge to the origin — verified with
+`certbot renew --dry-run` after the lockdown.
+
+**This depends on the record staying proxied.** Grey-clouding it while the
+security group is Cloudflare-only takes the site down AND breaks renewal. If you
+ever need direct access (debugging, or reverting to DNS-only):
+
+```bash
+aws ec2 authorize-security-group-ingress --region us-west-1 \
+  --group-id sg-0522aa7f57ebd1bed \
+  --ip-permissions 'IpProtocol=tcp,FromPort=80,ToPort=80,IpRanges=[{CidrIp=0.0.0.0/0}]' \
+  'IpProtocol=tcp,FromPort=443,ToPort=443,IpRanges=[{CidrIp=0.0.0.0/0}]'
+```
 
 ## 1. Host prep
 
@@ -127,15 +140,15 @@ sudo nginx -t && sudo systemctl reload nginx
 
 ## 6. DNS / TLS
 
-`liveshortly.com` A → **54.241.47.92**, currently **DNS-only (grey cloud)** on
-Cloudflare nameservers. nginx terminates TLS with a Let's Encrypt cert; `:80`
-301s to `:443`.
+`liveshortly.com` A → **54.241.47.92**, **proxied (orange cloud)**. nginx still
+terminates TLS with its own Let's Encrypt cert, so Cloudflare talks to a real
+certificate on `:443`; `:80` 301s to `:443`.
 
-If you later switch the record to **proxied (orange cloud)**, set SSL/TLS mode to
-**Full (strict)** — never Flexible. Flexible makes Cloudflare fetch the origin
-over `:80`, which this config redirects back to https, giving an infinite
-redirect loop. The `$ls_upgrade_to_https` map in the nginx conf prevents the loop
-for Full/Full (strict), where Cloudflare arrives on `:443`.
+Keep SSL/TLS mode on **Full (strict)** — never Flexible. Flexible makes
+Cloudflare fetch the origin over `:80`, which this config redirects back to
+https, giving an infinite redirect loop. The `$ls_upgrade_to_https` map in the
+nginx conf prevents that loop for Full/Full (strict), where Cloudflare arrives
+on `:443`.
 
 `www` and `server` subdomains have no A record today. They are in `server_name`
 but NOT in the certificate — add them to the `certbot` `-d` list before pointing
