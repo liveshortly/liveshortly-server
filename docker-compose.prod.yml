@@ -1,70 +1,35 @@
 # Production compose — used ALONE (not as an override):
 #   docker compose -f docker-compose.prod.yml up -d --build
 #
+# This box (liveshortly-app) runs nginx (on the HOST) + api + web only.
+# Its two stateful dependencies live OFF this box:
+#   - Postgres  → Supabase (managed, external)
+#   - Redis     → the liveshortly-redis EC2 box, private VPC address only
+# Both are supplied as DATABASE_URL / REDIS_URL in .env.auth, which the deploy
+# workflow writes from GitHub secrets and rsync never overwrites.
+#
 # Differences from the dev compose:
-#   - postgres & redis are NOT published to the host (internal network only)
 #   - api & web bind to 127.0.0.1 so the HOST nginx can reverse-proxy them;
 #     nothing app-level is exposed to the public internet except via nginx
 #   - restart: always everywhere
 services:
-  postgres:
-    image: postgres:16-alpine
-    restart: always
-    networks: [liveshortly]
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-liveshortly}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set a strong POSTGRES_PASSWORD in .env}
-      POSTGRES_DB: ${POSTGRES_DB:-liveshortly}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./api/infra/postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
-      - ./api/infra/postgres/002-auth.sql:/docker-entrypoint-initdb.d/02-auth.sql:ro
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-liveshortly} -d ${POSTGRES_DB:-liveshortly}"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
-  redis:
-    image: redis:7-alpine
-    restart: always
-    networks: [liveshortly]
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-
   api:
     build:
       context: ./api
       dockerfile: Dockerfile
     restart: always
-    depends_on:
-      postgres: { condition: service_healthy }
-      redis: { condition: service_healthy }
     environment:
       PORT: 8000
-      # Defaults to the bundled postgres service. Set DATABASE_URL in the
-      # server's .env to point at a managed database instead (the deploy
-      # workflow excludes .env from rsync, so it survives deploys). Rolling
-      # back is deleting that line and restarting the api.
-      #
-      # A managed database must be in the SAME REGION as this box: the api
-      # issues several queries per request, so every millisecond of round-trip
-      # is paid multiple times per page.
-      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-liveshortly}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-liveshortly}}
-      REDIS_URL: redis://redis:6379
       STORAGE_PATH: /app/data/sessions
       CORS_ORIGINS: ${CORS_ORIGINS:-https://server.liveshortly.com}
       DEFAULT_USER_HANDLE: ${DEFAULT_USER_HANDLE:-you}
-    # Google OAuth secrets/config live here (written from GitHub secrets by the
-    # deploy workflow). Optional so dev/local without auth still boots.
+    # DATABASE_URL (Supabase), REDIS_URL (redis box) and the Google OAuth
+    # secrets all live here — written from GitHub secrets by the deploy
+    # workflow, chmod 600, never rsynced. Required: without it the api would
+    # start with no database and fail at the first request instead of here.
     env_file:
       - path: .env.auth
-        required: false
+        required: true
     volumes:
       - api_data:/app/data/sessions
     # bound to loopback — only the host nginx can reach it
@@ -100,6 +65,4 @@ networks:
     driver: bridge
 
 volumes:
-  postgres_data:
-  redis_data:
   api_data:

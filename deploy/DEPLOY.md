@@ -1,49 +1,70 @@
 # Deploying LiveShortly to `server.liveshortly.com`
 
-Single Ubuntu host, behind Cloudflare. Docker for the app, host nginx as the
-reverse proxy. Cloudflare terminates TLS; the origin serves HTTP on :80.
+Two Ubuntu EC2 boxes in **us-west-1**, behind Cloudflare. Docker for the app,
+host nginx as the reverse proxy. Cloudflare terminates TLS; the origin serves
+HTTP on :80. Postgres is Supabase (managed, external); Redis has its own box.
 
 ```
-Internet ──HTTPS──▶ Cloudflare ──HTTP:80──▶ nginx (host)
-                                              ├── /          ▶ web  127.0.0.1:3000
-                                              └── /api, /health ▶ api 127.0.0.1:8000
-                                                                   └─ docker net ─▶ postgres, redis
+Internet ──HTTPS──▶ Cloudflare ──HTTP:80──▶ liveshortly-app  (Elastic IP 54.241.47.92)
+                                              nginx (host)
+                                              ├── /             ▶ web  127.0.0.1:3000
+                                              └── /api, /health ▶ api  127.0.0.1:8000
+                                                                   ├─ VPC ─▶ liveshortly-redis 172.31.23.65:6379
+                                                                   └─ TLS ─▶ Supabase Postgres (us-west-1)
 ```
 
-## 1. Host prep (one-time)
+Why us-west-1: the api issues several queries per request, so the box must sit
+in the same region as Supabase — every millisecond of round-trip is paid
+multiple times per page.
+
+## Boxes
+
+| Name | Type | Disk | Security group | Reachable from |
+|---|---|---|---|---|
+| `liveshortly-app` | t3.micro | 20 GB gp3 | `liveshortly-app` | :22 world (key auth only, for CI), :80 **Cloudflare ranges only** |
+| `liveshortly-redis` | t3.micro | 8 GB gp3 | `liveshortly-redis` | :22 and :6379 **from the app box's SG only** — no public ingress |
+
+Both in `us-west-1a` (same AZ → no cross-AZ transfer cost, lowest redis latency).
+SSH key is the existing `ro-mini` pair, imported into the account.
 
 ```bash
-# swap — the box is small; Next.js build needs headroom
-sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile
-sudo mkswap /swapfile && sudo swapon /swapfile
-echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
-
-# docker + compose plugin + nginx (from Ubuntu repos — version-agnostic)
-sudo apt-get update
-sudo apt-get install -y docker.io docker-compose-v2 nginx rsync
-sudo systemctl enable --now docker
-sudo usermod -aG docker $USER   # log out/in to use docker without sudo
+ssh -i ~/.ssh/ro-mini.pem ubuntu@54.241.47.92                      # app box
+ssh -i ~/.ssh/ro-mini.pem -J ubuntu@54.241.47.92 ubuntu@172.31.23.65   # redis box, via the app box
 ```
 
-## 2. Ship the code
+## 1. Host prep
 
-From your laptop (excludes node_modules/.next/.git/.env):
+Both boxes are provisioned by EC2 user-data at first boot: 2 GB swap (1 GB on
+the redis box), docker + compose plugin, and — on the app box — nginx and rsync.
+Nothing to do by hand on a fresh launch.
+
+## 2. Redis box
+
+Redis runs as a single container, password-protected, with AOF persistence.
+The password lives in `/etc/redis/redis.conf` (chmod 600, root-owned) rather
+than on the command line, so it is not visible in `ps` or `docker inspect`.
 
 ```bash
-rsync -az --delete \
-  --exclude node_modules --exclude .next --exclude .git \
-  --exclude .env --exclude 'data/' \
-  ./ server.liveshortly.com:~/LiveShortly/
+docker ps                      # redis, Up
+docker exec redis redis-cli -a "$(sudo sed -n 's/^requirepass //p' /etc/redis/redis.conf)" ping   # PONG
 ```
 
-## 3. Production env
+`maxmemory 512mb` with `maxmemory-policy noeviction`: a session's event buffer
+must not be silently evicted mid-stream — better that writes fail loudly.
 
-```bash
-cp ~/LiveShortly/.env.production.example ~/LiveShortly/.env
-# edit POSTGRES_PASSWORD to a strong secret
-```
+## 3. App box: secrets
 
-## 4. Build & run (no dummy data)
+Two files on the box, both excluded from rsync so they survive deploys:
+
+- **`.env`** — non-secret build config; copy from `.env.production.example` once.
+- **`.env.auth`** — secrets, **written by the deploy workflow** from GitHub
+  secrets on every run. Contains `DATABASE_URL` (Supabase), `REDIS_URL`
+  (`redis://:<password>@172.31.23.65:6379`), and the Google OAuth values.
+
+The prod compose declares `.env.auth` as `required: true` — without it the api
+fails at startup rather than booting with no database.
+
+## 4. Build & run
 
 ```bash
 cd ~/LiveShortly
@@ -63,15 +84,19 @@ sudo nginx -t && sudo systemctl reload nginx
 
 ## 6. Cloudflare
 
-Set the DNS record for `server.liveshortly.com` to the EC2 public IP (proxied,
-orange cloud). SSL/TLS mode **Flexible** (Cloudflare HTTPS → origin HTTP:80).
-For **Full (strict)**, install an origin cert (Cloudflare Origin CA or Let's
-Encrypt) and add a `:443` server block.
+Point `server.liveshortly.com` at **54.241.47.92** (proxied, orange cloud).
+SSL/TLS mode **Flexible** (Cloudflare HTTPS → origin HTTP:80). For **Full
+(strict)**, install an origin cert and add a `:443` server block.
+
+The app box only accepts :80 from Cloudflare's published ranges, so the origin
+is not reachable directly by IP — grey-clouding the record will break the site.
 
 ## Updating later
 
+Push to `main`; `.github/workflows/deploy.yml` rsyncs, writes `.env.auth`,
+rebuilds only the changed services, and health-checks the origin. Manually:
+
 ```bash
-# laptop: rsync again, then on the host:
 cd ~/LiveShortly && docker compose -f docker-compose.prod.yml up -d --build
 # changed NEXT_PUBLIC_API_URL? the web bundle is build-time → the --build above rebuilds it.
 ```

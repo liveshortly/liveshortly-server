@@ -16,7 +16,9 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  DEPLOY_HOST: 32.236.46.221
+  # Elastic IP of the liveshortly-app EC2 box (us-west-1, same region as the
+  # Supabase project) — stable across stop/start.
+  DEPLOY_HOST: 54.241.47.92
   DEPLOY_USER: ubuntu
   DEPLOY_PATH: /home/ubuntu/LiveShortly
   # Keepalives so the long, silent Go compile doesn't let an idle middlebox drop
@@ -59,16 +61,34 @@ jobs:
             -e "ssh ${SSH_OPTS}" \
             ./ "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/"
 
-      - name: Write Google OAuth env on server (from secrets)
+      - name: Write server secrets (DB, Redis, Google OAuth)
         run: |
+          # Refuse to overwrite a working .env.auth with a half-empty one: a
+          # missing secret here would take the api down on the next restart.
+          for s in DATABASE_URL REDIS_URL GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET SESSION_SECRET; do
+            eval "v=\$$s"
+            [ -n "$v" ] || { echo "::error::secret $s is empty — refusing to write .env.auth"; exit 1; }
+          done
           ssh ${SSH_OPTS} "${DEPLOY_USER}@${DEPLOY_HOST}" \
             "cat > ${DEPLOY_PATH}/.env.auth && chmod 600 ${DEPLOY_PATH}/.env.auth" <<EOF
-          GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
-          GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
-          SESSION_SECRET=${{ secrets.SESSION_SECRET }}
+          DATABASE_URL=${DATABASE_URL}
+          REDIS_URL=${REDIS_URL}
+          GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+          GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+          SESSION_SECRET=${SESSION_SECRET}
           OAUTH_ALLOWED_HOSTS=liveshortly.com,server.liveshortly.com
           WEB_BASE_URL=https://liveshortly.com
           EOF
+        env:
+          # Supabase pooler URI. Must be the SAME REGION as this box — the api
+          # issues several queries per request, so every millisecond of
+          # round-trip is paid multiple times per page.
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          # redis://:<password>@<private IP of the redis box>:6379
+          REDIS_URL: ${{ secrets.REDIS_URL }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
 
       - name: Decide which services to rebuild
         id: changed
