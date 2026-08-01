@@ -10,10 +10,6 @@ Internet ──HTTPS──▶ Cloudflare ──HTTP:80──▶ nginx (host)
                                                                    └─ docker net ─▶ postgres, redis
 ```
 
-> For provisioning a **new** host via CloudFormation instead of doing steps 1-2
-> by hand, see [`aws/README.md`](aws/README.md) — same host prep (swap, docker,
-> nginx), but access is SSM Session Manager only (no SSH key pair).
-
 ## 1. Host prep (one-time)
 
 ```bash
