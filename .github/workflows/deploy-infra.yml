@@ -1,0 +1,110 @@
+name: Deploy infrastructure (CloudFormation)
+
+# Manual-only: provisions/updates/tears down the standalone EC2 box defined in
+# deploy/aws/ec2-stack.yaml (api/redis/web host; Postgres is Supabase). SSH
+# access reuses the same DEPLOY_SSH_KEY key pair as the existing box, plus SSM
+# Session Manager as a keyless fallback. This workflow only touches AWS
+# resources (never app code) - see deploy-ec2-app.yml for shipping code to it.
+#
+# Requires repo secrets AWS_A_KEY / AWS_S_A_KEY for an IAM user scoped per
+# deploy/aws/README.md. Rotate that key before adding it if it has ever been
+# shared/pasted anywhere outside a secrets manager.
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Stack action"
+        type: choice
+        options: [deploy, delete]
+        default: deploy
+      stack_name:
+        description: "CloudFormation stack name"
+        default: liveshortly-ec2
+      instance_type:
+        description: "EC2 instance type (deploy only)"
+        default: t3.small
+      vpc_id:
+        description: "VPC id (deploy only; blank = account default VPC)"
+        default: ""
+      subnet_id:
+        description: "Subnet id (deploy only; blank = first subnet in the resolved VPC)"
+        default: ""
+      key_pair_name:
+        description: "Existing EC2 key pair name matching the DEPLOY_SSH_KEY secret (deploy only, required)"
+        default: ""
+
+# One stack operation at a time per stack name - CloudFormation itself
+# rejects concurrent operations on the same stack, but this avoids two runs
+# racing to find out the hard way.
+concurrency:
+  group: infra-${{ github.event.inputs.stack_name }}
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: us-west-1
+
+jobs:
+  cloudformation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_A_KEY }}
+          aws-secret-access-key: ${{ secrets.AWS_S_A_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Resolve VPC/subnet
+        id: net
+        if: ${{ github.event.inputs.action == 'deploy' }}
+        run: |
+          set -euo pipefail
+          if [ -z "${{ github.event.inputs.key_pair_name }}" ]; then
+            echo "::error::key_pair_name is required for deploy - it must be an existing EC2 key pair whose private half is the DEPLOY_SSH_KEY repo secret"
+            exit 1
+          fi
+          VPC_ID="${{ github.event.inputs.vpc_id }}"
+          SUBNET_ID="${{ github.event.inputs.subnet_id }}"
+
+          if [ -z "$VPC_ID" ]; then
+            VPC_ID=$(aws ec2 describe-vpcs --filters Name=isDefault,Values=true \
+              --query 'Vpcs[0].VpcId' --output text)
+            echo "no vpc_id given - using default VPC: $VPC_ID"
+          fi
+          if [ -z "$VPC_ID" ] || [ "$VPC_ID" = "None" ]; then
+            echo "::error::no vpc_id provided and no default VPC found in ${AWS_REGION} - pass vpc_id explicitly"
+            exit 1
+          fi
+
+          if [ -z "$SUBNET_ID" ]; then
+            SUBNET_ID=$(aws ec2 describe-subnets --filters Name=vpc-id,Values="$VPC_ID" \
+              --query 'Subnets[0].SubnetId' --output text)
+            echo "no subnet_id given - using first subnet in $VPC_ID: $SUBNET_ID"
+          fi
+          if [ -z "$SUBNET_ID" ] || [ "$SUBNET_ID" = "None" ]; then
+            echo "::error::no subnet_id provided and none found in $VPC_ID - pass subnet_id explicitly"
+            exit 1
+          fi
+
+          echo "vpc_id=$VPC_ID" >> "$GITHUB_OUTPUT"
+          echo "subnet_id=$SUBNET_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy or delete stack
+        env:
+          STACK_NAME: ${{ github.event.inputs.stack_name }}
+          TEMPLATE_FILE: deploy/aws/ec2-stack.yaml
+          PARAM_OVERRIDES: >-
+            InstanceType=${{ github.event.inputs.instance_type }}
+            VpcId=${{ steps.net.outputs.vpc_id }}
+            SubnetId=${{ steps.net.outputs.subnet_id }}
+            KeyPairName=${{ github.event.inputs.key_pair_name }}
+        run: bash deploy/aws/cfn-deploy.sh "${{ github.event.inputs.action }}"
+
+      - name: Show stack outputs
+        if: ${{ github.event.inputs.action == 'deploy' }}
+        run: |
+          aws cloudformation describe-stacks \
+            --stack-name "${{ github.event.inputs.stack_name }}" \
+            --query 'Stacks[0].Outputs' --output table
