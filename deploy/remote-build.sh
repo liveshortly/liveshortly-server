@@ -7,26 +7,31 @@
 #
 # Args: the services to rebuild (e.g. "web", "api", or "api web"). With no args,
 # nothing is rebuilt — we just `up -d` to apply any compose/env changes.
+#
+# COMPOSE_FILE env var selects which compose file to use (default
+# docker-compose.prod.yml, the original box). deploy-ec2-app.yml sets it to
+# docker-compose.prod-ec2.yml (no bundled postgres — that box's DB is Supabase).
 set -euo pipefail
 
 cd "${HOME}/LiveShortly"
 export SERVICES="$*"
+export COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.prod.yml}"
 
 : > deploy-build.log
 rm -f deploy-build.done
 
-# Detach the build from this shell/SSH session. SERVICES is exported, so the
-# setsid child inherits it despite the single-quoted body.
+# Detach the build from this shell/SSH session. SERVICES/COMPOSE_FILE are
+# exported, so the setsid child inherits them despite the single-quoted body.
 setsid bash -c '
   {
     # Ensure the full stack is up (no rebuild) — cheap no-op when all healthy,
     # and starts anything that happened to be down.
-    docker compose -f docker-compose.prod.yml up -d --remove-orphans
+    docker compose -f "${COMPOSE_FILE}" up -d --remove-orphans
 
     # Rebuild + recreate only the changed services, leaving the rest untouched.
     if [ -n "${SERVICES:-}" ]; then
       echo "==> rebuilding: ${SERVICES}"
-      docker compose -f docker-compose.prod.yml up -d --build ${SERVICES}
+      docker compose -f "${COMPOSE_FILE}" up -d --build ${SERVICES}
     else
       echo "==> no service changed — config-only up"
     fi

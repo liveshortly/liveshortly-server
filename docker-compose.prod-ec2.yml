@@ -1,0 +1,78 @@
+# Production compose for the CloudFormation-provisioned EC2 box — used ALONE:
+#   docker compose -f docker-compose.prod-ec2.yml up -d --build
+#
+# Differs from docker-compose.prod.yml only in that there is no bundled
+# postgres service — this box's Postgres is Supabase (managed, external), not
+# a local container. Redis, api, web are unchanged.
+services:
+  redis:
+    image: redis:7-alpine
+    restart: always
+    networks: [liveshortly]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    restart: always
+    depends_on:
+      redis: { condition: service_healthy }
+    environment:
+      PORT: 8000
+      # No local postgres here — this must point at Supabase. Use the pooler
+      # (port 6543, transaction mode), same region as this box, or every
+      # request pays the round-trip multiple times over.
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL to the Supabase pooler connection string in .env}
+      REDIS_URL: redis://redis:6379
+      STORAGE_PATH: /app/data/sessions
+      CORS_ORIGINS: ${CORS_ORIGINS:?set CORS_ORIGINS in .env}
+      DEFAULT_USER_HANDLE: ${DEFAULT_USER_HANDLE:-you}
+    # Google OAuth secrets/config live here (written from GitHub secrets by the
+    # deploy workflow). Optional so dev/local without auth still boots.
+    env_file:
+      - path: .env.auth
+        required: false
+    volumes:
+      - api_data:/app/data/sessions
+    # bound to loopback — only the host nginx can reach it
+    ports:
+      - "127.0.0.1:8000:8000"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks: [liveshortly]
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?set NEXT_PUBLIC_API_URL in .env}
+    restart: always
+    depends_on:
+      api: { condition: service_healthy }
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?set NEXT_PUBLIC_API_URL in .env}
+      API_INTERNAL_URL: ${API_INTERNAL_URL:-http://api:8000}
+    ports:
+      - "127.0.0.1:3000:3000"
+    networks: [liveshortly]
+
+networks:
+  liveshortly:
+    name: liveshortly_net
+    driver: bridge
+
+volumes:
+  redis_data:
+  api_data:
