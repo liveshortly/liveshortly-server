@@ -19,30 +19,34 @@ multiple times per page.
 
 ## Boxes
 
-| Name | Type | Disk | Security group | Reachable from |
+| Name | Type | Disk | Public IPv4 | Reachable from |
 |---|---|---|---|---|
-| `liveshortly-app` | t3.micro | 20 GB gp3 | `liveshortly-app` | :22 world (key auth only, for CI), :80 **Cloudflare ranges only** |
-| `liveshortly-redis` | t3.micro | 8 GB gp3 | `liveshortly-redis` | :22 and :6379 **from the app box's SG only** — no public ingress |
+| `liveshortly-app` | t3.micro | 20 GB gp3 | Elastic IP `54.241.47.92` | :22 world (key auth only, for CI), :80 **Cloudflare ranges only** |
+| `liveshortly-redis` | t3.micro | 8 GB gp3 | **none** | :22 and :6379 **from the app box's SG only** |
 
 Both in `us-west-1a` (same AZ → no cross-AZ transfer cost, lowest redis latency).
 SSH key is the existing `ro-mini` pair, imported into the account.
 
 ```bash
-ssh -i ~/.ssh/ro-mini.pem ubuntu@54.241.47.92                      # app box
+ssh -i ~/.ssh/ro-mini.pem ubuntu@54.241.47.92                          # app box
 ssh -i ~/.ssh/ro-mini.pem -J ubuntu@54.241.47.92 ubuntu@172.31.23.65   # redis box, via the app box
 ```
 
+The app box keeps an Elastic IP so the address survives stop/start — the
+Cloudflare A record and `DEPLOY_HOST` both hardcode it. Note that since Feb 2024
+AWS bills every public IPv4 the same whether it is Elastic or auto-assigned, so
+the EIP is free stability, not an extra charge.
+
 ## 1. Host prep
 
-Both boxes are provisioned by EC2 user-data at first boot: 2 GB swap (1 GB on
-the redis box), docker + compose plugin, and — on the app box — nginx and rsync.
-Nothing to do by hand on a fresh launch.
+The **app box** is provisioned by EC2 user-data at first boot: 2 GB swap, docker
++ compose plugin, nginx, rsync. Nothing to do by hand on a fresh launch.
 
 ## 2. Redis box
 
 Redis runs as a single container, password-protected, with AOF persistence.
-The password lives in `/etc/redis/redis.conf` (chmod 600, root-owned) rather
-than on the command line, so it is not visible in `ps` or `docker inspect`.
+The password lives in `/etc/redis/redis.conf` (chmod 400, owned by redis's uid)
+rather than on the command line, so it is not visible in `ps` or `docker inspect`.
 
 ```bash
 docker ps                      # redis, Up
@@ -51,6 +55,21 @@ docker exec redis redis-cli -a "$(sudo sed -n 's/^requirepass //p' /etc/redis/re
 
 `maxmemory 512mb` with `maxmemory-policy noeviction`: a session's event buffer
 must not be silently evicted mid-stream — better that writes fail loudly.
+
+### This box has no outbound internet
+
+It has no public IPv4 and there is no NAT gateway, so `apt-get` and `docker pull`
+will hang. That is deliberate — it saves the IPv4 charge on a box nothing
+connects to from outside. Two consequences:
+
+- **Rebuild it from the AMI `liveshortly-redis-base-1`**, not from a stock Ubuntu
+  image — a bare instance here cannot bootstrap itself. Launch with
+  `--no-associate-public-ip-address --private-ip-address 172.31.23.65` so
+  `REDIS_URL` stays valid. Cloud-init regenerates the SSH host key, so
+  `ssh-keygen -R 172.31.23.65` after replacing it.
+- **To patch the OS**, temporarily give it a route out: allocate an Elastic IP,
+  associate it, `apt-get upgrade`, then disassociate **and release** it.
+  An allocated-but-unattached EIP is billed.
 
 ## 3. App box: secrets
 
