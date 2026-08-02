@@ -6,6 +6,7 @@ import Topbar from "@/components/Topbar";
 import AppFooter from "@/components/AppFooter";
 import WorkspaceSidebar from "@/components/WorkspaceSidebar";
 import { WorkspaceDrawerContext } from "@/components/WorkspaceDrawerContext";
+import { HostsProvider } from "@/components/HostsContext";
 import type { Me } from "@/lib/api";
 
 // Routes that own their own full-bleed layout inside `.ws-main` and must NOT
@@ -46,31 +47,33 @@ export default function AppShell({
 
   return (
     <div className="v3-app">
-      <Topbar
-        user={user}
-        onMenu={() => setDrawer((v) => !v)}
-        menuOpen={drawer}
-      />
-      <WorkspaceDrawerContext.Provider value={drawerCtx}>
-        <div className="workspace" data-drawer={drawer ? "open" : "closed"}>
-          <aside className="ws-sidebar" onClick={() => setDrawer(false)}>
-            <WorkspaceSidebar />
-          </aside>
+      <HostsProvider>
+        <Topbar
+          user={user}
+          onMenu={() => setDrawer((v) => !v)}
+          menuOpen={drawer}
+        />
+        <WorkspaceDrawerContext.Provider value={drawerCtx}>
+          <div className="workspace" data-drawer={drawer ? "open" : "closed"}>
+            <aside className="ws-sidebar" onClick={() => setDrawer(false)}>
+              <WorkspaceSidebar />
+            </aside>
 
-          <div className="ws-backdrop" onClick={() => setDrawer(false)} aria-hidden />
+            <div className="ws-backdrop" onClick={() => setDrawer(false)} aria-hidden />
 
-          <main className="ws-main">
-            {isFullBleed(pathname) ? (
-              children
-            ) : (
-              <div className="ws-content">{children}</div>
-            )}
-            {/* Global footer — hidden on the session viewer, which fills the
-                pane and scrolls internally. */}
-            {!pathname.startsWith("/session/") && <AppFooter />}
-          </main>
-        </div>
-      </WorkspaceDrawerContext.Provider>
+            <main className="ws-main">
+              {isFullBleed(pathname) ? (
+                children
+              ) : (
+                <div className="ws-content">{children}</div>
+              )}
+              {/* Global footer — hidden on the session viewer, which fills the
+                  pane and scrolls internally. */}
+              {!pathname.startsWith("/session/") && <AppFooter />}
+            </main>
+          </div>
+        </WorkspaceDrawerContext.Provider>
+      </HostsProvider>
     </div>
   );
 }
