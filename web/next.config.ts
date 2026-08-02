@@ -1,7 +1,18 @@
 import type { NextConfig } from "next";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const projectRoot = path.dirname(fileURLToPath(import.meta.url));
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  // Pin the file-tracing root to this directory. Next otherwise INFERS it by
+  // walking up for a lockfile, and any stray package-lock.json in a parent
+  // directory (a home dir, a monorepo checkout) silently nests the standalone
+  // output — server.js ends up under .next/standalone/<abs/path/to>/web/ instead
+  // of at the root, and the deploy ships a bundle with no entrypoint. The Docker
+  // build never hit this because its context was only ./web.
+  outputFileTracingRoot: projectRoot,
   // Local dev only matters here: in production web + api sit behind ONE domain
   // (a reverse proxy routes /api, /auth, /device to the api), so the browser's
   // same-origin relative URLs just work. Locally they're separate origins

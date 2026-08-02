@@ -10,7 +10,14 @@ import (
 
 // Config holds all runtime configuration for the API service.
 type Config struct {
-	Port              string
+	Port string
+	// BindAddr is the interface the HTTP server listens on, via BIND_ADDR.
+	// Empty (the default) means all interfaces, which is what container and
+	// local runs want. In production the service runs directly on the host
+	// behind nginx, so it is set to 127.0.0.1 — otherwise the api would be
+	// listening on the box's public interface with only the security group
+	// between it and the internet.
+	BindAddr          string
 	DatabaseURL       string
 	RedisURL          string
 	StoragePath       string
@@ -73,6 +80,7 @@ func Load() Config {
 	webBaseURL := env("WEB_BASE_URL", "")
 	return Config{
 		Port:              env("PORT", "8000"),
+		BindAddr:          env("BIND_ADDR", ""),
 		DatabaseURL:       env("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/liveshortly?sslmode=disable"),
 		RedisURL:          env("REDIS_URL", "redis://localhost:6379/0"),
 		StoragePath:       env("STORAGE_PATH", "/app/data/sessions"),

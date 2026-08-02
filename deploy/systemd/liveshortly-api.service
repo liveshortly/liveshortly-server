@@ -1,0 +1,42 @@
+[Unit]
+Description=LiveShortly API (Go)
+Documentation=https://github.com/liveshortly/liveshortly-server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=liveshortly
+Group=liveshortly
+WorkingDirectory=/opt/liveshortly/api
+# DATABASE_URL (Supabase), REDIS_URL, and the Google OAuth secrets. Written by
+# the deploy workflow from GitHub secrets; chmod 600, root-owned.
+EnvironmentFile=/etc/liveshortly/api.env
+ExecStart=/opt/liveshortly/api/server
+Restart=always
+RestartSec=2
+
+# The api sits behind the host nginx, so it must not be listening on the box's
+# public interface — the security group should not be the only thing in the way.
+Environment=BIND_ADDR=127.0.0.1
+Environment=PORT=8000
+Environment=STORAGE_PATH=/var/lib/liveshortly/sessions
+
+# Archived session blobs live here and must survive ProtectSystem=strict.
+StateDirectory=liveshortly
+ReadWritePaths=/var/lib/liveshortly
+
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictSUIDSGID=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

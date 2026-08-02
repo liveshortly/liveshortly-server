@@ -92,8 +92,10 @@ func main() {
 
 	r := router(cfg, h, googleAuth, webSessions)
 
+	addr := cfg.BindAddr + ":" + cfg.Port
+
 	srv := &http.Server{
-		Addr:              ":" + cfg.Port,
+		Addr:              addr,
 		Handler:           r,
 		ReadHeaderTimeout: 10 * time.Second,
 		// No write timeout: SSE streams are long-lived.
@@ -102,7 +104,7 @@ func main() {
 	// Serve in the background; block on a signal for graceful shutdown.
 	serveErr := make(chan error, 1)
 	go func() {
-		log.Printf("liveshortly api listening on :%s", cfg.Port)
+		log.Printf("liveshortly api listening on %s", addr)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			serveErr <- err
 		}

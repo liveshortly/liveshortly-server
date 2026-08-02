@@ -554,7 +554,8 @@ LiveShortly/
 │   ├── hooks/
 │   └── settings.example.json
 ├── design/                 # offline HTML mockups (UI/UX reference)
-├── docker-compose.yml · docker-compose.prod.yml
+├── deploy/                 # systemd units, nginx conf, box provisioning
+├── docker-compose.yml · docker-compose.local.yml   # local dev only — prod runs systemd
 ├── CONTRACT.md             # the binding API + design spec
 └── AUTH.md                 # auth endpoints, tokens, sharing model
 ```
