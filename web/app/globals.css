@@ -592,6 +592,39 @@ a {
   cursor: pointer;
   flex-shrink: 0;
 }
+/* Daemon connectivity pill — persistent (unlike NewSessionButton, which
+   disappears entirely when offline) so the topbar always answers "is my
+   machine reachable", on every authenticated page. Static dot, no pulse,
+   to match the .live-dot decision to keep the surface calm. */
+.daemon-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--faint);
+  border: 1px dashed var(--hairline);
+  padding: 4px 10px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.daemon-status-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--faint);
+  flex-shrink: 0;
+}
+.daemon-status.on {
+  color: var(--green);
+  border-color: var(--green);
+}
+.daemon-status.on .daemon-status-dot {
+  background: var(--green);
+}
+
 /* New session — start a run on one of your own machines, from the browser.
    Only rendered when the account has an online host (see NewSessionButton). */
 .ns-wrap {

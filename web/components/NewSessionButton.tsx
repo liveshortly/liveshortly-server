@@ -2,11 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  createSessionOnHost,
-  listHosts,
-  type Host,
-} from "@/lib/api";
+import { createSessionOnHost } from "@/lib/api";
+import { useHosts } from "@/components/HostsContext";
 
 /**
  * Start a session on one of your own machines, from the browser.
@@ -22,7 +19,7 @@ import {
  */
 export default function NewSessionButton() {
   const router = useRouter();
-  const [hosts, setHosts] = useState<Host[] | null>(null);
+  const hosts = useHosts();
   const [open, setOpen] = useState(false);
   const [hostId, setHostId] = useState("");
   const [agent, setAgent] = useState("");
@@ -30,27 +27,6 @@ export default function NewSessionButton() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-
-  // Poll: a machine appears within a heartbeat of `live daemon` starting, and
-  // drops off ~90s after it dies. Slow enough to be free, fast enough that the
-  // button shows up on its own while the user is still looking at the page.
-  useEffect(() => {
-    const ctrl = new AbortController();
-    const load = async () => {
-      try {
-        const list = await listHosts(ctrl.signal);
-        if (!ctrl.signal.aborted) setHosts(list);
-      } catch {
-        if (!ctrl.signal.aborted) setHosts([]);
-      }
-    };
-    load();
-    const t = setInterval(load, 20_000);
-    return () => {
-      ctrl.abort();
-      clearInterval(t);
-    };
-  }, []);
 
   // Default the pickers to the first host's first offer whenever the set of
   // machines changes (including the first load).
