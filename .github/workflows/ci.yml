@@ -96,11 +96,15 @@ jobs:
           cache-dependency-path: web/package-lock.json
 
       - name: Apply schema
-        # Every file, in order. Note the old prod compose only ever mounted
-        # init.sql and 002-auth.sql, so a stack that boots on those alone proves
-        # less than it looks — apply the lot.
+        # init.sql FIRST, then the numbered migrations. A plain *.sql glob sorts
+        # alphabetically and puts init.sql last, so 002-auth.sql fails on
+        # `relation "users" does not exist`. The old compose hid the ordering
+        # problem by mounting them as 01-/02- prefixed names.
+        #
+        # Note it only ever mounted those two, so a stack that boots on them
+        # alone proves less than it looks — apply the lot.
         run: |
-          for f in api/infra/postgres/*.sql; do
+          for f in api/infra/postgres/init.sql api/infra/postgres/0*.sql; do
             echo "==> $f"
             psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -q -f "$f"
           done
