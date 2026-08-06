@@ -150,7 +150,7 @@ func (g *GoogleAuth) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 	g.mgr.SetSessionCookie(w, jwtStr)
 
-	dest := base
+	dest := base + "/sessions"
 	if next != "" {
 		dest = base + next
 	}
