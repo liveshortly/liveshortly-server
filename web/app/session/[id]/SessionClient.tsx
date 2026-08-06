@@ -41,7 +41,7 @@ import {
   type SessionDetail,
   type SessionEvent,
 } from "@/lib/api";
-import { fmtInt, frameworkLabel, shortId, timeAgo } from "@/lib/utils";
+import { agentName, fmtInt, frameworkLabel, shortId, timeAgo } from "@/lib/utils";
 
 type Connection = "idle" | "connecting" | "open" | "closed" | "ended";
 
@@ -255,17 +255,28 @@ export default function SessionViewer({
 
   // Debounce the raw "working" signal: the last-event-type flips on nearly every
   // SSE frame, so rendering `claudeTyping` directly makes the indicator strobe
-  // (mount/unmount rapidly). Turn it on instantly, but linger ~1.4s before
-  // turning off, so a steady stream of activity reads as one calm indicator.
+  // (mount/unmount rapidly). Turn it on instantly, but linger before turning
+  // off, so a steady stream of activity reads as one calm indicator.
+  //
+  // `events.length` is in the deps for a reason. A hooks agent eventually emits
+  // an event whose type is NOT activity, which flips claudeTyping to false and
+  // clears this. A pty agent (ollama, gemini) only ever emits `output`, so the
+  // last-event type never changes and claudeTyping stays true forever — the
+  // indicator latched on for the whole session. Re-arming the timer on each new
+  // event means silence is what clears it, which works for both.
+  //
+  // The delay must exceed the pty capture's flush interval (2s) or the
+  // indicator strobes between batches of a single reply.
   const [showClaudeWorking, setShowClaudeWorking] = useState(false);
   useEffect(() => {
-    if (claudeTyping) {
-      setShowClaudeWorking(true);
+    if (!claudeTyping) {
+      setShowClaudeWorking(false);
       return;
     }
-    const t = setTimeout(() => setShowClaudeWorking(false), 1400);
+    setShowClaudeWorking(true);
+    const t = setTimeout(() => setShowClaudeWorking(false), 3000);
     return () => clearTimeout(t);
-  }, [claudeTyping]);
+  }, [claudeTyping, events.length]);
 
   // Notify the viewer (browser notification + soft chime) when input is newly
   // requested — so anyone watching knows it's their turn to answer.
@@ -727,7 +738,10 @@ export default function SessionViewer({
             {(showClaudeWorking || activeTypers.length > 0) && (
               <div className="sv-typing-overlay">
                 {showClaudeWorking && (
-                  <TypingIndicator label="CLAUDE IS WORKING" tone="green" />
+                  <TypingIndicator
+                    label={`${agentName(meta?.framework)} IS WORKING`}
+                    tone="green"
+                  />
                 )}
                 {activeTypers.map((who) => (
                   <TypingIndicator
