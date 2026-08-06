@@ -40,6 +40,14 @@ const nextConfig: NextConfig = {
     return [
       { source: "/", headers: revalidate },
       { source: "/session/:id*", headers: revalidate },
+      // /install lists the current release. It is prerendered, so without this
+      // it ships Next's default `s-maxage=31536000` — a shared cache may serve
+      // the page naming an OLD version for up to a year after a release, while
+      // /install/latest.txt (a public file, uncached) correctly says the new
+      // one. That split is what makes a fresh release look like it did not
+      // happen.
+      { source: "/install", headers: revalidate },
+      { source: "/install/latest.txt", headers: revalidate },
     ];
   },
 };
