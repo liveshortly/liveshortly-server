@@ -102,7 +102,7 @@ type Session struct {
 	Framework   *string    `json:"framework"`
 	// Agent + CaptureMode describe how the session is captured, reported by the
 	// Live shim. Optional; no behavior depends on them yet.
-	Agent       *string    `json:"agent"`        // claude-code | gemini-cli | codex | terminal
+	Agent       *string    `json:"agent"`        // claude-code | gemini-cli | codex | ollama | terminal
 	CaptureMode *string    `json:"capture_mode"` // hooks | pty | sdk
 	Status      string     `json:"status"`
 	Tags        []string   `json:"tags"`
@@ -456,7 +456,7 @@ type NewSessionInput struct {
 	ClientHandle *string // user@hostname reported by the CLI
 	GitRemote    *string
 	GitBranch    *string
-	Agent        *string // capture agent (claude-code | gemini-cli | codex | terminal)
+	Agent        *string // capture agent (claude-code | gemini-cli | codex | ollama | terminal)
 	CaptureMode  *string // capture mode (hooks | pty | sdk)
 
 	// Handoff lineage: when set, this session is a fork of ForkedFromSessionID

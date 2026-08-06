@@ -34,6 +34,8 @@ export function frameworkLabel(fw: string | null | undefined): string {
       return "Codex";
     case "gemini-cli":
       return "Gemini";
+    case "ollama":
+      return "Ollama";
     case "terminal":
       return "Terminal";
     case null:
@@ -54,6 +56,8 @@ export function agentName(fw: string | null | undefined): string {
       return "CODEX";
     case "gemini-cli":
       return "GEMINI";
+    case "ollama":
+      return "OLLAMA";
     default:
       return frameworkLabel(fw).toUpperCase();
   }
@@ -68,6 +72,8 @@ export function agentTitle(fw: string | null | undefined): string {
       return "Codex";
     case "gemini-cli":
       return "Gemini";
+    case "ollama":
+      return "Ollama";
     default:
       return frameworkLabel(fw);
   }
