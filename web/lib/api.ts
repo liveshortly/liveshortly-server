@@ -742,8 +742,11 @@ export interface Host {
   /** Absolute directories the daemon registered. A session may only be spawned
    *  in one of these — the browser cannot name an arbitrary path. */
   dirs: string[];
-  /** Spawnable agents this machine reported: subset of claude | codex | gemini. */
+  /** Spawnable agents this machine reported: subset of claude | codex | gemini | ollama. */
   agents: string[];
+  /** ollama models pulled on this machine. Only populated when `agents`
+   *  includes "ollama"; the spawn must name one of these. */
+  models?: string[];
   seen_at: string;
 }
 
@@ -776,6 +779,7 @@ export async function createSessionOnHost(
   hostId: string,
   agent: string,
   cwd: string,
+  model?: string,
   signal?: AbortSignal,
 ): Promise<CreatedSession> {
   const res = await fetch(`${browserBase()}/api/sessions`, {
@@ -783,7 +787,9 @@ export async function createSessionOnHost(
     signal,
     credentials: "include",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ host_id: hostId, agent, cwd }),
+    // `model` is only meaningful for ollama; the server ignores it otherwise
+    // and validates it against the host's own registered list either way.
+    body: JSON.stringify({ host_id: hostId, agent, cwd, ...(model ? { model } : {}) }),
   });
   if (!res.ok) {
     // The server explains exactly what it rejected (offline host, unregistered

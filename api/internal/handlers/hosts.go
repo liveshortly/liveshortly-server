@@ -27,9 +27,12 @@ import (
 // daemon re-checks all three locally because it must not trust this server:
 //
 //  1. The server NEVER sends an argv. It sends an agent NAME from a fixed
-//     allowlist; the daemon builds the command line itself.
+//     allowlist; the daemon builds the command line itself. ollama also carries
+//     a MODEL name, which is a choice from the daemon's own registered list —
+//     still a name, never a command line.
 //  2. The working directory must be one the daemon itself registered. The
-//     server rejects anything else, and the daemon rejects it again.
+//     server rejects anything else, and the daemon rejects it again. The ollama
+//     model is bound the same way, against the same registration.
 //  3. Every Redis key is namespaced by the owning user id (see bus.hostKey),
 //     so a host id guessed or replayed by another user addresses a different
 //     key space entirely and can never reach this user's machine.
@@ -47,6 +50,7 @@ var spawnableAgents = map[string]bool{
 	"claude": true,
 	"codex":  true,
 	"gemini": true,
+	"ollama": true,
 }
 
 // hostRecord is what a daemon registers and what the web host picker renders.
@@ -59,7 +63,11 @@ type hostRecord struct {
 	Arch     string   `json:"arch"`
 	Dirs     []string `json:"dirs"`
 	Agents   []string `json:"agents"`
-	SeenAt   string   `json:"seen_at"`
+	// Models are the ollama models the daemon reported. The web picks from this
+	// list and the server validates against it — but the daemon re-checks
+	// locally, which is the check that actually bounds anything.
+	Models []string `json:"models,omitempty"`
+	SeenAt string   `json:"seen_at"`
 }
 
 type registerHostReq struct {
@@ -70,6 +78,7 @@ type registerHostReq struct {
 	Arch     string   `json:"arch"`
 	Dirs     []string `json:"dirs"`
 	Agents   []string `json:"agents"`
+	Models   []string `json:"models"`
 }
 
 // RegisterHost records (or refreshes) a machine as spawnable for the principal.
@@ -117,6 +126,23 @@ func (h *Handler) RegisterHost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	models := cleanModels(req.Models)
+	// ollama without a model is unspawnable — `ollama run` needs one — so don't
+	// advertise a target the daemon would only reject on click.
+	if len(models) == 0 {
+		filtered := agents[:0:0]
+		for _, a := range agents {
+			if a != "ollama" {
+				filtered = append(filtered, a)
+			}
+		}
+		agents = filtered
+		if len(agents) == 0 {
+			httpx.Error(w, http.StatusBadRequest, "ollama was offered with no models — pull one first")
+			return
+		}
+	}
+
 	rec := hostRecord{
 		ID:       hostID,
 		Name:     clip(req.Name, maxHostFieldLen),
@@ -125,6 +151,7 @@ func (h *Handler) RegisterHost(w http.ResponseWriter, r *http.Request) {
 		Arch:     clip(req.Arch, 32),
 		Dirs:     dirs,
 		Agents:   agents,
+		Models:   models,
 		SeenAt:   time.Now().UTC().Format(time.RFC3339),
 	}
 	if rec.Name == "" {
@@ -282,6 +309,7 @@ type spawnTarget struct {
 	hostID string
 	agent  string
 	cwd    string
+	model  string // ollama only; "" for every other agent
 }
 
 // resolveSpawn validates a spawn request against the host's own registration.
@@ -290,7 +318,7 @@ type spawnTarget struct {
 //
 // Every check here is repeated by the daemon on the machine itself; this one is
 // for a clean error message, that one is the actual defense.
-func (h *Handler) resolveSpawn(ctx context.Context, userID, hostID, agent, cwd string) (spawnTarget, error) {
+func (h *Handler) resolveSpawn(ctx context.Context, userID, hostID, agent, cwd, model string) (spawnTarget, error) {
 	hostID = sanitizeHostID(hostID)
 	if hostID == "" {
 		return spawnTarget{}, fmt.Errorf("invalid host id")
@@ -319,6 +347,24 @@ func (h *Handler) resolveSpawn(ctx context.Context, userID, hostID, agent, cwd s
 		return spawnTarget{}, fmt.Errorf("host does not have %s available", agent)
 	}
 
+	// ollama needs a model. Like the directory, it must be one the daemon
+	// itself registered — never a name the browser invented. Defaulting to the
+	// first keeps the one-click path working when the picker sends nothing.
+	model = strings.TrimSpace(model)
+	if agent == "ollama" {
+		if len(rec.Models) == 0 {
+			return spawnTarget{}, fmt.Errorf("host has no ollama models pulled")
+		}
+		if model == "" {
+			model = rec.Models[0]
+		}
+		if !contains(rec.Models, model) {
+			return spawnTarget{}, fmt.Errorf("model %q is not available on this host", model)
+		}
+	} else {
+		model = "" // meaningless for other agents; never forward it
+	}
+
 	// The directory must be one the daemon itself registered. Never spawn in a
 	// path the browser invented.
 	cwd = strings.TrimSpace(cwd)
@@ -330,7 +376,7 @@ func (h *Handler) resolveSpawn(ctx context.Context, userID, hostID, agent, cwd s
 		return spawnTarget{}, fmt.Errorf("directory is not registered on this host")
 	}
 
-	return spawnTarget{hostID: hostID, agent: agent, cwd: cwd}, nil
+	return spawnTarget{hostID: hostID, agent: agent, cwd: cwd, model: model}, nil
 }
 
 // publishSpawn sends the command to the machine. It is the ONLY place a command
@@ -342,6 +388,7 @@ func (h *Handler) publishSpawn(ctx context.Context, userID string, t spawnTarget
 		"session_id": sessionID,
 		"agent":      t.agent,
 		"cwd":        t.cwd,
+		"model":      t.model,
 		"title":      clip(title, maxHostFieldLen),
 	})
 	if err != nil {
@@ -372,6 +419,49 @@ func sanitizeHostID(s string) string {
 
 // cleanDirs validates the spawn-directory allowlist: absolute, cleaned, bounded
 // in count and length, deduplicated.
+// maxHostModels bounds how many ollama models one host may advertise.
+const maxHostModels = 50
+
+// cleanModels validates the ollama model allowlist a daemon reported: bounded
+// in count, closed alphabet (namespace/model:tag), deduplicated. Unlike
+// cleanDirs this never errors — a malformed entry is dropped rather than
+// failing the whole registration, because models are additive metadata and a
+// daemon that reports one odd tag should still be able to register.
+func cleanModels(in []string) []string {
+	seen := map[string]bool{}
+	out := make([]string, 0, len(in))
+	for _, m := range in {
+		m = strings.TrimSpace(m)
+		if m == "" || seen[m] || !validModelName(m) {
+			continue
+		}
+		seen[m] = true
+		out = append(out, m)
+		if len(out) == maxHostModels {
+			break
+		}
+	}
+	return out
+}
+
+// validModelName keeps a model tag to the alphabet ollama actually uses. The
+// name reaches the daemon as an argv element and is never shell-interpolated,
+// but it is still an argument to a spawned process — keep the alphabet closed.
+func validModelName(s string) bool {
+	if s == "" || len(s) > 128 {
+		return false
+	}
+	for _, c := range s {
+		switch {
+		case c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z', c >= '0' && c <= '9':
+		case c == '.', c == '-', c == '_', c == ':', c == '/':
+		default:
+			return false
+		}
+	}
+	return true
+}
+
 func cleanDirs(in []string) ([]string, error) {
 	if len(in) > maxHostDirs {
 		return nil, fmt.Errorf("too many directories (max %d)", maxHostDirs)

@@ -80,25 +80,87 @@ func TestResolveSpawnRejectsUnregistered(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = d.Bus.HostDrop(ctx, user, host) })
 
-	if _, err := h.resolveSpawn(ctx, user, host, "claude", "/work/allowed"); err != nil {
+	if _, err := h.resolveSpawn(ctx, user, host, "claude", "/work/allowed", ""); err != nil {
 		t.Fatalf("registered dir + agent: %v", err)
 	}
 
 	// An unregistered directory must never reach the machine, including via a
 	// traversal that cleans back out of the allowlist.
 	for _, dir := range []string{"/etc", "/work/allowed/../../etc", "/work"} {
-		if _, err := h.resolveSpawn(ctx, user, host, "claude", dir); err == nil {
+		if _, err := h.resolveSpawn(ctx, user, host, "claude", dir, ""); err == nil {
 			t.Errorf("resolveSpawn accepted unregistered dir %q", dir)
 		}
 	}
 	// An agent the host never reported, and one outside the global allowlist.
 	for _, agent := range []string{"codex", "bash", "rm"} {
-		if _, err := h.resolveSpawn(ctx, user, host, agent, "/work/allowed"); err == nil {
+		if _, err := h.resolveSpawn(ctx, user, host, agent, "/work/allowed", ""); err == nil {
 			t.Errorf("resolveSpawn accepted agent %q", agent)
 		}
 	}
 	// Another user's key space is a different host entirely.
-	if _, err := h.resolveSpawn(ctx, "someone-else", host, "claude", "/work/allowed"); err == nil {
+	if _, err := h.resolveSpawn(ctx, "someone-else", host, "claude", "/work/allowed", ""); err == nil {
 		t.Error("resolveSpawn crossed user namespaces")
+	}
+}
+
+// The ollama model is an argument to a process spawned on the owner's machine,
+// so it is bound to the host's own registration exactly like the directory is.
+func TestResolveSpawnBindsOllamaModelToHost(t *testing.T) {
+	d := testutil.Setup(t)
+	h := New(d.Store, d.Bus, d.Blob, config.Config{})
+	ctx := context.Background()
+
+	const user, host = "user-ollama-spawn", "laptop"
+	rec, _ := json.Marshal(hostRecord{
+		ID:     host,
+		Dirs:   []string{"/work/allowed"},
+		Agents: []string{"ollama"},
+		Models: []string{"llama3.2:1b", "qwen2.5:0.5b"},
+	})
+	if err := d.Bus.HostSet(ctx, user, host, string(rec)); err != nil {
+		t.Fatalf("HostSet: %v", err)
+	}
+	t.Cleanup(func() { _ = d.Bus.HostDrop(ctx, user, host) })
+
+	// A model the host reported is accepted and travels through.
+	got, err := h.resolveSpawn(ctx, user, host, "ollama", "/work/allowed", "qwen2.5:0.5b")
+	if err != nil {
+		t.Fatalf("registered model: %v", err)
+	}
+	if got.model != "qwen2.5:0.5b" {
+		t.Errorf("model = %q, want qwen2.5:0.5b", got.model)
+	}
+
+	// No model named → the host's first, so the one-click path still works.
+	got, err = h.resolveSpawn(ctx, user, host, "ollama", "/work/allowed", "")
+	if err != nil {
+		t.Fatalf("default model: %v", err)
+	}
+	if got.model != "llama3.2:1b" {
+		t.Errorf("default model = %q, want llama3.2:1b", got.model)
+	}
+
+	// Anything the host did not report is refused — including shell-ish and
+	// traversal-ish names, which must never reach an argv.
+	for _, m := range []string{"mistral", "llama3.2:1b; rm -rf /", "../../etc/passwd", "llama3.2:1b evil"} {
+		if _, err := h.resolveSpawn(ctx, user, host, "ollama", "/work/allowed", m); err == nil {
+			t.Errorf("resolveSpawn accepted unregistered model %q", m)
+		}
+	}
+
+	// A model is meaningless for other agents and must not be forwarded.
+	other, _ := json.Marshal(hostRecord{
+		ID: host, Dirs: []string{"/work/allowed"},
+		Agents: []string{"claude"}, Models: []string{"llama3.2:1b"},
+	})
+	if err := d.Bus.HostSet(ctx, user, host, string(other)); err != nil {
+		t.Fatalf("HostSet: %v", err)
+	}
+	got, err = h.resolveSpawn(ctx, user, host, "claude", "/work/allowed", "llama3.2:1b")
+	if err != nil {
+		t.Fatalf("claude with a model: %v", err)
+	}
+	if got.model != "" {
+		t.Errorf("model leaked to a non-ollama agent: %q", got.model)
 	}
 }
