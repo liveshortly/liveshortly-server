@@ -131,7 +131,7 @@ export default function WorkspaceSidebar() {
   return (
     <div className="ws-sidebar-inner">
       <div className="ws-head">
-        <Link href="/hud" className="ws-head-link" title="Open My HUD">
+        <Link href="/sessions" className="ws-head-link" title="Open My Sessions">
           <span className="label">⌂ Your Sessions</span>
           <span className="ws-head-arrow" aria-hidden>
             →
