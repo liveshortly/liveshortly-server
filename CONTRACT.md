@@ -25,8 +25,8 @@ changes.
   "model": "claude-opus-4-8 | null",
   "framework": "claude-code | null",
   "status": "live | ended",
-  "agent": "claude-code | gemini-cli | codex | terminal | null",
-  "capture_mode": "hooks | pty | sdk | null",
+  "agent": "claude-code | gemini-cli | codex | ollama | terminal | null",
+  "capture_mode": "hooks | pty | sdk | rollout | null",
   "tags": ["string"],
   "event_count": 0,
   "view_count": 0,
@@ -152,28 +152,32 @@ is not listed, because it is not spawnable.
   "name": "rohit's macbook",
   "hostname": "rohit-mbp", "os": "darwin", "arch": "arm64",
   "dirs":   ["/Users/rohit/code/api"],   // absolute; the spawn allowlist
-  "agents": ["claude","codex"],          // subset of claude|codex|gemini
+  "agents": ["claude","codex"],          // subset of claude|codex|gemini|ollama
+  "models": ["llama3.2:1b"],             // ollama only; the model allowlist
   "seen_at": "RFC3339"
 }
 ```
 
 | Method | Path | Body | Response |
 |---|---|---|---|
-| POST | `/api/hosts/register` | `{"host_id","name"?,"hostname"?,"os"?,"arch"?,"dirs":[abs paths],"agents":[…]}` | `200 {"host_id","ttl_secs","registered":true}` — `400` on a bad id, a relative path, or no supported agent |
+| POST | `/api/hosts/register` | `{"host_id","name"?,"hostname"?,"os"?,"arch"?,"dirs":[abs paths],"agents":[…],"models"?:[…]}` | `200 {"host_id","ttl_secs","registered":true}` — `400` on a bad id, a relative path, or no supported agent |
 | GET | `/api/hosts` | — | `200 {"hosts":[Host]}` — the caller's ONLINE machines only |
 | GET | `/api/hosts/{id}/stream` | — | `200` SSE command stream (owner only, Bearer) — `404` if the host has not registered |
 
 `POST /api/sessions` gains `{"host_id"?, "cwd"?}`. When `host_id` is set, `agent`
-is read as a **spawnable binary name** (`claude`/`codex`/`gemini`), not a
+is read as a **spawnable binary name** (`claude`/`codex`/`gemini`/`ollama`), not a
 framework label — the server maps it to the same `framework`/`capture_mode` the
-CLI would have reported. The response carries
+CLI would have reported. For `ollama`, `model` names which model to run and MUST
+be one the host registered (empty → the host's first); it is rejected with `400`
+otherwise, and ignored for every other agent. The response carries
 `"spawn": {"host_id","agent","cwd","status":"requested"|"failed","error"?}`.
 `requested` means the command was published, NOT that the agent is up; the
 session page tracks that separately via `agent_connected`.
 
 ### SSE: `GET /api/hosts/{id}/stream` (daemon)
 Frames: `{"type":"connected","host_id"}`, then
-`{"type":"spawn","session_id","agent","cwd","title"}` per web-created session,
+`{"type":"spawn","session_id","agent","cwd","title","model"?}` per web-created
+session (`model` only for `ollama`),
 plus `: hb` comments every 15s. Each heartbeat refreshes the host record, so the
 machine leaves the picker ~90s after the daemon dies (immediately on a clean
 disconnect).

@@ -22,8 +22,8 @@ type createSessionReq struct {
 	Tags        []string `json:"tags"`
 	GitRemote   *string  `json:"git_remote"`
 	GitBranch   *string  `json:"git_branch"`
-	Agent       *string  `json:"agent"`        // claude-code | gemini-cli | codex | terminal
-	CaptureMode *string  `json:"capture_mode"` // hooks | pty | sdk
+	Agent       *string  `json:"agent"`        // claude-code | gemini-cli | codex | ollama | terminal
+	CaptureMode *string  `json:"capture_mode"` // hooks | pty | sdk | rollout
 
 	// Handoff/fork: continue an existing session the caller can read as a NEW
 	// session they own. Provide exactly one of ForkedFrom (a signed handoff code)
@@ -49,6 +49,7 @@ var frameworkForAgent = map[string]struct{ framework, captureMode string }{
 	"claude": {"claude-code", "hooks"},
 	"codex":  {"codex", "rollout"},
 	"gemini": {"gemini-cli", "pty"},
+	"ollama": {"ollama", "pty"},
 }
 
 // CreateSession creates a new live session owned by the principal.
@@ -100,7 +101,14 @@ func (h *Handler) CreateSession(w http.ResponseWriter, r *http.Request) {
 		if req.Cwd != nil {
 			cwd = *req.Cwd
 		}
-		t, err := h.resolveSpawn(r.Context(), p.ID, *req.HostID, agent, cwd)
+		// For an ollama spawn the session's `model` doubles as the spawn
+		// argument: it is which model this session runs, and the name the
+		// daemon passes to `ollama run`. Validated against the host's list.
+		model := ""
+		if req.Model != nil {
+			model = *req.Model
+		}
+		t, err := h.resolveSpawn(r.Context(), p.ID, *req.HostID, agent, cwd, model)
 		if err != nil {
 			httpx.Error(w, http.StatusBadRequest, err.Error())
 			return
@@ -110,6 +118,12 @@ func (h *Handler) CreateSession(w http.ResponseWriter, r *http.Request) {
 		in.Agent = &labels.framework
 		in.Framework = &labels.framework
 		in.CaptureMode = &labels.captureMode
+		// Record the resolved model so the feed shows what actually ran, even
+		// when the browser sent nothing and the host's default was used.
+		if t.model != "" {
+			m := t.model
+			in.Model = &m
+		}
 	}
 
 	// Forked create: resolve + authorize the source, then seed the new session
