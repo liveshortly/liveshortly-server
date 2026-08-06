@@ -24,6 +24,7 @@ export default function NewSessionButton() {
   const [hostId, setHostId] = useState("");
   const [agent, setAgent] = useState("");
   const [cwd, setCwd] = useState("");
+  const [model, setModel] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -36,7 +37,11 @@ export default function NewSessionButton() {
     if (current.id !== hostId) setHostId(current.id);
     if (!current.agents.includes(agent)) setAgent(current.agents[0] ?? "");
     if (!current.dirs.includes(cwd)) setCwd(current.dirs[0] ?? "");
-  }, [hosts, hostId, agent, cwd]);
+    // Same closed-set rule as the others: the model must be one this machine
+    // reported, so reset it whenever the current choice is no longer offered.
+    const models = current.models ?? [];
+    if (!models.includes(model)) setModel(models[0] ?? "");
+  }, [hosts, hostId, agent, cwd, model]);
 
   useEffect(() => {
     if (!open) return;
@@ -62,7 +67,7 @@ export default function NewSessionButton() {
     setBusy(true);
     setError(null);
     try {
-      const s = await createSessionOnHost(host.id, agent, cwd);
+      const s = await createSessionOnHost(host.id, agent, cwd, agent === "ollama" ? model : undefined);
       if (s.spawn?.status === "failed") {
         // The session exists but the machine was never told. Say so instead of
         // navigating to a page that will sit at "waiting for agent" forever.
@@ -146,13 +151,35 @@ export default function NewSessionButton() {
             </select>
           </div>
 
+          {/* ollama needs a model — `ollama run` alone is an error — and it is
+              the only agent that takes one, so the row only appears for it. */}
+          {agent === "ollama" && (
+            <div className="ns-row">
+              <label className="ns-label" htmlFor="ns-model">
+                Model
+              </label>
+              <select
+                id="ns-model"
+                className="ns-select"
+                value={model}
+                onChange={(e) => setModel(e.target.value)}
+              >
+                {(host.models ?? []).map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           {error && <div className="ns-error">{error}</div>}
 
           <button
             type="button"
             className="ns-start"
             onClick={start}
-            disabled={busy || !agent || !cwd}
+            disabled={busy || !agent || !cwd || (agent === "ollama" && !model)}
           >
             {busy ? "STARTING…" : `START ${agent.toUpperCase()}`}
           </button>
