@@ -1,8 +1,14 @@
 "use client";
 
-import HomeFeed from "@/components/HomeFeed";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
-/** Authenticated home page — designs/version3/feed.html. */
+/** Authenticated visitors land on / (e.g. after login) — send them straight
+ *  to the sessions browser instead of the old home feed. */
 export default function Page() {
-  return <HomeFeed />;
+  const router = useRouter();
+  useEffect(() => {
+    router.replace("/sessions");
+  }, [router]);
+  return null;
 }
