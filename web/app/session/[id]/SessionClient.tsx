@@ -248,9 +248,18 @@ export default function SessionViewer({
   const claudeTyping = useMemo(() => {
     if (!isLive || inputPending || events.length === 0) return false;
     const t = events[events.length - 1].event_type;
-    return ["prompt", "pre_tool", "tool_call", "file_write", "output"].includes(
-      t,
-    );
+    // `stream_start` carries no content and is hidden from the log; a pty agent
+    // heartbeats it while its output is still buffering. Without it the page
+    // looks dead for the whole generation — the agent is mid-answer but emits
+    // nothing until the blob is ready.
+    return [
+      "prompt",
+      "pre_tool",
+      "tool_call",
+      "file_write",
+      "output",
+      "stream_start",
+    ].includes(t);
   }, [isLive, inputPending, events]);
 
   // Debounce the raw "working" signal: the last-event-type flips on nearly every
