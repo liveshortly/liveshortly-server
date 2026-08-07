@@ -69,6 +69,19 @@ var migrations = []string{
 	`ALTER TABLE users ADD COLUMN IF NOT EXISTS quota_exempt        BOOLEAN NOT NULL DEFAULT false`,
 	`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS bytes_used   BIGINT NOT NULL DEFAULT 0`,
 	`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS ended_reason TEXT`,
+
+	// sessions had no index on owner_id: ListSessions' "mine"/"all" scopes
+	// (WHERE s.owner_id = $1 ORDER BY s.created_at DESC) were doing a
+	// sequential scan of the whole table on every /sessions page load/poll.
+	`CREATE INDEX IF NOT EXISTS sessions_owner_id_created_idx ON sessions (owner_id, created_at DESC)`,
+
+	// Activity()'s "comment" feed joins session_events to the caller's
+	// sessions and filters event_type = 'viewer_comment', but the only
+	// existing session_events index is (session_id, seq) — every one of the
+	// caller's sessions had its full event log scanned to find the rare
+	// comment rows. A partial index on the comment rows alone keeps that scan
+	// cheap regardless of how many other events a session has.
+	`CREATE INDEX IF NOT EXISTS session_events_comment_idx ON session_events (session_id, ts DESC) WHERE event_type = 'viewer_comment'`,
 }
 
 // Migrate applies the additive, idempotent migrations above. It runs before the
