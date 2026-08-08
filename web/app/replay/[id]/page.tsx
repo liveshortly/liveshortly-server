@@ -9,6 +9,7 @@ import {
   PlaceholderNote,
   PreviewBanner,
 } from "@/components/preview";
+import Skeleton from "@/components/Skeleton";
 import { getSession, type SessionDetail } from "@/lib/api";
 import { fmtInt, timeAgo } from "@/lib/utils";
 
@@ -73,8 +74,10 @@ export default function ReplayPage() {
             }}
           >
             {session == null ? (
-              <div className="label" style={{ color: "var(--muted)", padding: 20 }}>
-                LOADING REPLAY<span className="blink">_</span>
+              <div style={{ display: "grid", gap: 10, padding: "20px 0" }}>
+                {Array.from({ length: 5 }, (_, i) => (
+                  <Skeleton key={i} width={`${70 - i * 8}%`} height={12} />
+                ))}
               </div>
             ) : (
               <EventStream
