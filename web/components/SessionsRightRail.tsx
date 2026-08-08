@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { activity as fetchActivity, type ActivityItem, type Session } from "@/lib/api";
+import Skeleton from "@/components/Skeleton";
 import { fmtInt, timeAgo } from "@/lib/utils";
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -59,8 +60,10 @@ export default function SessionsRightRail({ mine }: { mine: Session[] | null }) 
         Recent Activity
       </div>
       {items === null ? (
-        <div className="v3-empty" style={{ padding: "12px 0" }}>
-          LOADING…
+        <div style={{ display: "grid", gap: 12, padding: "4px 0" }}>
+          {Array.from({ length: 3 }, (_, i) => (
+            <SkeletonActivityRow key={i} />
+          ))}
         </div>
       ) : items.length === 0 ? (
         <div className="v3-empty" style={{ padding: "12px 0" }}>
@@ -114,6 +117,18 @@ function Stat({ value, label, accent }: { value: number; label: string; accent?:
         {fmtInt(value)}
       </div>
       <div className="l">{label}</div>
+    </div>
+  );
+}
+
+function SkeletonActivityRow() {
+  return (
+    <div className="hud-rp-activity-row">
+      <Skeleton width={6} height={6} radius={9999} style={{ marginTop: 5, flexShrink: 0 }} />
+      <div style={{ display: "grid", gap: 6, flex: 1 }}>
+        <Skeleton width="80%" height={12} />
+        <Skeleton width="35%" height={10} />
+      </div>
     </div>
   );
 }

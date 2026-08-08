@@ -175,6 +175,13 @@ a {
   border-bottom: 1px dashed var(--hairline);
 }
 
+/* Loading placeholder block (see components/Skeleton.tsx) — static, not
+   shimmering, per the near-static design note above. */
+.skel {
+  display: inline-block;
+  background: var(--hairline);
+}
+
 /* Card/tile hover lift, shared by feed tiles and hero. */
 .lift {
   transition: border-color 120ms, box-shadow 120ms, transform 120ms;
