@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import FeedTile from "@/components/FeedTile";
+import Skeleton from "@/components/Skeleton";
 import { getFeed, type Session } from "@/lib/api";
 import { fmtInt, timeAgo } from "@/lib/utils";
 
@@ -177,7 +178,9 @@ function FeedInner({ showPlaceholderHero = true }: FeedProps) {
       {/* ── SEARCHING: flat result grid (no curated sections) ── */}
       {searching ? (
         <div style={{ marginTop: 14 }}>
-          {firstLoaded && items.length === 0 && !err ? (
+          {!firstLoaded ? (
+            <SkeletonGrid count={8} />
+          ) : items.length === 0 && !err ? (
             <Empty>{`NO PUBLISHED SESSIONS MATCH "${debounced}"`}</Empty>
           ) : (
             <Grid items={items} />
@@ -191,7 +194,9 @@ function FeedInner({ showPlaceholderHero = true }: FeedProps) {
             sub={live.length > 0 ? `${live.length} streaming` : undefined}
             tone="green"
           />
-          {live.length > 0 ? (
+          {!firstLoaded ? (
+            <SkeletonGrid count={2} />
+          ) : live.length > 0 ? (
             <Grid items={live} />
           ) : (
             <Empty subtle>
@@ -212,7 +217,9 @@ function FeedInner({ showPlaceholderHero = true }: FeedProps) {
             title="▣ RECENTLY PUBLISHED"
             sub={firstLoaded ? `${fmtInt(items.length)} loaded` : undefined}
           />
-          {firstLoaded && recent.length === 0 && !featured && !err ? (
+          {!firstLoaded ? (
+            <SkeletonGrid count={6} />
+          ) : recent.length === 0 && !featured && !err ? (
             <Empty>NO PUBLISHED SESSIONS YET — PUBLISH ONE FROM YOUR HUD</Empty>
           ) : (
             <Grid items={recent} />
@@ -633,6 +640,63 @@ function Grid({ items }: { items: Session[] }) {
       {items.map((s) => (
         <FeedTile key={s.id} session={s} />
       ))}
+    </div>
+  );
+}
+
+function SkeletonGrid({ count }: { count: number }) {
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fill, minmax(258px, 1fr))",
+        gap: 14,
+      }}
+    >
+      {Array.from({ length: count }, (_, i) => (
+        <FeedTileSkeleton key={i} />
+      ))}
+    </div>
+  );
+}
+
+function FeedTileSkeleton() {
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        border: "1px solid var(--hairline)",
+        minHeight: 188,
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          padding: "9px 11px",
+          borderBottom: "1px solid var(--hairline)",
+        }}
+      >
+        <Skeleton width={44} height={14} />
+        <Skeleton width={50} height={11} />
+      </div>
+      <div style={{ padding: "11px 11px 9px", flex: 1, display: "grid", gap: 8 }}>
+        <Skeleton width="85%" height={14} />
+        <Skeleton width="60%" height={14} />
+        <Skeleton width="70%" height={11} style={{ marginTop: 4 }} />
+      </div>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          padding: "8px 11px",
+          borderTop: "1px solid var(--hairline)",
+        }}
+      >
+        <Skeleton width={70} height={11} />
+        <Skeleton width={40} height={11} />
+      </div>
     </div>
   );
 }

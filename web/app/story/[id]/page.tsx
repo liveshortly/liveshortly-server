@@ -10,6 +10,7 @@ import {
   PreviewBanner,
   Stat,
 } from "@/components/preview";
+import Skeleton from "@/components/Skeleton";
 import { getSession, type SessionDetail } from "@/lib/api";
 import { fmtInt, timeAgo } from "@/lib/utils";
 
@@ -90,7 +91,14 @@ export default function StoryPage() {
           {/* Stats epilogue — REAL */}
           <PanelBox title="▦ SESSION STATS">
             {session == null ? (
-              <PlaceholderNote label="LOADING…" />
+              <div style={{ display: "flex", gap: 30, flexWrap: "wrap" }}>
+                {Array.from({ length: 4 }, (_, i) => (
+                  <div key={i} style={{ display: "grid", gap: 6 }}>
+                    <Skeleton width={40} height={18} />
+                    <Skeleton width={50} height={10} />
+                  </div>
+                ))}
+              </div>
             ) : (
               <div style={{ display: "flex", gap: 30, flexWrap: "wrap" }}>
                 <Stat label="Events" value={fmtInt(session.event_count)} />
@@ -113,7 +121,11 @@ export default function StoryPage() {
           {/* The story body — REAL event timeline (stands in for prose chapters) */}
           <PanelBox title="≡ TIMELINE">
             {session == null ? (
-              <PlaceholderNote label="LOADING…" />
+              <div style={{ display: "grid", gap: 10 }}>
+                {Array.from({ length: 5 }, (_, i) => (
+                  <Skeleton key={i} width={`${70 - i * 8}%`} height={12} />
+                ))}
+              </div>
             ) : session.events.length === 0 ? (
               <PlaceholderNote label="NO EVENTS CAPTURED" />
             ) : (
