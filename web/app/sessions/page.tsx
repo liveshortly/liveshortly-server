@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import ShareDialog from "@/components/ShareDialog";
 import SessionsRightRail from "@/components/SessionsRightRail";
+import Skeleton from "@/components/Skeleton";
 import {
   deleteSession,
   isPublished,
@@ -292,7 +293,11 @@ export default function Page() {
         )}
 
         {!loaded ? (
-          <div className="s4-empty">LOADING…</div>
+          <div className="s4-rows">
+            {Array.from({ length: 6 }, (_, i) => (
+              <SkeletonRow key={i} />
+            ))}
+          </div>
         ) : filtered.length === 0 ? (
           <div className="s4-empty">
             {rows && rows.length === 0
@@ -366,6 +371,19 @@ export default function Page() {
       </div>
 
       <SessionsRightRail mine={mine} />
+    </div>
+  );
+}
+
+function SkeletonRow() {
+  return (
+    <div className="s4-row">
+      <Skeleton width={38} height={38} radius={0} />
+      <div style={{ minWidth: 0, flex: 1, display: "grid", gap: 6 }}>
+        <Skeleton width="40%" height={13} />
+        <Skeleton width="65%" height={11} />
+      </div>
+      <Skeleton width={64} height={20} radius={10} />
     </div>
   );
 }
