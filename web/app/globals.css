@@ -488,39 +488,15 @@ a {
   height: 56px;
   display: grid;
   /* Brand column is sized to the sidebar rail (232px) minus the topbar's own
-     left padding (18px) and the grid gap (16px), so the tabs line up exactly
-     with the content column's left edge and the wordmark gets breathing room. */
-  grid-template-columns: 198px auto 1fr auto;
+     left padding (18px) and the grid gap (16px), so it lines up exactly with
+     the content column's left edge and the wordmark gets breathing room.
+     Search takes the remaining space in the middle; actions stay right. */
+  grid-template-columns: 198px 1fr auto;
   align-items: center;
   gap: 16px;
   padding: 0 18px;
   border-bottom: 1px solid var(--hairline);
   background: var(--panel);
-}
-.v3-htabs {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  flex-shrink: 0;
-}
-.v3-htab {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 11px;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: var(--muted);
-  border-bottom: 2px solid transparent;
-  white-space: nowrap;
-}
-.v3-htab:hover {
-  color: var(--ink);
-}
-.v3-htab.on {
-  color: var(--ink);
-  border-bottom-color: var(--green);
 }
 .v3-brand {
   display: flex;
@@ -722,8 +698,7 @@ a {
   .v3-install-link {
     display: none;
   }
-  /* Header becomes a flex chat-bar: [☰] [brand] … [theme] [avatar], with the
-     Live/Feed/Published tabs wrapping onto a full-width scrollable second row. */
+  /* Header becomes a flex chat-bar: [☰] [brand] … [theme] [avatar]. */
   .v3-topbar {
     display: flex;
     flex-wrap: wrap;
@@ -743,17 +718,6 @@ a {
     order: 2;
     margin-left: auto;
     gap: 8px;
-  }
-  .v3-htabs {
-    order: 3;
-    display: flex;
-    width: 100%;
-    overflow-x: auto;
-    gap: 4px;
-    -webkit-overflow-scrolling: touch;
-  }
-  .v3-htab {
-    white-space: nowrap;
   }
 }
 
@@ -3865,11 +3829,6 @@ a {
   text-decoration: underline;
 }
 
-.v3-htab .live-dot {
-  width: 9px;
-  height: 9px;
-  animation: liveBlink 1.4s ease-in-out infinite;
-}
 @keyframes liveBlink {
   0%,
   100% {
