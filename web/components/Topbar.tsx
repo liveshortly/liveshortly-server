@@ -68,6 +68,9 @@ export default function Topbar({
         <DaemonStatus />
         {/* Renders only for accounts with a machine running `live daemon`. */}
         <NewSessionButton />
+        <Link href="/docs" className="v3-install-link" title="Platform Documentation">
+          Docs
+        </Link>
         <Link href="/install" className="v3-install-link" title="Install the CLI">
           ⇩ Install CLI
         </Link>
