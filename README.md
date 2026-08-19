@@ -35,6 +35,8 @@ A lean monorepo that turns any **Claude Code** session into a live, shareable, r
 
 ## ✦ Table of Contents
 
+- [Platform Overview & Comprehensive Guide (docs/PLATFORM_OVERVIEW.md)](docs/PLATFORM_OVERVIEW.md)
+- [10 Real-World Use Cases (docs/USE_CASES.md)](docs/USE_CASES.md)
 - [Why](#-why)
 - [Features](#-features)
 - [Architecture](#-architecture)

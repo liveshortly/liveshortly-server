@@ -6,6 +6,7 @@ export default function AppFooter() {
     <footer className="v3-footer">
       <span className="v3-footer-brand">LIVESHORTLY</span>
       <span className="v3-footer-links">
+        <Link href="/docs">Docs</Link>
         <Link href="/install">Install CLI</Link>
         <a
           href="https://x.com/whorsehgal"

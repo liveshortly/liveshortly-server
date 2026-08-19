@@ -4925,3 +4925,152 @@ a {
     display: none;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Documentation & Platform Guide (/docs)
+   Monospace Terminal HUD styles for SEO & documentation surfaces.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.docs-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 240px;
+  gap: 28px;
+  align-items: start;
+}
+
+.docs-card {
+  border: 1px solid var(--hairline);
+  background: var(--panel);
+  padding: 22px 24px;
+}
+
+.docs-heading {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0 0 12px;
+  line-height: 1.3;
+}
+
+.docs-subheading {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 18px 0 8px;
+  line-height: 1.35;
+}
+
+.docs-p {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.65;
+  margin: 0 0 12px;
+}
+
+.docs-p strong {
+  color: var(--ink);
+}
+
+.docs-p code {
+  background: var(--bg);
+  border: 1px solid var(--hairline);
+  padding: 1px 5px;
+  font-size: 0.9em;
+  color: var(--green);
+}
+
+.docs-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+.docs-feature-box {
+  border: 1px solid var(--hairline);
+  background: var(--bg);
+  padding: 14px 16px;
+}
+
+.docs-usecase-item {
+  border-top: 1px dashed var(--hairline);
+  padding-top: 16px;
+  margin-top: 20px;
+}
+
+.docs-usecase-item:first-of-type {
+  border-top: none;
+  padding-top: 0;
+  margin-top: 16px;
+}
+
+.docs-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+
+.docs-table th {
+  text-align: left;
+  border-bottom: 1px solid var(--strong);
+  padding: 8px 12px;
+  color: var(--ink);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.docs-table td {
+  border-bottom: 1px dashed var(--hairline);
+  padding: 10px 12px;
+  color: var(--muted);
+  vertical-align: top;
+}
+
+.docs-table td code {
+  background: var(--bg);
+  padding: 2px 6px;
+  color: var(--green);
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+
+.docs-toc {
+  position: sticky;
+  top: 20px;
+  border: 1px solid var(--hairline);
+  background: var(--panel);
+  padding: 16px 18px;
+}
+
+.docs-toc-link {
+  font-size: 12px;
+  color: var(--muted);
+  text-decoration: none;
+  transition: color 120ms;
+}
+
+.docs-toc-link:hover {
+  color: var(--green);
+  text-decoration: underline;
+}
+
+.docs-faq-item {
+  border-top: 1px dashed var(--hairline);
+  padding-top: 14px;
+  margin-top: 16px;
+}
+
+.docs-faq-item:first-of-type {
+  border-top: none;
+  padding-top: 0;
+  margin-top: 12px;
+}
+
+@media (max-width: 960px) {
+  .docs-layout {
+    grid-template-columns: 1fr;
+  }
+  .docs-toc {
+    display: none;
+  }
+}
