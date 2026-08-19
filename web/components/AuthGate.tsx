@@ -28,12 +28,14 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isSessionRoute = pathname?.startsWith("/session/") ?? false;
   // Routes an anonymous visitor may see directly (with a guest header) instead
-  // of the marketing landing page — session watch, the public feed the landing
-  // page's "see all" links into, and the public install page.
+  // of the marketing landing page — session watch, docs, install, feed, replay, story.
   const isPublicRoute =
     isSessionRoute ||
+    (pathname?.startsWith("/docs") ?? false) ||
     (pathname?.startsWith("/install") ?? false) ||
-    (pathname?.startsWith("/feed") ?? false);
+    (pathname?.startsWith("/feed") ?? false) ||
+    (pathname?.startsWith("/replay/") ?? false) ||
+    (pathname?.startsWith("/story/") ?? false);
 
   useEffect(() => {
     let alive = true;
@@ -135,7 +137,29 @@ function GuestHeader() {
             _
           </span>
         </Link>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <Link
+            href="/docs"
+            style={{
+              fontSize: 13,
+              fontFamily: "monospace",
+              color: "var(--ink)",
+              textDecoration: "none",
+            }}
+          >
+            Docs
+          </Link>
+          <Link
+            href="/install"
+            style={{
+              fontSize: 13,
+              fontFamily: "monospace",
+              color: "var(--ink)",
+              textDecoration: "none",
+            }}
+          >
+            ⇩ Install CLI
+          </Link>
           <ThemeToggle />
           <a href={loginUrl()} className="lp-signin-btn">
             SIGN IN
