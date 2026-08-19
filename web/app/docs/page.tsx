@@ -121,8 +121,35 @@ export default function DocsPage() {
       <div style={{ maxWidth: 1180, margin: "0 auto", paddingBottom: 60 }}>
         {/* Header */}
         <header style={{ marginBottom: 30 }}>
-          <div className="label" style={{ color: "var(--green)", marginBottom: 8 }}>
-            ◧ DOCUMENTATION · PLATFORM OVERVIEW &amp; USE CASES
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: 12,
+              flexWrap: "wrap",
+              gap: 10,
+            }}
+          >
+            <Link
+              href="/"
+              className="label"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                color: "var(--ink)",
+                textDecoration: "none",
+                padding: "4px 8px",
+                border: "1px solid var(--hairline)",
+                background: "var(--panel)",
+              }}
+            >
+              ◂ BACK TO MAIN PAGE
+            </Link>
+            <div className="label" style={{ color: "var(--green)" }}>
+              ◧ DOCUMENTATION · PLATFORM OVERVIEW &amp; USE CASES
+            </div>
           </div>
           <h1
             style={{
