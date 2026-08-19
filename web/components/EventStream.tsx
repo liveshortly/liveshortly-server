@@ -86,7 +86,11 @@ function workStep(e: SessionEvent): {
         detail: "",
       };
     case "output":
-      return { verb: "Output", path: truncate(str("text") ?? summarizePayload(p), 80), detail: "" };
+      // NOT truncated. For a pty agent (ollama, gemini) this event is the whole
+      // reply, not a one-line work step — clipping it to 80 characters hid the
+      // answer behind an ellipsis while the terminal showed it in full. The CLI
+      // already caps the payload, so this is bounded.
+      return { verb: "Output", path: str("text") ?? summarizePayload(p), detail: "" };
     default:
       return { verb: e.event_type, path: truncate(summarizePayload(p), 70), detail: "" };
   }
@@ -400,15 +404,25 @@ function WorkBlock({
           {events.map((e) => {
             const { verb, path, detail } = workStep(e);
             const m = markerFor(e.event_type);
+            // Output is prose the viewer is meant to read, so it wraps over as
+            // many lines as it needs; every other work step stays a tidy
+            // single-line row.
+            const isOutput = e.event_type === "output";
             return (
-              <div key={e.id} className="work-step">
+              <div
+                key={e.id}
+                className={isOutput ? "work-step work-step--block" : "work-step"}
+              >
                 <span className="glyph" style={{ color: m.color }}>
                   {m.glyph}
                 </span>
                 <span className="verb" style={{ color: m.color }}>
                   {verb}
                 </span>
-                <span className="path tnum" title={path}>
+                <span
+                  className={isOutput ? "path tnum work-output" : "path tnum"}
+                  title={isOutput ? undefined : path}
+                >
                   {path}
                 </span>
                 {detail && (
