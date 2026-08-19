@@ -3608,6 +3608,18 @@ a {
   min-width: 0;
   flex: 1;
 }
+/* An output step carries the agent's actual reply, so it wraps instead of being
+   clipped to one line. Aligning to the top keeps the glyph and verb with the
+   first line rather than floating against a tall block. */
+.work-step--block {
+  align-items: flex-start;
+}
+.work-step .work-output {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow: visible;
+  text-overflow: clip;
+}
 .work-step .wtime {
   margin-left: auto;
   color: var(--faint);
