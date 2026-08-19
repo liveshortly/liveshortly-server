@@ -150,6 +150,9 @@ function LandingInner() {
         </div>
 
         <div className="lp-top-actions">
+          <Link href="/docs" className="lp-install-link" title="Platform Documentation">
+            Docs
+          </Link>
           <Link href="/install" className="lp-install-link" title="Install the CLI">
             ⇩ Install CLI
           </Link>
@@ -761,6 +764,12 @@ function Footer() {
   return (
     <footer className="lp-foot">
       <span>
+        <Link href="/docs" style={{ marginRight: 12, textDecoration: "underline", color: "var(--ink)" }}>
+          Documentation
+        </Link>
+        <Link href="/install" style={{ marginRight: 12, textDecoration: "underline", color: "var(--ink)" }}>
+          Install CLI
+        </Link>
         Made with <span style={{ color: "var(--green)" }}>♥</span> by{" "}
         <a href="https://x.com/ironfisto/" target="_blank" rel="noopener noreferrer">
           @ironfisto
