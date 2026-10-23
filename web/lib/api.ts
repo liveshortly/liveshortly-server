@@ -781,6 +781,7 @@ export async function createSessionOnHost(
   cwd: string,
   model?: string,
   signal?: AbortSignal,
+  bypassPermissions?: boolean,
 ): Promise<CreatedSession> {
   const res = await fetch(`${browserBase()}/api/sessions`, {
     method: "POST",
@@ -789,7 +790,15 @@ export async function createSessionOnHost(
     headers: { "content-type": "application/json" },
     // `model` is only meaningful for ollama; the server ignores it otherwise
     // and validates it against the host's own registered list either way.
-    body: JSON.stringify({ host_id: hostId, agent, cwd, ...(model ? { model } : {}) }),
+    // `bypass_permissions` asks the daemon to run the agent unattended (no
+    // permission probes) — it only ever reaches the caller's own machine.
+    body: JSON.stringify({
+      host_id: hostId,
+      agent,
+      cwd,
+      ...(model ? { model } : {}),
+      ...(bypassPermissions ? { bypass_permissions: true } : {}),
+    }),
   });
   if (!res.ok) {
     // The server explains exactly what it rejected (offline host, unregistered

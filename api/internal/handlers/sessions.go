@@ -40,6 +40,10 @@ type createSessionReq struct {
 	// security model.
 	HostID *string `json:"host_id"`
 	Cwd    *string `json:"cwd"`
+	// BypassPermissions asks the daemon to run the spawned agent unattended
+	// (no permission probes). It is only ever a boolean relayed to the owner's
+	// own machine — the daemon maps it to known flags; see spawnSession there.
+	BypassPermissions *bool `json:"bypass_permissions"`
 }
 
 // frameworkForAgent maps a spawnable binary name to the framework/capture
@@ -113,6 +117,10 @@ func (h *Handler) CreateSession(w http.ResponseWriter, r *http.Request) {
 			httpx.Error(w, http.StatusBadRequest, err.Error())
 			return
 		}
+		// Unattended run: a plain boolean the daemon maps to known flags. The
+		// spawn already targets the caller's OWN registered machine, so this
+		// grants nothing a local `claude --dangerously-skip-permissions` won't.
+		t.bypass = req.BypassPermissions != nil && *req.BypassPermissions
 		spawn = &t
 		labels := frameworkForAgent[t.agent]
 		in.Agent = &labels.framework

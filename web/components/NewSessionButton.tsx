@@ -25,6 +25,9 @@ export default function NewSessionButton() {
   const [agent, setAgent] = useState("");
   const [cwd, setCwd] = useState("");
   const [model, setModel] = useState("");
+  // Unattended run — skip permission prompts entirely (the agent runs with
+  // its own bypass flag on YOUR machine). Remembered per browser.
+  const [bypass, setBypass] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -42,6 +45,25 @@ export default function NewSessionButton() {
     const models = current.models ?? [];
     if (!models.includes(model)) setModel(models[0] ?? "");
   }, [hosts, hostId, agent, cwd, model]);
+
+  // Restore the remembered bypass choice (localStorage can throw in private
+  // windows — a miss just keeps the default).
+  useEffect(() => {
+    try {
+      const v = localStorage.getItem("ls-spawn-bypass");
+      if (v !== null) setBypass(v === "1");
+    } catch {
+      /* keep default */
+    }
+  }, []);
+  const toggleBypass = (v: boolean) => {
+    setBypass(v);
+    try {
+      localStorage.setItem("ls-spawn-bypass", v ? "1" : "0");
+    } catch {
+      /* non-fatal */
+    }
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -67,7 +89,14 @@ export default function NewSessionButton() {
     setBusy(true);
     setError(null);
     try {
-      const s = await createSessionOnHost(host.id, agent, cwd, agent === "ollama" ? model : undefined);
+      const s = await createSessionOnHost(
+        host.id,
+        agent,
+        cwd,
+        agent === "ollama" ? model : undefined,
+        undefined,
+        bypass,
+      );
       if (s.spawn?.status === "failed") {
         // The session exists but the machine was never told. Say so instead of
         // navigating to a page that will sit at "waiting for agent" forever.
@@ -173,6 +202,22 @@ export default function NewSessionButton() {
             </div>
           )}
 
+          <label className="ns-bypass" htmlFor="ns-bypass">
+            <input
+              id="ns-bypass"
+              type="checkbox"
+              checked={bypass}
+              onChange={(e) => toggleBypass(e.target.checked)}
+            />
+            <span>
+              <b>Skip permission prompts</b>
+              <small>
+                Unattended run — no approval probes. Same as running the agent
+                with its bypass flag on your machine.
+              </small>
+            </span>
+          </label>
+
           {error && <div className="ns-error">{error}</div>}
 
           <button
@@ -181,10 +226,12 @@ export default function NewSessionButton() {
             onClick={start}
             disabled={busy || !agent || !cwd || (agent === "ollama" && !model)}
           >
-            {busy ? "STARTING…" : `START ${agent.toUpperCase()}`}
+            {busy ? "Starting…" : `Start ${agent}`}
           </button>
           <div className="ns-hint">
-            Runs on {host.name}. Approve tool calls from the session page.
+            {bypass
+              ? `Runs unattended on ${host.name}.`
+              : `Runs on ${host.name}. Approve tool calls from the session page.`}
           </div>
         </div>
       )}
