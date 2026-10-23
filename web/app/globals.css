@@ -6094,3 +6094,78 @@ a.sv-chip:hover {
 .s4-view-toggle button {
   border-radius: 8px;
 }
+
+/* ── v4 pass 6: executing footer + live model switcher ────────────────── */
+/* "running — $ …" footer on the growing work pane of a live session. The
+   one other sanctioned animation besides the typing dots: it only mounts
+   while the agent is actually executing. */
+.work-running {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 14px;
+  border-top: 1px dashed var(--card-line);
+  color: var(--green);
+  font-size: 11.5px;
+}
+.work-running-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+}
+.work-running-dots {
+  display: inline-flex;
+  gap: 3px;
+  flex-shrink: 0;
+}
+.work-running-dots span {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--green);
+  animation: ls-exec-wave 1.1s ease-in-out infinite;
+}
+.work-running-dots span:nth-child(2) {
+  animation-delay: 150ms;
+}
+.work-running-dots span:nth-child(3) {
+  animation-delay: 300ms;
+}
+@keyframes ls-exec-wave {
+  0%, 60%, 100% { opacity: 0.25; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-2px); }
+}
+
+/* Live model switcher in the session action row. */
+.sv-model-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  padding: 4px 8px 4px 10px;
+  cursor: pointer;
+}
+.sv-model-switch:hover {
+  border-color: var(--strong);
+}
+.sv-model-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--faint);
+  white-space: nowrap;
+}
+.sv-model-switch select {
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink);
+  background: transparent;
+  border: none;
+  outline: none;
+  cursor: pointer;
+}

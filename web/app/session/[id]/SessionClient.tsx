@@ -28,6 +28,7 @@ import TypingIndicator from "@/components/TypingIndicator";
 import { useWorkspaceDrawer } from "@/components/WorkspaceDrawerContext";
 import {
   ApiError,
+  CLAUDE_MODELS,
   getSession,
   isPublished,
   loginUrl,
@@ -35,8 +36,10 @@ import {
   postDecision,
   postTyping,
   renameSession,
+  setSessionModel,
   stopSession,
   streamUrl,
+  type ClaudeModel,
   type Session,
   type SessionDetail,
   type SessionEvent,
@@ -898,6 +901,13 @@ function SessionActionRow({
 
   return (
     <div className="sv-action-row">
+      {/* Live model switch (claude only): the daemon types `/model <alias>`
+          into the session's pane — same as the operator would. */}
+      {meta.is_owner &&
+        meta.status === "live" &&
+        meta.framework === "claude-code" && (
+          <ModelSwitcher id={id} current={meta.model ?? ""} />
+        )}
       {meta.is_owner && (
         <button type="button" className="sv-act" onClick={onRename}>
           ✎ Rename
@@ -1710,4 +1720,60 @@ function gitWebUrl(remote: string): string | null {
   else if (r.startsWith("ssh://")) r = "https://" + r.slice("ssh://".length).replace(/^git@/, "");
   if (!/^https?:\/\//.test(r)) return null;
   return r;
+}
+
+/** Live model switcher (owner, claude sessions). Sends a fixed alias to the
+ *  hosting daemon, which types `/model <alias>` into the session pane. */
+function ModelSwitcher({ id, current }: { id: string; current: string }) {
+  const [state, setState] = useState<"idle" | "busy" | "sent" | "error">(
+    "idle",
+  );
+  const [picked, setPicked] = useState("");
+
+  // Best-effort mapping of the session's reported model id to an alias so the
+  // select shows where you are (claude-sonnet-4-5 → sonnet).
+  const inferred =
+    CLAUDE_MODELS.find((m) => current.toLowerCase().includes(m)) ?? "";
+  const value = picked || inferred;
+
+  const change = async (next: string) => {
+    if (!next || state === "busy") return;
+    setPicked(next);
+    setState("busy");
+    try {
+      await setSessionModel(id, next as ClaudeModel);
+      setState("sent");
+      setTimeout(() => setState("idle"), 1800);
+    } catch {
+      setState("error");
+      setTimeout(() => setState("idle"), 2500);
+    }
+  };
+
+  return (
+    <label className="sv-model-switch" title="Switch the agent's model (sends /model to the session)">
+      <span className="sv-model-label">
+        {state === "busy"
+          ? "switching…"
+          : state === "sent"
+            ? "✓ model"
+            : state === "error"
+              ? "⚠ model"
+              : "model"}
+      </span>
+      <select
+        value={value}
+        onChange={(e) => change(e.target.value)}
+        disabled={state === "busy"}
+        aria-label="Switch model"
+      >
+        {!value && <option value="">—</option>}
+        {CLAUDE_MODELS.map((m) => (
+          <option key={m} value={m}>
+            {m}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
 }
