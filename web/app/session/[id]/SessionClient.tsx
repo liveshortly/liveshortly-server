@@ -526,25 +526,6 @@ export default function SessionViewer({
             onRenamed={(title) => setMeta((m) => (m ? { ...m, title } : m))}
           />
 
-          {meta && (
-            <div className="sv-hero-meta tnum">
-              <span>@{meta.owner_handle}</span>
-              {meta.model && <span>· {meta.model}</span>}
-              <span>· {fmtInt(eventTotal)} events</span>
-              <span>
-                ·{" "}
-                {meta.status === "ended"
-                  ? `ended ${timeAgo(meta.ended_at)}`
-                  : `started ${timeAgo(meta.created_at)}`}
-              </span>
-              {isLive && (
-                <span style={{ color: "var(--green)" }}>
-                  · ◔ {fmtInt(meta.watcher_count ?? 0)} watching
-                </span>
-              )}
-            </div>
-          )}
-
           {/* Mobile-only compact meta line — mirrors the mock's slim header. */}
           {meta && (
             <div className="session-mobile-meta label">
@@ -564,34 +545,28 @@ export default function SessionViewer({
             </div>
           )}
 
-          {/* Desktop action row — replaces the gear dropdown, sits next to the
-              name. Hidden on mobile (≤860px), where the ⚙ sheet takes over. */}
-          {meta && (
-            <SessionActionRow
-              id={id}
-              meta={meta}
-              onMetaChange={(u) => setMeta((m) => (m ? { ...m, ...u } : m))}
-              onEnded={() =>
-                setMeta((m) =>
-                  m
-                    ? { ...m, status: "ended", ended_at: new Date().toISOString() }
-                    : m,
-                )
-              }
-              onDeleted={() => router.push("/hud")}
-              onRename={() => titleRef.current?.begin()}
-            />
-          )}
         </div>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              flexWrap: "wrap",
-              justifyContent: "flex-end",
-            }}
-          >
+          {/* Right column: session info + actions — keeps the title column
+              clean and uses the hero's right-hand real estate. */}
+          <div className="sv-hero-side">
+            {meta && (
+              <div className="sv-hero-meta tnum">
+                <span>@{meta.owner_handle}</span>
+                {meta.model && <span>· {meta.model}</span>}
+                <span>· {fmtInt(eventTotal)} events</span>
+                <span>
+                  ·{" "}
+                  {meta.status === "ended"
+                    ? `ended ${timeAgo(meta.ended_at)}`
+                    : `started ${timeAgo(meta.created_at)}`}
+                </span>
+                {isLive && (
+                  <span style={{ color: "var(--green)" }}>
+                    · ◔ {fmtInt(meta.watcher_count ?? 0)} watching
+                  </span>
+                )}
+              </div>
+            )}
             <div className="session-badges">
             {meta && isPublished(meta) && (
               <span
@@ -642,8 +617,26 @@ export default function SessionViewer({
             )}
             {meta && <Badge status={meta.status} size="md" />}
             </div>
+            {/* Desktop action row — right-aligned under the meta/badges.
+                Hidden on mobile (≤860px), where the ⚙ sheet takes over. */}
+            {meta && (
+              <SessionActionRow
+                id={id}
+                meta={meta}
+                onMetaChange={(u) => setMeta((m) => (m ? { ...m, ...u } : m))}
+                onEnded={() =>
+                  setMeta((m) =>
+                    m
+                      ? { ...m, status: "ended", ended_at: new Date().toISOString() }
+                      : m,
+                  )
+                }
+                onDeleted={() => router.push("/hud")}
+                onRename={() => titleRef.current?.begin()}
+              />
+            )}
             {/* Mobile-only: the same actions in a bottom sheet (desktop uses the
-                inline action row next to the title). */}
+                inline action row above). */}
             {meta && (
               <button
                 type="button"
@@ -1375,7 +1368,15 @@ function Composer({ id, emphasize = false }: { id: string; emphasize?: boolean }
   const [state, setState] = useState<SendState>("idle");
   const [errMsg, setErrMsg] = useState("COULD NOT SEND — TRY AGAIN");
   const sentTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-grow the textarea with its content (Claude-app feel), capped by CSS.
+  const autosize = () => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  };
   // Throttle "is typing" presence pings so we send at most one every ~2.5s.
   const lastTypingPing = useRef(0);
 
@@ -1405,6 +1406,7 @@ function Composer({ id, emphasize = false }: { id: string; emphasize?: boolean }
       await postComment(id, message);
       setText("");
       setState("sent");
+      requestAnimationFrame(autosize);
       // Don't optimistically add — the SSE echo (deduped by id) will append it.
       if (sentTimer.current) clearTimeout(sentTimer.current);
       sentTimer.current = setTimeout(() => setState("idle"), 1600);
@@ -1418,7 +1420,8 @@ function Composer({ id, emphasize = false }: { id: string; emphasize?: boolean }
     }
   };
 
-  const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  // Enter sends, Shift+Enter inserts a newline — the Claude-app contract.
+  const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       submit();
@@ -1441,14 +1444,13 @@ function Composer({ id, emphasize = false }: { id: string; emphasize?: boolean }
     <div>
       <div className="sv-composer-wrap" data-accent={accent}>
         <div className="sv-composer-box">
-          <span className="sv-composer-glyph" aria-hidden>
-            ⌐
-          </span>
-          <input
+          <textarea
             ref={inputRef}
             value={text}
+            rows={1}
             onChange={(e) => {
               setText(e.target.value);
+              autosize();
               if (e.target.value.trim()) pingTyping();
               if (state === "error" || state === "sent") setState("idle");
             }}
@@ -1457,7 +1459,7 @@ function Composer({ id, emphasize = false }: { id: string; emphasize?: boolean }
             placeholder={
               emphasize
                 ? "Claude is waiting — type your input…"
-                : "Message the session — prompts, questions, comments…"
+                : "Message the session…"
             }
             aria-label="Message the session"
             spellCheck={false}
@@ -1469,8 +1471,10 @@ function Composer({ id, emphasize = false }: { id: string; emphasize?: boolean }
             disabled={sending || text.trim().length === 0}
             className="sv-composer-send"
             data-state={state}
+            aria-label="Send"
+            title="Send (Enter) · new line (Shift+Enter)"
           >
-            {state === "sent" ? "✓ Sent" : sending ? "Sending…" : "Send"}
+            {state === "sent" ? "✓" : sending ? "…" : "↑"}
           </button>
         </div>
       </div>
@@ -1687,12 +1691,12 @@ function EndButton({ id, onEnded }: { id: string; onEnded: () => void }) {
       }}
     >
       {busy
-        ? "ENDING…"
+        ? "Ending…"
         : err
-          ? "⚠ RETRY END"
+          ? "⚠ Retry end"
           : armed
-            ? "CONFIRM END?"
-            : "⊘ END SESSION"}
+            ? "Confirm end?"
+            : "⊘ End session"}
     </button>
   );
 }

@@ -98,7 +98,7 @@ export default function HandoffButton({
           width: fullWidth ? "100%" : undefined,
         }}
       >
-        {busy ? "…" : err ? "⚠ RETRY" : "⑃ FORK"}
+        {busy ? "…" : err ? "⚠ Retry" : "⑃ Fork"}
       </button>
 
       {ho && (
@@ -137,7 +137,7 @@ export default function HandoffButton({
             className="label"
             style={{ color: "var(--muted)", marginBottom: 8, letterSpacing: "0.06em" }}
           >
-            RUN TO FORK THIS SESSION
+            Run to fork this session
           </div>
           <div style={{ display: "flex", gap: 6, alignItems: "stretch" }}>
             <input
