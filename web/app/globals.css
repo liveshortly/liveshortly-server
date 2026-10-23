@@ -5820,3 +5820,29 @@ a.sv-chip:hover {
 .ns-panel {
   border-radius: 12px;
 }
+
+/* New-session panel: unattended-run toggle. */
+.ns-bypass {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin: 2px 0 10px;
+  cursor: pointer;
+}
+.ns-bypass input {
+  margin-top: 2px;
+  accent-color: var(--green);
+}
+.ns-bypass b {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.ns-bypass small {
+  display: block;
+  font-size: 10.5px;
+  line-height: 1.45;
+  color: var(--faint);
+  margin-top: 2px;
+}

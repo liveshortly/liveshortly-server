@@ -310,6 +310,7 @@ type spawnTarget struct {
 	agent  string
 	cwd    string
 	model  string // ollama only; "" for every other agent
+	bypass bool   // owner asked to skip permission prompts for this run
 }
 
 // resolveSpawn validates a spawn request against the host's own registration.
@@ -383,13 +384,14 @@ func (h *Handler) resolveSpawn(ctx context.Context, userID, hostID, agent, cwd, 
 // reaches a host, and it only ever accepts an already-validated target — note
 // that no field here originates from the browser unmediated.
 func (h *Handler) publishSpawn(ctx context.Context, userID string, t spawnTarget, sessionID, title string) error {
-	cmd, err := json.Marshal(map[string]string{
-		"type":       "spawn",
-		"session_id": sessionID,
-		"agent":      t.agent,
-		"cwd":        t.cwd,
-		"model":      t.model,
-		"title":      clip(title, maxHostFieldLen),
+	cmd, err := json.Marshal(map[string]any{
+		"type":               "spawn",
+		"session_id":         sessionID,
+		"agent":              t.agent,
+		"cwd":                t.cwd,
+		"model":              t.model,
+		"title":              clip(title, maxHostFieldLen),
+		"bypass_permissions": t.bypass,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to encode spawn command")
