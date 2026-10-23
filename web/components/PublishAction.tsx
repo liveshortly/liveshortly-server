@@ -72,7 +72,7 @@ export default function PublishAction({
   if (published) {
     return (
       <ConfirmPopover
-        label="● UNPUBLISH"
+        label="● Unpublish"
         triggerTitle="Published — click to unpublish"
         message="Unpublish this session? It will be removed from the public feed."
         confirmLabel="Unpublish"
@@ -104,7 +104,7 @@ export default function PublishAction({
           opacity: busy ? 0.6 : 1,
         }}
       >
-        {err ? "⚠ RETRY" : "⊕ PUBLISH"}
+        {err ? "⚠ Retry" : "⊕ Publish"}
       </button>
 
       {open && (
@@ -147,7 +147,7 @@ export default function PublishAction({
             disabled={busy}
             onClick={doPublish}
           >
-            {busy ? "PUBLISHING…" : "⊕ Publish"}
+            {busy ? "Publishing…" : "⊕ Publish"}
           </button>
         </div>
       )}
