@@ -782,14 +782,14 @@ export default function SessionViewer({
               meta?.can_comment !== false ? (
                 <Composer id={id} emphasize={inputPending} />
               ) : (
-                <div className="sv-readonly">◦ VIEW ONLY</div>
+                <div className="sv-readonly">View only</div>
               )
             ) : (
               <div
                 className="label"
                 style={{ color: "var(--faint)", textAlign: "center", padding: "8px 4px" }}
               >
-                ● SESSION ENDED · CHAT CLOSED
+                Session ended — chat closed
               </div>
             )}
           </div>
@@ -1488,8 +1488,8 @@ function Composer({ id, emphasize = false }: { id: string; emphasize?: boolean }
             disabled={sending}
             placeholder={
               emphasize
-                ? "CLAUDE IS WAITING — TYPE YOUR INPUT  /  ⌐ SENT TO CLI"
-                : "MESSAGE THE SESSION  /  ⌐ SENT TO CLI"
+                ? "Claude is waiting — type your input…"
+                : "Message the session — prompts, questions, comments…"
             }
             aria-label="Message the session"
             spellCheck={false}
@@ -1502,7 +1502,7 @@ function Composer({ id, emphasize = false }: { id: string; emphasize?: boolean }
             className="sv-composer-send"
             data-state={state}
           >
-            {state === "sent" ? "✓ Sent" : sending ? "Sending…" : "Send ▸"}
+            {state === "sent" ? "✓ Sent" : sending ? "Sending…" : "Send"}
           </button>
         </div>
       </div>

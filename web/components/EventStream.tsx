@@ -10,28 +10,28 @@ import { agentName, summarizePayload, localTime, truncate } from "@/lib/utils";
 // should never show in the log. Some capture hooks emit these.
 const HIDDEN_EVENT_TYPES = new Set(["stream_start", "stream_end"]);
 
-// Event types that read as a chat bubble.
+// Event types that read as a conversation turn.
 const BUBBLE_TYPES = new Set(["prompt", "response", "viewer_comment"]);
 
-// Consecutive runs of these fold into a collapsible "work block" — Claude's
-// actions between a prompt and its response (design/session-viewer.html).
+// Consecutive runs of these fold into a collapsible "work receipt" — the
+// agent's actions between a prompt and its response.
 const WORK_TYPES = new Set(["tool_call", "file_write", "output"]);
 
-/** Color + glyph per event_type. */
+/** Color + glyph per event_type (v4 event grammar). */
 function markerFor(type: string): { color: string; glyph: string } {
   switch (type) {
     case "prompt":
-      return { color: "var(--amber)", glyph: "›" };
+      return { color: "var(--ink)", glyph: "›" };
     case "response":
       return { color: "var(--green)", glyph: "◆" };
     case "tool_call":
-      return { color: "var(--amber)", glyph: "▸" };
+      return { color: "var(--amber)", glyph: "$" };
     case "file_write":
       return { color: "var(--red)", glyph: "✎" };
     case "output":
       return { color: "var(--muted)", glyph: "·" };
     case "viewer_comment":
-      return { color: "var(--amber)", glyph: "✉" };
+      return { color: "var(--violet)", glyph: "✉" };
     case "input_requested":
       return { color: "var(--amber)", glyph: "⌐" };
     case "viewer_decision":
@@ -75,13 +75,13 @@ function workStep(e: SessionEvent): {
   switch (e.event_type) {
     case "file_write":
       return {
-        verb: "Wrote",
+        verb: "edit",
         path: path ?? truncate(summarizePayload(p), 60),
         detail: str("detail") ?? str("lines") ?? "",
       };
     case "tool_call":
       return {
-        verb: tool ? cap(tool) : "Run",
+        verb: tool ? tool.toLowerCase() : "run",
         path: path ?? str("command") ?? truncate(summarizePayload(p), 60),
         detail: "",
       };
@@ -90,14 +90,10 @@ function workStep(e: SessionEvent): {
       // reply, not a one-line work step — clipping it to 80 characters hid the
       // answer behind an ellipsis while the terminal showed it in full. The CLI
       // already caps the payload, so this is bounded.
-      return { verb: "Output", path: str("text") ?? summarizePayload(p), detail: "" };
+      return { verb: "out", path: str("text") ?? summarizePayload(p), detail: "" };
     default:
       return { verb: e.event_type, path: truncate(summarizePayload(p), 70), detail: "" };
   }
-}
-
-function cap(s: string): string {
-  return s ? s[0].toUpperCase() + s.slice(1) : s;
 }
 
 /** Compact one-line descriptor for stray system-activity rows (rare types). */
@@ -167,9 +163,15 @@ function group(events: SessionEvent[]): Item[] {
   return items;
 }
 
-/** Chat-transcript event log. Auto-scrolls to bottom when new events arrive.
- *  Markup matches designs/version3/session-viewer.html's `.chat-thread` /
- *  `.trow` / `.bubble` / `.work` / `.sys-pill` classes (globals.css). */
+/** First letter for the avatar chip. */
+function initialOf(handle: string): string {
+  const h = handle.replace(/^@/, "").trim();
+  return (h[0] || "?").toUpperCase();
+}
+
+/** v4 transcript — one unified pane. Host prompts and viewer comments render
+ *  as quiet cards, agent responses as document prose, tool work as foldable
+ *  receipts. Auto-scrolls to the bottom while the viewer is pinned there. */
 export default function EventStream({
   events: rawEvents,
   live,
@@ -180,12 +182,12 @@ export default function EventStream({
   events: SessionEvent[];
   live?: boolean;
   ownerHandle?: string | null;
-  /** Session capture framework, for the agent byline (◆ CODEX / ◆ CLAUDE). */
+  /** Session capture framework, for the agent byline (claude / codex / …). */
   framework?: string | null;
   /** Grow to fill the parent (two-pane viewer) instead of a fixed height. */
   fill?: boolean;
 }) {
-  const agentLabel = "◆ " + agentName(framework);
+  const agentLabel = agentName(framework).toLowerCase();
   const events = rawEvents.filter((e) => !HIDDEN_EVENT_TYPES.has(e.event_type));
   const items = group(events);
   const endRef = useRef<HTMLDivElement>(null);
@@ -193,7 +195,7 @@ export default function EventStream({
   const stickRef = useRef(true);
   const rowRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
-  const me = ownerHandle && ownerHandle.trim() ? ownerHandle.trim() : "YOU";
+  const me = ownerHandle && ownerHandle.trim() ? ownerHandle.trim() : "you";
 
   const onScroll = () => {
     const el = scrollRef.current;
@@ -213,7 +215,7 @@ export default function EventStream({
     el.scrollIntoView({ behavior: "smooth", block: "center" });
     el.animate(
       [
-        { boxShadow: "0 0 0 2px var(--amber)" },
+        { boxShadow: "0 0 0 2px var(--green)" },
         { boxShadow: "0 0 0 2px transparent" },
       ],
       { duration: 1100, easing: "ease-out" },
@@ -230,140 +232,168 @@ export default function EventStream({
       ref={scrollRef}
       onScroll={onScroll}
       className="chat-thread"
-      style={{
-        border: "1px solid var(--strong)",
-        background: "var(--bg)",
-        ...(fill ? { flex: 1, minHeight: 0 } : { height: "min(64vh, 620px)" }),
-      }}
+      style={fill ? { flex: 1, minHeight: 0 } : { height: "min(64vh, 620px)" }}
     >
       {items.length === 0 ? (
-        <div className="label" style={{ padding: "24px 16px", color: "var(--faint)" }}>
-          {live ? "WAITING FOR EVENTS…" : "NO EVENTS RECORDED FOR THIS SESSION."}
+        <div className="et-col">
+          <div
+            style={{ padding: "24px 4px", color: "var(--faint)", fontSize: 12.5 }}
+          >
+            {live ? "Waiting for events…" : "No events recorded for this session."}
+          </div>
         </div>
       ) : (
-        items.map((item) => {
-          if (item.kind === "work") {
-            return (
-              <WorkBlock
-                key={`work-${item.events[0].id}`}
-                events={item.events}
-                agentLabel={agentLabel}
-                setRef={setRef}
-              />
-            );
-          }
-          const e = item.event;
-
-          // Stray system rows (input_requested / viewer_decision / unknown).
-          if (!BUBBLE_TYPES.has(e.event_type)) {
-            const m = markerFor(e.event_type);
-            return (
-              <div key={e.id} ref={setRef(e.id)} className="trow center">
-                <div className="sys-pill tnum" title={systemLine(e)}>
-                  <span className="sp-glyph" style={{ color: m.color }}>
-                    {m.glyph}
-                  </span>
-                  <span style={{ color: m.color }}>{e.event_type}</span>
-                  <span
-                    style={{
-                      color: "var(--muted)",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                      textTransform: "none",
-                      letterSpacing: 0,
-                    }}
-                  >
-                    {systemLine(e)}
-                  </span>
-                  <span className="sp-time">{localTime(e.ts)}</span>
-                </div>
-              </div>
-            );
-          }
-
-          // Chat bubbles.
-          const isPrompt = e.event_type === "prompt";
-          const isResponse = e.event_type === "response";
-          const isViewer = e.event_type === "viewer_comment";
-          const side: "left" | "right" = isPrompt ? "right" : "left";
-          const bubbleKind = isResponse ? "response" : isViewer ? "viewer" : "prompt";
-          const whoKind = isResponse ? "response-who" : isViewer ? "viewer-who" : "prompt-who";
-
-          const senderLabel = isResponse
-            ? agentLabel
-            : isViewer
-              ? `✉ @${handleOf(e, "viewer")} · VIEWER`
-              : me === "YOU"
-                ? "YOU"
-                : `@${handleOf(e, me)} · YOU`;
-
-          const body = bodyText(e);
-
-          let quote: SessionEvent | null = null;
-          let addressed: string | null = null;
-          if (isResponse) {
-            quote = inferReplyTarget(events, item.index);
-            const mAt = body.match(ADDRESSED_RE);
-            if (mAt) addressed = mAt[1];
-          }
-
-          return (
-            <div key={e.id} ref={setRef(e.id)} className={`trow ${side}`}>
-              <div className={`bubble ${bubbleKind}`}>
-                <div className="bubble-head tnum">
-                  <span className={`who ${whoKind}`}>{senderLabel}</span>
-                  <span className="bubble-time" title={e.ts}>
-                    {localTime(e.ts)}
-                  </span>
-                </div>
-
-                {isResponse && quote && (
-                  <button
-                    type="button"
-                    onClick={() => scrollToEvent(quote!.id)}
-                    className="reply-quote"
-                    title="Jump to the message this replies to"
-                  >
-                    <span className="rq-who">
-                      ↩ REPLYING TO{" "}
-                      {quote.event_type === "viewer_comment"
-                        ? `@${handleOf(quote, addressed ?? "viewer")} · VIEWER`
-                        : addressed
-                          ? `@${addressed}`
-                          : me === "YOU"
-                            ? "YOU"
-                            : `@${handleOf(quote, me)}`}
-                    </span>
-                    <span className="rq-body">{truncate(bodyText(quote), 80)}</span>
-                  </button>
-                )}
-
-                {isResponse ? (
-                  <div className="bubble-body md">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{body}</ReactMarkdown>
+        <div className="et-col">
+          {items.map((item) => {
+            if (item.kind === "work") {
+              return (
+                <div className="et-row" key={`work-${item.events[0].id}`}>
+                  <div className="et-avatar agent" aria-hidden>
+                    ◆
                   </div>
-                ) : (
-                  <div className="bubble-body">{body}</div>
-                )}
+                  <div className="et-main">
+                    <WorkBlock events={item.events} setRef={setRef} />
+                  </div>
+                </div>
+              );
+            }
+            const e = item.event;
+
+            // Stray system rows (input_requested / viewer_decision / unknown).
+            if (!BUBBLE_TYPES.has(e.event_type)) {
+              const m = markerFor(e.event_type);
+              return (
+                <div
+                  key={e.id}
+                  ref={setRef(e.id)}
+                  style={{ display: "flex", justifyContent: "center" }}
+                >
+                  <div className="sys-pill tnum" title={systemLine(e)}>
+                    <span className="sp-glyph" style={{ color: m.color }}>
+                      {m.glyph}
+                    </span>
+                    <span
+                      style={{
+                        color: "var(--muted)",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {systemLine(e)}
+                    </span>
+                    <span className="sp-time">{localTime(e.ts)}</span>
+                  </div>
+                </div>
+              );
+            }
+
+            const isResponse = e.event_type === "response";
+            const isViewer = e.event_type === "viewer_comment";
+            const body = bodyText(e);
+
+            if (isResponse) {
+              const quote = inferReplyTarget(events, item.index);
+              const mAt = body.match(ADDRESSED_RE);
+              const addressed = mAt ? mAt[1] : null;
+              const quoteIsViewer = quote?.event_type === "viewer_comment";
+              return (
+                <div key={e.id} ref={setRef(e.id)} className="et-row">
+                  <div className="et-avatar agent" aria-hidden>
+                    ◆
+                  </div>
+                  <div className="et-main">
+                    <div className="et-head">
+                      <span className="et-name agent">{agentLabel}</span>
+                      {quote && quoteIsViewer && (
+                        <span className="et-reply">
+                          ↩ replying to{" "}
+                          <b>@{handleOf(quote, addressed ?? "viewer")}</b>
+                        </span>
+                      )}
+                      <span className="et-time" title={e.ts}>
+                        {localTime(e.ts)}
+                      </span>
+                    </div>
+                    {quote && (
+                      <button
+                        type="button"
+                        onClick={() => scrollToEvent(quote.id)}
+                        className="reply-quote"
+                        title="Jump to the message this replies to"
+                        style={{
+                          display: "block",
+                          width: "100%",
+                          maxWidth: 720,
+                          textAlign: "left",
+                          cursor: "pointer",
+                          fontFamily: "inherit",
+                        }}
+                      >
+                        <span className="rq-who">
+                          ↩ {quoteIsViewer
+                            ? `@${handleOf(quote, addressed ?? "viewer")} · viewer`
+                            : `@${handleOf(quote, me)}`}
+                        </span>
+                        <span className="rq-body">
+                          {truncate(bodyText(quote), 90)}
+                        </span>
+                      </button>
+                    )}
+                    <div className="et-prose">
+                      <div className="md">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {body}
+                        </ReactMarkdown>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+
+            // Host prompt or viewer comment — quiet card.
+            const who = handleOf(e, isViewer ? "viewer" : me);
+            return (
+              <div key={e.id} ref={setRef(e.id)} className="et-row">
+                <div
+                  className={`et-avatar ${isViewer ? "viewer" : "host"}`}
+                  aria-hidden
+                >
+                  {initialOf(who)}
+                </div>
+                <div className="et-main">
+                  <div className="et-head">
+                    <span className={`et-name${isViewer ? " viewer" : ""}`}>
+                      {who}
+                    </span>
+                    <span className={`et-tag${isViewer ? " viewer" : ""}`}>
+                      {isViewer ? "VIEWER" : "HOST"}
+                    </span>
+                    <span className="et-time" title={e.ts}>
+                      {localTime(e.ts)}
+                    </span>
+                  </div>
+                  <div className={`et-card${isViewer ? " viewer" : ""}`}>
+                    {body}
+                  </div>
+                </div>
               </div>
-            </div>
-          );
-        })
+            );
+          })}
+        </div>
       )}
       <div ref={endRef} />
     </div>
   );
 }
 
-/** A collapsible block of Claude's actions (tool calls / file writes / output). */
+/** A foldable receipt of the agent's actions (tool calls / file writes / output). */
 function WorkBlock({
   events,
-  agentLabel,
   setRef,
 }: {
   events: SessionEvent[];
-  agentLabel: string;
   setRef: (id: string) => (node: HTMLDivElement | null) => void;
 }) {
   // Expanded by default for short runs; folded for long ones.
@@ -376,17 +406,27 @@ function WorkBlock({
   const dur = Number.isFinite(start) && Number.isFinite(end) && end >= start
     ? end - start
     : 0;
+  const durLabel =
+    dur <= 0
+      ? ""
+      : dur < 1000
+        ? `${dur}ms`
+        : dur < 60_000
+          ? `${(dur / 1000).toFixed(1)}s`
+          : `${Math.floor(dur / 60_000)}m ${Math.round((dur % 60_000) / 1000)}s`;
 
   return (
     <div ref={setRef(events[0].id)} className={`work${open ? "" : " collapsed"}`}>
       <div className="work-box">
         <button type="button" onClick={() => setOpen((v) => !v)} className="work-toggle tnum">
           <span className="work-chevron">▾</span>
-          <span className="work-who">{agentLabel}</span>
-          <span>· {events.length} step{events.length === 1 ? "" : "s"}</span>
+          <span style={{ fontWeight: 600, color: "var(--ink)" }}>
+            {durLabel ? `worked ${durLabel} · ` : ""}
+            {events.length} step{events.length === 1 ? "" : "s"}
+          </span>
           {files > 0 && (
             <span className="work-chip red">
-              {files} file{files === 1 ? "" : "s"}
+              {files} edit{files === 1 ? "" : "s"}
             </span>
           )}
           {runs > 0 && (
@@ -394,11 +434,7 @@ function WorkBlock({
               {runs} run{runs === 1 ? "" : "s"}
             </span>
           )}
-          {dur > 0 && (
-            <span className="work-dur">
-              {dur < 1000 ? `${dur}ms` : `${(dur / 1000).toFixed(1)}s`}
-            </span>
-          )}
+          <span className="work-dur">{localTime(events[0].ts)}</span>
         </button>
         <div className="work-body">
           {events.map((e) => {
@@ -413,9 +449,6 @@ function WorkBlock({
                 key={e.id}
                 className={isOutput ? "work-step work-step--block" : "work-step"}
               >
-                <span className="glyph" style={{ color: m.color }}>
-                  {m.glyph}
-                </span>
                 <span className="verb" style={{ color: m.color }}>
                   {verb}
                 </span>
@@ -426,7 +459,7 @@ function WorkBlock({
                   {path}
                 </span>
                 {detail && (
-                  <span className="label" style={{ color: "var(--faint)" }}>
+                  <span style={{ color: "var(--faint)", fontSize: 10 }}>
                     {detail}
                   </span>
                 )}
