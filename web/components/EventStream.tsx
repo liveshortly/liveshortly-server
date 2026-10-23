@@ -13,8 +13,18 @@ const HIDDEN_EVENT_TYPES = new Set(["stream_start", "stream_end"]);
 // Event types that read as a conversation turn.
 const BUBBLE_TYPES = new Set(["prompt", "response", "viewer_comment"]);
 
-// Consecutive runs of these fold into a collapsible "work receipt" — the
-// agent's actions between a prompt and its response.
+// Event types that interrupt a work run and stand on their own in the thread.
+// EVERYTHING else — tool calls, file writes, output, and any system/activity
+// type the capture emits — folds into one growing "work receipt" pane, so a
+// whole agent turn reads as a single block instead of a ladder of one-step
+// boxes split by stray activity rows.
+const TURN_BREAKERS = new Set([
+  ...BUBBLE_TYPES,
+  "input_requested",
+  "viewer_decision",
+]);
+
+// The classic work types still drive the chips / glyph colors.
 const WORK_TYPES = new Set(["tool_call", "file_write", "output"]);
 
 /** Color + glyph per event_type (v4 event grammar). */
@@ -151,7 +161,7 @@ function group(events: SessionEvent[]): Item[] {
     }
   };
   events.forEach((e, i) => {
-    if (WORK_TYPES.has(e.event_type)) {
+    if (!TURN_BREAKERS.has(e.event_type)) {
       if (run.length === 0) runStart = i;
       run.push(e);
     } else {
@@ -238,11 +248,18 @@ export default function EventStream({
         </div>
       ) : (
         <div className="et-col">
-          {items.map((item) => {
+          {items.map((item, itemIdx) => {
             if (item.kind === "work") {
+              // The LAST block of a live session is the one still growing —
+              // show a "running…" footer so the viewer sees work happening.
+              const activeRun = !!live && itemIdx === items.length - 1;
               return (
                 <div className="et-row work-row" key={`work-${item.events[0].id}`}>
-                  <WorkBlock events={item.events} setRef={setRef} />
+                  <WorkBlock
+                    events={item.events}
+                    setRef={setRef}
+                    active={activeRun}
+                  />
                 </div>
               );
             }
@@ -371,9 +388,12 @@ export default function EventStream({
 function WorkBlock({
   events,
   setRef,
+  active = false,
 }: {
   events: SessionEvent[];
   setRef: (id: string) => (node: HTMLDivElement | null) => void;
+  /** Live and still growing — show the executing footer. */
+  active?: boolean;
 }) {
   // Expanded by default for short runs; folded for long ones.
   const [open, setOpen] = useState(events.length <= 6);
@@ -447,7 +467,25 @@ function WorkBlock({
             );
           })}
         </div>
+        {active && (
+          <div className="work-running" role="status" aria-live="polite">
+            <span className="work-running-dots" aria-hidden>
+              <span />
+              <span />
+              <span />
+            </span>
+            <span className="work-running-text tnum">
+              {runningLabel(events[events.length - 1])}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );
+}
+
+/** "running — $ go test ./..." for the executing footer. */
+function runningLabel(e: SessionEvent): string {
+  const { verb, path } = workStep(e);
+  return `running — ${verb} ${truncate(path, 72)}`;
 }

@@ -169,8 +169,10 @@ is not listed, because it is not spawnable.
 (`claude`/`codex`/`gemini`/`ollama`), not a framework label — the server maps it
 to the same `framework`/`capture_mode` the CLI would have reported. For
 `ollama`, `model` names which model to run and MUST be one the host registered
-(empty → the host's first); it is rejected with `400` otherwise, and ignored for
-every other agent. `bypass_permissions` (bool) asks the daemon to run the agent
+(empty → the host's first); it is rejected with `400` otherwise. For `claude`,
+`model` is an OPTIONAL alias from the fixed allowlist `sonnet|opus|haiku`
+(daemon maps it to `--model <alias>`); rejected with `400` otherwise, and
+ignored for every other agent. `bypass_permissions` (bool) asks the daemon to run the agent
 unattended — no permission probes; it is relayed as a boolean only (rule 1
 below: never an argv) and the daemon maps it to known flags
 (`live --no-permissions`, plus `claude --dangerously-skip-permissions` /
@@ -179,11 +181,19 @@ below: never an argv) and the daemon maps it to known flags
 `requested` means the command was published, NOT that the agent is up; the
 session page tracks that separately via `agent_connected`.
 
+`POST /api/sessions/{id}/model` `{"model":"sonnet"|"opus"|"haiku"}` (owner,
+session live) relays a model switch: the server publishes
+`{"type":"set_model","session_id","model"}` to EVERY online machine of the
+owner (the spawn host is not persisted); the daemon hosting the session's
+tmux pane types `/model <alias>` into it, the rest no-op. Alias allowlist on
+both ends; never an argv. `400` unknown alias / no machine online, `409` ended.
+
 ### SSE: `GET /api/hosts/{id}/stream` (daemon)
-Frames: `{"type":"connected","host_id"}`, then
+Frames: `{"type":"connected","host_id"}`, then per web-created session
 `{"type":"spawn","session_id","agent","cwd","title","model"?,"bypass_permissions"?}`
-per web-created session (`model` only for `ollama`; `bypass_permissions` a
-boolean the daemon maps to known flags, never an argv),
+(`model` for `ollama`, or a claude alias; `bypass_permissions` a
+boolean the daemon maps to known flags, never an argv), and
+`{"type":"set_model","session_id","model"}` for live model switches,
 plus `: hb` comments every 15s. Each heartbeat refreshes the host record, so the
 machine leaves the picker ~90s after the daemon dies (immediately on a clean
 disconnect).

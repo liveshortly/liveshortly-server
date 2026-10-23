@@ -303,6 +303,15 @@ func (h *Handler) HostStream(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// claudeSpawnModels is the fixed set of model ALIASES a web spawn (or a live
+// model switch) may hand to claude. Aliases only, mapped to known flags by the
+// daemon — never a free-form string from the browser.
+var claudeSpawnModels = map[string]bool{
+	"sonnet": true,
+	"opus":   true,
+	"haiku":  true,
+}
+
 // spawnTarget is a validated (host, agent, directory) triple — everything a
 // spawn command needs, with every check already applied.
 type spawnTarget struct {
@@ -351,8 +360,11 @@ func (h *Handler) resolveSpawn(ctx context.Context, userID, hostID, agent, cwd, 
 	// ollama needs a model. Like the directory, it must be one the daemon
 	// itself registered — never a name the browser invented. Defaulting to the
 	// first keeps the one-click path working when the picker sends nothing.
+	// claude takes an OPTIONAL model alias from a fixed allowlist (the daemon
+	// maps it to `--model <alias>`); anything else never forwards a model.
 	model = strings.TrimSpace(model)
-	if agent == "ollama" {
+	switch {
+	case agent == "ollama":
 		if len(rec.Models) == 0 {
 			return spawnTarget{}, fmt.Errorf("host has no ollama models pulled")
 		}
@@ -362,7 +374,11 @@ func (h *Handler) resolveSpawn(ctx context.Context, userID, hostID, agent, cwd, 
 		if !contains(rec.Models, model) {
 			return spawnTarget{}, fmt.Errorf("model %q is not available on this host", model)
 		}
-	} else {
+	case agent == "claude" && model != "":
+		if !claudeSpawnModels[model] {
+			return spawnTarget{}, fmt.Errorf("model %q is not a known claude model alias", model)
+		}
+	default:
 		model = "" // meaningless for other agents; never forward it
 	}
 
@@ -506,4 +522,76 @@ func clip(s string, n int) string {
 		return s[:n]
 	}
 	return s
+}
+
+// SetSessionModel relays an owner's live model switch to their machines.
+// POST /api/sessions/{id}/model {"model":"sonnet"|"opus"|"haiku"}.
+//
+// The spawn host is not persisted, so the command is published to EVERY online
+// machine of the owner; the one actually hosting the session's tmux pane acts,
+// the rest find no matching pane and do nothing. Same trust boundary as spawn:
+// a fixed alias from the allowlist, never an argv, only within the owner's own
+// key space.
+func (h *Handler) SetSessionModel(w http.ResponseWriter, r *http.Request) {
+	p, ok := auth.Principal(r.Context())
+	if !ok {
+		httpx.Error(w, http.StatusUnauthorized, "no principal")
+		return
+	}
+	id := chi.URLParam(r, "id")
+	s, _, okOwned := h.ownedSession(w, r, id)
+	if !okOwned {
+		return
+	}
+	if s.Status != "live" {
+		httpx.Error(w, http.StatusConflict, "session has ended")
+		return
+	}
+
+	var req struct {
+		Model string `json:"model"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid body")
+		return
+	}
+	model := strings.TrimSpace(req.Model)
+	if !claudeSpawnModels[model] {
+		httpx.Error(w, http.StatusBadRequest, "unknown model alias")
+		return
+	}
+
+	raws, err := h.bus.HostList(r.Context(), p.ID)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to list hosts")
+		return
+	}
+	if len(raws) == 0 {
+		httpx.Error(w, http.StatusBadRequest, "no machine is online — start `live daemon`")
+		return
+	}
+	cmd, err := json.Marshal(map[string]string{
+		"type":       "set_model",
+		"session_id": id,
+		"model":      model,
+	})
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to encode command")
+		return
+	}
+	sent := 0
+	for _, raw := range raws {
+		var rec hostRecord
+		if json.Unmarshal([]byte(raw), &rec) != nil || rec.ID == "" {
+			continue
+		}
+		if h.bus.PublishHost(r.Context(), p.ID, rec.ID, cmd) == nil {
+			sent++
+		}
+	}
+	if sent == 0 {
+		httpx.Error(w, http.StatusBadGateway, "could not reach any machine")
+		return
+	}
+	httpx.JSON(w, http.StatusOK, map[string]any{"ok": true, "model": model})
 }
