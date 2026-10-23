@@ -5846,3 +5846,251 @@ a.sv-chip:hover {
   color: var(--faint);
   margin-top: 2px;
 }
+
+/* ── v4 pass 3: Claude-app conversation layout ──────────────────────────
+   No avatar gutter. Typed input (host/viewer) is a compact left card with a
+   tiny attribution line; the agent owns the full column as plain document
+   prose under a slim byline. */
+.et-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0 4px;
+}
+.et-byline {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 6px;
+  min-width: 0;
+}
+.et-byline .et-name {
+  font-size: 12px;
+}
+.et-card {
+  max-width: 680px;
+  font-size: 14.5px;
+  border-radius: 14px;
+  background: var(--panel2);
+  border: 1px solid var(--card-line);
+}
+.et-prose {
+  max-width: none;
+}
+.et-col {
+  max-width: 980px;
+  gap: 26px;
+}
+.work-row .work,
+.work-row .work-box {
+  width: 100%;
+}
+/* Avatar chips retired by the Claude-app layout; keep the class harmless. */
+.et-avatar {
+  display: none;
+}
+
+/* ── v4 pass 4: hero right column, in-flow typing, Claude composer ────── */
+
+/* Hero: title owns the left, session info + actions stack on the right. */
+.sv-hero {
+  align-items: flex-start;
+}
+.sv-hero-side {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  min-width: 0;
+  max-width: 52%;
+}
+.sv-hero-side .sv-hero-meta {
+  margin-top: 0;
+  justify-content: flex-end;
+  text-align: right;
+}
+.sv-hero-side .session-badges {
+  justify-content: flex-end;
+}
+.sv-hero-side .sv-action-row {
+  margin-top: 0;
+  justify-content: flex-end;
+}
+@media (max-width: 860px) {
+  .sv-hero-side {
+    display: none;
+  }
+  /* the ⚙ sheet button must stay reachable on mobile */
+  .sv-hero-side:has(.session-gear-btn) {
+    display: flex;
+    max-width: none;
+  }
+  .sv-hero-side .sv-hero-meta,
+  .sv-hero-side .session-badges,
+  .sv-hero-side .sv-action-row {
+    display: none;
+  }
+}
+
+/* Every action-row button — including the reused inline-styled ones — takes
+   the v4 shape. !important beats their inline styles; colors stay theirs. */
+.sv-action-row button,
+.sv-action-row a {
+  border-radius: 8px !important;
+  text-transform: none !important;
+  letter-spacing: 0.01em !important;
+  font-size: 11.5px !important;
+  font-weight: 600 !important;
+  padding: 5px 11px !important;
+}
+
+/* Typing indicators sit IN FLOW between the thread and the composer — the
+   absolute overlay sat on top of the last transcript line (reported overlap). */
+.sv-typing-overlay {
+  position: static;
+  transform: none;
+  max-width: 980px;
+  width: 100%;
+  margin: 6px auto 0;
+  padding: 0 8px;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  align-items: flex-start;
+}
+
+/* Composer: Claude-app box — rounded, auto-growing textarea, round send. */
+.sv-composer-wrap,
+.sv-composer-wrap:hover,
+.sv-composer-wrap:focus-within {
+  border-radius: 16px;
+  max-width: 980px;
+}
+.sv-composer-box {
+  align-items: flex-end;
+  padding: 6px 6px 6px 16px;
+  gap: 8px;
+}
+.sv-composer-box textarea {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 13.5px;
+  line-height: 1.5;
+  padding: 8px 0;
+  resize: none;
+  max-height: 180px;
+  overflow-y: auto;
+}
+.sv-composer-send {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  margin: 0;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.sv-composer-glyph {
+  display: none;
+}
+
+/* ── v4 pass 5: sessions page density (reported: huge empty rows) ─────── */
+/* Pages without a right rail cap and center their content column instead of
+   stretching rows across the whole viewport. */
+.v3-page-wrap:not(:has(.v3-page-rightpanel)) .v3-page-main {
+  max-width: 1160px;
+  margin-inline: auto;
+}
+/* Resume hero: a slim strip, not a billboard. */
+.hud-hero {
+  padding: 16px 20px;
+  min-height: 0;
+  margin-bottom: 20px;
+  align-items: center;
+}
+.hud-hero-text .ht {
+  font-size: 18px;
+}
+.hud-hero-text .hk {
+  margin-bottom: 3px;
+}
+.hud-hero-cta {
+  border-radius: 8px;
+  padding: 8px 14px;
+  text-transform: none;
+  letter-spacing: 0.02em;
+  font-size: 11.5px;
+}
+/* Rows: tighter, rounded shell, no phantom art swatch. */
+.s4-rows {
+  border-radius: 12px;
+  border-color: var(--card-line);
+  overflow: hidden;
+}
+.s4-row {
+  padding: 8px 14px;
+  gap: 10px;
+}
+.s4-row-link .hud-row-swatch {
+  display: none;
+}
+.s4-row-title {
+  font-size: 13px;
+}
+.s4-row-sub {
+  margin-top: 1px;
+}
+.s4-badge {
+  border-radius: 999px;
+  text-transform: none;
+  letter-spacing: 0.02em;
+  font-size: 10px;
+  padding: 2px 9px;
+}
+.s4-row-meta {
+  gap: 10px;
+}
+.s4-row-watchers {
+  width: auto;
+  min-width: 36px;
+  text-align: right;
+}
+.s4-row-events {
+  width: 48px;
+}
+.s4-rbtn {
+  border-radius: 7px;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 10.5px;
+  font-weight: 600;
+}
+/* Toolbar: rounded, sentence case. */
+.s4-btn,
+.s4-sort-select,
+.s4-filter-search,
+.s4-filter-search input,
+.s4-tag-chip {
+  border-radius: 8px;
+  text-transform: none;
+  letter-spacing: 0.01em;
+}
+.s4-tab {
+  border-radius: 999px;
+  text-transform: none;
+  letter-spacing: 0.01em;
+}
+.s4-view-toggle,
+.s4-view-toggle button {
+  border-radius: 8px;
+}

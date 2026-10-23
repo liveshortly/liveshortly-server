@@ -19,7 +19,7 @@ export default function DeleteSessionButton({
 }) {
   return (
     <ConfirmPopover
-      label="⌫ DELETE"
+      label="⌫ Delete"
       triggerTitle="Delete this session permanently"
       message="Delete this session forever? This wipes its events, replay and archive — it can't be undone."
       confirmLabel="Delete forever"
