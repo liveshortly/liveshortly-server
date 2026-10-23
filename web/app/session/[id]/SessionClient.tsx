@@ -499,7 +499,10 @@ export default function SessionViewer({
           <div className="sv-hero-eyebrow">
             {meta &&
               (meta.status === "live" ? (
-                <span className="sv-live-dot" title="Live" aria-label="Live" />
+                <span className="sv-hero-badge" title="Live">
+                  <span className="live-dot" aria-hidden />
+                  LIVE
+                </span>
               ) : (
                 <span
                   className="sv-hero-badge ended"
@@ -592,95 +595,49 @@ export default function SessionViewer({
             <div className="session-badges">
             {meta && isPublished(meta) && (
               <span
-                className="label"
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 5,
-                  color: "var(--green)",
-                  border: "1px solid var(--green)",
-                  padding: "3px 8px",
-                  whiteSpace: "nowrap",
-                }}
+                className="sv-chip green"
                 title="Published to the public feed"
               >
-                ▣ PUBLISHED
+                ▣ Published
               </span>
             )}
             {meta && (meta.share_count ?? 0) > 0 && (
               <span
-                className="label"
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 5,
-                  color: "var(--amber)",
-                  border: "1px solid var(--hairline)",
-                  padding: "3px 8px",
-                  whiteSpace: "nowrap",
-                }}
+                className="sv-chip violet"
                 title={`Shared with ${meta.share_count} ${
                   meta.share_count === 1 ? "person" : "people"
                 }`}
               >
-                ⊞ SHARED · {meta.share_count}
+                ⊞ Shared · {meta.share_count}
               </span>
             )}
             {meta && meta.visibility === "open" && (
               <span
-                className="label"
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 5,
-                  color: "var(--green)",
-                  border: "1px solid var(--green)",
-                  padding: "3px 8px",
-                  whiteSpace: "nowrap",
-                }}
+                className="sv-chip green"
                 title="Anyone with the link can watch — no sign-in required"
               >
-                ◉ OPEN · NO SIGN-IN
+                ◉ Open link
               </span>
             )}
             {/* Lineage: this session is itself a fork of another. */}
             {meta?.forked_from && (
               <a
                 href={`/session/${meta.forked_from.id}`}
-                className="label"
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 5,
-                  color: "var(--muted)",
-                  border: "1px solid var(--hairline)",
-                  padding: "3px 8px",
-                  whiteSpace: "nowrap",
-                  textDecoration: "none",
-                }}
+                className="sv-chip"
                 title={`Forked from “${meta.forked_from.title}” by ${meta.forked_from.owner_handle}`}
               >
-                ⑃ FORKED FROM {meta.forked_from.owner_handle}
+                ⑃ Forked from {meta.forked_from.owner_handle}
               </a>
             )}
             {/* How many times this session has been handed off / forked. */}
             {meta && (meta.fork_count ?? 0) > 0 && (
               <span
-                className="label"
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 5,
-                  color: "var(--muted)",
-                  border: "1px solid var(--hairline)",
-                  padding: "3px 8px",
-                  whiteSpace: "nowrap",
-                }}
+                className="sv-chip"
                 title={`${meta.forker_count ?? meta.fork_count} ${
                   (meta.forker_count ?? meta.fork_count) === 1 ? "user has" : "users have"
                 } continued this session`}
               >
-                ⑃ FORKED · {meta.fork_count}
+                ⑃ Forks · {meta.fork_count}
               </span>
             )}
             {meta && <Badge status={meta.status} size="md" />}
@@ -716,7 +673,7 @@ export default function SessionViewer({
           )}
 
           <div className="label stream-log-head">
-            <span>EVENT LOG</span>
+            <span>Transcript</span>
             <span style={{ color: "var(--muted)" }}>
               {streamLabel(conn, isLive)}
             </span>
@@ -748,14 +705,14 @@ export default function SessionViewer({
               <div className="sv-typing-overlay">
                 {showClaudeWorking && (
                   <TypingIndicator
-                    label={`${agentName(meta?.framework)} IS WORKING`}
+                    label={`${agentName(meta?.framework).toLowerCase()} is working`}
                     tone="green"
                   />
                 )}
                 {activeTypers.map((who) => (
                   <TypingIndicator
                     key={who}
-                    label={`@${who} IS TYPING`}
+                    label={`@${who} is typing`}
                     tone="amber"
                   />
                 ))}
@@ -1273,32 +1230,37 @@ function InputRequestBanner({
       role="status"
       style={{
         marginTop: 10,
-        border: "1px solid var(--amber)",
-        background: "color-mix(in srgb, var(--amber) 12%, var(--panel))",
-        padding: "10px 12px",
+        maxWidth: 1100,
+        marginInline: "auto",
+        width: "100%",
+        boxSizing: "border-box",
+        border: "1px solid color-mix(in srgb, var(--amber) 40%, var(--hairline))",
+        background: "color-mix(in srgb, var(--amber) 6%, var(--panel))",
+        borderRadius: 12,
+        padding: "12px 14px",
         display: "flex",
         flexDirection: "column",
-        gap: 6,
+        gap: 8,
       }}
     >
       <div
-        className="label"
         style={{
           display: "flex",
           alignItems: "center",
           gap: 8,
           color: "var(--amber)",
+          fontSize: 11.5,
         }}
       >
-        <span className="live-dot" style={{ background: "var(--amber)" }} />
-        <span style={{ fontWeight: 700 }}>
-          {kind === "permission" ? "⌐ PERMISSION REQUESTED" : "⌐ INPUT REQUESTED"}
+        <span className="live-dot" style={{ background: "var(--amber)", boxShadow: "none" }} />
+        <span style={{ fontWeight: 700, letterSpacing: "0.03em" }}>
+          {kind === "permission" ? "Permission request" : "Input requested"}
         </span>
         <span
           style={{
             color: "var(--ink)",
-            textTransform: "none",
-            letterSpacing: 0,
+            fontFamily: "var(--font-mono)",
+            fontSize: 11.5,
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
@@ -1315,53 +1277,59 @@ function InputRequestBanner({
             type="button"
             disabled={busy}
             onClick={() => decide("allow")}
-            className="label"
             style={{
-              border: "1px solid var(--green)",
+              font: "inherit",
+              fontSize: 12,
+              border: "none",
+              borderRadius: 8,
               background: "var(--green)",
-              color: "var(--panel)",
-              padding: "5px 14px",
+              color: "var(--bg)",
+              padding: "7px 20px",
               fontWeight: 700,
               cursor: busy ? "default" : "pointer",
               opacity: busy ? 0.6 : 1,
             }}
           >
-            ✓ ALLOW
+            Allow
           </button>
           <button
             type="button"
             disabled={busy}
             onClick={() => decide("always")}
             title="Allow this, and don't ask again for the same command/tool this session"
-            className="label"
             style={{
+              font: "inherit",
+              fontSize: 12,
               border: "1px solid var(--green)",
+              borderRadius: 8,
               background: "transparent",
               color: "var(--green)",
-              padding: "5px 14px",
-              fontWeight: 700,
+              padding: "6px 16px",
+              fontWeight: 600,
               cursor: busy ? "default" : "pointer",
               opacity: busy ? 0.6 : 1,
             }}
           >
-            ✓✓ ALLOW ALWAYS
+            Always allow
           </button>
           <button
             type="button"
             disabled={busy}
             onClick={() => decide("deny")}
-            className="label"
             style={{
-              border: "1px solid var(--red)",
+              font: "inherit",
+              fontSize: 12,
+              border: "1px solid color-mix(in srgb, var(--red) 50%, var(--hairline))",
+              borderRadius: 8,
               background: "transparent",
               color: "var(--red)",
-              padding: "5px 14px",
-              fontWeight: 700,
+              padding: "6px 16px",
+              fontWeight: 600,
               cursor: busy ? "default" : "pointer",
               opacity: busy ? 0.6 : 1,
             }}
           >
-            ✕ DENY
+            Deny
           </button>
         </div>
       )}
@@ -1519,18 +1487,18 @@ function Composer({ id, emphasize = false }: { id: string; emphasize?: boolean }
 }
 
 function streamLabel(conn: Connection, isLive: boolean): string {
-  if (!isLive) return "● ARCHIVED · REPLAY";
+  if (!isLive) return "● Replay";
   switch (conn) {
     case "open":
-      return "● STREAM OPEN";
+      return "● Stream open";
     case "connecting":
-      return "◌ CONNECTING…";
+      return "◌ Connecting…";
     case "ended":
-      return "● SESSION ENDED";
+      return "● Session ended";
     case "closed":
-      return "○ DISCONNECTED";
+      return "○ Disconnected";
     default:
-      return "◌ IDLE";
+      return "◌ Idle";
   }
 }
 
