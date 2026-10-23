@@ -163,12 +163,6 @@ function group(events: SessionEvent[]): Item[] {
   return items;
 }
 
-/** First letter for the avatar chip. */
-function initialOf(handle: string): string {
-  const h = handle.replace(/^@/, "").trim();
-  return (h[0] || "?").toUpperCase();
-}
-
 /** v4 transcript — one unified pane. Host prompts and viewer comments render
  *  as quiet cards, agent responses as document prose, tool work as foldable
  *  receipts. Auto-scrolls to the bottom while the viewer is pinned there. */
@@ -247,13 +241,8 @@ export default function EventStream({
           {items.map((item) => {
             if (item.kind === "work") {
               return (
-                <div className="et-row" key={`work-${item.events[0].id}`}>
-                  <div className="et-avatar agent" aria-hidden>
-                    ◆
-                  </div>
-                  <div className="et-main">
-                    <WorkBlock events={item.events} setRef={setRef} />
-                  </div>
+                <div className="et-row work-row" key={`work-${item.events[0].id}`}>
+                  <WorkBlock events={item.events} setRef={setRef} />
                 </div>
               );
             }
@@ -299,84 +288,74 @@ export default function EventStream({
               const quoteIsViewer = quote?.event_type === "viewer_comment";
               return (
                 <div key={e.id} ref={setRef(e.id)} className="et-row">
-                  <div className="et-avatar agent" aria-hidden>
-                    ◆
-                  </div>
-                  <div className="et-main">
-                    <div className="et-head">
-                      <span className="et-name agent">{agentLabel}</span>
-                      {quote && quoteIsViewer && (
-                        <span className="et-reply">
-                          ↩ replying to{" "}
-                          <b>@{handleOf(quote, addressed ?? "viewer")}</b>
-                        </span>
-                      )}
-                      <span className="et-time" title={e.ts}>
-                        {localTime(e.ts)}
+                  {/* Claude-app layout: the agent owns the full column — a slim
+                      byline, then plain document prose. No avatar gutter. */}
+                  <div className="et-byline">
+                    <span className="et-name agent">◆ {agentLabel}</span>
+                    {quote && quoteIsViewer && (
+                      <span className="et-reply">
+                        ↩ replying to{" "}
+                        <b>@{handleOf(quote, addressed ?? "viewer")}</b>
                       </span>
-                    </div>
-                    {quote && (
-                      <button
-                        type="button"
-                        onClick={() => scrollToEvent(quote.id)}
-                        className="reply-quote"
-                        title="Jump to the message this replies to"
-                        style={{
-                          display: "block",
-                          width: "100%",
-                          maxWidth: 720,
-                          textAlign: "left",
-                          cursor: "pointer",
-                          fontFamily: "inherit",
-                        }}
-                      >
-                        <span className="rq-who">
-                          ↩ {quoteIsViewer
-                            ? `@${handleOf(quote, addressed ?? "viewer")} · viewer`
-                            : `@${handleOf(quote, me)}`}
-                        </span>
-                        <span className="rq-body">
-                          {truncate(bodyText(quote), 90)}
-                        </span>
-                      </button>
                     )}
-                    <div className="et-prose">
-                      <div className="md">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                          {body}
-                        </ReactMarkdown>
-                      </div>
+                    <span className="et-time" title={e.ts}>
+                      {localTime(e.ts)}
+                    </span>
+                  </div>
+                  {quote && (
+                    <button
+                      type="button"
+                      onClick={() => scrollToEvent(quote.id)}
+                      className="reply-quote"
+                      title="Jump to the message this replies to"
+                      style={{
+                        display: "block",
+                        width: "100%",
+                        maxWidth: 680,
+                        textAlign: "left",
+                        cursor: "pointer",
+                        fontFamily: "inherit",
+                      }}
+                    >
+                      <span className="rq-who">
+                        ↩ {quoteIsViewer
+                          ? `@${handleOf(quote, addressed ?? "viewer")} · viewer`
+                          : `@${handleOf(quote, me)}`}
+                      </span>
+                      <span className="rq-body">
+                        {truncate(bodyText(quote), 90)}
+                      </span>
+                    </button>
+                  )}
+                  <div className="et-prose">
+                    <div className="md">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {body}
+                      </ReactMarkdown>
                     </div>
                   </div>
                 </div>
               );
             }
 
-            // Host prompt or viewer comment — quiet card.
+            // Typed input (host prompt / viewer comment) — Claude-app style:
+            // a compact left-aligned card with a tiny attribution line.
             const who = handleOf(e, isViewer ? "viewer" : me);
             return (
               <div key={e.id} ref={setRef(e.id)} className="et-row">
-                <div
-                  className={`et-avatar ${isViewer ? "viewer" : "host"}`}
-                  aria-hidden
-                >
-                  {initialOf(who)}
+                <div className="et-byline">
+                  <span className={`et-name${isViewer ? " viewer" : ""}`}>
+                    {who}
+                  </span>
+                  <span className={`et-tag${isViewer ? " viewer" : ""}`}>
+                    {isViewer ? "VIEWER" : "HOST"}
+                  </span>
+                  <span className="et-time" title={e.ts}>
+                    {localTime(e.ts)}
+                  </span>
                 </div>
-                <div className="et-main">
-                  <div className="et-head">
-                    <span className={`et-name${isViewer ? " viewer" : ""}`}>
-                      {who}
-                    </span>
-                    <span className={`et-tag${isViewer ? " viewer" : ""}`}>
-                      {isViewer ? "VIEWER" : "HOST"}
-                    </span>
-                    <span className="et-time" title={e.ts}>
-                      {localTime(e.ts)}
-                    </span>
-                  </div>
-                  <div className={`et-card${isViewer ? " viewer" : ""}`}>
-                    {body}
-                  </div>
+                <div className={`et-card${isViewer ? " viewer" : ""}`}>
+                  {body}
                 </div>
               </div>
             );
