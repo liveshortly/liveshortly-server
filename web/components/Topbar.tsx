@@ -72,17 +72,13 @@ export default function Topbar({
           Docs
         </Link>
         <Link href="/install" className="v3-install-link" title="Install the CLI">
-          ⇩ Install CLI
+          Install CLI
         </Link>
-        <span
-          className="v3-icon-btn"
-          title="Notifications — coming soon"
-          aria-hidden
-        >
-          🔔
-        </span>
-        <Link href="/hud" className="v3-icon-btn" title="Shared with me">
-          🔗
+        <Link href="/hud" className="v3-icon-btn" title="Shared with me" aria-label="Shared with me">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+            <path d="M6.5 9.5a3 3 0 0 0 4.3.2l1.9-1.9a3 3 0 0 0-4.2-4.2l-1 1" />
+            <path d="M9.5 6.5a3 3 0 0 0-4.3-.2L3.3 8.2a3 3 0 0 0 4.2 4.2l1-1" />
+          </svg>
         </Link>
         <ThemeToggle />
         <ProfileMenu user={user} direction="down" align="end">
