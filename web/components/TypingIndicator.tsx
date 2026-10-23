@@ -70,7 +70,6 @@ export default function TypingIndicator({
 
   return (
     <div
-      className="label"
       role="status"
       aria-live="polite"
       style={{
@@ -78,12 +77,16 @@ export default function TypingIndicator({
         alignItems: "center",
         gap: 8,
         color,
-        padding: "6px 10px",
-        border: `1px solid color-mix(in srgb, ${color} 45%, transparent)`,
-        background: `color-mix(in srgb, ${color} 8%, var(--panel))`,
+        fontSize: 11.5,
+        fontWeight: 600,
+        padding: "5px 12px",
+        borderRadius: 999,
+        border: `1px solid color-mix(in srgb, ${color} 35%, transparent)`,
+        background: `color-mix(in srgb, ${color} 7%, var(--panel))`,
+        boxShadow: "0 4px 14px -8px var(--shadow)",
       }}
     >
-      <span style={{ fontWeight: 700, letterSpacing: "0.08em" }}>{label}</span>
+      <span>{label}</span>
       <span aria-hidden style={{ display: "inline-flex", gap: 3 }}>
         <Dot color={color} delay="0ms" />
         <Dot color={color} delay="150ms" />
@@ -109,7 +112,7 @@ function Dot({
       style={{
         width: size,
         height: size,
-        borderRadius: inline ? "50%" : 1,
+        borderRadius: "50%",
         background: color,
         display: "inline-block",
         animation: "ls-typing-wave 1.1s ease-in-out infinite",
