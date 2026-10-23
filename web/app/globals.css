@@ -5074,3 +5074,550 @@ a {
     display: none;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   v4 SKIN — approved redesign (2026-10). A deliberate override layer: it
+   re-declares the theme tokens and restyles the existing class system from
+   the end of the sheet, so the legacy rules above keep working but the v4
+   look wins the cascade. New transcript markup (EventStream) uses `et-`.
+   Principles: Inter for reading, mono only for machine truth; one signal
+   green reserved for live; soft radii; no hairline-grid noise.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+:root,
+:root[data-theme="light"] {
+  --bg: #f2f4f6;
+  --panel: #ffffff;
+  --panel2: #f7f8fa;
+  --hairline: #e4e7ea;
+  --strong: #1a1d20;
+  --grad-hero: #ffffff;
+  --ink: #1a1d20;
+  --muted: #5c646d;
+  --faint: #6b747e;
+  --green: #0b8a50;
+  --red: #c8402f;
+  --amber: #9a6d0b;
+  --admin: #6d3fc4;
+  --blue: #2563c4;
+  --shadow: rgba(16, 20, 24, 0.12);
+  /* v4 additions */
+  --violet: #6d3fc4;
+  --green-tint: rgba(11, 138, 80, 0.07);
+  --green-line: rgba(11, 138, 80, 0.35);
+  --card: #ffffff;
+  --card-line: #e6e9ec;
+  --code-bg: #15181c;
+  --code-ink: #c4cbd3;
+  --code-line: #2a2f35;
+  --font-sans: var(--font-inter, Inter), Inter, system-ui, -apple-system,
+    "Segoe UI", sans-serif;
+}
+:root[data-theme="dark"] {
+  --bg: #0f1113;
+  --panel: #121417;
+  --panel2: #14171b;
+  --hairline: #1f252b;
+  --strong: #eceff3;
+  --grad-hero: #14171b;
+  --ink: #eceff3;
+  --muted: #a6afb9;
+  --faint: #7b8691;
+  --green: #34d98c;
+  --red: #ec6f60;
+  --amber: #e5ae4f;
+  --admin: #b18cef;
+  --blue: #5ea7ff;
+  --shadow: rgba(0, 0, 0, 0.5);
+  --violet: #b18cef;
+  --green-tint: rgba(52, 217, 140, 0.1);
+  --green-line: rgba(52, 217, 140, 0.35);
+  --card: #14171b;
+  --card-line: #20262d;
+  --code-bg: #0b0d10;
+  --code-ink: #c4cbd3;
+  --code-line: #1a1f25;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --bg: #0f1113;
+    --panel: #121417;
+    --panel2: #14171b;
+    --hairline: #1f252b;
+    --strong: #eceff3;
+    --grad-hero: #14171b;
+    --ink: #eceff3;
+    --muted: #a6afb9;
+    --faint: #7b8691;
+    --green: #34d98c;
+    --red: #ec6f60;
+    --amber: #e5ae4f;
+    --admin: #b18cef;
+    --blue: #5ea7ff;
+    --shadow: rgba(0, 0, 0, 0.5);
+    --violet: #b18cef;
+    --green-tint: rgba(52, 217, 140, 0.1);
+    --green-line: rgba(52, 217, 140, 0.35);
+    --card: #14171b;
+    --card-line: #20262d;
+    --code-bg: #0b0d10;
+    --code-ink: #c4cbd3;
+    --code-line: #1a1f25;
+  }
+}
+
+/* Reading face: Inter. Mono stays available through --font-mono and is now
+   loaded (next/font) instead of hoping for a local install. */
+body {
+  font-family: var(--font-sans);
+  letter-spacing: 0;
+}
+:root {
+  --font-mono: var(--font-jbmono, "JetBrains Mono"), "JetBrains Mono",
+    ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+.tnum,
+code,
+pre,
+kbd {
+  font-family: var(--font-mono);
+}
+.label {
+  letter-spacing: 0.07em;
+  font-size: 10.5px;
+}
+
+/* ── chrome: topbar, search, pills, primary buttons ─────────────────── */
+.v3-topbar,
+.lp-topbar {
+  background: var(--panel);
+}
+.v3-brand,
+.lp-brand {
+  font-size: 14.5px;
+  letter-spacing: -0.02em;
+}
+.v3-searchpill,
+.lp-searchpill,
+.lp-sb-search {
+  border-radius: 10px;
+}
+.daemon-status {
+  border-style: solid;
+  border-radius: 999px;
+  padding: 5px 11px;
+}
+.ns-btn {
+  border-radius: 8px;
+  font-weight: 700;
+  padding: 7px 13px;
+}
+.ns-panel {
+  border-radius: 12px;
+  border-color: var(--hairline);
+}
+.ns-select {
+  border-radius: 8px;
+}
+.ns-start {
+  border-radius: 8px;
+}
+.lp-signin-btn,
+.hud-hero-cta {
+  border-radius: 8px;
+}
+.v3-icon-btn {
+  border-radius: 8px;
+}
+.ws-tab,
+.lp-sb-tab {
+  border-radius: 7px;
+}
+.live-dot {
+  box-shadow: 0 0 8px var(--green-line);
+}
+
+/* ── cards: feed, HUD, stats ────────────────────────────────────────── */
+.hf-card,
+.hud-rows,
+.v3-rp-stat,
+.lp-demo {
+  border-radius: 12px;
+  border-color: var(--card-line);
+  background: var(--card);
+  overflow: hidden;
+}
+.hf-card-art {
+  background: var(--panel2);
+}
+.hf-hero {
+  border-radius: 14px;
+  border-color: var(--card-line);
+  background: var(--card);
+}
+:root[data-theme="light"] .hf-hero,
+:root[data-theme="light"] .hud-hero {
+  background: var(--card);
+}
+.hud-hero {
+  border-radius: 14px;
+  border-color: var(--card-line);
+  background: var(--card);
+}
+.hud-hero-text .ht,
+.hf-hero-text .ht {
+  color: var(--ink);
+}
+.hud-hero-text .hk,
+.hf-hero-text .hk,
+.hud-hero-text .hs,
+.hf-hero-text .hs,
+.hud-hero-snippet,
+.hf-hero-snippet {
+  color: var(--muted);
+}
+.hf-hero-badge {
+  border-radius: 12px;
+  background: var(--panel2);
+  border-color: var(--hairline);
+  color: var(--green);
+}
+.hud-row-badge,
+.hud-rbtn,
+.hf-card-badge {
+  border-radius: 6px;
+}
+.v3-empty,
+.hud-idle {
+  border-radius: 12px;
+}
+.stat-tile > div {
+  border-radius: 12px;
+}
+
+/* ── session viewer shell ───────────────────────────────────────────── */
+/* The right info panel folds away — the transcript owns the full width
+   (approved v4 layout: one unified pane; watcher count lives in the hero). */
+@media (min-width: 901px) {
+  .sv-panel {
+    display: none;
+  }
+}
+.sv-hero {
+  background: var(--bg);
+  border: none;
+  border-bottom: 1px solid var(--hairline);
+  margin-top: 4px;
+  padding: 12px 4px 12px;
+}
+:root[data-theme="light"] .sv-hero {
+  background: var(--bg);
+}
+.sv-hero-art {
+  display: none;
+}
+.sv-hero-badge {
+  border-radius: 999px;
+}
+.stream-log-head {
+  color: var(--faint);
+}
+
+/* ── transcript (EventStream, `et-` markup) ─────────────────────────── */
+.chat-thread {
+  border: none !important;
+  background: transparent !important;
+  padding: 20px 4px 14px;
+}
+.et-col {
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+.et-row {
+  display: flex;
+  gap: 13px;
+  padding: 0 4px;
+}
+.et-avatar {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+.et-avatar.host {
+  background: color-mix(in srgb, var(--ink) 12%, var(--bg));
+  color: var(--ink);
+}
+.et-avatar.agent {
+  background: var(--green-tint);
+  color: var(--green);
+  font-size: 12.5px;
+}
+.et-avatar.viewer {
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--violet) 40%, var(--bg));
+  color: var(--violet);
+}
+.et-main {
+  min-width: 0;
+  flex: 1;
+}
+.et-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 6px;
+  min-width: 0;
+}
+.et-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.et-name.agent {
+  color: var(--green);
+}
+.et-name.viewer {
+  color: var(--violet);
+}
+.et-tag {
+  flex-shrink: 0;
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--faint);
+  border: 1px solid var(--hairline);
+  border-radius: 5px;
+  padding: 1px 6px;
+}
+.et-tag.viewer {
+  color: var(--violet);
+  border-color: color-mix(in srgb, var(--violet) 40%, var(--bg));
+}
+.et-time {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--faint);
+}
+.et-reply {
+  font-size: 10.5px;
+  color: var(--faint);
+}
+.et-reply b {
+  color: var(--violet);
+  font-weight: 600;
+}
+/* host prompt / viewer comment: quiet rounded cards */
+.et-card {
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--ink);
+  background: var(--panel2);
+  border: 1px solid var(--card-line);
+  border-radius: 12px;
+  padding: 11px 15px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-width: 860px;
+}
+.et-card.viewer {
+  color: var(--muted);
+  background: color-mix(in srgb, var(--violet) 4%, var(--panel2));
+  border-color: color-mix(in srgb, var(--violet) 14%, var(--hairline));
+  max-width: 720px;
+}
+/* agent response: document prose, no bubble */
+.et-prose {
+  font-size: 14.5px;
+  line-height: 1.7;
+  color: var(--ink);
+  max-width: 900px;
+}
+.et-prose .md pre {
+  background: var(--code-bg);
+  border: 1px solid var(--card-line);
+  border-radius: 10px;
+  padding: 11px 13px;
+}
+.et-prose .md pre code {
+  color: var(--code-ink);
+  font-size: 12.5px;
+}
+.et-prose .md code {
+  background: var(--panel2);
+  border: 1px solid var(--hairline);
+  border-radius: 5px;
+  color: var(--ink);
+}
+.et-prose .md a {
+  color: var(--green);
+}
+/* reply-quote (restyled, same component logic) */
+.reply-quote {
+  border: 1px solid var(--card-line);
+  border-left: 3px solid var(--violet);
+  background: var(--panel2);
+  border-radius: 8px;
+  padding: 6px 10px;
+  margin-bottom: 8px;
+}
+.reply-quote .rq-who {
+  color: var(--violet);
+  letter-spacing: 0.04em;
+}
+/* work receipt */
+.work {
+  padding: 0;
+}
+.work-box {
+  border: 1px solid var(--card-line);
+  border-left-width: 1px;
+  background: var(--card);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.work-toggle {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 12px;
+  color: var(--muted);
+  padding: 10px 14px;
+}
+.work-toggle .work-who {
+  display: none;
+}
+.work-chip {
+  border: none;
+  border-radius: 5px;
+  font-size: 10.5px;
+  padding: 1px 7px;
+}
+.work-chip.red {
+  color: var(--red);
+  background: color-mix(in srgb, var(--red) 10%, transparent);
+}
+.work-chip.amber {
+  color: var(--amber);
+  background: color-mix(in srgb, var(--amber) 10%, transparent);
+}
+.work-body {
+  border-top: 1px solid var(--card-line);
+  padding: 6px 0 8px;
+}
+.work-step {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  padding: 4px 14px;
+}
+.work-step .verb {
+  text-transform: lowercase;
+  font-size: 11.5px;
+  font-weight: 500;
+  min-width: 38px;
+}
+.work-step .path {
+  color: var(--muted);
+}
+/* system / permission line */
+.sys-pill {
+  border: 1px solid var(--card-line);
+  background: var(--card);
+  border-radius: 10px;
+  padding: 7px 14px;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 11.5px;
+  max-width: 640px;
+}
+.sys-pill .sp-glyph {
+  color: var(--amber);
+}
+
+/* ── composer ───────────────────────────────────────────────────────── */
+.sv-composer {
+  padding: 10px 4px 14px;
+}
+.sv-composer-wrap {
+  border: 1px solid var(--hairline);
+  background: var(--panel);
+  border-radius: 12px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+.sv-composer-wrap:hover,
+.sv-composer-wrap:focus-within {
+  border-color: var(--green);
+  box-shadow: 0 10px 26px -16px var(--shadow);
+}
+.sv-composer-glyph {
+  border-right: none;
+  color: var(--green);
+}
+.sv-composer-box input {
+  font-size: 13px;
+}
+.sv-composer-wrap:hover .sv-composer-box input,
+.sv-composer-wrap:focus-within .sv-composer-box input {
+  padding: 11px 12px;
+  font-size: 13px;
+}
+.sv-composer-send {
+  background: var(--green);
+  border-left: none;
+  color: var(--bg);
+  border-radius: 9px;
+  margin: 5px;
+  padding: 0 16px;
+  text-transform: none;
+  letter-spacing: 0.02em;
+  font-size: 12px;
+}
+.sv-readonly {
+  border-radius: 10px;
+}
+
+/* ── mobile feed polish ─────────────────────────────────────────────── */
+.mfeed-avatar {
+  border-radius: 8px;
+}
+.mfeed-avatar-claude {
+  background: var(--green-tint);
+  color: var(--green);
+}
+.mfeed-bubble {
+  border-radius: 10px;
+  border-color: var(--card-line);
+  background: var(--panel2);
+}
+.mfeed-name-viewer {
+  color: var(--violet);
+}
+
+/* ── misc: selection, tables, workspace rail ────────────────────────── */
+::selection {
+  background: var(--green);
+  color: var(--bg);
+}
+.ws-sidebar {
+  background: var(--panel);
+}
+.msheet {
+  border-radius: 16px 16px 0 0;
+}
+.popover-panel,
+.gear-menu {
+  border-radius: 12px;
+}
