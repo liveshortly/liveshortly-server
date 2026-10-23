@@ -6169,3 +6169,62 @@ a.sv-chip:hover {
   outline: none;
   cursor: pointer;
 }
+
+/* ── v4 pass 7: gate cards + anonymous chrome rounding ────────────────── */
+.sv-gate-wrap {
+  display: flex;
+  justify-content: center;
+  padding: 48px 16px;
+}
+.sv-gate {
+  width: 100%;
+  max-width: 460px;
+  text-align: center;
+  background: var(--panel);
+  border: 1px solid var(--card-line);
+  border-radius: 16px;
+  padding: 34px 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.sv-gate.amber {
+  border-color: color-mix(in srgb, var(--amber) 30%, var(--hairline));
+}
+.sv-gate.red {
+  border-color: color-mix(in srgb, var(--red) 25%, var(--hairline));
+}
+.sv-gate-title {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+.sv-gate-sub {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+.sv-gate-link {
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--green);
+}
+.sv-gate .lp-signin-btn {
+  margin-top: 6px;
+}
+
+/* Anonymous shell chrome joins the rounded sentence-case system. */
+.lp-signin-btn {
+  border-radius: 9px;
+  text-transform: none;
+  letter-spacing: 0.02em;
+  font-size: 12px;
+}
+.lp-install-link {
+  text-transform: none;
+  letter-spacing: 0.01em;
+  font-size: 11.5px;
+  font-weight: 500;
+}

@@ -351,26 +351,17 @@ export default function SessionViewer({
 
   if (deleted) {
     return (
-      <div>
-        <div
-          style={{
-            border: "1px solid var(--red)",
-            background: "var(--panel)",
-            padding: "36px 20px",
-            textAlign: "center",
-          }}
-        >
-          <div className="label" style={{ fontSize: 13, color: "var(--red)" }}>
-            ⌫ SESSION DELETED
+      <div className="sv-gate-wrap">
+        <div className="sv-gate red">
+          <div className="sv-gate-title" style={{ color: "var(--red)" }}>
+            ⌫ Session deleted
           </div>
-          <div style={{ color: "var(--muted)", fontSize: 13, marginTop: 10 }}>
-            THE OWNER PERMANENTLY DELETED THIS SESSION. IT NO LONGER EXISTS.
+          <div className="sv-gate-sub">
+            The owner permanently deleted this session. It no longer exists.
           </div>
-          <div className="label" style={{ marginTop: 16 }}>
-            <Link href="/" style={{ color: "var(--green)" }}>
-              ◂ BACK TO FEED
-            </Link>
-          </div>
+          <Link href="/" className="sv-gate-link">
+            ◂ Back to the feed
+          </Link>
         </div>
       </div>
     );
@@ -378,28 +369,17 @@ export default function SessionViewer({
 
   if (needsAuth) {
     return (
-      <div>
-        <div
-          style={{
-            border: "1px solid var(--amber)",
-            background: "var(--panel)",
-            padding: "36px 20px",
-            textAlign: "center",
-          }}
-        >
-          <div className="label" style={{ fontSize: 13, color: "var(--amber)" }}>
-            ⚿ SIGN IN TO WATCH
+      <div className="sv-gate-wrap">
+        <div className="sv-gate amber">
+          <div className="sv-gate-title" style={{ color: "var(--amber)" }}>
+            ⚿ Sign in to watch
           </div>
-          <div
-            style={{ color: "var(--muted)", fontSize: 13, marginTop: 10 }}
-          >
-            THIS SESSION ISN&apos;T OPEN TO ANONYMOUS VIEWERS.
+          <div className="sv-gate-sub">
+            This session isn&apos;t open to anonymous viewers.
           </div>
-          <div style={{ marginTop: 16 }}>
-            <a href={loginUrl()} className="lp-signin-btn">
-              SIGN IN
-            </a>
-          </div>
+          <a href={loginUrl()} className="lp-signin-btn">
+            Sign in
+          </a>
         </div>
       </div>
     );
@@ -407,41 +387,17 @@ export default function SessionViewer({
 
   if (noAccess) {
     return (
-      <div>
-        <Link
-          href="/"
-          className="label"
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 6,
-            color: "var(--muted)",
-            marginBottom: 14,
-          }}
-        >
-          ◂ BACK TO HUD
-        </Link>
-        <div
-          style={{
-            border: "1px solid var(--red)",
-            background: "var(--panel)",
-            padding: "36px 20px",
-            textAlign: "center",
-          }}
-        >
-          <div className="label" style={{ fontSize: 13, color: "var(--red)" }}>
-            ⊘ NO ACCESS
+      <div className="sv-gate-wrap">
+        <div className="sv-gate red">
+          <div className="sv-gate-title" style={{ color: "var(--red)" }}>
+            ⊘ No access
           </div>
-          <div
-            style={{ color: "var(--muted)", fontSize: 13, marginTop: 10 }}
-          >
-            THIS SESSION ISN&apos;T SHARED WITH YOU.
+          <div className="sv-gate-sub">
+            This session isn&apos;t shared with you.
           </div>
-          <div className="label" style={{ marginTop: 16 }}>
-            <Link href="/" style={{ color: "var(--green)" }}>
-              ◂ RETURN TO YOUR SESSIONS
-            </Link>
-          </div>
+          <Link href="/" className="sv-gate-link">
+            ◂ Return to your sessions
+          </Link>
         </div>
       </div>
     );
@@ -451,11 +407,13 @@ export default function SessionViewer({
     <div className="session-page">
       {err && (
         <div
-          className="label"
           style={{
-            border: "1px solid var(--red)",
+            border: "1px solid color-mix(in srgb, var(--red) 45%, var(--hairline))",
+            background: "color-mix(in srgb, var(--red) 6%, var(--panel))",
             color: "var(--red)",
-            padding: "8px 12px",
+            borderRadius: 10,
+            fontSize: 12,
+            padding: "8px 14px",
             marginBottom: 14,
           }}
         >
@@ -1587,12 +1545,15 @@ const TitleBlock = forwardRef<
             style={{
               flex: 1,
               minWidth: 0,
-              fontSize: 18,
+              maxWidth: 520,
+              fontSize: 16,
               fontWeight: 700,
-              border: "1px solid var(--strong)",
-              background: "var(--bg)",
+              fontFamily: "inherit",
+              border: "1px solid var(--hairline)",
+              borderRadius: 10,
+              background: "var(--panel)",
               color: "var(--ink)",
-              padding: "4px 8px",
+              padding: "7px 12px",
               outline: "none",
             }}
           />
@@ -1600,27 +1561,33 @@ const TitleBlock = forwardRef<
             type="button"
             onClick={save}
             disabled={saving}
-            className="label"
             style={{
-              border: "1px solid var(--strong)",
-              background: "var(--strong)",
-              color: "var(--panel)",
-              padding: "0 12px",
+              font: "inherit",
+              fontSize: 12,
+              fontWeight: 700,
+              border: "none",
+              borderRadius: 9,
+              background: "var(--green)",
+              color: "var(--bg)",
+              padding: "0 16px",
               cursor: saving ? "default" : "pointer",
             }}
           >
-            {saving ? "…" : "SAVE"}
+            {saving ? "…" : "Save"}
           </button>
           <button
             type="button"
             onClick={() => setEditing(false)}
             disabled={saving}
-            className="label"
+            aria-label="Cancel rename"
             style={{
+              font: "inherit",
+              fontSize: 13,
               border: "1px solid var(--hairline)",
+              borderRadius: 9,
               background: "transparent",
               color: "var(--muted)",
-              padding: "0 10px",
+              padding: "0 12px",
               cursor: "pointer",
             }}
           >
@@ -1629,7 +1596,7 @@ const TitleBlock = forwardRef<
         </div>
         {err && (
           <div className="label" style={{ color: "var(--red)", marginTop: 4 }}>
-            ⚠ COULD NOT RENAME — TRY AGAIN
+            ⚠ Could not rename — try again
           </div>
         )}
       </div>
