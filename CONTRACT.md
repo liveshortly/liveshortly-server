@@ -164,20 +164,26 @@ is not listed, because it is not spawnable.
 | GET | `/api/hosts` | — | `200 {"hosts":[Host]}` — the caller's ONLINE machines only |
 | GET | `/api/hosts/{id}/stream` | — | `200` SSE command stream (owner only, Bearer) — `404` if the host has not registered |
 
-`POST /api/sessions` gains `{"host_id"?, "cwd"?}`. When `host_id` is set, `agent`
-is read as a **spawnable binary name** (`claude`/`codex`/`gemini`/`ollama`), not a
-framework label — the server maps it to the same `framework`/`capture_mode` the
-CLI would have reported. For `ollama`, `model` names which model to run and MUST
-be one the host registered (empty → the host's first); it is rejected with `400`
-otherwise, and ignored for every other agent. The response carries
+`POST /api/sessions` gains `{"host_id"?, "cwd"?, "bypass_permissions"?}`. When
+`host_id` is set, `agent` is read as a **spawnable binary name**
+(`claude`/`codex`/`gemini`/`ollama`), not a framework label — the server maps it
+to the same `framework`/`capture_mode` the CLI would have reported. For
+`ollama`, `model` names which model to run and MUST be one the host registered
+(empty → the host's first); it is rejected with `400` otherwise, and ignored for
+every other agent. `bypass_permissions` (bool) asks the daemon to run the agent
+unattended — no permission probes; it is relayed as a boolean only (rule 1
+below: never an argv) and the daemon maps it to known flags
+(`live --no-permissions`, plus `claude --dangerously-skip-permissions` /
+`gemini --yolo`). The response carries
 `"spawn": {"host_id","agent","cwd","status":"requested"|"failed","error"?}`.
 `requested` means the command was published, NOT that the agent is up; the
 session page tracks that separately via `agent_connected`.
 
 ### SSE: `GET /api/hosts/{id}/stream` (daemon)
 Frames: `{"type":"connected","host_id"}`, then
-`{"type":"spawn","session_id","agent","cwd","title","model"?}` per web-created
-session (`model` only for `ollama`),
+`{"type":"spawn","session_id","agent","cwd","title","model"?,"bypass_permissions"?}`
+per web-created session (`model` only for `ollama`; `bypass_permissions` a
+boolean the daemon maps to known flags, never an argv),
 plus `: hb` comments every 15s. Each heartbeat refreshes the host record, so the
 machine leaves the picker ~90s after the daemon dies (immediately on a clean
 disconnect).

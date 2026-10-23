@@ -18,9 +18,12 @@ export default function Badge({
         alignItems: "center",
         gap: 6,
         fontSize: fs,
+        fontWeight: 700,
         color: live ? "var(--green)" : "var(--muted)",
-        border: `1px solid ${live ? "var(--green)" : "var(--hairline)"}`,
-        padding: "2px 7px",
+        border: `1px solid ${live ? "var(--green-line)" : "var(--hairline)"}`,
+        background: live ? "var(--green-tint)" : "transparent",
+        borderRadius: 999,
+        padding: "2px 10px",
         whiteSpace: "nowrap",
       }}
     >
@@ -30,8 +33,9 @@ export default function Badge({
         <span
           style={{
             display: "inline-block",
-            width: 7,
-            height: 7,
+            width: 6,
+            height: 6,
+            borderRadius: "50%",
             background: "var(--faint)",
           }}
         />
