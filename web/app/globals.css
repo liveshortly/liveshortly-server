@@ -2328,20 +2328,7 @@ a {
   border-color: var(--strong);
 }
 
-/* ── promo video ── */
-.lp-promo {
-  margin-bottom: 22px;
-}
-.lp-promo-video {
-  display: block;
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  background: #000;
-  border: 1px solid var(--hairline);
-  box-shadow: 0 20px 40px -22px var(--shadow);
-}
-
-/* ── demo window ── */
+/* ── demo window: the hero's film player ── */
 .lp-demo {
   border: 1px solid var(--hairline);
   overflow: hidden;
@@ -2395,110 +2382,45 @@ a {
   font-weight: 700;
   flex-shrink: 0;
 }
-.lp-demo-urlbar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background: var(--panel2);
-  border-bottom: 1px solid var(--hairline);
-  font-size: 10px;
-  color: var(--muted);
-}
-.lp-demo-body {
-  padding: 16px;
-  min-height: 168px;
+/* The film is dark in both themes; the screen sits on the film's own edge
+   colour so loading never shows a hard black box inside the window. */
+.lp-film-screen {
   position: relative;
+  aspect-ratio: 16 / 9;
+  background: #0a0c0e;
 }
-.lp-demo-status {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 9.5px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--muted);
-  margin-bottom: 14px;
-  font-weight: 700;
-}
-.lp-demo-scene {
-  position: absolute;
-  left: 16px;
-  right: 16px;
-  top: 42px;
-}
-@keyframes lpFadeA {
-  0%,
-  42% {
-    opacity: 1;
-  }
-  50%,
-  100% {
-    opacity: 0;
-  }
-}
-@keyframes lpFadeB {
-  0%,
-  42% {
-    opacity: 0;
-  }
-  50%,
-  92% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-  }
-}
-.lp-demo-scene.a {
-  animation: lpFadeA 8s ease-in-out infinite;
-}
-.lp-demo-scene.b {
-  animation: lpFadeB 8s ease-in-out infinite;
-}
-.lp-demo-bubble {
-  border: 1px solid var(--strong);
-  border-right: 3px solid var(--strong);
-  background: color-mix(in srgb, var(--amber) 6%, var(--panel2));
-  padding: 8px 12px;
-  font-size: 11px;
-  color: var(--ink);
-}
-.lp-demo-who {
+.lp-film-video {
   display: block;
-  font-size: 9px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-weight: 700;
-  color: var(--strong);
-  margin-bottom: 4px;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  cursor: pointer;
 }
-.lp-demo-tool {
+.lp-film-watch {
+  position: absolute;
+  left: 14px;
+  bottom: 14px;
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 10.5px;
-  color: var(--muted);
-  padding: 6px 0;
-}
-.lp-demo-tool .w {
-  color: var(--admin);
+  padding: 8px 13px;
+  border: 1px solid rgba(52, 217, 140, 0.45);
+  border-radius: 999px;
+  background: rgba(10, 12, 14, 0.72);
+  backdrop-filter: blur(6px);
+  color: #eceff3;
+  font: inherit;
+  font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
-  font-size: 9px;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.1em;
+  cursor: pointer;
 }
-.lp-demo-resp {
-  border: 1px solid var(--green);
-  border-left: 3px solid var(--green);
-  background: var(--panel2);
-  padding: 8px 12px;
-  font-size: 11px;
-  margin-top: 8px;
-  color: var(--ink);
+.lp-film-watch span {
+  color: #34d98c;
 }
-.lp-demo-resp .lp-demo-who {
-  color: var(--green);
+.lp-film-watch:hover {
+  border-color: #34d98c;
 }
 .lp-demo-foot {
   display: flex;
@@ -2508,16 +2430,44 @@ a {
   border-top: 1px solid var(--hairline);
   background: var(--panel);
 }
-.lp-demo-play {
-  width: 22px;
+.lp-demo-play,
+.lp-film-btn {
   height: 22px;
-  border: 1px solid var(--hairline);
   display: flex;
   align-items: center;
   justify-content: center;
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.lp-demo-play {
+  width: 22px;
   font-size: 9px;
   color: var(--ink);
-  flex-shrink: 0;
+}
+.lp-film-btn {
+  padding: 0 9px;
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--faint);
+}
+.lp-film-btn.icon {
+  width: 22px;
+  padding: 0;
+}
+.lp-film-btn.on {
+  color: var(--green);
+  border-color: var(--green-line);
+}
+.lp-demo-play:hover,
+.lp-film-btn:hover {
+  color: var(--ink);
+  border-color: var(--strong);
 }
 .lp-demo-caption {
   font-size: 9.5px;
@@ -2526,24 +2476,39 @@ a {
   color: var(--faint);
   flex-shrink: 0;
 }
+/* A 22px-tall hit area around the 4px track, so seeking isn't pixel-hunting. */
+.lp-film-seek {
+  flex: 1;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
 .lp-demo-track {
   flex: 1;
   height: 4px;
   background: var(--hairline);
+  border-radius: 2px;
   overflow: hidden;
-}
-@keyframes lpProgress {
-  0% {
-    width: 0%;
-  }
-  100% {
-    width: 100%;
-  }
 }
 .lp-demo-fill {
   height: 100%;
   background: var(--green);
-  animation: lpProgress 8s linear infinite;
+}
+/* Fullscreen takes the whole window, so the control strip comes along. */
+.lp-film:fullscreen {
+  display: flex;
+  flex-direction: column;
+  border: 0;
+  border-radius: 0;
+}
+.lp-film:fullscreen .lp-film-screen {
+  flex: 1;
+  min-height: 0;
+  aspect-ratio: auto;
+}
+.lp-film:fullscreen .lp-film-video {
+  object-fit: contain;
 }
 
 /* ── proof strip ── */
