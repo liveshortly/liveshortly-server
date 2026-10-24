@@ -2328,6 +2328,19 @@ a {
   border-color: var(--strong);
 }
 
+/* ── promo video ── */
+.lp-promo {
+  margin-bottom: 22px;
+}
+.lp-promo-video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  border: 1px solid var(--hairline);
+  box-shadow: 0 20px 40px -22px var(--shadow);
+}
+
 /* ── demo window ── */
 .lp-demo {
   border: 1px solid var(--hairline);
