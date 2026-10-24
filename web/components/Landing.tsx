@@ -24,9 +24,11 @@ const TYPEWRITER_WORDS = ["write software", "collab", "blog"];
 const SEARCH_DEBOUNCE_MS = 300;
 const RECENT_LIMIT = 24;
 const RECENT_SHOWN = 8;
+const FILM_SRC = "/promo/liveshortly-45s.mp4";
+const FILM_POSTER = "/promo/liveshortly-45s.jpg";
 
 /** Full-page landing view for anonymous visitors: the v3 browse shell — product
- *  pitch and a looping demo on the right, the real public feed underneath, and
+ *  pitch and the product film on the right, the real public feed underneath, and
  *  a persistent sidebar of what's live, who's publishing and which tags run hot.
  *  Every number and row on this page comes from the API; nothing is fabricated. */
 export default function Landing() {
@@ -180,8 +182,6 @@ function LandingInner() {
           )}
 
           <MarketingHero onSignIn={signIn} liveCount={live.length} />
-
-          <PromoVideo />
 
           <Proof stats={stats} liveOwners={liveOwners} liveCount={live.length} />
 
@@ -475,41 +475,77 @@ function MarketingHero({
         </div>
       </div>
 
-      <Demo />
+      <Film />
     </div>
   );
 }
 
-/** The 45s promo film. Muted autoplay (browsers block autoplay with sound) with
- *  native controls so visitors can unmute or scrub; metadata-only preload keeps
- *  the first paint light. */
-function PromoVideo() {
-  return (
-    <section className="lp-promo" aria-label="LiveShortly in 45 seconds">
-      <div className="lp-sec-head">
-        <h2 className="lp-sec-title">▶ LiveShortly in 45 seconds</h2>
-      </div>
-      <video
-        className="lp-promo-video"
-        src="/promo/liveshortly-45s.mp4"
-        poster="/promo/liveshortly-45s.jpg"
-        autoPlay
-        muted
-        loop
-        playsInline
-        controls
-        preload="metadata"
-      />
-    </section>
-  );
-}
+/** The 45s product film, playing inside the hero's window so the pitch and the
+ *  picture read as one piece. It starts muted — the only autoplay browsers
+ *  allow — and loops; the window's footer is its control strip. Visitors who
+ *  ask for reduced motion get the poster and press play themselves. */
+function Film() {
+  const boxRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  // Starts false so the Play button doesn't flash up before autoplay kicks in.
+  const [paused, setPaused] = useState(false);
+  const [muted, setMuted] = useState(true);
+  const [time, setTime] = useState(0);
+  const [duration, setDuration] = useState(0);
 
-/** A self-contained, looping preview of the product: prompt in, tools + response
- *  out. Illustrative by design (it is the pitch, not the feed) — every other
- *  number and row on this page is live API data. */
-function Demo() {
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    // React applies `muted` as a property, never the attribute; pin it before
+    // play() since being muted is what exempts us from autoplay blocking.
+    v.muted = true;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setPaused(true);
+      return;
+    }
+    // Still refused (e.g. iOS Low Power Mode): fall back to poster + Play.
+    v.play().catch(() => setPaused(true));
+  }, []);
+
+  const togglePlay = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    if (v.paused) v.play().catch(() => {});
+    else v.pause();
+  };
+
+  const toggleSound = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.muted = !v.muted;
+    if (!v.muted && v.paused) v.play().catch(() => {});
+  };
+
+  const seek = (e: React.MouseEvent<HTMLDivElement>) => {
+    const v = videoRef.current;
+    if (!v || !duration) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    v.currentTime = ((e.clientX - r.left) / r.width) * duration;
+  };
+
+  const fullscreen = () => {
+    const box = boxRef.current;
+    const v = videoRef.current as
+      | (HTMLVideoElement & { webkitEnterFullscreen?: () => void })
+      | null;
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    } else if (box?.requestFullscreen) {
+      // The whole window goes fullscreen so these controls come along.
+      box.requestFullscreen().catch(() => {});
+    } else {
+      // iPhone Safari has no element fullscreen — only its native player.
+      v?.webkitEnterFullscreen?.();
+    }
+  };
+
   return (
-    <div className="lp-demo">
+    <div className="lp-demo lp-film" ref={boxRef}>
       <div className="lp-demo-titlebar">
         <div className="lp-demo-dots" aria-hidden>
           <span className="lp-demo-dot r" />
@@ -519,44 +555,81 @@ function Demo() {
         <span className="lp-demo-title">LiveShortly · How it works</span>
         <span className="lp-demo-badge">
           <span className="live-dot" aria-hidden />
-          Demo
+          Film
         </span>
       </div>
-      <div className="lp-demo-urlbar">🔒 liveshortly.com/session/lucid-cobra-6110</div>
-      <div className="lp-demo-body">
-        <div className="lp-demo-status">
-          <span className="live-dot" aria-hidden />
-          Live lucid-cobra-6110 · claude-opus-4-8
-        </div>
-
-        <div className="lp-demo-scene a">
-          <div className="lp-demo-bubble">
-            <span className="lp-demo-who">You</span>
-            build the JWT auth middleware
-          </div>
-        </div>
-        <div className="lp-demo-scene b">
-          <div className="lp-demo-tool">
-            <span className="w">Wrote</span>api/authn.go{" "}
-            <span style={{ color: "var(--green)" }}>+187</span>
-          </div>
-          <div className="lp-demo-resp">
-            <span className="lp-demo-who">Claude</span>
-            done — Authn now verifies Bearer + cookie tokens on every route
-          </div>
-        </div>
+      <div className="lp-film-screen">
+        <video
+          ref={videoRef}
+          className="lp-film-video"
+          src={FILM_SRC}
+          poster={FILM_POSTER}
+          muted
+          loop
+          playsInline
+          preload="metadata"
+          aria-label="LiveShortly in 45 seconds"
+          onClick={togglePlay}
+          onPlay={() => setPaused(false)}
+          onPause={() => setPaused(true)}
+          onVolumeChange={(e) => setMuted(e.currentTarget.muted)}
+          onTimeUpdate={(e) => setTime(e.currentTarget.currentTime)}
+          onDurationChange={(e) => setDuration(e.currentTarget.duration)}
+        />
+        {paused && (
+          <button type="button" className="lp-film-watch" onClick={togglePlay}>
+            <span aria-hidden>▶</span>
+            Play{duration > 0 && ` · ${clock(duration)}`}
+          </button>
+        )}
       </div>
       <div className="lp-demo-foot">
-        <span className="lp-demo-play" aria-hidden>
-          ▶
+        <button
+          type="button"
+          className="lp-demo-play"
+          onClick={togglePlay}
+          aria-label={paused ? "Play" : "Pause"}
+        >
+          {paused ? "▶" : "❚❚"}
+        </button>
+        <span className="lp-demo-caption tnum">
+          {clock(time)} / {clock(duration)}
         </span>
-        <span className="lp-demo-caption">Open the URL — watch it live</span>
-        <div className="lp-demo-track">
-          <div className="lp-demo-fill" />
+        <div className="lp-film-seek" onClick={seek}>
+          <div className="lp-demo-track">
+            <div
+              className="lp-demo-fill"
+              style={{ width: `${duration > 0 ? (time / duration) * 100 : 0}%` }}
+            />
+          </div>
         </div>
+        <button
+          type="button"
+          className={muted ? "lp-film-btn" : "lp-film-btn on"}
+          onClick={toggleSound}
+        >
+          {muted ? "Unmute" : "Mute"}
+        </button>
+        <button
+          type="button"
+          className="lp-film-btn icon"
+          onClick={fullscreen}
+          aria-label="Full screen"
+          title="Full screen"
+        >
+          <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+            <path d="M1 4.5V1h3.5M7.5 1H11v3.5M11 7.5V11H7.5M4.5 11H1V7.5" />
+          </svg>
+        </button>
       </div>
     </div>
   );
+}
+
+/** m:ss for the film's time readout. */
+function clock(sec: number): string {
+  const s = Number.isFinite(sec) ? Math.floor(sec) : 0;
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
 
 /* ────────────────────────────────────────────────────────────────────────
