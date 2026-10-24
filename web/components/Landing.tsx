@@ -181,6 +181,8 @@ function LandingInner() {
 
           <MarketingHero onSignIn={signIn} liveCount={live.length} />
 
+          <PromoVideo />
+
           <Proof stats={stats} liveOwners={liveOwners} liveCount={live.length} />
 
           {searching ? (
@@ -475,6 +477,30 @@ function MarketingHero({
 
       <Demo />
     </div>
+  );
+}
+
+/** The 45s promo film. Muted autoplay (browsers block autoplay with sound) with
+ *  native controls so visitors can unmute or scrub; metadata-only preload keeps
+ *  the first paint light. */
+function PromoVideo() {
+  return (
+    <section className="lp-promo" aria-label="LiveShortly in 45 seconds">
+      <div className="lp-sec-head">
+        <h2 className="lp-sec-title">▶ LiveShortly in 45 seconds</h2>
+      </div>
+      <video
+        className="lp-promo-video"
+        src="/promo/liveshortly-45s.mp4"
+        poster="/promo/liveshortly-45s.jpg"
+        autoPlay
+        muted
+        loop
+        playsInline
+        controls
+        preload="metadata"
+      />
+    </section>
   );
 }
 
