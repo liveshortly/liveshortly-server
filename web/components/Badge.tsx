@@ -1,46 +1,56 @@
-import type { SessionStatus } from "@/lib/api";
+import type { Session } from "@/lib/api";
+import { sessionState } from "@/lib/sessionState";
 
-/** Status badge. LIVE = green pulsing dot; ENDED = muted square. */
+/**
+ * Status badge — the status dot with its name next to it.
+ *
+ * It used to know two states (LIVE / ENDED) while SessionStatusDot knew four,
+ * so a published session showed a blue dot in the sidebar and the word ENDED
+ * in its own header. Both now read lib/sessionState, and the badge draws the
+ * same .ws-status-dot shapes, so the two cannot drift apart again.
+ *
+ * A caller that only has a status still works: visibility and published_at are
+ * optional, and their absence simply means live-or-ended.
+ */
 export default function Badge({
-  status,
+  s,
   size = "sm",
 }: {
-  status: SessionStatus;
+  s: Pick<Session, "status" | "visibility" | "published_at">;
   size?: "sm" | "md";
 }) {
-  const live = status === "live";
-  const fs = size === "md" ? 12 : 11;
+  const { state, display } = sessionState(s);
+  const color =
+    state === "live"
+      ? "var(--green)"
+      : state === "published"
+        ? "var(--blue)"
+        : state === "shared"
+          ? "var(--amber)"
+          : "var(--muted)";
   return (
     <span
       className="label tnum"
       style={{
         display: "inline-flex",
         alignItems: "center",
-        gap: 6,
-        fontSize: fs,
+        gap: "var(--space-1)",
+        fontSize: size === "md" ? "var(--text-sm)" : "var(--text-xs)",
         fontWeight: 700,
-        color: live ? "var(--green)" : "var(--muted)",
-        border: `1px solid ${live ? "var(--green-line)" : "var(--hairline)"}`,
-        background: live ? "var(--green-tint)" : "transparent",
-        borderRadius: 999,
+        color,
+        border: `1px solid ${state === "ended" ? "var(--hairline)" : color}`,
+        background:
+          state === "ended"
+            ? "transparent"
+            : `color-mix(in srgb, ${color} 10%, transparent)`,
+        borderRadius: "var(--radius-pill)",
         padding: "2px 10px",
         whiteSpace: "nowrap",
       }}
     >
-      {live ? (
-        <span className="live-dot" />
-      ) : (
-        <span
-          style={{
-            display: "inline-block",
-            width: 6,
-            height: 6,
-            borderRadius: "50%",
-            background: "var(--faint)",
-          }}
-        />
-      )}
-      {live ? "LIVE" : "ENDED"}
+      <span className={`ws-status-dot ws-status-dot-inline ws-status-dot-${state}`}
+        aria-hidden="true" />
+      {display}
     </span>
   );
 }
