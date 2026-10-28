@@ -6,7 +6,8 @@ import type { Session } from "@/lib/api";
 import { fmtInt, shortId, tileBg, timeAgo } from "@/lib/utils";
 
 /**
- * A dashboard session card — the card-grid counterpart to a SessionTable row.
+ * A dashboard session card — the card-grid rendering of a session, used by
+ * the profile page.
  * Header (status + model), title + short id, optional hero snippet, a meta
  * footer (events · views · age), tags, and an optional action row (publish /
  * share for owned sessions) or access badge (for shared sessions).
