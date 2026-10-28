@@ -265,7 +265,7 @@ function FeedInner({ showPlaceholderHero = true }: FeedProps) {
                     >
                       #{tag}
                     </span>
-                    <span className="tnum" style={{ color: "var(--faint)" }}>
+                    <span className="tnum" style={{ color: "var(--muted)" }}>
                       {fmtInt(count)}
                     </span>
                   </button>
@@ -283,7 +283,7 @@ function FeedInner({ showPlaceholderHero = true }: FeedProps) {
       <div ref={sentinel} style={{ height: 1 }} />
       <div
         className="label"
-        style={{ textAlign: "center", color: "var(--faint)", padding: "18px 0" }}
+        style={{ textAlign: "center", color: "var(--muted)", padding: "18px 0" }}
       >
         {loading
           ? "LOADING…"
@@ -381,7 +381,7 @@ function Hero({ session }: { session: Session | null }) {
           </div>
 
           {session.tags && session.tags.length > 0 && (
-            <div className="label" style={{ marginTop: 14, color: "var(--faint)" }}>
+            <div className="label" style={{ marginTop: 14, color: "var(--muted)" }}>
               #{session.tags.slice(0, 6).join("  #")}
             </div>
           )}
@@ -417,7 +417,7 @@ function Hero({ session }: { session: Session | null }) {
             overflow: "hidden",
           }}
         >
-          <div className="label" style={{ color: "var(--faint)" }}>
+          <div className="label" style={{ color: "var(--muted)" }}>
             {live ? "◉ live preview" : "› session preview"}
           </div>
           <div
@@ -436,7 +436,7 @@ function Hero({ session }: { session: Session | null }) {
                 <span style={{ color: "var(--green)" }}>›</span> {session.hero}
               </>
             ) : (
-              <span style={{ color: "var(--faint)" }}>
+              <span style={{ color: "var(--muted)" }}>
                 Open the session to watch the event stream.
               </span>
             )}
@@ -619,7 +619,7 @@ function SectionHead({
         {title}
       </h2>
       {sub && (
-        <span className="label" style={{ color: "var(--faint)" }}>
+        <span className="label" style={{ color: "var(--muted)" }}>
           {sub}
         </span>
       )}
@@ -774,7 +774,7 @@ function SearchBox({
             border: "none",
             background: "transparent",
             cursor: "pointer",
-            color: "var(--faint)",
+            color: "var(--muted)",
             fontSize: 13,
           }}
         >

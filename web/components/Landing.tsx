@@ -141,7 +141,7 @@ function LandingInner() {
               style={{
                 border: "none",
                 background: "none",
-                color: "var(--faint)",
+                color: "var(--muted)",
                 cursor: "pointer",
                 fontSize: 13,
               }}

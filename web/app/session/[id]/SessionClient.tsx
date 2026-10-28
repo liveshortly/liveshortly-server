@@ -516,7 +516,7 @@ export default function SessionViewer({
                 </span>
               ))}
             <span>Session · {frameworkLabel(meta?.framework)}</span>
-            <span style={{ color: "var(--faint)" }}>{shortId(id)}</span>
+            <span style={{ color: "var(--muted)" }}>{shortId(id)}</span>
           </div>
 
           <TitleBlock
@@ -615,7 +615,7 @@ export default function SessionViewer({
                 ⑃ Forks · {meta.fork_count}
               </span>
             )}
-            {meta && <Badge status={meta.status} size="md" />}
+            {meta && <Badge s={meta} size="md" />}
             </div>
             {/* Desktop action row — right-aligned under the meta/badges.
                 Hidden on mobile (≤860px), where the ⚙ sheet takes over. */}
@@ -737,7 +737,7 @@ export default function SessionViewer({
             ) : (
               <div
                 className="label"
-                style={{ color: "var(--faint)", textAlign: "center", padding: "8px 4px" }}
+                style={{ color: "var(--muted)", textAlign: "center", padding: "8px 4px" }}
               >
                 Session ended — chat closed
               </div>

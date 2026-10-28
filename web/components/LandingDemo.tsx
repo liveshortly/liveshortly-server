@@ -197,7 +197,7 @@ export default function LandingDemo() {
             {termOut >= 2 && (
               <div style={{ color: "var(--ink)" }}>
                 ● capturing <span style={{ color: "var(--amber)" }}>claude code</span>{" "}
-                <span style={{ color: "var(--faint)" }}>· pty</span>
+                <span style={{ color: "var(--muted)" }}>· pty</span>
               </div>
             )}
             {termOut >= 3 && (
@@ -216,14 +216,14 @@ export default function LandingDemo() {
               </div>
             )}
             {termOut >= 4 && (
-              <div style={{ color: "var(--faint)", marginTop: 6 }}>
+              <div style={{ color: "var(--muted)", marginTop: 6 }}>
                 ▸ share the link — anyone can watch, live
               </div>
             )}
             {inject && (
               <div style={{ color: "var(--amber)", marginTop: 10 }}>
                 ↳ viewer: {CHAT}{" "}
-                <span style={{ color: "var(--faint)" }}>· injected into context</span>
+                <span style={{ color: "var(--muted)" }}>· injected into context</span>
                 <Cursor />
               </div>
             )}
@@ -288,7 +288,7 @@ export default function LandingDemo() {
                 >
                   <span style={{ color: "var(--red)" }}>✎</span> Wrote{" "}
                   <span style={{ color: "var(--ink)" }}>api/authn.go</span>{" "}
-                  <span style={{ color: "var(--faint)" }}>+187</span>
+                  <span style={{ color: "var(--muted)" }}>+187</span>
                 </div>
               )}
               {events >= 3 && (
@@ -415,7 +415,7 @@ function MiniBar({ label }: { label: string }) {
       style={{
         padding: "7px 12px",
         borderBottom: "1px solid var(--hairline)",
-        color: "var(--faint)",
+        color: "var(--muted)",
         background: "var(--panel)",
       }}
     >

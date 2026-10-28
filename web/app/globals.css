@@ -10,17 +10,27 @@
   --strong: #1b1c1e;
   --grad-hero: linear-gradient(135deg, #cfd3d8, #e7e8ea);
 
-  /* Text */
+  /* Text.
+     --faint is NOT a text colour. At #94979c it measures 2.39:1 on --bg and
+     2.66:1 on --panel, which fails WCAG AA even for large text. Darkening it
+     far enough to pass lands on #65686e — two points off --muted — so the two
+     tiers would collapse into one. It keeps its job on dots, hairlines and
+     disabled marks; text uses --ink or --muted. */
   --ink: #1b1c1e;
   --muted: #63666b;
   --faint: #94979c;
 
-  /* Signals */
-  --green: #1f7a4d;
-  --red: #c0392b;
-  --amber: #a9810f;
-  --admin: #7c3aed; /* super-admin surface accent (violet) */
-  --blue: #2f6fe0; /* published-session status dot */
+  /* Signals. Each is the darkest value that keeps its hue and clears 4.5:1
+     against BOTH grounds (--bg #e7e8ea and --panel #f3f4f5) — a signal colour
+     lands on either depending on the surface, so the worse of the two governs.
+     Previously --amber (2.94) and --blue (3.83) failed outright and --green
+     (4.34) / --red (4.44) passed only as large text. Dark mode already cleared
+     AA everywhere and is unchanged. */
+  --green: #1e774b; /* was #1f7a4d — 4.34 → 4.51 */
+  --red: #be382b; /* was #c0392b — 4.44 → 4.52 */
+  --amber: #83640c; /* was #a9810f — 2.94 → 4.52 */
+  --admin: #7c3aed; /* super-admin surface accent (violet) — 4.65 */
+  --blue: #2062d8; /* published-session status dot; was #2f6fe0 — 3.83 → 4.51 */
 
   --shadow: rgba(20, 22, 26, 0.16);
 
@@ -28,6 +38,38 @@
 
   --font-mono: "JetBrains Mono", "IBM Plex Mono", ui-monospace,
     "SFMono-Regular", Menlo, monospace;
+
+  /* ── Scales ───────────────────────────────────────────────────────────
+     Counted across the .tsx sources before these existed: 18 distinct font
+     sizes, 16 distinct gaps and 7 radii, nearly all written inline. Three
+     values for one job (gap 6 / 8 / 10, radius 8 / 9 / 10 / 12, 999 vs 9999)
+     is why two components built a week apart do not line up. New work uses
+     these; existing inline numbers are converted as their component is
+     next touched, not in one sweep. */
+
+  /* Type: display, title, section, body, dense, meta, label. */
+  --text-xs: 11px; /* uppercase label, with --tracking-label */
+  --text-sm: 12px; /* meta, timestamps */
+  --text-md: 13px; /* dense body, table cells */
+  --text-base: 15px; /* body — the reading size */
+  --text-lg: 18px; /* section heading */
+  --text-xl: 24px; /* page title */
+  --text-2xl: 32px; /* display */
+  --tracking-label: 0.08em;
+
+  /* Space. */
+  --space-1: 4px; /* icon ↔ label */
+  --space-2: 8px; /* inside a control */
+  --space-3: 12px; /* stacked rows */
+  --space-4: 16px; /* card padding */
+  --space-5: 24px; /* between cards */
+  --space-6: 32px; /* between sections */
+  --space-7: 48px; /* page gutter */
+
+  /* Radius. */
+  --radius-sm: 2px; /* code, inline chips */
+  --radius-md: 10px; /* cards, panels, inputs, menus */
+  --radius-pill: 999px; /* badges, dots, avatars */
 }
 
 /* Night mode — a warm, low-glare terminal palette. The semantic roles invert
@@ -277,7 +319,7 @@ a {
   color: var(--green);
 }
 .ws-head-arrow {
-  color: var(--faint);
+  color: var(--muted);
   font-size: 11px;
 }
 .ws-head-link:hover .ws-head-arrow {
@@ -365,7 +407,7 @@ a {
 }
 .ws-profile-email {
   font-size: 10px;
-  color: var(--faint);
+  color: var(--muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -518,7 +560,7 @@ a {
   border: 1px solid var(--hairline);
   background: var(--bg);
   padding: 9px 16px;
-  color: var(--faint);
+  color: var(--muted);
   font-size: 12px;
 }
 .v3-searchpill input {
@@ -586,7 +628,7 @@ a {
   font-size: 9.5px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--faint);
+  color: var(--muted);
   border: 1px dashed var(--hairline);
   padding: 4px 10px;
   white-space: nowrap;
@@ -868,7 +910,7 @@ a {
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--faint);
+  color: var(--muted);
 }
 .v3-sec-link:hover {
   color: var(--ink);
@@ -965,7 +1007,7 @@ a {
 }
 .hf-card-meta {
   font-size: 10px;
-  color: var(--faint);
+  color: var(--muted);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -984,7 +1026,7 @@ a {
   font-size: 10.5px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--faint);
+  color: var(--muted);
 }
 .v3-rp-title {
   font-size: 10.5px;
@@ -1013,7 +1055,7 @@ a {
   font-size: 9px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--faint);
+  color: var(--muted);
   margin-top: 2px;
 }
 @media (max-width: 1080px) {
@@ -1183,7 +1225,7 @@ a {
 }
 .hud-row-sub {
   font-size: 10px;
-  color: var(--faint);
+  color: var(--muted);
   margin-top: 2px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1233,7 +1275,7 @@ a {
 }
 .hud-row-events {
   font-size: 10px;
-  color: var(--faint);
+  color: var(--muted);
   text-align: right;
   width: 64px;
   flex-shrink: 0;
@@ -1267,7 +1309,7 @@ a {
 }
 .hud-rp-activity-time {
   font-size: 9px;
-  color: var(--faint);
+  color: var(--muted);
   margin-top: 3px;
 }
 .hud-rp-bar-row {
@@ -1617,7 +1659,7 @@ a {
 }
 .mfeed-time {
   font-size: 9.5px;
-  color: var(--faint);
+  color: var(--muted);
   margin-left: auto;
   flex-shrink: 0;
 }
@@ -1952,7 +1994,7 @@ a {
   border: 1px solid var(--hairline);
   background: var(--bg);
   padding: 9px 16px;
-  color: var(--faint);
+  color: var(--muted);
   font-size: 12px;
 }
 .lp-searchpill input {
@@ -2040,7 +2082,7 @@ a {
   border: 1px solid var(--hairline);
   background: var(--bg);
   padding: 7px 10px;
-  color: var(--faint);
+  color: var(--muted);
   font-size: 10.5px;
   font-family: inherit;
   text-align: left;
@@ -2051,7 +2093,7 @@ a {
   font-size: 9px;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: var(--faint);
+  color: var(--muted);
   font-weight: 700;
 }
 .lp-sb-group-label.live {
@@ -2097,7 +2139,7 @@ a {
 }
 .lp-sb-row-main .s {
   font-size: 9.5px;
-  color: var(--faint);
+  color: var(--muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2134,7 +2176,7 @@ a {
 }
 .lp-sb-creator-meta {
   font-size: 8.5px;
-  color: var(--faint);
+  color: var(--muted);
   margin-top: 1px;
 }
 .lp-sb-tag-row {
@@ -2155,12 +2197,12 @@ a {
 }
 .lp-sb-tag-count {
   font-size: 9px;
-  color: var(--faint);
+  color: var(--muted);
 }
 .lp-sb-empty {
   padding: 6px 14px 10px;
   font-size: 9.5px;
-  color: var(--faint);
+  color: var(--muted);
   line-height: 1.5;
 }
 .lp-sb-signin {
@@ -2184,7 +2226,7 @@ a {
 }
 .lp-sb-signin-sub {
   font-size: 9.5px;
-  color: var(--faint);
+  color: var(--muted);
   text-align: center;
   margin-top: 8px;
   line-height: 1.5;
@@ -2313,7 +2355,7 @@ a {
 .lp-code button {
   border: 1px solid var(--hairline);
   background: none;
-  color: var(--faint);
+  color: var(--muted);
   font-family: inherit;
   font-size: 9px;
   text-transform: uppercase;
@@ -2366,7 +2408,7 @@ a {
   font-size: 9.5px;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: var(--faint);
+  color: var(--muted);
   font-weight: 700;
   flex: 1;
   text-align: center;
@@ -2454,7 +2496,7 @@ a {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--faint);
+  color: var(--muted);
 }
 .lp-film-btn.icon {
   width: 22px;
@@ -2473,7 +2515,7 @@ a {
   font-size: 9.5px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--faint);
+  color: var(--muted);
   flex-shrink: 0;
 }
 /* A 22px-tall hit area around the 4px track, so seeking isn't pixel-hunting. */
@@ -2536,7 +2578,7 @@ a {
   font-size: 9.5px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--faint);
+  color: var(--muted);
 }
 .lp-proof-sep {
   width: 1px;
@@ -2596,7 +2638,7 @@ a {
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--faint);
+  color: var(--muted);
 }
 .lp-sec-link:hover {
   color: var(--ink);
@@ -2693,7 +2735,7 @@ a {
 }
 .lp-card-meta {
   font-size: 9.5px;
-  color: var(--faint);
+  color: var(--muted);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -2712,7 +2754,7 @@ a {
   font-size: 10.5px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--faint);
+  color: var(--muted);
 }
 
 /* ── how it works ── */
@@ -2841,7 +2883,7 @@ a {
   text-transform: uppercase;
   letter-spacing: 0.06em;
   font-weight: 700;
-  color: var(--faint);
+  color: var(--muted);
   border: 1px solid var(--hairline);
   background: none;
   font-family: inherit;
@@ -2855,7 +2897,7 @@ a {
 .lp-how-sub {
   margin-top: 10px;
   font-size: 9.5px;
-  color: var(--faint);
+  color: var(--muted);
 }
 .lp-how-badges {
   display: flex;
@@ -2934,7 +2976,7 @@ a {
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--faint);
+  color: var(--muted);
 }
 .lp-foot a {
   color: var(--muted);
@@ -3117,7 +3159,7 @@ a {
 }
 .sv-panel-sub {
   font-size: 10.5px;
-  color: var(--faint);
+  color: var(--muted);
   margin-top: 2px;
 }
 .sv-panel-h {
@@ -3137,7 +3179,7 @@ a {
   padding: 3px 0;
 }
 .sv-info-row dt {
-  color: var(--faint);
+  color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   font-size: 9px;
@@ -3204,11 +3246,11 @@ a {
 }
 .sv-watch-sub {
   font-size: 9.5px;
-  color: var(--faint);
+  color: var(--muted);
 }
 .sv-watch-empty {
   font-size: 10px;
-  color: var(--faint);
+  color: var(--muted);
   line-height: 1.6;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -3434,7 +3476,7 @@ a {
   color: var(--amber);
 }
 .bubble-time {
-  color: var(--faint);
+  color: var(--muted);
   font-weight: 400;
 }
 
@@ -3498,7 +3540,7 @@ a {
   color: var(--amber);
 }
 .sys-pill .sp-time {
-  color: var(--faint);
+  color: var(--muted);
 }
 
 /* Collapsible work block (tool calls / file writes between a prompt and its response) */
@@ -3527,7 +3569,7 @@ a {
   font-family: inherit;
 }
 .work-chevron {
-  color: var(--faint);
+  color: var(--muted);
   width: 10px;
   flex-shrink: 0;
   display: inline-block;
@@ -3551,7 +3593,7 @@ a {
 }
 .work-dur {
   margin-left: auto;
-  color: var(--faint);
+  color: var(--muted);
 }
 .work-body {
   border-top: 1px solid var(--hairline);
@@ -3600,7 +3642,7 @@ a {
 }
 .work-step .wtime {
   margin-left: auto;
-  color: var(--faint);
+  color: var(--muted);
   font-size: 10px;
   flex-shrink: 0;
 }
@@ -3788,7 +3830,7 @@ a {
   white-space: nowrap;
 }
 .ob-cmd-prompt {
-  color: var(--faint);
+  color: var(--muted);
   user-select: none;
 }
 .ob-cmd-copy {
@@ -3831,17 +3873,48 @@ a {
   }
 }
 
-/* ── sidebar row status dot (replaces the swatch icon) ── */
+/* ── session status dot ──────────────────────────────────────────────────
+   Four states that used to differ by hue alone. Hue is not enough: in
+   greyscale, at 10px, or for a viewer with red-green deficiency the rows stop
+   parsing. Each state now carries a SHAPE and colour only reinforces it —
+   filled circle, filled square, hollow ring, hairline ring.
+
+   Only live animates. Three competing blinks in one list is what made the
+   sessions page feel restless. */
 .ws-status-dot {
   flex-shrink: 0;
   width: 10px;
   height: 10px;
-  border-radius: 50%;
-  background: var(--faint);
+  box-sizing: border-box;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  border: 1px solid var(--faint);
 }
 .ws-status-dot-live {
   background: var(--green);
+  border-color: var(--green);
   animation: liveBlink 1.4s ease-in-out infinite;
+}
+/* Square — the only right-angled mark in the set. */
+.ws-status-dot-published {
+  background: var(--blue);
+  border-color: var(--blue);
+  border-radius: var(--radius-sm);
+}
+/* Hollow ring, heavier than the ended hairline. */
+.ws-status-dot-shared {
+  background: transparent;
+  border: 2px solid var(--amber);
+}
+.ws-status-dot-ended {
+  background: transparent;
+  border: 1px solid var(--faint);
+}
+/* Inside a badge the dot sits beside 11px text, where 10px reads as a bullet
+   rather than a status mark. */
+.ws-status-dot-inline {
+  width: 7px;
+  height: 7px;
 }
 
 /* ── profile dropdown menu (topbar + sidebar footer) ── */
@@ -4127,7 +4200,7 @@ a {
 }
 .pub-opt-sub {
   font-size: 10px;
-  color: var(--faint);
+  color: var(--muted);
   margin-top: 2px;
   line-height: 1.4;
 }
@@ -4287,7 +4360,7 @@ a {
   gap: 8px 16px;
   padding: 20px 24px;
   border-top: 1px solid var(--hairline);
-  color: var(--faint);
+  color: var(--muted);
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -4455,7 +4528,7 @@ a {
   color: var(--ink);
 }
 .s4-page-title .tnum {
-  color: var(--faint);
+  color: var(--muted);
   font-weight: 600;
   font-size: 15px;
   margin-left: 6px;
@@ -4547,7 +4620,7 @@ a {
 }
 .s4-tab .n {
   font-size: 9.5px;
-  color: var(--faint);
+  color: var(--muted);
   background: var(--bg);
   border: 1px solid var(--hairline);
   padding: 1px 6px;
@@ -4570,7 +4643,7 @@ a {
   background: var(--panel2);
   padding: 7px 12px;
   font-size: 11.5px;
-  color: var(--faint);
+  color: var(--muted);
 }
 .s4-filter-search input {
   border: none;
@@ -4669,7 +4742,7 @@ a {
 }
 .s4-row-sub {
   font-size: 10px;
-  color: var(--faint);
+  color: var(--muted);
   margin-top: 2px;
   display: flex;
   align-items: center;
@@ -4716,12 +4789,12 @@ a {
 }
 .s4-row-watchers {
   font-size: 10px;
-  color: var(--faint);
+  color: var(--muted);
   width: 52px;
 }
 .s4-row-events {
   font-size: 10px;
-  color: var(--faint);
+  color: var(--muted);
   text-align: right;
   width: 56px;
   flex-shrink: 0;
@@ -4820,7 +4893,7 @@ a {
 }
 .s4-gcard-sub {
   font-size: 10px;
-  color: var(--faint);
+  color: var(--muted);
   margin-bottom: 8px;
 }
 .s4-gcard-tags {
@@ -4838,7 +4911,7 @@ a {
 }
 .s4-gcard-stats {
   font-size: 9.5px;
-  color: var(--faint);
+  color: var(--muted);
   display: flex;
   gap: 10px;
 }
@@ -4860,7 +4933,7 @@ a {
 .s4-empty {
   text-align: center;
   padding: 60px 20px;
-  color: var(--faint);
+  color: var(--muted);
   font-size: 12px;
   border: 1px dashed var(--hairline);
 }
@@ -5298,7 +5371,7 @@ kbd {
   border-radius: 999px;
 }
 .stream-log-head {
-  color: var(--faint);
+  color: var(--muted);
 }
 
 /* ── transcript (EventStream, `et-` markup) ─────────────────────────── */
@@ -5375,7 +5448,7 @@ kbd {
   font-size: 8.5px;
   font-weight: 700;
   letter-spacing: 0.08em;
-  color: var(--faint);
+  color: var(--muted);
   border: 1px solid var(--hairline);
   border-radius: 5px;
   padding: 1px 6px;
@@ -5388,11 +5461,11 @@ kbd {
   flex-shrink: 0;
   font-family: var(--font-mono);
   font-size: 10px;
-  color: var(--faint);
+  color: var(--muted);
 }
 .et-reply {
   font-size: 10.5px;
-  color: var(--faint);
+  color: var(--muted);
 }
 .et-reply b {
   color: var(--violet);
@@ -5650,7 +5723,7 @@ a.sv-chip:hover {
   text-transform: none;
   letter-spacing: 0.01em;
   font-size: 11px;
-  color: var(--faint);
+  color: var(--muted);
 }
 .sv-hero-badge {
   border-radius: 999px;
@@ -5821,7 +5894,7 @@ a.sv-chip:hover {
   display: block;
   font-size: 10.5px;
   line-height: 1.45;
-  color: var(--faint);
+  color: var(--muted);
   margin-top: 2px;
 }
 

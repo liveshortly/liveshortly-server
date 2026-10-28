@@ -115,7 +115,7 @@ export default function TabNav({
               border: "none",
               background: "transparent",
               cursor: "pointer",
-              color: "var(--faint)",
+              color: "var(--muted)",
               fontSize: 13,
             }}
           >

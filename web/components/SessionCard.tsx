@@ -6,7 +6,8 @@ import type { Session } from "@/lib/api";
 import { fmtInt, shortId, tileBg, timeAgo } from "@/lib/utils";
 
 /**
- * A dashboard session card — the card-grid counterpart to a SessionTable row.
+ * A dashboard session card — the card-grid rendering of a session, used by
+ * the profile page.
  * Header (status + model), title + short id, optional hero snippet, a meta
  * footer (events · views · age), tags, and an optional action row (publish /
  * share for owned sessions) or access badge (for shared sessions).
@@ -51,7 +52,7 @@ export default function SessionCard({
             borderBottom: "1px solid var(--hairline)",
           }}
         >
-          <Badge status={session.status} />
+          <Badge s={session} />
           <span
             className="label tnum"
             title={session.model ?? undefined}
@@ -69,7 +70,7 @@ export default function SessionCard({
 
         {/* Body — short id, title, hero snippet, tags */}
         <div style={{ padding: "11px 11px 9px", flex: 1, minWidth: 0 }}>
-          <div className="label" style={{ color: "var(--faint)" }}>
+          <div className="label" style={{ color: "var(--muted)" }}>
             {shortId(session.id)}
           </div>
           <div
@@ -109,7 +110,7 @@ export default function SessionCard({
               className="label"
               style={{
                 marginTop: 8,
-                color: "var(--faint)",
+                color: "var(--muted)",
                 overflow: "hidden",
                 textOverflow: "ellipsis",
                 whiteSpace: "nowrap",
