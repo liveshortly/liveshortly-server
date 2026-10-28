@@ -11,6 +11,7 @@ export default function InstallCommand({
   prompt?: string;
 }) {
   const [copied, setCopied] = useState(false);
+  const multiline = command.includes("\n");
 
   const copy = async () => {
     try {
@@ -26,7 +27,7 @@ export default function InstallCommand({
     <div
       style={{
         display: "flex",
-        alignItems: "center",
+        alignItems: multiline ? "flex-start" : "center",
         gap: 12,
         border: "1px solid var(--hairline)",
         background: "var(--bg)",
@@ -43,7 +44,12 @@ export default function InstallCommand({
         style={{
           fontSize: 13,
           color: "var(--ink)",
-          whiteSpace: "nowrap",
+          // A multi-line command (a heredoc, two chained steps) was being
+          // flattened onto one line by `nowrap` and read as noise, even though
+          // COPY handed over the correct text. Keep its lines; single-line
+          // commands still refuse to wrap mid-flag.
+          whiteSpace: multiline ? "pre" : "nowrap",
+          lineHeight: multiline ? 1.7 : undefined,
           flex: 1,
           // The command itself is the scroll box: a too-long command scrolls
           // HERE (inside the cell) instead of the whole page, and COPY stays put.
