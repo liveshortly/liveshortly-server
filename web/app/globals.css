@@ -1790,11 +1790,6 @@ a {
   background: var(--faint);
 }
 
-::selection {
-  background: var(--amber);
-  color: var(--panel);
-}
-
 /* ---- Markdown rendering (Claude responses) ---- */
 .md {
   line-height: 1.5;
@@ -2800,6 +2795,14 @@ a {
   .lp-how-wrap[open] .lp-how {
     margin-top: 14px;
   }
+}
+/* A closed <details> hides its non-summary children through the UA
+   stylesheet's `display: none`. Our own `display: grid` here outranks that,
+   so on mobile — where the section starts collapsed — the three steps kept
+   their full 634px of layout and spilled out below the collapsed box's
+   border. Restore the collapsed contract explicitly. */
+.lp-how-wrap:not([open]) .lp-how {
+  display: none;
 }
 .lp-how {
   display: grid;
@@ -5022,6 +5025,17 @@ a {
   color: var(--ink);
 }
 
+/* The global `a` rule clears colour and underline, which is right for nav and
+   buttons and wrong inside prose: on /install two real links were rendering
+   as plain body text. Prose links get both back. */
+.docs-p a {
+  color: var(--green);
+  text-decoration: underline;
+}
+.docs-p a:hover {
+  color: var(--ink);
+}
+
 .docs-p code {
   background: var(--bg);
   border: 1px solid var(--hairline);
@@ -5657,10 +5671,40 @@ kbd {
   color: var(--violet);
 }
 
-/* ── misc: selection, tables, workspace rail ────────────────────────── */
+/* ── browser surfaces ───────────────────────────────────────────────────
+   The parts we did not draw still carry the design: selection, the caret,
+   keyboard focus, underline offset. Left alone they ship browser defaults
+   that belong to no design system. */
 ::selection {
   background: var(--green);
   color: var(--bg);
+}
+:root {
+  accent-color: var(--green);
+  caret-color: var(--green);
+}
+
+/* Keyboard focus. There was no :focus-visible rule anywhere in this file, and
+   six borderless text inputs cleared `outline: none` without putting anything
+   back — among them the session composer, which is how a viewer talks to a
+   running agent. A keyboard user had nothing to follow. Mouse users are
+   unaffected: :focus-visible only matches keyboard intent. */
+:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+/* Those inputs are transparent children of a styled pill, so the pill is what
+   takes the ring; the input keeps its own outline cleared. */
+.v3-searchpill:focus-within,
+.lp-searchpill:focus-within,
+.s4-filter-search:focus-within,
+.sv-composer-box:focus-within {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
+}
+a {
+  text-underline-offset: 0.18em;
 }
 .ws-sidebar {
   background: var(--panel);
