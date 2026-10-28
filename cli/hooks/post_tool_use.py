@@ -15,6 +15,7 @@ from _common import (  # noqa: E402
     report_model,
     mapping_has_model,
     mark_mapping_model,
+    claim_new_assistant_texts,
     log,
 )
 
@@ -67,6 +68,12 @@ def main():
         model = detect_model(event.get("transcript_path"))
         if model and report_model(ls_id, model, claude_id=claude_id) is not None:
             mark_mapping_model(claude_id, model)
+
+    # Mid-turn assistant prose: drain transcript text written before this tool
+    # call so it streams into the feed per step instead of arriving at Stop.
+    # The claim is atomic — parallel tool calls run this hook concurrently.
+    for text in claim_new_assistant_texts(claude_id, event.get("transcript_path")):
+        emit(ls_id, "response", {"content": text}, actor="agent", claude_id=claude_id)
 
     tool_name = event.get("tool_name", "")
     tool_input = event.get("tool_input", {})
