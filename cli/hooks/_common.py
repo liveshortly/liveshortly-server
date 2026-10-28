@@ -5,6 +5,7 @@ never raise in a way that disrupts the Claude Code session, so all network and
 filesystem failures are swallowed (diagnostics go to stderr only).
 """
 
+import fcntl
 import getpass
 import json
 import os
@@ -362,32 +363,6 @@ def patch_json(path, body, timeout=3, claude_id=None):
         return None
 
 
-def get_transcript_offset(claude_id):
-    """Byte offset in the transcript up to which assistant turns were emitted.
-
-    Stored on the session mapping so the Stop hook only emits NEW turns. 0 when
-    unset or unreadable.
-    """
-    try:
-        with open(_mapping_path(claude_id)) as f:
-            return int(json.load(f).get("transcript_offset", 0) or 0)
-    except Exception:
-        return 0
-
-
-def mark_transcript_offset(claude_id, offset):
-    """Persist the transcript byte offset through which turns were emitted."""
-    try:
-        path = _mapping_path(claude_id)
-        with open(path) as f:
-            rec = json.load(f)
-        rec["transcript_offset"] = int(offset)
-        with open(path, "w") as f:
-            json.dump(rec, f)
-    except Exception:
-        pass
-
-
 def _assistant_text(obj):
     """Extract the assistant's plain text from one transcript JSONL entry.
 
@@ -419,6 +394,9 @@ def read_new_assistant_texts(transcript_path, offset):
     Returns (texts, new_offset): a list of assistant reply strings (skipping
     empty / tool-only turns) and the byte offset to store for next time. On any
     error returns ([], offset) so nothing is lost or double-emitted.
+
+    Only whole lines are consumed: a trailing fragment the runtime is still
+    writing is left for the next read instead of being skipped and lost.
     """
     if not transcript_path or not os.path.exists(transcript_path):
         return [], offset
@@ -426,9 +404,12 @@ def read_new_assistant_texts(transcript_path, offset):
         with open(transcript_path, "rb") as f:
             f.seek(offset)
             chunk = f.read()
-            new_offset = f.tell()
     except OSError:
         return [], offset
+    cut = chunk.rfind(b"\n")
+    if cut < 0:
+        return [], offset
+    chunk, new_offset = chunk[:cut], offset + cut + 1
     texts = []
     for raw in chunk.splitlines():
         line = raw.strip()
@@ -442,6 +423,45 @@ def read_new_assistant_texts(transcript_path, offset):
         if text:
             texts.append(text)
     return texts, new_offset
+
+
+def claim_new_assistant_texts(claude_id, transcript_path):
+    """Atomically claim the assistant turns appended since the stored offset.
+
+    Claude Code fires PostToolUse once per tool call and runs parallel tool
+    calls concurrently, so several hook processes can reach the drain at the
+    same moment. Reading the offset, reading the transcript and storing the new
+    offset therefore has to happen under one exclusive lock on the mapping
+    file, and the offset has to be committed BEFORE the caller emits —
+    otherwise two processes read the same offset and post the same reply twice.
+    """
+    path = _mapping_path(claude_id) if claude_id else None
+    if not path:
+        return []
+    try:
+        lock = open(path, "r+")
+    except OSError:
+        return []
+    try:
+        fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+        try:
+            rec = json.load(lock)
+        except Exception:
+            rec = {}
+        offset = int(rec.get("transcript_offset", 0) or 0)
+        texts, new_offset = read_new_assistant_texts(transcript_path, offset)
+        if new_offset != offset:
+            rec["transcript_offset"] = int(new_offset)
+            lock.seek(0)
+            lock.truncate()
+            json.dump(rec, lock)
+            lock.flush()
+        return texts
+    except Exception as exc:
+        log("claim_new_assistant_texts failed:", exc)
+        return []
+    finally:
+        lock.close()  # releases the flock
 
 
 def detect_model(transcript_path):
