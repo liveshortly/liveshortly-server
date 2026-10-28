@@ -41,6 +41,35 @@ export const metadata: Metadata = {
   },
 };
 
+
+/** Drawn marks for the feature boxes. These were emoji, which render as four
+ *  unrelated third-party glyph designs at four different optical weights and
+ *  shift with the platform. One stroke, one size, inheriting currentColor. */
+function FeatureIcon({ d }: { d: string }) {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      style={{ flexShrink: 0 }}
+      dangerouslySetInnerHTML={{ __html: d }}
+    />
+  );
+}
+
+const FEATURE_ICONS: Record<string, string> = {
+  'LIVE STREAMING': '<path d="M8 6.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Z" /><path d="M4.6 4.6a4.8 4.8 0 0 0 0 6.8M11.4 11.4a4.8 4.8 0 0 0 0-6.8M2.2 2.2a8.2 8.2 0 0 0 0 11.6M13.8 13.8a8.2 8.2 0 0 0 0-11.6" />',
+  'BIDIRECTIONAL STEERING': '<path d="M2.5 5.5h7M2.5 5.5 4.8 3.2M2.5 5.5 4.8 7.8" /><path d="M13.5 10.5h-7M13.5 10.5l-2.3-2.3M13.5 10.5l-2.3 2.3" />',
+  'REMOTE PERMISSIONS': '<path d="M8 1.9 3 4v3.6c0 3 2.1 5.4 5 6.5 2.9-1.1 5-3.5 5-6.5V4L8 1.9Z" /><path d="m5.9 7.9 1.5 1.5 2.7-2.9" />',
+  'HANDOFF & FORK': '<path d="M5 3.4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 0 0 0-3.2ZM11 3.4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 0 0 0-3.2ZM8 9.4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 0 0 0-3.2Z" /><path d="M5 6.6v1.2a1.6 1.6 0 0 0 1.6 1.6h2.8A1.6 1.6 0 0 0 11 7.8V6.6M8 9.4V8" />',
+};
+
 export default function DocsPage() {
   const jsonLd = {
     "@context": "https://schema.org",
@@ -234,28 +263,28 @@ export default function DocsPage() {
 
               <div className="docs-grid-2" style={{ marginTop: 20 }}>
                 <div className="docs-feature-box">
-                  <div className="label" style={{ color: "var(--green)" }}>🔴 LIVE STREAMING</div>
+                  <div className="label" style={{ color: "var(--green)", display: "flex", alignItems: "center", gap: 6 }}><FeatureIcon d={FEATURE_ICONS['LIVE STREAMING']} />LIVE STREAMING</div>
                   <p style={{ margin: "6px 0 0", fontSize: 13, color: "var(--muted)" }}>
                     Real-time Server-Sent Events (SSE) push every prompt, tool execution, file diff,
                     and model response directly to a browser HUD or terminal.
                   </p>
                 </div>
                 <div className="docs-feature-box">
-                  <div className="label" style={{ color: "var(--green)" }}>💬 BIDIRECTIONAL STEERING</div>
+                  <div className="label" style={{ color: "var(--green)", display: "flex", alignItems: "center", gap: 6 }}><FeatureIcon d={FEATURE_ICONS['BIDIRECTIONAL STEERING']} />BIDIRECTIONAL STEERING</div>
                   <p style={{ margin: "6px 0 0", fontSize: 13, color: "var(--muted)" }}>
                     Viewers can type feedback in the web browser that is delivered exactly once into
                     the agent’s turn context during its next pause.
                   </p>
                 </div>
                 <div className="docs-feature-box">
-                  <div className="label" style={{ color: "var(--green)" }}>🛡️ REMOTE PERMISSIONS</div>
+                  <div className="label" style={{ color: "var(--green)", display: "flex", alignItems: "center", gap: 6 }}><FeatureIcon d={FEATURE_ICONS['REMOTE PERMISSIONS']} />REMOTE PERMISSIONS</div>
                   <p style={{ margin: "6px 0 0", fontSize: 13, color: "var(--muted)" }}>
                     Approve or deny tool execution prompts from your smartphone, tablet, or web UI
                     without being tethered to your laptop keyboard.
                   </p>
                 </div>
                 <div className="docs-feature-box">
-                  <div className="label" style={{ color: "var(--green)" }}>⑃ HANDOFF &amp; FORK</div>
+                  <div className="label" style={{ color: "var(--green)", display: "flex", alignItems: "center", gap: 6 }}><FeatureIcon d={FEATURE_ICONS['HANDOFF & FORK']} />HANDOFF &amp; FORK</div>
                   <p style={{ margin: "6px 0 0", fontSize: 13, color: "var(--muted)" }}>
                     Continue any readable session as a brand-new owned session with a deterministic
                     briefing digest and virtual prior context.

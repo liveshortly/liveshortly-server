@@ -442,17 +442,27 @@ function MarketingHero({
   return (
     <div className="lp-mkt-hero">
       <div style={{ minWidth: 0 }}>
-        <div className="lp-mkt-eyebrow">
-          <span className="live-dot" aria-hidden />
-          {liveCount > 0
-            ? `${liveCount} session${liveCount === 1 ? "" : "s"} live now`
-            : "LiveShortly"}
-        </div>
-        <h1 className="lp-mkt-title">
-          Watch Agent{" "}
-          <br />
-          <span className="lp-tw-word">{word}</span>
-          <span className="lp-tw-cursor" aria-hidden /> — live.
+        {/* Only when it carries information. With nothing live this said
+            "LiveShortly" directly above the headline, 40px under the wordmark
+            in the topbar — a label the heading does not need. */}
+        {liveCount > 0 && (
+          <div className="lp-mkt-eyebrow">
+            <span className="live-dot" aria-hidden />
+            {`${liveCount} session${liveCount === 1 ? "" : "s"} live now`}
+          </div>
+        )}
+        {/* The visible word cycles, so the accessible name is pinned to one
+            phrasing instead of changing under a screen reader mid-sentence. */}
+        <h1
+          className="lp-mkt-title"
+          aria-label={`Watch Agent ${TYPEWRITER_WORDS[0]} — live.`}
+        >
+          <span aria-hidden>
+            Watch Agent{" "}
+            <br />
+            <span className="lp-tw-word">{word}</span>
+            <span className="lp-tw-cursor" /> — live.
+          </span>
         </h1>
         <p className="lp-mkt-sub">
           LiveShortly turns any Claude Code session into a live-streamed,
@@ -835,10 +845,9 @@ function HowItWorks() {
             <code>live claude</code> yourself. Take it over locally at any time.
           </p>
           <div className="lp-daemon-note">
-            Only the directories you name can ever be used, and only{" "}
-            <code>claude</code>, <code>codex</code> or <code>gemini</code> can be
-            started. Your machine builds the command — the server only names an
-            agent.
+            Only the directories you name can ever be used, and only the agents
+            your machine already has installed. Your machine finds them, builds
+            the command and runs it — the server only ever names one.
           </div>
         </div>
         <div className="lp-daemon-cmds">
