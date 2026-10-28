@@ -81,7 +81,7 @@ export default function ComposePage() {
                       borderBottom: "1px solid var(--hairline)",
                     }}
                   >
-                    <div className="label" style={{ color: "var(--faint)" }}>
+                    <div className="label" style={{ color: "var(--muted)" }}>
                       {e.event_type}
                     </div>
                     <div
@@ -105,7 +105,7 @@ export default function ComposePage() {
             <PanelBox
               title="✎ EDITOR"
               right={
-                <span className="label" style={{ color: "var(--faint)" }}>
+                <span className="label" style={{ color: "var(--muted)" }}>
                   {draft.trim() ? `${draft.trim().split(/\s+/).length} words` : "draft"}
                 </span>
               }
@@ -166,7 +166,7 @@ export default function ComposePage() {
                   padding: "10px 12px",
                   border: "1px solid var(--hairline)",
                   background: "transparent",
-                  color: "var(--faint)",
+                  color: "var(--muted)",
                   cursor: "not-allowed",
                 }}
               >

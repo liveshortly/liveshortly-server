@@ -96,7 +96,7 @@ export function PlaceholderNote({
         <div
           style={{
             fontSize: 12.5,
-            color: "var(--faint)",
+            color: "var(--muted)",
             marginTop: 8,
             lineHeight: 1.5,
           }}

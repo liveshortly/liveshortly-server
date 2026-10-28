@@ -126,7 +126,7 @@ export default function ReplayPage() {
               }}
             >
               <TransportBtn>▶</TransportBtn>
-              <span className="label tnum" style={{ color: "var(--faint)" }}>
+              <span className="label tnum" style={{ color: "var(--muted)" }}>
                 00:00 / --:--
               </span>
               <span style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
