@@ -51,7 +51,7 @@ export default function SessionCard({
             borderBottom: "1px solid var(--hairline)",
           }}
         >
-          <Badge status={session.status} />
+          <Badge s={session} />
           <span
             className="label tnum"
             title={session.model ?? undefined}
@@ -69,7 +69,7 @@ export default function SessionCard({
 
         {/* Body — short id, title, hero snippet, tags */}
         <div style={{ padding: "11px 11px 9px", flex: 1, minWidth: 0 }}>
-          <div className="label" style={{ color: "var(--faint)" }}>
+          <div className="label" style={{ color: "var(--muted)" }}>
             {shortId(session.id)}
           </div>
           <div
@@ -109,7 +109,7 @@ export default function SessionCard({
               className="label"
               style={{
                 marginTop: 8,
-                color: "var(--faint)",
+                color: "var(--muted)",
                 overflow: "hidden",
                 textOverflow: "ellipsis",
                 whiteSpace: "nowrap",
