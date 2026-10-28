@@ -74,12 +74,14 @@ services:
       dockerfile: Dockerfile
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+        NEXT_PUBLIC_SITE_URL: ${PUBLIC_ORIGIN:-http://localhost:8080}
     restart: unless-stopped
     depends_on:
       api:
         condition: service_healthy
     environment:
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+      NEXT_PUBLIC_SITE_URL: ${PUBLIC_ORIGIN:-http://localhost:8080}
       # Server-side (SSR) calls reach the api over the docker network, since
       # localhost inside this container is the web container itself.
       API_INTERNAL_URL: ${API_INTERNAL_URL:-http://api:8000}
