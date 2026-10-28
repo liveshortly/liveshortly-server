@@ -152,7 +152,7 @@ is not listed, because it is not spawnable.
   "name": "rohit's macbook",
   "hostname": "rohit-mbp", "os": "darwin", "arch": "arm64",
   "dirs":   ["/Users/rohit/code/api"],   // absolute; the spawn allowlist
-  "agents": ["claude","codex"],          // subset of claude|codex|gemini|ollama
+  "agents": ["claude","codex","hermes"], // whatever the daemon found locally
   "models": ["llama3.2:1b"],             // ollama only; the model allowlist
   "seen_at": "RFC3339"
 }
@@ -160,14 +160,23 @@ is not listed, because it is not spawnable.
 
 | Method | Path | Body | Response |
 |---|---|---|---|
-| POST | `/api/hosts/register` | `{"host_id","name"?,"hostname"?,"os"?,"arch"?,"dirs":[abs paths],"agents":[…],"models"?:[…]}` | `200 {"host_id","ttl_secs","registered":true}` — `400` on a bad id, a relative path, or no supported agent |
+| POST | `/api/hosts/register` | `{"host_id","name"?,"hostname"?,"os"?,"arch"?,"dirs":[abs paths],"agents":[…],"models"?:[…]}` | `200 {"host_id","ttl_secs","registered":true}` — `400` on a bad id, a relative path, or no agent |
 | GET | `/api/hosts` | — | `200 {"hosts":[Host]}` — the caller's ONLINE machines only |
 | GET | `/api/hosts/{id}/stream` | — | `200` SSE command stream (owner only, Bearer) — `404` if the host has not registered |
 
 `POST /api/sessions` gains `{"host_id"?, "cwd"?, "bypass_permissions"?}`. When
-`host_id` is set, `agent` is read as a **spawnable binary name**
-(`claude`/`codex`/`gemini`/`ollama`), not a framework label — the server maps it
-to the same `framework`/`capture_mode` the CLI would have reported. For
+`host_id` is set, `agent` is read as a **spawnable agent name**, not a
+framework label — the server maps the ones it knows (`claude`, `codex`,
+`gemini`, `ollama`, `agy`) to the same `framework`/`capture_mode` the CLI would
+have reported, and anything else to the generic pty capture the CLI uses for an
+agent it does not know.
+
+Agent names are **not a fixed set**. A machine advertises whatever harnesses it
+found locally — probed on `PATH`, plus the operator's own
+`~/.liveshortly/agents.json` — so the server validates only that a name is a
+bounded, plain `[A-Za-z0-9][A-Za-z0-9_-]{0,63}` token and that it is one the
+target host actually registered. Adding a harness is a client-side act and
+needs no API change. For
 `ollama`, `model` names which model to run and MUST be one the host registered
 (empty → the host's first); it is rejected with `400` otherwise, and ignored for
 every other agent. `bypass_permissions` (bool) asks the daemon to run the agent

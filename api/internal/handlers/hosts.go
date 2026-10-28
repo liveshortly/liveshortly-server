@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -26,10 +27,11 @@ import (
 // by their web session. Three rules keep the blast radius bounded, and the
 // daemon re-checks all three locally because it must not trust this server:
 //
-//  1. The server NEVER sends an argv. It sends an agent NAME from a fixed
-//     allowlist; the daemon builds the command line itself. ollama also carries
-//     a MODEL name, which is a choice from the daemon's own registered list —
-//     still a name, never a command line.
+//  1. The server NEVER sends an argv. It sends an agent NAME, and only one the
+//     daemon itself registered; the daemon builds the command line itself and
+//     refuses a name outside its own startup set. ollama also carries a MODEL
+//     name, which is a choice from the daemon's own registered list — still a
+//     name, never a command line.
 //  2. The working directory must be one the daemon itself registered. The
 //     server rejects anything else, and the daemon rejects it again. The ollama
 //     model is bound the same way, against the same registration.
@@ -43,15 +45,20 @@ const (
 	maxHostFieldLen = 512
 )
 
-// spawnableAgents is the complete set of agent names a spawn command may carry.
-// Anything outside this set is rejected before it reaches a machine. Keep it in
-// step with the daemon's own allowlist in the live CLI.
-var spawnableAgents = map[string]bool{
-	"claude": true,
-	"codex":  true,
-	"gemini": true,
-	"ollama": true,
-}
+// Agent names are not enumerated here. Which harnesses a machine can run is a
+// property of that machine — the daemon probes PATH and reads the operator's
+// own adapter file (see agents.go in the live CLI) — so a fixed list here would
+// mean every newly installed harness needed an API deploy before it could be
+// spawned, and names the daemon legitimately offered were silently dropped.
+//
+// This is not the trust boundary and never was: a spawn carries a NAME, the
+// daemon resolves it against the set IT registered at startup and builds the
+// argv itself. What is enforced here is shape — so a name stays a name — plus
+// a bound, and membership in the host's own registration (see resolveSpawn).
+var agentNamePattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$`)
+
+// maxHostAgents bounds how many agents one host may advertise.
+const maxHostAgents = 64
 
 // hostRecord is what a daemon registers and what the web host picker renders.
 // Stored as JSON in Redis under host:{user}:{host} with a TTL.
@@ -114,15 +121,9 @@ func (h *Handler) RegisterHost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	agents := make([]string, 0, len(req.Agents))
-	for _, a := range req.Agents {
-		a = strings.TrimSpace(a)
-		if spawnableAgents[a] {
-			agents = append(agents, a)
-		}
-	}
+	agents := cleanAgents(req.Agents)
 	if len(agents) == 0 {
-		httpx.Error(w, http.StatusBadRequest, "at least one supported agent is required")
+		httpx.Error(w, http.StatusBadRequest, "at least one agent is required")
 		return
 	}
 
@@ -341,9 +342,11 @@ func (h *Handler) resolveSpawn(ctx context.Context, userID, hostID, agent, cwd, 
 	if agent == "" {
 		agent = rec.Agents[0]
 	}
-	if !spawnableAgents[agent] {
+	if !agentNamePattern.MatchString(agent) {
 		return spawnTarget{}, fmt.Errorf("unsupported agent %q", agent)
 	}
+	// The check that bounds anything: the name must be one this host registered
+	// (and the daemon checks it again locally).
 	if !contains(rec.Agents, agent) {
 		return spawnTarget{}, fmt.Errorf("host does not have %s available", agent)
 	}
@@ -462,6 +465,27 @@ func validModelName(s string) bool {
 		}
 	}
 	return true
+}
+
+// cleanAgents validates the agent names a daemon reported: bounded in number,
+// deduplicated, and each a plain name rather than anything that could be read
+// as a path or a command. The names themselves are not enumerated — see the
+// note on agentNamePattern.
+func cleanAgents(in []string) []string {
+	out := make([]string, 0, len(in))
+	seen := map[string]bool{}
+	for _, a := range in {
+		a = strings.TrimSpace(a)
+		if !agentNamePattern.MatchString(a) || seen[a] {
+			continue
+		}
+		seen[a] = true
+		out = append(out, a)
+		if len(out) == maxHostAgents {
+			break
+		}
+	}
+	return out
 }
 
 func cleanDirs(in []string) ([]string, error) {
