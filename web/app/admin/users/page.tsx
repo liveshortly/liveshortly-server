@@ -76,7 +76,7 @@ export default function AdminUsersPage() {
                     <div style={{ fontWeight: 600, color: "var(--ink)" }}>
                       {u.name || u.handle}
                     </div>
-                    <div className="label" style={{ color: "var(--faint)" }}>
+                    <div className="label" style={{ color: "var(--muted)" }}>
                       {u.email || `@${u.handle}`}
                     </div>
                   </Td>
@@ -114,7 +114,7 @@ function StorageCell({ user }: { user: AdminUser }) {
     <div style={{ minWidth: 130 }}>
       <div className="tnum" style={{ fontSize: 12, color: "var(--ink)" }}>
         {fmtBytes(used)}
-        <span style={{ color: "var(--faint)" }}>
+        <span style={{ color: "var(--muted)" }}>
           {" / "}
           {quota_exempt ? "∞" : fmtBytes(limit)}
         </span>
@@ -260,7 +260,7 @@ function QuotaInput({
           outline: "none",
         }}
       />
-      <span className="label" style={{ color: "var(--faint)" }}>
+      <span className="label" style={{ color: "var(--muted)" }}>
         {unit}
       </span>
     </span>
@@ -320,7 +320,7 @@ function AdminHead({ title, sub }: { title: string; sub?: string }) {
           {title}
         </h1>
         {sub && (
-          <span className="label" style={{ color: "var(--faint)" }}>
+          <span className="label" style={{ color: "var(--muted)" }}>
             {sub}
           </span>
         )}

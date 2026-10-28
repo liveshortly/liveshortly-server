@@ -1,9 +1,12 @@
 import type { Session } from "@/lib/api";
+import { sessionState } from "@/lib/sessionState";
 
 /**
  * Shared session status dot (sidebar rows, HUD rows, …).
- *   green (blinking) = live · blue = published · amber = shared · gray = ended.
- * Priority live > published > shared > ended.
+ *
+ * The state itself comes from lib/sessionState, which Badge also uses, so the
+ * dot and the badge cannot disagree about the same session. The four states
+ * differ by shape as well as hue — see .ws-status-dot in globals.css.
  */
 export default function SessionStatusDot({
   s,
@@ -14,29 +17,12 @@ export default function SessionStatusDot({
   shared?: boolean;
   live?: boolean;
 }) {
-  const isLive = live || s.status === "live";
-  const isShared =
-    shared ||
-    s.visibility === "link" ||
-    s.visibility === "public" ||
-    s.visibility === "open";
-
-  let color = "var(--faint)";
-  let label = "ended";
-  if (s.published_at) {
-    color = "var(--blue)";
-    label = "published";
-  } else if (isShared) {
-    color = "var(--amber)";
-    label = "shared";
-  }
-
+  const { state, label } = sessionState(s, { shared, live });
   return (
     <span
-      className={`ws-status-dot${isLive ? " ws-status-dot-live" : ""}`}
-      style={isLive ? undefined : { background: color }}
-      title={isLive ? "live" : label}
-      aria-label={isLive ? "live" : label}
+      className={`ws-status-dot ws-status-dot-${state}`}
+      title={label}
+      aria-label={label}
     />
   );
 }

@@ -90,7 +90,7 @@ export default function ActivityHeatmap({ dates }: { dates: string[] }) {
           alignItems: "center",
           gap: 10,
           marginTop: 10,
-          color: "var(--faint)",
+          color: "var(--muted)",
         }}
       >
         <span>{total} sessions in the last year</span>

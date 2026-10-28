@@ -39,7 +39,7 @@ function markerFor(type: string): { color: string; glyph: string } {
     case "quota_exceeded":
       return { color: "var(--red)", glyph: "⚠" };
     default:
-      return { color: "var(--faint)", glyph: "•" };
+      return { color: "var(--muted)", glyph: "•" };
   }
 }
 
@@ -231,7 +231,7 @@ export default function EventStream({
       {items.length === 0 ? (
         <div className="et-col">
           <div
-            style={{ padding: "24px 4px", color: "var(--faint)", fontSize: 12.5 }}
+            style={{ padding: "24px 4px", color: "var(--muted)", fontSize: 12.5 }}
           >
             {live ? "Waiting for events…" : "No events recorded for this session."}
           </div>
@@ -438,7 +438,7 @@ function WorkBlock({
                   {path}
                 </span>
                 {detail && (
-                  <span style={{ color: "var(--faint)", fontSize: 10 }}>
+                  <span style={{ color: "var(--muted)", fontSize: 10 }}>
                     {detail}
                   </span>
                 )}

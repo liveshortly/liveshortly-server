@@ -68,7 +68,7 @@ function SessionsBrowser() {
             ★ SESSIONS
           </h1>
           {rows && (
-            <span className="label" style={{ color: "var(--faint)" }}>
+            <span className="label" style={{ color: "var(--muted)" }}>
               {fmtInt(rows.length)} shown
             </span>
           )}
@@ -129,7 +129,7 @@ function SessionsBrowser() {
               {rows.map((s) => (
                 <tr key={s.id} style={{ borderBottom: "1px solid var(--hairline)" }}>
                   <Td hideSm mono>
-                    <span style={{ color: "var(--faint)" }}>{shortId(s.id)}</span>
+                    <span style={{ color: "var(--muted)" }}>{shortId(s.id)}</span>
                   </Td>
                   <Td>
                     <Link href={`/session/${s.id}`} style={{ fontWeight: 600, color: "var(--ink)" }}>
@@ -140,7 +140,7 @@ function SessionsBrowser() {
                     <span style={{ color: "var(--muted)" }}>@{s.owner}</span>
                   </Td>
                   <Td>
-                    <Badge status={s.status} />
+                    <Badge s={s} />
                   </Td>
                   <Td>
                     <Visibility v={s.visibility} />
@@ -170,7 +170,7 @@ function Visibility({ v }: { v: string }) {
     open: { label: "PUBLIC", color: "var(--green)" },
     public: { label: "PUBLIC*", color: "var(--green)" },
     link: { label: "LINK", color: "var(--amber)" },
-    private: { label: "PRIVATE", color: "var(--faint)" },
+    private: { label: "PRIVATE", color: "var(--muted)" },
   };
   const m = map[v] ?? { label: v.toUpperCase(), color: "var(--muted)" };
   return (

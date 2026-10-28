@@ -37,7 +37,7 @@ export default function FeedTile({ session }: { session: Session }) {
           borderBottom: "1px solid var(--hairline)",
         }}
       >
-        <Badge status={session.status} />
+        <Badge s={session} />
         <span
           className="label tnum"
           title={model}
@@ -91,7 +91,7 @@ export default function FeedTile({ session }: { session: Session }) {
             className="label"
             style={{
               marginTop: 8,
-              color: "var(--faint)",
+              color: "var(--muted)",
               overflow: "hidden",
               textOverflow: "ellipsis",
               whiteSpace: "nowrap",
