@@ -143,7 +143,7 @@ export default function MobileEventFeed({
 
   if (turns.length === 0 && leadingWork.length === 0) {
     return (
-      <div className="label" style={{ padding: "24px 16px", color: "var(--faint)" }}>
+      <div className="label" style={{ padding: "24px 16px", color: "var(--muted)" }}>
         {live ? "WAITING FOR EVENTS…" : "NO EVENTS RECORDED FOR THIS SESSION."}
       </div>
     );

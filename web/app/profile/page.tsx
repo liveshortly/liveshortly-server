@@ -261,7 +261,7 @@ function Meter({
         <span style={{ color: "var(--muted)" }}>{label}</span>
         <span className="tnum" style={{ color: "var(--ink)" }}>
           {value}
-          <span style={{ color: "var(--faint)" }}> / {limitLabel}</span>
+          <span style={{ color: "var(--muted)" }}> / {limitLabel}</span>
         </span>
       </div>
       <div

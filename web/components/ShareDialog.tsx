@@ -191,7 +191,7 @@ export default function ShareDialog({
             LOADING…
           </div>
         ) : grants.length === 0 ? (
-          <div className="label" style={{ color: "var(--faint)" }}>
+          <div className="label" style={{ color: "var(--muted)" }}>
             NOT SHARED WITH ANYONE YET.
           </div>
         ) : (

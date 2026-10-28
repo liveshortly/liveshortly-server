@@ -192,7 +192,7 @@ export default function WorkspaceSidebar() {
               onClick={() => setQ("")}
               aria-label="Clear"
               className="label"
-              style={{ border: "none", background: "transparent", cursor: "pointer", color: "var(--faint)" }}
+              style={{ border: "none", background: "transparent", cursor: "pointer", color: "var(--muted)" }}
             >
               ✕
             </button>
@@ -202,7 +202,7 @@ export default function WorkspaceSidebar() {
 
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 8px 12px" }}>
         {loading ? (
-          <div className="label" style={{ color: "var(--faint)", padding: "16px 6px" }}>
+          <div className="label" style={{ color: "var(--muted)", padding: "16px 6px" }}>
             LOADING<span className="blink">_</span>
           </div>
         ) : (
@@ -234,7 +234,7 @@ export default function WorkspaceSidebar() {
             {empty && (
               <div
                 className="label"
-                style={{ color: "var(--faint)", padding: "18px 6px", lineHeight: 1.6 }}
+                style={{ color: "var(--muted)", padding: "18px 6px", lineHeight: 1.6 }}
               >
                 {needle ? "NO MATCHES" : "NO SESSIONS YET"}
                 {!needle && tab === "all" && (
@@ -439,7 +439,7 @@ function Row({
         <span
           style={{
             fontSize: 9.5,
-            color: "var(--faint)",
+            color: "var(--muted)",
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
