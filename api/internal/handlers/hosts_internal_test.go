@@ -3,6 +3,8 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"strings"
 	"testing"
 
 	"liveshortly/internal/config"
@@ -64,6 +66,24 @@ func TestCleanDirs(t *testing.T) {
 	}
 }
 
+// cleanAgents does not police WHICH harnesses exist — a machine may run
+// anything — only that a reported name is a name, unique, and bounded.
+func TestCleanAgents(t *testing.T) {
+	got := cleanAgents([]string{" claude ", "hermes", "claude", "pi.dev", "../rm", "a b", "", "cursor-agent"})
+	want := "claude,hermes,cursor-agent"
+	if strings.Join(got, ",") != want {
+		t.Errorf("cleanAgents = %q, want %q", strings.Join(got, ","), want)
+	}
+
+	tooMany := make([]string, maxHostAgents+10)
+	for i := range tooMany {
+		tooMany[i] = fmt.Sprintf("agent-%d", i)
+	}
+	if n := len(cleanAgents(tooMany)); n != maxHostAgents {
+		t.Errorf("cleanAgents kept %d, want the %d cap", n, maxHostAgents)
+	}
+}
+
 func TestResolveSpawnRejectsUnregistered(t *testing.T) {
 	d := testutil.Setup(t)
 	h := New(d.Store, d.Bus, d.Blob, config.Config{})
@@ -91,8 +111,10 @@ func TestResolveSpawnRejectsUnregistered(t *testing.T) {
 			t.Errorf("resolveSpawn accepted unregistered dir %q", dir)
 		}
 	}
-	// An agent the host never reported, and one outside the global allowlist.
-	for _, agent := range []string{"codex", "bash", "rm"} {
+	// An agent the host never reported — including a harness that is perfectly
+	// spawnable elsewhere — and names that are not names at all. Registration
+	// membership is the check; there is no global agent allowlist.
+	for _, agent := range []string{"codex", "hermes", "bash", "rm", "claude; rm -rf /", "../claude", "cl aude"} {
 		if _, err := h.resolveSpawn(ctx, user, host, agent, "/work/allowed", ""); err == nil {
 			t.Errorf("resolveSpawn accepted agent %q", agent)
 		}
@@ -162,5 +184,22 @@ func TestResolveSpawnBindsOllamaModelToHost(t *testing.T) {
 	}
 	if got.model != "" {
 		t.Errorf("model leaked to a non-ollama agent: %q", got.model)
+	}
+}
+
+// A harness the server has never heard of must still produce usable labels —
+// the same ones the CLI reports for a command it has no native support for.
+func TestLabelsForAgent(t *testing.T) {
+	for agent, want := range map[string][2]string{
+		"claude":      {"claude-code", "hooks"},
+		"agy":         {"agy", "hooks"},
+		"antigravity": {"agy", "hooks"},
+		"hermes":      {"terminal", "pty"},
+		"":            {"terminal", "pty"},
+	} {
+		framework, captureMode := labelsForAgent(agent)
+		if framework != want[0] || captureMode != want[1] {
+			t.Errorf("labelsForAgent(%q) = %q/%q, want %q/%q", agent, framework, captureMode, want[0], want[1])
+		}
 	}
 }
