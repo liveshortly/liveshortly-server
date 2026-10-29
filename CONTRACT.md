@@ -73,7 +73,7 @@ of forks made from a session and is present on every row (feed/list included).
 | GET  | `/health` | — | `{"ok":true,"ts":"RFC3339"}` |
 | POST | `/api/sessions` | `{"title"?,"model"?,"framework"?,"tags"?:[],"agent"?,"capture_mode"?, "forked_from"?, "forked_from_session_id"?, "forked_from_seq"?}` | `201 {...Session,"url":"/session/{id}","handoff"?:Bundle}` — `429` over the live-session cap, `413` over the storage cap (see Quotas) |
 | POST | `/api/sessions/{id}/handoff` | `{"seq"?:int}` | `200 {"code","session_id","snapshot_seq","expires_at","command"}` (auth: any reader) |
-| GET  | `/api/sessions?status=live\|ended\|all&q=&limit=&offset=` | — | `200 {"results":[Session],"total":int}` |
+| GET  | `/api/sessions?status=live\|ended\|all&q=&limit=&offset=` | — | `200 {"results":[Session],"total":int}` — list rows also carry `last_event: {"type","snippet","ts"} \| absent`, the newest prompt/response/viewer_comment as a one-line summary (snippet ≤140 chars) |
 | GET  | `/api/feed?q=&cursor=&limit=` | — | `200 {"results":[Session],"next_cursor":string}` (public — anonymous OK; published only) |
 | POST | `/api/sessions/{id}/publish` | — | `200 Session` (owner; lists in feed + public) |
 | POST | `/api/sessions/{id}/unpublish` | — | `200 Session` (owner; removes from feed + private) |
