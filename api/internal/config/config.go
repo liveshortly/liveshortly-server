@@ -40,8 +40,8 @@ type Config struct {
 	WebBaseURL        string
 
 	// SuperAdminEmails is the allowlist of accounts that may reach the admin
-	// stats surface. Comma-separated via SUPER_ADMIN_EMAILS; defaults to the two
-	// founding admins. Stored lower-cased for case-insensitive matching.
+	// stats surface. Comma-separated via SUPER_ADMIN_EMAILS; empty by default.
+	// Stored lower-cased for case-insensitive matching.
 	SuperAdminEmails []string
 
 	// --- Per-user quotas (launch-blocking) ---
@@ -94,7 +94,7 @@ func Load() Config {
 		WebBaseURL:         webBaseURL,
 		SuperAdminEmails: lowerAll(splitCSV(env(
 			"SUPER_ADMIN_EMAILS",
-			"rohitsehgal1994@gmail.com,mukulmalviya2@gmail.com,aiatlohar@gmail.com",
+			"",
 		))),
 		LiveAgentGrace: envDuration("LIVE_AGENT_GRACE", 10*time.Minute),
 

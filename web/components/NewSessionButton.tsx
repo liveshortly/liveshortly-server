@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createSessionOnHost } from "@/lib/api";
+import { CLAUDE_MODELS, createSessionOnHost } from "@/lib/api";
 import { useHosts } from "@/components/HostsContext";
 
 /**
@@ -25,6 +25,8 @@ export default function NewSessionButton() {
   const [agent, setAgent] = useState("");
   const [cwd, setCwd] = useState("");
   const [model, setModel] = useState("");
+  // Claude model alias ("" = the CLI's own default). Fixed allowlist.
+  const [claudeModel, setClaudeModel] = useState("");
   // Unattended run — skip permission prompts entirely (the agent runs with
   // its own bypass flag on YOUR machine). Remembered per browser.
   const [bypass, setBypass] = useState(true);
@@ -93,7 +95,11 @@ export default function NewSessionButton() {
         host.id,
         agent,
         cwd,
-        agent === "ollama" ? model : undefined,
+        agent === "ollama"
+          ? model
+          : agent === "claude" && claudeModel
+            ? claudeModel
+            : undefined,
         undefined,
         bypass,
       );
@@ -179,6 +185,28 @@ export default function NewSessionButton() {
               ))}
             </select>
           </div>
+
+          {/* claude: optional model alias from the fixed allowlist. */}
+          {agent === "claude" && (
+            <div className="ns-row">
+              <label className="ns-label" htmlFor="ns-claude-model">
+                Model
+              </label>
+              <select
+                id="ns-claude-model"
+                className="ns-select"
+                value={claudeModel}
+                onChange={(e) => setClaudeModel(e.target.value)}
+              >
+                <option value="">Default</option>
+                {CLAUDE_MODELS.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* ollama needs a model — `ollama run` alone is an error — and it is
               the only agent that takes one, so the row only appears for it. */}

@@ -73,7 +73,7 @@ of forks made from a session and is present on every row (feed/list included).
 | GET  | `/health` | — | `{"ok":true,"ts":"RFC3339"}` |
 | POST | `/api/sessions` | `{"title"?,"model"?,"framework"?,"tags"?:[],"agent"?,"capture_mode"?, "forked_from"?, "forked_from_session_id"?, "forked_from_seq"?}` | `201 {...Session,"url":"/session/{id}","handoff"?:Bundle}` — `429` over the live-session cap, `413` over the storage cap (see Quotas) |
 | POST | `/api/sessions/{id}/handoff` | `{"seq"?:int}` | `200 {"code","session_id","snapshot_seq","expires_at","command"}` (auth: any reader) |
-| GET  | `/api/sessions?status=live\|ended\|all&q=&limit=&offset=` | — | `200 {"results":[Session],"total":int}` |
+| GET  | `/api/sessions?status=live\|ended\|all&q=&limit=&offset=` | — | `200 {"results":[Session],"total":int}` — list rows also carry `last_event: {"type","snippet","ts"} \| absent`, the newest prompt/response/viewer_comment as a one-line summary (snippet ≤140 chars) |
 | GET  | `/api/feed?q=&cursor=&limit=` | — | `200 {"results":[Session],"next_cursor":string}` (public — anonymous OK; published only) |
 | POST | `/api/sessions/{id}/publish` | — | `200 Session` (owner; lists in feed + public) |
 | POST | `/api/sessions/{id}/unpublish` | — | `200 Session` (owner; removes from feed + private) |
@@ -178,8 +178,10 @@ bounded, plain `[A-Za-z0-9][A-Za-z0-9_-]{0,63}` token and that it is one the
 target host actually registered. Adding a harness is a client-side act and
 needs no API change. For
 `ollama`, `model` names which model to run and MUST be one the host registered
-(empty → the host's first); it is rejected with `400` otherwise, and ignored for
-every other agent. `bypass_permissions` (bool) asks the daemon to run the agent
+(empty → the host's first); it is rejected with `400` otherwise. For `claude`,
+`model` is an OPTIONAL alias from the fixed allowlist `sonnet|opus|haiku`
+(daemon maps it to `--model <alias>`); rejected with `400` otherwise, and
+ignored for every other agent. `bypass_permissions` (bool) asks the daemon to run the agent
 unattended — no permission probes; it is relayed as a boolean only (rule 1
 below: never an argv) and the daemon maps it to known flags
 (`live --no-permissions`, plus `claude --dangerously-skip-permissions` /
@@ -188,11 +190,19 @@ below: never an argv) and the daemon maps it to known flags
 `requested` means the command was published, NOT that the agent is up; the
 session page tracks that separately via `agent_connected`.
 
+`POST /api/sessions/{id}/model` `{"model":"sonnet"|"opus"|"haiku"}` (owner,
+session live) relays a model switch: the server publishes
+`{"type":"set_model","session_id","model"}` to EVERY online machine of the
+owner (the spawn host is not persisted); the daemon hosting the session's
+tmux pane types `/model <alias>` into it, the rest no-op. Alias allowlist on
+both ends; never an argv. `400` unknown alias / no machine online, `409` ended.
+
 ### SSE: `GET /api/hosts/{id}/stream` (daemon)
-Frames: `{"type":"connected","host_id"}`, then
+Frames: `{"type":"connected","host_id"}`, then per web-created session
 `{"type":"spawn","session_id","agent","cwd","title","model"?,"bypass_permissions"?}`
-per web-created session (`model` only for `ollama`; `bypass_permissions` a
-boolean the daemon maps to known flags, never an argv),
+(`model` for `ollama`, or a claude alias; `bypass_permissions` a
+boolean the daemon maps to known flags, never an argv), and
+`{"type":"set_model","session_id","model"}` for live model switches,
 plus `: hb` comments every 15s. Each heartbeat refreshes the host record, so the
 machine leaves the picker ~90s after the daemon dies (immediately on a clean
 disconnect).

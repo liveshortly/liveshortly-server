@@ -132,6 +132,9 @@ type Session struct {
 	ShareCount int `json:"share_count"`
 	// SharedRole is set only on list rows that the caller reaches via a share.
 	SharedRole *string `json:"shared_role,omitempty"`
+	// LastEvent is a list-row enrichment: the most recent human-meaningful
+	// event (prompt/response/viewer_comment) so rows can say what happened last.
+	LastEvent *LastEvent `json:"last_event,omitempty"`
 
 	// --- Handoff / fork lineage ---
 	// ForkCount is the total number of sessions forked from this one (denormalised,
@@ -716,6 +719,74 @@ func (st *Store) ListSessions(ctx context.Context, scope, userID, email, status,
 		out = append(out, s)
 	}
 	return out, total, rows.Err()
+}
+
+// LastEvent is the list-row summary of a session's most recent
+// human-meaningful event.
+type LastEvent struct {
+	Type    string    `json:"type"`
+	Snippet string    `json:"snippet"`
+	TS      time.Time `json:"ts"`
+}
+
+// LastMeaningfulEvents returns, per session id, the newest prompt / response /
+// viewer_comment event as a short display summary. One query for a whole list
+// page; sessions with no such event are absent from the map.
+func (st *Store) LastMeaningfulEvents(ctx context.Context, ids []string) (map[string]LastEvent, error) {
+	if len(ids) == 0 {
+		return map[string]LastEvent{}, nil
+	}
+	const q = `
+		SELECT DISTINCT ON (session_id) session_id, event_type, payload, ts
+		FROM session_events
+		WHERE session_id = ANY($1)
+		  AND event_type IN ('prompt','response','viewer_comment')
+		ORDER BY session_id, seq DESC`
+	rows, err := st.pool.Query(ctx, q, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := map[string]LastEvent{}
+	for rows.Next() {
+		var sid, typ string
+		var payload []byte
+		var ts time.Time
+		if err := rows.Scan(&sid, &typ, &payload, &ts); err != nil {
+			return nil, err
+		}
+		out[sid] = LastEvent{Type: typ, Snippet: eventSnippet(payload), TS: ts}
+	}
+	return out, rows.Err()
+}
+
+// eventSnippet pulls the human text out of an event payload, flattened and
+// truncated for a one-line row subtitle.
+func eventSnippet(payload []byte) string {
+	// Same key precedence the web/app body helpers use.
+	var p struct {
+		Message string `json:"message"`
+		Text    string `json:"text"`
+		Content string `json:"content"`
+		Prompt  string `json:"prompt"`
+	}
+	_ = json.Unmarshal(payload, &p)
+	s := firstNonEmptyStr(p.Message, p.Text, p.Content, p.Prompt)
+	s = strings.Join(strings.Fields(s), " ")
+	if r := []rune(s); len(r) > 140 {
+		s = string(r[:140]) + "…"
+	}
+	return s
+}
+
+func firstNonEmptyStr(vals ...string) string {
+	for _, v := range vals {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
 }
 
 // GetEvents returns all persisted events for a session ordered by seq ascending.

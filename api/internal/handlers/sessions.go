@@ -270,6 +270,22 @@ func (h *Handler) ListSessions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Row enrichment: what happened last in each session, for list subtitles.
+	// Best-effort — a failure degrades to rows without summaries.
+	if len(results) > 0 {
+		ids := make([]string, len(results))
+		for i := range results {
+			ids[i] = results[i].ID
+		}
+		if last, lerr := h.store.LastMeaningfulEvents(r.Context(), ids); lerr == nil {
+			for i := range results {
+				if le, ok := last[results[i].ID]; ok {
+					results[i].LastEvent = &le
+				}
+			}
+		}
+	}
+
 	httpx.JSON(w, http.StatusOK, map[string]any{
 		"results": results,
 		"total":   total,

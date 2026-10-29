@@ -17,9 +17,7 @@ from _common import (  # noqa: E402
     read_event,
     load_mapping,
     emit,
-    get_transcript_offset,
-    mark_transcript_offset,
-    read_new_assistant_texts,
+    claim_new_assistant_texts,
     detect_model,
     report_model,
     mapping_has_model,
@@ -44,15 +42,12 @@ def main():
         if model and report_model(ls_id, model, claude_id=claude_id) is not None:
             mark_mapping_model(claude_id, model)
 
-    # Emit every assistant turn appended since we last looked.
-    offset = get_transcript_offset(claude_id)
-    texts, new_offset = read_new_assistant_texts(transcript, offset)
-    for text in texts:
+    # Emit every assistant turn appended since we last looked. The claim is
+    # atomic, so a PostToolUse drain still in flight cannot post it too.
+    for text in claim_new_assistant_texts(claude_id, transcript):
         # Full text — the server belt-caps at 256 KB before store and the web
         # truncates for display, so capture stays lossless.
         emit(ls_id, "response", {"content": text}, actor="agent", claude_id=claude_id)
-    if new_offset != offset:
-        mark_transcript_offset(claude_id, new_offset)
 
     return 0
 
