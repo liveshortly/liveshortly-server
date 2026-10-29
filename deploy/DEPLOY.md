@@ -102,7 +102,9 @@ connects to from outside. Two consequences:
 `/etc/liveshortly/api.env` and `/etc/liveshortly/web.env`, both **written by the
 deploy workflow** from GitHub secrets on every run (mode 640, `root:liveshortly`).
 `api.env` carries `DATABASE_URL` (Supabase), `REDIS_URL`
-(`redis://:<password>@198.51.100.7:6379`) and the Google OAuth values.
+(`redis://:<password>@198.51.100.7:6379`), the Google OAuth values and
+`SUPER_ADMIN_EMAILS` (secret `SUPER_ADMIN_EMAILS`, comma-separated) — the api
+grants nobody the `/admin` surface unless this names them.
 
 Nothing is configured by hand on the box — the workflow is the only writer, so a
 rebuilt box is fully configured by re-running the deploy.
