@@ -162,7 +162,7 @@ function GuestHeader() {
           </Link>
           <ThemeToggle />
           <a href={loginUrl()} className="lp-signin-btn">
-            SIGN IN
+            Sign in
           </a>
         </div>
       </div>

@@ -814,3 +814,32 @@ export async function createSessionOnHost(
   }
   return (await res.json()) as CreatedSession;
 }
+
+/** Claude model aliases a web spawn / live switch may choose. Fixed allowlist —
+ *  mirrored by the server and re-checked by the daemon. */
+export const CLAUDE_MODELS = ["sonnet", "opus", "haiku"] as const;
+export type ClaudeModel = (typeof CLAUDE_MODELS)[number];
+
+/** Switch a LIVE session's model on the hosting machine (owner only). The
+ *  daemon types `/model <alias>` into the session's pane. */
+export async function setSessionModel(
+  id: string,
+  model: ClaudeModel,
+): Promise<void> {
+  const res = await fetch(`${browserBase()}/api/sessions/${id}/model`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ model }),
+  });
+  if (!res.ok) {
+    let detail = `${res.status} ${res.statusText}`;
+    try {
+      const body = (await res.json()) as { error?: string };
+      if (body?.error) detail = body.error;
+    } catch {
+      /* keep the status line */
+    }
+    throw new ApiError(res.status, detail);
+  }
+}
