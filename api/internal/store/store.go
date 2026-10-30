@@ -40,6 +40,8 @@ type QuotaUsage struct {
 	LiveSessions      int   `json:"live_sessions"`
 	MaxLiveSessions   int   `json:"max_live_sessions"`
 	QuotaExempt       bool  `json:"quota_exempt"`
+	// IsAdmin is the admin grant itself — the column the toggle writes.
+	IsAdmin bool `json:"is_admin"`
 }
 
 // GetQuotaUsage resolves a user's usage + effective limits (override → default),
@@ -226,6 +228,8 @@ type AdminUser struct {
 	StorageLimitBytes int64 `json:"storage_limit_bytes"`
 	MaxLiveSessions   int   `json:"max_live_sessions"`
 	QuotaExempt       bool  `json:"quota_exempt"`
+	// IsAdmin is the admin grant itself — the column the toggle writes.
+	IsAdmin bool `json:"is_admin"`
 }
 
 // PublicStats returns the anonymous landing page's proof counts. LiveNow and
@@ -259,7 +263,7 @@ func (st *Store) AdminUsers(ctx context.Context, defStorageLimit int64, defMaxLi
 		       u.storage_bytes_used,
 		       COALESCE(u.storage_limit_bytes, $1),
 		       COALESCE(u.max_live_sessions, $2),
-		       u.quota_exempt
+		       u.quota_exempt, u.is_admin
 		FROM users u
 		LEFT JOIN sessions s ON s.owner_id = u.id
 		GROUP BY u.id
@@ -274,7 +278,8 @@ func (st *Store) AdminUsers(ctx context.Context, defStorageLimit int64, defMaxLi
 		var u AdminUser
 		if err := rows.Scan(&u.ID, &u.Handle, &u.Name, &u.Email, &u.AvatarURL,
 			&u.CreatedAt, &u.LastLoginAt, &u.LastActiveAt, &u.SessionCount, &u.LiveCount,
-			&u.StorageBytesUsed, &u.StorageLimitBytes, &u.MaxLiveSessions, &u.QuotaExempt); err != nil {
+			&u.StorageBytesUsed, &u.StorageLimitBytes, &u.MaxLiveSessions, &u.QuotaExempt,
+			&u.IsAdmin); err != nil {
 			return nil, err
 		}
 		out = append(out, u)
@@ -1346,4 +1351,24 @@ func (s *Store) IsAdmin(ctx context.Context, userID string) (bool, error) {
 		return false, err
 	}
 	return isAdmin, nil
+}
+
+// SetAdmin grants or revokes a user's admin. pgx.ErrNoRows means no such user.
+func (st *Store) SetAdmin(ctx context.Context, userID string, isAdmin bool) error {
+	var id string
+	return st.pool.QueryRow(ctx,
+		`UPDATE users SET is_admin = $2 WHERE id = $1 RETURNING id`,
+		userID, isAdmin).Scan(&id)
+}
+
+// CountAdmins reports how many users currently hold admin.
+//
+// It exists so a revoke can refuse to remove the last one. Admin is only
+// writable through this surface and the database, so dropping to zero would
+// leave the deployment with no way back except hand-written SQL.
+func (st *Store) CountAdmins(ctx context.Context) (int, error) {
+	var n int
+	err := st.pool.QueryRow(ctx,
+		`SELECT count(*) FROM users WHERE is_admin`).Scan(&n)
+	return n, err
 }

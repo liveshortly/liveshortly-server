@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { adminUsers, setUserQuota, type AdminUser } from "@/lib/api";
+import { adminUsers, setUserAdmin, setUserQuota, type AdminUser } from "@/lib/api";
 import { useAdminGuard } from "@/lib/useAdminGuard";
 import { fmtBytes, fmtInt, timeAgo } from "@/lib/utils";
 
@@ -67,6 +67,7 @@ export default function AdminUsersPage() {
                 <Th align="right">Live</Th>
                 <Th>Storage</Th>
                 <Th>Quota</Th>
+                <Th>Admin</Th>
               </tr>
             </thead>
             <tbody>
@@ -95,11 +96,93 @@ export default function AdminUsersPage() {
                   <Td>
                     <QuotaControls user={u} onChange={(n) => patchUser(u.id, n)} />
                   </Td>
+                  <Td>
+                    <AdminToggle user={u} onChange={(n) => patchUser(u.id, n)} />
+                  </Td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+      )}
+    </div>
+  );
+}
+
+/** Grants or revokes admin — the users.is_admin column, which is the only
+ *  thing that decides who reaches /admin.
+ *
+ *  The server refuses to let the last admin, or you yourself, be revoked, since
+ *  admin lives nowhere else and reaching zero would need hand-written SQL to
+ *  undo. Those refusals arrive as a message written for a person, so it is
+ *  shown as-is rather than replaced with a generic failure. */
+function AdminToggle({
+  user,
+  onChange,
+}: {
+  user: AdminUser;
+  onChange: (next: Partial<AdminUser>) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const set = async (next: boolean) => {
+    setBusy(true);
+    setErr(null);
+    try {
+      const r = await setUserAdmin(user.id, next);
+      onChange({ is_admin: r.is_admin });
+    } catch (e) {
+      setErr(e instanceof Error && e.message ? e.message : "Could not update admin");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+      {user.is_admin ? (
+        <>
+          <span
+            className="label"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              color: "var(--admin)",
+              border: "1px solid color-mix(in srgb, var(--admin) 40%, transparent)",
+              borderRadius: 999,
+              padding: "2px 9px",
+            }}
+          >
+            <span
+              aria-hidden
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: 999,
+                background: "var(--admin)",
+              }}
+            />
+            ADMIN
+          </span>
+          <SmallBtn onClick={() => set(false)} disabled={busy}>
+            Revoke
+          </SmallBtn>
+        </>
+      ) : (
+        <SmallBtn onClick={() => set(true)} disabled={busy}>
+          Make admin
+        </SmallBtn>
+      )}
+      {err && (
+        <span
+          className="label"
+          style={{ color: "var(--red)", maxWidth: 240, whiteSpace: "normal" }}
+          title={err}
+        >
+          {err}
+        </span>
       )}
     </div>
   );
