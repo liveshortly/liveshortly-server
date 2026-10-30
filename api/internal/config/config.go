@@ -39,13 +39,6 @@ type Config struct {
 	SessionSecret     string
 	WebBaseURL        string
 
-	// SuperAdminEmails is a BOOTSTRAP list only, read once by store.Migrate to
-	// seed users.is_admin. Admin is decided by that column, never by this —
-	// adding an address here does not grant admin to an existing admin-less
-	// deployment beyond that first seeding, and removing one revokes nothing.
-	// Comma-separated via SUPER_ADMIN_EMAILS; empty by default, lower-cased.
-	SuperAdminEmails []string
-
 	// --- Per-user quotas (launch-blocking) ---
 	// DefaultStorageLimitBytes is the per-user stored-session-data cap applied to
 	// users with no override. Tunable via DEFAULT_STORAGE_LIMIT_BYTES; defaults to
@@ -79,11 +72,7 @@ func Load() Config {
 		OAuthAllowedHosts:  oauthAllowedHosts(env("OAUTH_ALLOWED_HOSTS", ""), webBaseURL),
 		SessionSecret:      env("SESSION_SECRET", ""),
 		WebBaseURL:         webBaseURL,
-		SuperAdminEmails: lowerAll(splitCSV(env(
-			"SUPER_ADMIN_EMAILS",
-			"",
-		))),
-		LiveAgentGrace: envDuration("LIVE_AGENT_GRACE", 10*time.Minute),
+		LiveAgentGrace:     envDuration("LIVE_AGENT_GRACE", 10*time.Minute),
 
 		DefaultStorageLimitBytes: envInt64("DEFAULT_STORAGE_LIMIT_BYTES", 100*1024*1024),
 		DefaultMaxLiveSessions:   int(envInt64("DEFAULT_MAX_LIVE_SESSIONS", 10)),

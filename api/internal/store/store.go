@@ -1330,10 +1330,8 @@ func (st *Store) Activity(ctx context.Context, userID, email string, limit int) 
 	return items, nil
 }
 
-// IsAdmin reports whether the user carries a persisted admin grant
-// (users.is_admin). It is one half of the effective admin check: the other is
-// the SUPER_ADMIN_EMAILS allowlist in config, which stays authoritative on top
-// so an operator can always recover admin from the environment. See
+// IsAdmin reports whether the user carries an admin grant (users.is_admin).
+// This is the only source of admin in the system — see
 // infra/postgres/006-admin.sql.
 //
 // A missing row is not an error — it is simply not an admin.

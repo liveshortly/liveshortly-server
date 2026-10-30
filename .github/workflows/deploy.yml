@@ -105,9 +105,7 @@ jobs:
         run: |
           # Refuse to write a half-empty env file: a missing secret would take
           # the api down on the next restart, and the cause would be non-obvious.
-          # SUPER_ADMIN_EMAILS is in the list because the api defaults it to
-          # empty — omit it and the deploy silently un-admins every operator.
-          for s in DATABASE_URL REDIS_URL GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET SESSION_SECRET SUPER_ADMIN_EMAILS; do
+          for s in DATABASE_URL REDIS_URL GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET SESSION_SECRET; do
             eval "v=\$$s"
             [ -n "$v" ] || { echo "::error::secret $s is empty — refusing to write the service env"; exit 1; }
           done
@@ -121,7 +119,6 @@ jobs:
           GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
           GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
           SESSION_SECRET=${SESSION_SECRET}
-          SUPER_ADMIN_EMAILS=${SUPER_ADMIN_EMAILS}
           OAUTH_ALLOWED_HOSTS=liveshortly.com,www.liveshortly.com
           WEB_BASE_URL=https://liveshortly.com
           CORS_ORIGINS=${PUBLIC_ORIGIN}
@@ -140,7 +137,6 @@ jobs:
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
-          SUPER_ADMIN_EMAILS: ${{ secrets.SUPER_ADMIN_EMAILS }}
 
       - name: Rsync build artifacts, nginx conf and unit files
         run: |

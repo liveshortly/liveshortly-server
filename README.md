@@ -342,7 +342,7 @@ All via `.env` (see [`.env.example`](.env.example)). The defaults just work.
 | `SESSION_SECRET` | — | signs the `ls_session` cookie + bearer/refresh JWTs |
 | `WEB_BASE_URL` | — | canonical web origin (used for OAuth callback + share links) |
 | `OAUTH_ALLOWED_HOSTS` | host of `WEB_BASE_URL` | comma-separated hostnames allowed to start/receive the OAuth callback |
-| `SUPER_ADMIN_EMAILS` | two founders | comma-separated allowlist for the `/admin` surface |
+| _(none)_ | — | admin is `users.is_admin`, not configuration — see below |
 | `NEXT_PUBLIC_SITE_URL` | `https://liveshortly.com` | absolute base for OG/canonical URLs (web) |
 
 > ⚠️ **`NEXT_PUBLIC_*` is compile-time.** Change `NEXT_PUBLIC_API_URL` and you must
@@ -575,7 +575,7 @@ Auth is **live** (see [`AUTH.md`](AUTH.md) for the binding spec). Every `/api` r
 
 **Authorization** (`handlers/authz.go`): owner → full access; a `session_shares` grant → viewer/commenter;
 `visibility=link|public` → any signed-in user with the URL; `visibility=open` → anyone at all.
-**Super-admins** are an email allowlist (`SUPER_ADMIN_EMAILS`) checked at the nav, the web route,
+**Super-admins** are the `users.is_admin` column, checked at the nav, the web route,
 and the API — the `/admin` endpoints return `403` to everyone else.
 
 ---
