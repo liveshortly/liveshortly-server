@@ -1,26 +1,30 @@
--- 006-admin.sql — per-user admin flag.
+-- 006-admin.sql — admin becomes a column.
 --
--- Admin was an operator deployment decision only: SUPER_ADMIN_EMAILS, an
--- environment allowlist checked per request (config.IsSuperAdmin). Nothing was
--- stored, so there was no way to grant or revoke admin without changing the
--- environment and restarting the API.
+-- Admin used to be an environment allowlist (SUPER_ADMIN_EMAILS) evaluated on
+-- every request. Granting or revoking meant editing a deployment's environment
+-- and restarting the api, and the flag appeared nowhere in the database.
 --
--- This adds a persisted grant ALONGSIDE that allowlist; it does not replace it.
--- Effective admin is:
+-- It is now users.is_admin, managed where the rest of the user data lives:
 --
---     SUPER_ADMIN_EMAILS contains the email   OR   users.is_admin
+--     UPDATE users SET is_admin = true  WHERE email = 'someone@example.com';
+--     UPDATE users SET is_admin = false WHERE email = 'someone@example.com';
 --
--- The allowlist stays authoritative on top so a deployment can always recover
--- an admin from the environment. If the flag were the only source, losing the
--- last admin row — a bad UPDATE, a restore from a clone — would lock everyone
--- out of /admin with no way back in short of writing SQL by hand.
+-- No request path reads SUPER_ADMIN_EMAILS any more. It survives as a one-time
+-- bootstrap: store.Migrate seeds this column from it on the first boot after
+-- this migration, so a deployment's existing admins carry across the switch
+-- instead of everyone losing access the moment it ships. SQL cannot read the
+-- environment, which is why that half lives in Go.
 --
--- Note the security shift this introduces: admin becomes writable by anything
--- with UPDATE on users, and it now travels with database copies. Anyone
--- restoring production into staging carries the production admins with it.
+-- The seeding is claimed in schema_bootstrap so it runs once ever. Re-running
+-- it every boot would re-grant anyone who had been deliberately revoked.
 --
--- Runs on first volume creation only. store/migrate.go mirrors this statement
--- so existing databases get it on the next boot.
+-- Trade-off worth knowing: admin is now writable by anything holding UPDATE on
+-- users, and it travels with database copies — restoring production into
+-- staging carries the production admins with it. The environment allowlist had
+-- neither property.
+--
+-- Runs on first volume creation only; store/migrate.go mirrors every statement
+-- so existing databases get them on the next boot.
 
 ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT false;
 
@@ -28,3 +32,10 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT fal
 -- partial index keeps "who are the admins" cheap without carrying a bitmap
 -- over every user.
 CREATE INDEX IF NOT EXISTS users_is_admin_idx ON users (is_admin) WHERE is_admin;
+
+-- Records one-off data seeding that must never repeat. The DDL above is safe
+-- to re-run on every boot; seeding rows is not.
+CREATE TABLE IF NOT EXISTS schema_bootstrap (
+	key        TEXT PRIMARY KEY,
+	applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
