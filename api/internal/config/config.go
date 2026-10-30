@@ -39,9 +39,11 @@ type Config struct {
 	SessionSecret     string
 	WebBaseURL        string
 
-	// SuperAdminEmails is the allowlist of accounts that may reach the admin
-	// stats surface. Comma-separated via SUPER_ADMIN_EMAILS; empty by default.
-	// Stored lower-cased for case-insensitive matching.
+	// SuperAdminEmails is a BOOTSTRAP list only, read once by store.Migrate to
+	// seed users.is_admin. Admin is decided by that column, never by this —
+	// adding an address here does not grant admin to an existing admin-less
+	// deployment beyond that first seeding, and removing one revokes nothing.
+	// Comma-separated via SUPER_ADMIN_EMAILS; empty by default, lower-cased.
 	SuperAdminEmails []string
 
 	// --- Per-user quotas (launch-blocking) ---
@@ -57,21 +59,6 @@ type Config struct {
 // big fraction of a user's quota or spike memory in a single insert. Fixed (not
 // configurable) by design — it's a safety belt, not a tuning knob.
 const MaxEventBytes = 256 * 1024 // 256 KB
-
-// IsSuperAdmin reports whether the given email is on the super-admin allowlist
-// (case-insensitive). Empty email is never an admin.
-func (c Config) IsSuperAdmin(email string) bool {
-	e := strings.ToLower(strings.TrimSpace(email))
-	if e == "" {
-		return false
-	}
-	for _, a := range c.SuperAdminEmails {
-		if a == e {
-			return true
-		}
-	}
-	return false
-}
 
 // Load reads configuration from the environment, applying defaults from the
 // contract. Required values (DATABASE_URL, REDIS_URL) have sensible local

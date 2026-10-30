@@ -1,6 +1,9 @@
 package store
 
-import "context"
+import (
+	"context"
+	"strings"
+)
 
 // migrations are idempotent DDL statements applied on every boot. The base
 // schema ships via the Postgres docker-entrypoint init scripts, which only run
@@ -82,15 +85,77 @@ var migrations = []string{
 	// comment rows. A partial index on the comment rows alone keeps that scan
 	// cheap regardless of how many other events a session has.
 	`CREATE INDEX IF NOT EXISTS session_events_comment_idx ON session_events (session_id, ts DESC) WHERE event_type = 'viewer_comment'`,
+
+	// --- Per-user admin grant ---
+	// Mirrors infra/postgres/006-admin.sql (fresh-volume only — this reaches
+	// existing databases). Admin was environment-only (SUPER_ADMIN_EMAILS);
+	// this persists a grant alongside that allowlist rather than replacing it,
+	// so a deployment can always recover an admin from its environment. See
+	// that file for the security trade-off.
+	`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT false`,
+	`CREATE INDEX IF NOT EXISTS users_is_admin_idx ON users (is_admin) WHERE is_admin`,
+
+	// Records one-off data seeding that must never repeat. Migrations above are
+	// DDL and safely re-run every boot; seeding rows is not — see
+	// bootstrapAdmins for why repeating it would undo a revoke.
+	`CREATE TABLE IF NOT EXISTS schema_bootstrap (
+		key        TEXT PRIMARY KEY,
+		applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
+	)`,
 }
 
 // Migrate applies the additive, idempotent migrations above. It runs before the
 // server starts serving so the session queries can rely on the new columns.
-func (st *Store) Migrate(ctx context.Context) error {
+//
+// bootstrapAdmins carries the legacy SUPER_ADMIN_EMAILS allowlist. Admin is now
+// a column, and every row defaults to false — so without this, the deploy that
+// removed the allowlist check would have left the site with no admins at all,
+// including whoever was about to look for the setting. Those emails are granted
+// once here, and the allowlist is never read again at request time.
+func (st *Store) Migrate(ctx context.Context, bootstrapAdmins []string) error {
 	for _, stmt := range migrations {
 		if _, err := st.pool.Exec(ctx, stmt); err != nil {
 			return err
 		}
 	}
-	return nil
+	return st.bootstrapAdmins(ctx, bootstrapAdmins)
+}
+
+// bootstrapAdmins grants users.is_admin to the given emails, once ever.
+//
+// Once ever matters, and an "only if not already admin" guard does not achieve
+// it: after someone's admin is revoked that guard matches again, so the next
+// restart hands it straight back. The claim is recorded in schema_bootstrap
+// instead, and the seeding runs only for the boot that wins that insert.
+//
+// The effect is that the legacy SUPER_ADMIN_EMAILS list seeds a deployment
+// exactly once — carrying its existing admins across the move to the column —
+// and from then on admin is whatever the table says.
+func (st *Store) bootstrapAdmins(ctx context.Context, emails []string) error {
+	cleaned := make([]string, 0, len(emails))
+	for _, e := range emails {
+		if e = strings.ToLower(strings.TrimSpace(e)); e != "" {
+			cleaned = append(cleaned, e)
+		}
+	}
+	if len(cleaned) == 0 {
+		return nil
+	}
+
+	// Claim the seeding. ON CONFLICT DO NOTHING means a second boot (or a
+	// second instance starting at the same moment) affects no rows and skips
+	// the update entirely.
+	tag, err := st.pool.Exec(ctx,
+		`INSERT INTO schema_bootstrap (key) VALUES ('admin_seed')
+		 ON CONFLICT (key) DO NOTHING`)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return nil // already seeded on an earlier boot
+	}
+
+	_, err = st.pool.Exec(ctx,
+		`UPDATE users SET is_admin = true WHERE lower(email) = ANY($1)`, cleaned)
+	return err
 }

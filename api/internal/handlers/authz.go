@@ -77,3 +77,18 @@ func (h *Handler) ownedSession(w http.ResponseWriter, r *http.Request, id string
 	}
 	return s, p, true
 }
+
+// effectiveAdmin is the one admin check in the codebase, and it reads exactly
+// one thing: users.is_admin.
+//
+// Admin used to be an environment allowlist (SUPER_ADMIN_EMAILS) evaluated per
+// request. It is now a row, so admins are managed where the rest of the user
+// data lives rather than by editing a deployment's environment and restarting.
+// The allowlist survives only as a one-time bootstrap at migration time (see
+// store.Migrate) so the switch did not revoke anyone; it is not consulted here.
+//
+// A store error counts as "not admin": an authorization check fails closed.
+func effectiveAdmin(ctx context.Context, st *store.Store, userID string) bool {
+	granted, err := st.IsAdmin(ctx, userID)
+	return err == nil && granted
+}

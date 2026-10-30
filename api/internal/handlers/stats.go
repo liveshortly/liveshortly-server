@@ -66,7 +66,7 @@ func (h *Handler) AdminStats(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusUnauthorized, "no principal")
 		return
 	}
-	if !h.cfg.IsSuperAdmin(p.Email) {
+	if !effectiveAdmin(r.Context(), h.store, p.ID) {
 		httpx.Error(w, http.StatusForbidden, "admin access required")
 		return
 	}
@@ -86,7 +86,7 @@ func (h *Handler) requireAdmin(w http.ResponseWriter, r *http.Request) bool {
 		httpx.Error(w, http.StatusUnauthorized, "no principal")
 		return false
 	}
-	if !h.cfg.IsSuperAdmin(p.Email) {
+	if !effectiveAdmin(r.Context(), h.store, p.ID) {
 		httpx.Error(w, http.StatusForbidden, "admin access required")
 		return false
 	}
