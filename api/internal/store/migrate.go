@@ -82,6 +82,15 @@ var migrations = []string{
 	// comment rows. A partial index on the comment rows alone keeps that scan
 	// cheap regardless of how many other events a session has.
 	`CREATE INDEX IF NOT EXISTS session_events_comment_idx ON session_events (session_id, ts DESC) WHERE event_type = 'viewer_comment'`,
+
+	// --- Per-user admin grant ---
+	// Mirrors infra/postgres/006-admin.sql (fresh-volume only — this reaches
+	// existing databases). Admin was environment-only (SUPER_ADMIN_EMAILS);
+	// this persists a grant alongside that allowlist rather than replacing it,
+	// so a deployment can always recover an admin from its environment. See
+	// that file for the security trade-off.
+	`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT false`,
+	`CREATE INDEX IF NOT EXISTS users_is_admin_idx ON users (is_admin) WHERE is_admin`,
 }
 
 // Migrate applies the additive, idempotent migrations above. It runs before the
