@@ -22,7 +22,7 @@ func TestForkCreateRepro(t *testing.T) {
 	}
 	defer pool.Close()
 	st := New(pool)
-	if err := st.Migrate(ctx); err != nil {
+	if err := st.Migrate(ctx, nil); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
 

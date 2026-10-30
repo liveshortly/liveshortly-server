@@ -64,8 +64,10 @@ func main() {
 
 	st := store.New(pool)
 	// Apply additive, idempotent migrations (the entrypoint init scripts only run
-	// on first volume creation, so post-launch columns are added here).
-	if err := st.Migrate(ctx); err != nil {
+	// on first volume creation, so post-launch columns are added here). The
+	// super-admin allowlist is passed in as a one-time bootstrap for the
+	// users.is_admin column — it is not consulted on any request.
+	if err := st.Migrate(ctx, cfg.SuperAdminEmails); err != nil {
 		log.Fatalf("migrate: %v", err)
 	}
 

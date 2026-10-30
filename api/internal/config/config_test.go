@@ -2,18 +2,26 @@ package config
 
 import "testing"
 
-func TestSelfHostedAdminsAreOperatorConfigured(t *testing.T) {
+// SUPER_ADMIN_EMAILS no longer decides anything at request time — admin is
+// users.is_admin. All this list still does is seed that column once, in
+// store.Migrate, so what matters here is that a fresh installation grants
+// nobody and that the parsing is forgiving about case and spacing.
+func TestSuperAdminBootstrapListParsing(t *testing.T) {
 	t.Setenv("SUPER_ADMIN_EMAILS", "")
 	cfg := Load()
 	if len(cfg.SuperAdminEmails) != 0 {
-		t.Fatalf("fresh installation granted admin accounts: %v", cfg.SuperAdminEmails)
+		t.Fatalf("fresh installation seeded admin accounts: %v", cfg.SuperAdminEmails)
 	}
+
 	t.Setenv("SUPER_ADMIN_EMAILS", "Owner@Example.Test, second@example.test")
 	cfg = Load()
-	if !cfg.IsSuperAdmin("owner@example.test") || !cfg.IsSuperAdmin("SECOND@example.test") {
-		t.Fatal("configured administrators not recognized")
+	if len(cfg.SuperAdminEmails) != 2 {
+		t.Fatalf("expected 2 bootstrap entries, got %v", cfg.SuperAdminEmails)
 	}
-	if cfg.IsSuperAdmin("stranger@example.test") {
-		t.Fatal("unconfigured account is admin")
+	// Lower-cased and trimmed, so the seeding query can match on lower(email).
+	for i, want := range []string{"owner@example.test", "second@example.test"} {
+		if cfg.SuperAdminEmails[i] != want {
+			t.Fatalf("entry %d = %q, want %q", i, cfg.SuperAdminEmails[i], want)
+		}
 	}
 }
