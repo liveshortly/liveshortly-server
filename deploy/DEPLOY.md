@@ -102,9 +102,18 @@ connects to from outside. Two consequences:
 `/etc/liveshortly/api.env` and `/etc/liveshortly/web.env`, both **written by the
 deploy workflow** from GitHub secrets on every run (mode 640, `root:liveshortly`).
 `api.env` carries `DATABASE_URL` (Supabase), `REDIS_URL`
-(`redis://:<password>@172.31.23.65:6379`), the Google OAuth values and
-`SUPER_ADMIN_EMAILS` (secret `SUPER_ADMIN_EMAILS`, comma-separated) — the api
-grants nobody the `/admin` surface unless this names them.
+(`redis://:<password>@172.31.23.65:6379`) and the Google OAuth values.
+
+Admin is **not** configured here. It is the `users.is_admin` column, so the
+`/admin` surface is granted with a database statement and takes effect without
+a redeploy:
+
+```sql
+UPDATE users SET is_admin = true WHERE email = 'someone@example.com';
+```
+
+A fresh deployment therefore has no admins until someone with database access
+runs that once.
 
 Nothing is configured by hand on the box — the workflow is the only writer, so a
 rebuilt box is fully configured by re-running the deploy.
