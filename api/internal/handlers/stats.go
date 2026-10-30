@@ -162,6 +162,69 @@ func (h *Handler) SetUserQuota(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, qu)
 }
 
+type setUserAdminReq struct {
+	IsAdmin *bool `json:"is_admin"`
+}
+
+// SetUserAdmin grants or revokes a user's admin from the admin users page.
+// PATCH /api/admin/users/{id}/admin.
+//
+// Admin is a column with no configuration behind it, so this surface and the
+// database are the only two ways to change it. That makes losing every admin a
+// real way to lock a deployment out of its own /admin, recoverable only with
+// hand-written SQL — so two revokes are refused:
+//
+//   - your own, because the usual way to reach zero is an admin tidying
+//     themselves up and not realising they were the last one, and
+//   - the last remaining one, for everything else.
+//
+// Granting is never refused.
+func (h *Handler) SetUserAdmin(w http.ResponseWriter, r *http.Request) {
+	if !h.requireAdmin(w, r) {
+		return
+	}
+	p, _ := auth.Principal(r.Context())
+	userID := chi.URLParam(r, "id")
+
+	var req setUserAdminReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+	if req.IsAdmin == nil {
+		httpx.Error(w, http.StatusBadRequest, "is_admin is required")
+		return
+	}
+
+	if !*req.IsAdmin {
+		if userID == p.ID {
+			httpx.Error(w, http.StatusBadRequest,
+				"you cannot remove your own admin — ask another admin to do it")
+			return
+		}
+		n, err := h.store.CountAdmins(r.Context())
+		if err != nil {
+			httpx.Error(w, http.StatusInternalServerError, "failed to count admins")
+			return
+		}
+		if n <= 1 {
+			httpx.Error(w, http.StatusBadRequest,
+				"this is the last admin — grant another one first")
+			return
+		}
+	}
+
+	if err := h.store.SetAdmin(r.Context(), userID, *req.IsAdmin); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			httpx.Error(w, http.StatusNotFound, "user not found")
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, "failed to update admin")
+		return
+	}
+	httpx.JSON(w, http.StatusOK, map[string]any{"id": userID, "is_admin": *req.IsAdmin})
+}
+
 // AdminSessions lists sessions across all users for a filter (all | live |
 // ended | public). Super-admin only. GET /api/admin/sessions?filter=.
 func (h *Handler) AdminSessions(w http.ResponseWriter, r *http.Request) {
