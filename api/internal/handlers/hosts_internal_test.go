@@ -170,20 +170,29 @@ func TestResolveSpawnBindsOllamaModelToHost(t *testing.T) {
 		}
 	}
 
-	// A model is meaningless for other agents and must not be forwarded.
+	// A model is meaningless for an agent that takes none, and must not be
+	// forwarded. codex, not claude: claude DOES take a model — an alias from a
+	// fixed list — so it is the wrong example for "this agent has no model",
+	// and it now rejects an unknown alias rather than ignoring it.
 	other, _ := json.Marshal(hostRecord{
 		ID: host, Dirs: []string{"/work/allowed"},
-		Agents: []string{"claude"}, Models: []string{"llama3.2:1b"},
+		Agents: []string{"codex", "claude"}, Models: []string{"llama3.2:1b"},
 	})
 	if err := d.Bus.HostSet(ctx, user, host, string(other)); err != nil {
 		t.Fatalf("HostSet: %v", err)
 	}
-	got, err = h.resolveSpawn(ctx, user, host, "claude", "/work/allowed", "llama3.2:1b")
+	got, err = h.resolveSpawn(ctx, user, host, "codex", "/work/allowed", "llama3.2:1b")
 	if err != nil {
-		t.Fatalf("claude with a model: %v", err)
+		t.Fatalf("codex with a model: %v", err)
 	}
 	if got.model != "" {
-		t.Errorf("model leaked to a non-ollama agent: %q", got.model)
+		t.Errorf("model leaked to an agent that takes none: %q", got.model)
+	}
+
+	// claude takes a model, but only an alias it knows: an ollama tag is not
+	// one, and is refused rather than quietly dropped.
+	if _, err := h.resolveSpawn(ctx, user, host, "claude", "/work/allowed", "llama3.2:1b"); err == nil {
+		t.Error("resolveSpawn accepted an unknown claude model alias")
 	}
 }
 
