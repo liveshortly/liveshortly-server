@@ -94,12 +94,12 @@ type User struct {
 
 // Session matches the JSON shape in CONTRACT.md/AUTH.md.
 type Session struct {
-	ID          string     `json:"id"`
-	Title       string     `json:"title"`
-	OwnerHandle string     `json:"owner_handle"`
-	OwnerID     string     `json:"owner_id"`
-	Model       *string    `json:"model"`
-	Framework   *string    `json:"framework"`
+	ID          string  `json:"id"`
+	Title       string  `json:"title"`
+	OwnerHandle string  `json:"owner_handle"`
+	OwnerID     string  `json:"owner_id"`
+	Model       *string `json:"model"`
+	Framework   *string `json:"framework"`
 	// Agent + CaptureMode describe how the session is captured, reported by the
 	// Live shim. Optional; no behavior depends on them yet.
 	Agent       *string    `json:"agent"`        // claude-code | gemini-cli | codex | ollama | terminal
@@ -142,8 +142,8 @@ type Session struct {
 	ForkCount int `json:"fork_count"`
 	// ForkedFromID/Seq/At describe this session's own origin when it is itself a
 	// fork; nil otherwise. Populated on every row.
-	ForkedFromID *string    `json:"forked_from_id,omitempty"`
-	ForkedFromSeq *int      `json:"forked_from_seq,omitempty"`
+	ForkedFromID  *string    `json:"forked_from_id,omitempty"`
+	ForkedFromSeq *int       `json:"forked_from_seq,omitempty"`
 	ForkedAt      *time.Time `json:"forked_at,omitempty"`
 	// ForkerCount (distinct users who forked) and ForkedFrom (source ref) are
 	// detail-only enrichments set by GetSession, not by list/feed queries.
@@ -1328,4 +1328,24 @@ func (st *Store) Activity(ctx context.Context, userID, email string, limit int) 
 		items = items[:limit]
 	}
 	return items, nil
+}
+
+// IsAdmin reports whether the user carries a persisted admin grant
+// (users.is_admin). It is one half of the effective admin check: the other is
+// the SUPER_ADMIN_EMAILS allowlist in config, which stays authoritative on top
+// so an operator can always recover admin from the environment. See
+// infra/postgres/006-admin.sql.
+//
+// A missing row is not an error — it is simply not an admin.
+func (s *Store) IsAdmin(ctx context.Context, userID string) (bool, error) {
+	var isAdmin bool
+	err := s.pool.QueryRow(ctx,
+		`SELECT is_admin FROM users WHERE id = $1`, userID).Scan(&isAdmin)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return false, nil
+		}
+		return false, err
+	}
+	return isAdmin, nil
 }

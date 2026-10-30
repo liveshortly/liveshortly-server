@@ -56,7 +56,7 @@ func Setup(t *testing.T) Deps {
 		t.Skipf("postgres ping: %v", err)
 	}
 	st := store.New(pool)
-	if err := st.Migrate(ctx); err != nil {
+	if err := st.Migrate(ctx, nil); err != nil {
 		pool.Close()
 		t.Fatalf("migrate: %v", err)
 	}

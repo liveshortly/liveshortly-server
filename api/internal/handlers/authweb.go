@@ -175,7 +175,8 @@ func (g *GoogleAuth) Me(w http.ResponseWriter, r *http.Request) {
 		"id":            c.UserID,
 		"email":         c.Email,
 		"name":          c.Name,
-		"is_admin":      g.cfg.IsSuperAdmin(c.Email),
+		// Allowlist OR persisted grant — see stats.go isAdmin / 006-admin.sql.
+		"is_admin": effectiveAdmin(r.Context(), g.store, c.UserID),
 	}
 	// Attach the caller's quota usage so the web can show a meter and pre-empt a
 	// doomed session before it starts. Best-effort — a lookup failure just omits
