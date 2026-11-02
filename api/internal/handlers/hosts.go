@@ -15,6 +15,7 @@ import (
 	"liveshortly/internal/auth"
 	"liveshortly/internal/bus"
 	"liveshortly/internal/httpx"
+	"liveshortly/internal/store"
 )
 
 // A host is a machine running `live daemon`: it holds an SSE command stream
@@ -571,6 +572,12 @@ func (h *Handler) SetSessionModel(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusConflict, "session has ended")
 		return
 	}
+	// Only Claude Code takes `/model <alias>` mid-session; typed into any other
+	// agent's pane it is just garbage input (LSH-01).
+	if !modelSwitchable(s) {
+		httpx.Error(w, http.StatusConflict, "this agent can't switch models mid-session")
+		return
+	}
 
 	var req struct {
 		Model string `json:"model"`
@@ -618,4 +625,16 @@ func (h *Handler) SetSessionModel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.JSON(w, http.StatusOK, map[string]any{"ok": true, "model": model})
+}
+
+// modelSwitchable reports whether a live session's agent takes a model switch.
+func modelSwitchable(s *store.Session) bool {
+	name := ""
+	if s.Agent != nil {
+		name = *s.Agent
+	}
+	if name == "" && s.Framework != nil {
+		name = *s.Framework
+	}
+	return name == "claude-code" || name == "claude"
 }
