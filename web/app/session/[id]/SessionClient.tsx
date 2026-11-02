@@ -25,7 +25,7 @@ import {
   toolCallBefore,
   typingLine,
 } from "@/lib/transcript";
-import { agentTitle, truncate } from "@/lib/utils";
+import { agentCaps, agentTitle, truncate } from "@/lib/utils";
 import { useMarkSeen } from "@/lib/useMarkSeen";
 import Composer, { ReadOnlyFooter } from "./Composer";
 import InfoPanel from "./InfoPanel";
@@ -196,9 +196,9 @@ export default function SessionClient({
   const activity = useMemo(() => activityLabel(events), [events]);
   const agent = agentTitle(meta?.framework);
 
-  // Hook agents (claude) say when a turn ends; pty agents (ollama, gemini) only
-  // stream `output`, so for them silence is what ends "working".
-  const hooked = meta?.framework === "claude-code";
+  // Hook/rollout agents (claude, codex, agy) say when a turn ends; pty agents
+  // (ollama, gemini, terminal) only stream `output`, so silence ends "working".
+  const hooked = agentCaps(meta?.framework).streamEnd;
   const [quiet, setQuiet] = useState(false);
   useEffect(() => {
     setQuiet(false);

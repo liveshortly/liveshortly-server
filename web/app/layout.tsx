@@ -23,7 +23,7 @@ const jbMono = JetBrains_Mono({
 /** Absolute base for OG/canonical URLs (override per-deploy via env). */
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:8080";
 const DESCRIPTION =
-  "Stream your Claude Code sessions — live, replayable, shareable. A terminal-HUD feed of agent & coding sessions.";
+  "Stream your coding agent sessions (Claude Code, Codex, Gemini, Antigravity and more) — live, replayable, shareable.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
