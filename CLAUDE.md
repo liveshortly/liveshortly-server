@@ -181,7 +181,7 @@ Full auth is live. Every `/api` route (except `/api/me`) requires a principal re
 
 ### Design system
 
-Terminal HUD aesthetic — monospace font (`JetBrains Mono` stack), hairline borders, UPPERCASE labels, warm paper background. Colors: paper `#f3f1e9`, panel `#faf9f4`, ink `#1a1916`, green `#1f7a4d` (live), red `#c0392b` (ended). Tailwind v4.
+See `web/DESIGN.md`. The PocketAI Mac palette is the source of truth, mirrored in `web/app/tokens.css` (light + dark; canvas `#f3f1e9`, accent `#1f7a4d`). Components live in `web/components/ui/*`; per-screen styles in CSS modules; `globals.css` holds only cross-cutting rules. Run `node web/scripts/check-contrast.mjs` after changing tokens. Tailwind v4.
 
 ### Key env vars
 

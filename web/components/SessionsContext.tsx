@@ -9,11 +9,13 @@ type Sessions = {
   /** null = still loading. */
   mine: Session[] | null;
   shared: Session[] | null;
+  /** Server-side counts (lists above hold at most one 100-row page). */
+  totals: { mine: number; shared: number };
   patch: (u: Session) => void;
   drop: (id: string) => void;
 };
 
-const Ctx = createContext<Sessions>({ mine: null, shared: null, patch: () => {}, drop: () => {} });
+const Ctx = createContext<Sessions>({ mine: null, shared: null, totals: { mine: 0, shared: 0 }, patch: () => {}, drop: () => {} });
 
 /**
  * The shell's one session poll: the sidebar, the ⌘K palette and the mobile tab
@@ -22,18 +24,21 @@ const Ctx = createContext<Sessions>({ mine: null, shared: null, patch: () => {},
 export function SessionsProvider({ children }: { children: React.ReactNode }) {
   const [mine, setMine] = useState<Session[] | null>(null);
   const [shared, setShared] = useState<Session[] | null>(null);
+  // The API caps a page at 100; the sidebar's "All (N)" needs the real count.
+  const [totals, setTotals] = useState({ mine: 0, shared: 0 });
 
   useEffect(() => {
     let alive = true;
     const load = async () => {
       try {
         const [m, s] = await Promise.all([
-          listSessions({ scope: "mine", status: "all", limit: 200 }),
+          listSessions({ scope: "mine", status: "all", limit: 100 }),
           listSessions({ scope: "shared", status: "all", limit: 100 }),
         ]);
         if (!alive) return;
         setMine(m.results);
         setShared(s.results);
+        setTotals({ mine: m.total, shared: s.total });
       } catch {
         // keep the last good list on a transient error
       }
@@ -55,6 +60,7 @@ export function SessionsProvider({ children }: { children: React.ReactNode }) {
     return {
       mine,
       shared,
+      totals,
       patch: (u: Session) => {
         setMine(map(u));
         setShared(map(u));
@@ -64,7 +70,7 @@ export function SessionsProvider({ children }: { children: React.ReactNode }) {
         setShared(filt(id));
       },
     };
-  }, [mine, shared]);
+  }, [mine, shared, totals]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

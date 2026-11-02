@@ -67,7 +67,16 @@ export interface Session {
   forked_from_seq?: number | null;
   /** When this fork was created (RFC3339). */
   forked_at?: string | null;
+  /** Prompt-derived title for never-renamed sessions (list, feed, detail);
+   *  `title` stays the generated slug. Redacted server-side for non-owners. */
+  suggested_title?: string | null;
+  /** List rows: events after the caller's read mark (absent = none / never opened). */
+  unread?: number;
 }
+
+/** What to call a session: its prompt-derived title, else its name. */
+export const sessionTitle = (s: Pick<Session, "title" | "suggested_title">) =>
+  s.suggested_title?.trim() || s.title?.trim() || "Untitled session";
 
 /** Light reference to a fork source, for the lineage badge (detail only). */
 export interface ForkRef {
@@ -384,11 +393,25 @@ export function getSession(
   signal?: AbortSignal,
   /** Only events with seq > sinceSeq (tail catch-up after a reconnect). */
   sinceSeq?: number,
+  /** false = don't bump view_count: a server render the browser refetches. */
+  countView = true,
 ): Promise<SessionDetail> {
-  return getJSON<SessionDetail>(
-    `/api/sessions/${encodeURIComponent(id)}${sinceSeq ? `?since_seq=${Math.floor(sinceSeq)}` : ""}`,
-    signal,
-  );
+  const qs = new URLSearchParams();
+  if (sinceSeq) qs.set("since_seq", String(Math.floor(sinceSeq)));
+  if (!countView) qs.set("view", "0");
+  const q = qs.toString();
+  return getJSON<SessionDetail>(`/api/sessions/${encodeURIComponent(id)}${q ? `?${q}` : ""}`, signal);
+}
+
+/** Record the caller's read mark (seen up to `seq`) — drives list unread counts. */
+export async function markSeen(id: string, seq: number): Promise<void> {
+  const res = await fetch(`${browserBase()}/api/sessions/${encodeURIComponent(id)}/seen`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ seq: Math.floor(seq) }),
+  });
+  if (!res.ok) throw new ApiError(res.status, `Could not mark seen: ${res.status}`);
 }
 
 /** URL for the SSE stream of a session (browser base). */

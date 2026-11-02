@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Avatar from "@/components/Avatar";
 import StatusBadge from "@/components/ui/StatusBadge";
-import type { Session } from "@/lib/api";
+import { sessionTitle, type Session } from "@/lib/api";
 import { fmtInt, frameworkLabel, timeAgo } from "@/lib/utils";
 import s from "./FeedCard.module.css";
 
@@ -12,9 +12,10 @@ import s from "./FeedCard.module.css";
  */
 export default function FeedCard({ session }: { session: Session }) {
   const live = session.status === "live";
-  const title = session.title || "Untitled session";
+  // Prompt-derived when never renamed — redacted server-side like the title.
+  const title = sessionTitle(session);
   // Auto-named sessions fall back to the title as their hero — don't repeat it.
-  const summary = session.hero && session.hero !== session.title ? session.hero : null;
+  const summary = session.hero && session.hero !== session.title && session.hero !== title ? session.hero : null;
   const agent = frameworkLabel(session.framework);
   const dur = duration(session);
   return (

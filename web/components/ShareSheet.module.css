@@ -1,0 +1,168 @@
+/* The one Share sheet (LSW-07): four cards of Mac LSShareSheet + a web footer. */
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-12);
+}
+
+.fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.fieldset legend {
+  padding: 0;
+  margin-bottom: var(--space-8);
+  color: var(--fg-2);
+}
+
+.option {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-8);
+  cursor: pointer;
+}
+.option input,
+.inline input {
+  margin: 3px 0 0;
+  accent-color: var(--accent);
+}
+.optionText {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.inline {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  cursor: pointer;
+}
+.inline input {
+  margin: 0;
+}
+
+.muted {
+  margin: 0;
+  color: var(--fg-3);
+}
+.err {
+  margin: 0;
+  color: var(--bad);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+}
+.spacer {
+  flex: 1;
+}
+
+.confirm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-12);
+  border: 1px solid color-mix(in srgb, var(--warn) 45%, transparent);
+  border-radius: var(--radius-hud);
+  background: var(--sunken);
+}
+.confirm p {
+  margin: 0;
+  color: var(--fg);
+}
+.confirm .row {
+  justify-content: flex-end;
+}
+
+.linkBox {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-8);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-hud);
+  background: var(--sunken);
+  min-width: 0;
+}
+.mono {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg);
+  user-select: all;
+}
+
+.preview {
+  opacity: 0.85;
+}
+
+.invite {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+}
+.input {
+  padding: 5px var(--space-8);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-hud);
+  background: var(--canvas);
+  color: var(--fg);
+}
+.invite input {
+  flex: 1 1 180px;
+  min-width: 0;
+}
+.input:focus-visible,
+.option input:focus-visible,
+.inline input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.people {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.person {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-4) 0;
+}
+.person + .person {
+  border-top: 1px solid var(--hairline);
+}
+.email {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.footer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding-top: var(--space-12);
+  border-top: 1px solid var(--hairline);
+}

@@ -254,6 +254,7 @@ func router(cfg config.Config, h *handlers.Handler, ga *handlers.GoogleAuth, mgr
 			r.Post("/sessions/{id}/decision", h.PostDecision)
 			r.Get("/sessions/{id}/decision", h.GetDecision)
 			r.Post("/sessions/{id}/typing", h.Typing)
+			r.Post("/sessions/{id}/seen", h.MarkSeen)
 			r.Post("/sessions/{id}/publish", h.Publish)
 			r.Post("/sessions/{id}/unpublish", h.Unpublish)
 			r.Post("/sessions/{id}/handoff", h.GenerateHandoff)

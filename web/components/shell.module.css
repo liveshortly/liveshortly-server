@@ -242,6 +242,9 @@
   color: var(--on-accent);
   text-align: center;
 }
+.unread {
+  margin-left: auto;
+}
 .row {
   position: relative;
   display: flex;

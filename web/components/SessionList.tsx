@@ -4,11 +4,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import SessionCard from "@/components/SessionCard";
-import ShareDialog from "@/components/ShareDialog";
+import ShareSheet, { BulkShareSheet } from "@/components/ShareSheet";
 import Button, { IconButton } from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import Dialog from "@/components/ui/Dialog";
 import EmptyState from "@/components/ui/EmptyState";
+import Input from "@/components/ui/Input";
 import Menu, { type MenuItem } from "@/components/ui/Menu";
 import SessionMark from "@/components/ui/SessionMark";
 import Skeleton from "@/components/ui/Skeleton";
@@ -21,7 +22,7 @@ import {
   listSessions,
   publishSession,
   renameSession,
-  unpublishSession,
+  sessionTitle,
   type Session,
   type ShareRole,
 } from "@/lib/api";
@@ -31,14 +32,13 @@ import s from "./SessionList.module.css";
 
 const POLL_MS = 5000;
 const VIEW_KEY = "ls.sessions.view";
-const SEEN_KEY = "ls.sessions.seen";
+/** API page size (its max); "Load more" adds pages. */
+const PAGE = 100;
 
 /** A list row: the API session plus the list-only enrichments. */
 export type Row = Session & {
   shared: boolean;
   agent?: string | null;
-  /** Prompt-derived title for never-renamed sessions; `title` stays the slug. */
-  suggested_title?: string;
   last_event?: { type: string; snippet: string; ts: string };
 };
 
@@ -46,17 +46,17 @@ type Owner = "mine" | "shared" | null;
 type Filters = { live: boolean; published: boolean; owner: Owner; agent: string; machine: string; repo: string };
 const NO_FILTERS: Filters = { live: false, published: false, owner: null, agent: "", machine: "", repo: "" };
 
-type Kind = "publish" | "unpublish" | "share" | "delete";
+type Kind = "publish" | "share" | "delete";
 const PAST: Record<Kind, string> = {
   publish: "published",
-  unpublish: "unpublished",
   share: "shared",
   delete: "deleted",
 };
 type Report = { kind: Kind; total: number; failed: Row[]; retry: () => void };
 
-export const displayTitle = (r: Pick<Row, "title" | "suggested_title">) =>
-  r.suggested_title || r.title || "Untitled session";
+export const displayTitle = sessionTitle;
+/** Server-side read marks (LSW-32): events since this account last opened it. */
+const unread = (r: Row) => r.unread ?? 0;
 const agentOf = (r: Row) => frameworkLabel(r.agent ?? r.framework);
 const activity = (r: Row) => (r.status === "live" ? Date.now() : +new Date(r.last_event?.ts ?? r.ended_at ?? r.created_at));
 
@@ -69,21 +69,6 @@ function subtitle(r: Row): string {
 
 function badge(r: Row) {
   return <StatusBadge status={r.status === "live" ? "live" : r.shared ? "shared" : isPublished(r) ? "feed" : "ended"} />;
-}
-
-// ponytail: per-browser read marks (event_count when last opened from a list);
-// move server-side when the session page records reads too.
-function readSeen(): Record<string, number> {
-  try {
-    return JSON.parse(localStorage.getItem(SEEN_KEY) ?? "{}");
-  } catch {
-    return {};
-  }
-}
-function markSeen(r: Row) {
-  try {
-    localStorage.setItem(SEEN_KEY, JSON.stringify({ ...readSeen(), [r.id]: r.event_count }));
-  } catch {}
 }
 
 /**
@@ -103,30 +88,37 @@ export default function SessionList({ home }: { home?: boolean }) {
   const [report, setReport] = useState<Report | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Row[] | null>(null);
   const [bulkShare, setBulkShare] = useState<Row[] | null>(null);
-  const [seen, setSeen] = useState<Record<string, number>>({});
+  const [pages, setPages] = useState(1);
+  const [more, setMore] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [sharingId, setSharingId] = useState<string | null>(null);
 
+  // ponytail: the poll refetches every loaded page (offset paging, newest
+  // first); fine for hundreds of sessions, add a since-cursor if it's thousands.
   const load = useCallback(async () => {
+    const scope = async (sc: "mine" | "shared") => {
+      const res = await Promise.all(
+        Array.from({ length: pages }, (_, i) =>
+          listSessions({ scope: sc, status: "all", limit: PAGE, offset: i * PAGE }),
+        ),
+      );
+      // A session created mid-fetch shifts offsets; keep each id once.
+      const byId = new Map(res.flatMap((p) => p.results as Row[]).map((r) => [r.id, r]));
+      return { rows: [...byId.values()].map((r) => ({ ...r, shared: sc === "shared" })), more: res[0].total > pages * PAGE };
+    };
     try {
-      const [m, sh] = await Promise.all([
-        listSessions({ scope: "mine", status: "all", limit: 100 }),
-        listSessions({ scope: "shared", status: "all", limit: 100 }),
-      ]);
-      setRows([
-        ...(m.results as Row[]).map((r) => ({ ...r, shared: false })),
-        ...(sh.results as Row[]).map((r) => ({ ...r, shared: true })),
-      ]);
+      const [m, sh] = await Promise.all([scope("mine"), scope("shared")]);
+      setRows([...m.rows, ...sh.rows]);
+      setMore(m.more || sh.more);
       setErr(false);
     } catch (e) {
       if ((e as Error).name !== "AbortError") setErr(true);
     }
-  }, []);
+  }, [pages]);
 
   // No list SSE exists: poll while the tab is visible, refetch on focus.
   useEffect(() => {
     load();
-    setSeen(readSeen());
     try {
       if (localStorage.getItem(VIEW_KEY) === "grid") setView("grid");
     } catch {}
@@ -161,12 +153,6 @@ export default function SessionList({ home }: { home?: boolean }) {
     try {
       localStorage.setItem(VIEW_KEY, v);
     } catch {}
-  };
-
-  const unread = (r: Row) => (seen[r.id] == null ? 0 : Math.max(0, r.event_count - seen[r.id]));
-  const open = (r: Row) => {
-    markSeen(r);
-    setSeen(readSeen());
   };
 
   const options = useMemo(() => {
@@ -230,7 +216,6 @@ export default function SessionList({ home }: { home?: boolean }) {
     if (targets.length === 0) return;
     const fn = {
       publish: (r: Row) => publishSession(r.id),
-      unpublish: (r: Row) => unpublishSession(r.id),
       delete: (r: Row) => deleteSession(r.id),
       share: (r: Row) => createShare(r.id, share!.email, share!.role),
     }[kind];
@@ -261,7 +246,7 @@ export default function SessionList({ home }: { home?: boolean }) {
           </h2>
           <div className={s.continueGrid}>
             {continueRows.map((r) => (
-              <Link key={r.id} href={`/session/${r.id}`} className={s.continueCard} onClick={() => open(r)}>
+              <Link key={r.id} href={`/session/${r.id}`} className={s.continueCard}>
                 <SessionMark live={r.status === "live"} size={28} />
                 <span className={s.rowText}>
                   <span className={`t-headline ${s.title}`}>{displayTitle(r)}</span>
@@ -278,9 +263,9 @@ export default function SessionList({ home }: { home?: boolean }) {
         <h1 className="t-title">{heading}</h1>
         {loaded && <Chip>{filtered.length}</Chip>}
         <span className={s.spacer} />
-        <input
+        <Input
           type="search"
-          className={`t-body ${s.search}`}
+          className={s.search}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search sessions"
@@ -410,7 +395,6 @@ export default function SessionList({ home }: { home?: boolean }) {
                     selecting={selecting}
                     selected={selected.has(r.id)}
                     onToggle={toggle}
-                    onOpen={open}
                     renaming={renamingId === r.id}
                     onRenameDone={(changed) => {
                       setRenamingId(null);
@@ -451,6 +435,12 @@ export default function SessionList({ home }: { home?: boolean }) {
             )}
           </section>
         ))
+      )}
+
+      {loaded && more && (
+        <div className={s.loadMore}>
+          <Button onClick={() => setPages((n) => n + 1)}>Load more</Button>
+        </div>
       )}
 
       {report && (
@@ -524,14 +514,21 @@ export default function SessionList({ home }: { home?: boolean }) {
         </div>
       </Dialog>
 
-      <BulkShareDialog
-        targets={bulkShare}
+      <BulkShareSheet
+        count={bulkShare?.length ?? null}
         onClose={() => setBulkShare(null)}
-        onShare={(email, role) => {
+        onInvite={(email, role) => {
           const targets = bulkShare ?? [];
           setBulkShare(null);
           run("share", targets, { email, role });
         }}
+      />
+
+      <ShareSheet
+        session={rows?.find((r) => r.id === sharingId) ?? null}
+        owner
+        onChanged={() => load()}
+        onClose={() => setSharingId(null)}
       />
     </div>
   );
@@ -541,15 +538,10 @@ export default function SessionList({ home }: { home?: boolean }) {
     if (r.shared) return null;
     const items: MenuItem[] = [
       ...(canRename ? [{ label: "Rename", onSelect: () => setRenamingId(r.id) }] : []),
-      isPublished(r)
-        ? { label: "Unpublish", onSelect: () => run("unpublish", [r]) }
-        : { label: "Publish", onSelect: () => run("publish", [r]) },
       { label: "Share…", onSelect: () => setSharingId(r.id) },
       { label: "Delete…", destructive: true, onSelect: () => setConfirmDelete([r]) },
     ];
-    return (
-      <RowMenu r={r} items={items} sharing={sharingId === r.id} onShareClose={() => setSharingId(null)} />
-    );
+    return <Menu label={`Actions for ${displayTitle(r)}`} icon="ellipsis" items={items} />;
   }
 }
 
@@ -561,41 +553,12 @@ function FilterChip({ on, onClick, children }: { on: boolean; onClick: () => voi
   );
 }
 
-/** Row menu + the anchored share popover it opens (full grant management). */
-function RowMenu({
-  r,
-  items,
-  sharing,
-  onShareClose,
-}: {
-  r: Row;
-  items: MenuItem[];
-  sharing: boolean;
-  onShareClose: () => void;
-}) {
-  const ref = useRef<HTMLSpanElement>(null);
-  return (
-    <span ref={ref}>
-      <Menu label={`Actions for ${displayTitle(r)}`} icon="ellipsis" items={items} />
-      {sharing && (
-        <ShareDialog
-          sessionId={r.id}
-          title={displayTitle(r)}
-          anchorEl={ref.current}
-          onClose={onShareClose}
-        />
-      )}
-    </span>
-  );
-}
-
 function ListRow({
   r,
   unread,
   selecting,
   selected,
   onToggle,
-  onOpen,
   renaming,
   onRenameDone,
   menu,
@@ -605,7 +568,6 @@ function ListRow({
   selecting: boolean;
   selected: boolean;
   onToggle: (id: string) => void;
-  onOpen: (r: Row) => void;
   renaming: boolean;
   onRenameDone: (changed: boolean) => void;
   menu: React.ReactNode;
@@ -687,64 +649,11 @@ function ListRow({
       {renaming ? (
         <div className={s.rowLink}>{body}</div>
       ) : (
-        <Link href={`/session/${r.id}`} className={s.rowLink} onClick={() => onOpen(r)}>
+        <Link href={`/session/${r.id}`} className={s.rowLink}>
           {body}
         </Link>
       )}
       {menu}
     </li>
-  );
-}
-
-function BulkShareDialog({
-  targets,
-  onClose,
-  onShare,
-}: {
-  targets: Row[] | null;
-  onClose: () => void;
-  onShare: (email: string, role: ShareRole) => void;
-}) {
-  const [email, setEmail] = useState("");
-  const [role, setRole] = useState<ShareRole>("viewer");
-  const valid = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim());
-  return (
-    <Dialog
-      open={targets !== null}
-      onClose={onClose}
-      title={`Share ${targets?.length ?? 0} session${targets?.length === 1 ? "" : "s"}`}
-    >
-      <form
-        className={s.shareForm}
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (valid) onShare(email.trim(), role);
-        }}
-      >
-        <input
-          type="email"
-          className={`t-body ${s.search}`}
-          placeholder="name@example.com"
-          aria-label="Email to share with"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-        <select
-          className={`t-body ${s.chip}`}
-          aria-label="Role"
-          value={role}
-          onChange={(e) => setRole(e.target.value as ShareRole)}
-        >
-          <option value="viewer">Can view</option>
-          <option value="commenter">Can comment</option>
-        </select>
-        <div className={s.dialogActions}>
-          <Button onClick={onClose}>Cancel</Button>
-          <Button type="submit" variant="prominent" disabled={!valid}>
-            Share
-          </Button>
-        </div>
-      </form>
-    </Dialog>
   );
 }

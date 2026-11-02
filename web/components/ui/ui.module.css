@@ -318,3 +318,151 @@
   display: inline-block;
   background: var(--hairline);
 }
+
+/* ── Input / Textarea / Select ─────────────────────────────────────── */
+.field {
+  width: 100%;
+  min-width: 0;
+  padding: 6px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-hud);
+  background: var(--surface);
+  color: var(--fg);
+  font: 400 var(--text-body) / 1.4 var(--font-sans);
+}
+.field::placeholder {
+  color: var(--fg-3);
+}
+.field:disabled {
+  opacity: 0.5;
+}
+.field[aria-invalid="true"] {
+  border-color: var(--bad);
+}
+.textarea {
+  min-height: 72px;
+  resize: vertical;
+}
+.select {
+  width: auto;
+  padding-right: 28px;
+  appearance: none;
+  /* Chevron from currentColor: the select's own text colour. */
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: right 13px center, right 9px center;
+  background-size: 4px 4px;
+  background-repeat: no-repeat;
+}
+
+/* ── Switch ────────────────────────────────────────────────────────── */
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--fg);
+  cursor: pointer;
+}
+.switch:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.switchTrack {
+  position: relative;
+  width: 32px;
+  height: 18px;
+  flex-shrink: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--sunken);
+  transition: background 120ms ease;
+}
+.switchThumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--fg-2);
+  transition: transform 120ms ease;
+}
+.switch[aria-checked="true"] .switchTrack {
+  border-color: transparent;
+  background: var(--accent);
+}
+.switch[aria-checked="true"] .switchThumb {
+  background: var(--on-accent);
+  transform: translateX(14px);
+}
+
+/* ── Tabs ──────────────────────────────────────────────────────────── */
+.tabs {
+  display: flex;
+  gap: var(--space-4);
+  border-bottom: 1px solid var(--hairline);
+}
+.tab {
+  padding: 6px 10px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  background: none;
+  color: var(--fg-2);
+  cursor: pointer;
+}
+.tab[aria-selected="true"] {
+  border-bottom-color: var(--accent);
+  color: var(--fg);
+  font-weight: 600;
+}
+
+/* ── Toast ─────────────────────────────────────────────────────────── */
+.toast {
+  position: fixed;
+  bottom: var(--space-24);
+  left: 50%;
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  max-width: calc(100vw - 32px);
+  padding: var(--space-4) var(--space-4) var(--space-4) var(--space-12);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-hud);
+  background: var(--raised);
+  color: var(--fg);
+  box-shadow: 0 8px 26px var(--shadow);
+  transform: translateX(-50%);
+}
+
+/* ── CodeBlock ─────────────────────────────────────────────────────── */
+.code {
+  position: relative;
+  border: 1px solid var(--code-line);
+  border-radius: var(--radius-hud);
+  background: var(--code-bg);
+  color: var(--code-ink);
+}
+.code pre {
+  margin: 0;
+  padding: var(--space-12);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.codeCopy {
+  position: absolute;
+  top: var(--space-4);
+  right: var(--space-4);
+}
+
+/* Focus ring for the new controls (same as .btn). */
+.field:focus-visible,
+.switch:focus-visible,
+.tab:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}

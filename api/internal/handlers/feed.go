@@ -63,6 +63,7 @@ func (h *Handler) Feed(w http.ResponseWriter, r *http.Request) {
 			httpx.Error(w, http.StatusInternalServerError, "failed to load live feed")
 			return
 		}
+		h.suggestTitles(r, results)
 		writeFeed(w, results, "")
 		return
 	}
@@ -78,6 +79,7 @@ func (h *Handler) Feed(w http.ResponseWriter, r *http.Request) {
 		if len(results) == limit {
 			next = encodeOffsetCursor(offset + limit)
 		}
+		h.suggestTitles(r, results)
 		writeFeed(w, results, next)
 		return
 	}
@@ -96,6 +98,7 @@ func (h *Handler) Feed(w http.ResponseWriter, r *http.Request) {
 			next = encodeKeysetCursor(*last.PublishedAt, last.ID)
 		}
 	}
+	h.suggestTitles(r, results)
 	writeFeed(w, results, next)
 }
 
@@ -167,10 +170,14 @@ func publicEvents(evs []store.Event) {
 }
 
 // publicSession scrubs a session row before it is served to someone who is
-// not its owner: title + hero snippet redacted, the user@host capture handle
+// not its owner: title, suggested title + hero snippet redacted, the user@host capture handle
 // dropped, and an email-shaped owner handle cut to its local part.
 func publicSession(s *store.Session) {
 	s.Title = redact.Text(s.Title)
+	if s.SuggestedTitle != nil {
+		t := redact.Text(*s.SuggestedTitle)
+		s.SuggestedTitle = &t
+	}
 	if s.Hero != nil {
 		h := redact.Text(*s.Hero)
 		s.Hero = &h

@@ -143,6 +143,9 @@ type Session struct {
 	// renamed: a title derived from the first prompt. Title keeps the
 	// generated name as the slug. LSW-09.
 	SuggestedTitle *string `json:"suggested_title,omitempty"`
+	// Unread is a list-row enrichment: events after the caller's last-seen
+	// seq (session_seen). 0/absent for sessions the caller never opened. LSW-32.
+	Unread int `json:"unread,omitempty"`
 
 	// --- Handoff / fork lineage ---
 	// ForkCount is the total number of sessions forked from this one (denormalised,
@@ -989,6 +992,45 @@ func (st *Store) AutoEndQuota(ctx context.Context, id string) (*Session, error) 
 		return nil, err
 	}
 	return st.GetSession(ctx, id)
+}
+
+// MarkSeen records that userID has seen sessionID up to seq. The mark never
+// moves backwards, so a stale tab can't resurrect read events as unread.
+func (st *Store) MarkSeen(ctx context.Context, userID, sessionID string, seq int) error {
+	_, err := st.pool.Exec(ctx, `
+		INSERT INTO session_seen (user_id, session_id, seq) VALUES ($1, $2, $3)
+		ON CONFLICT (user_id, session_id) DO UPDATE
+		SET seq = GREATEST(session_seen.seq, EXCLUDED.seq), seen_at = now()`,
+		userID, sessionID, seq)
+	return err
+}
+
+// UnreadCounts returns, per session id, how many events came after userID's
+// last-seen seq. Sessions the user never opened are absent (no badge). One
+// query for a whole list page; the count walks the (session_id, seq) index.
+func (st *Store) UnreadCounts(ctx context.Context, userID string, ids []string) (map[string]int, error) {
+	out := map[string]int{}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	rows, err := st.pool.Query(ctx, `
+		SELECT ss.session_id,
+		       (SELECT count(*) FROM session_events e WHERE e.session_id = ss.session_id AND e.seq > ss.seq)
+		FROM session_seen ss WHERE ss.user_id = $1 AND ss.session_id = ANY($2)`,
+		userID, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var sid string
+		var n int
+		if err := rows.Scan(&sid, &n); err != nil {
+			return nil, err
+		}
+		out[sid] = n
+	}
+	return out, rows.Err()
 }
 
 // IncViewCount bumps view_count by one (best-effort by the caller).
