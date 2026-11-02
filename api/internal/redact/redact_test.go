@@ -1,6 +1,9 @@
 package redact
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestText(t *testing.T) {
 	cases := []struct{ in, want string }{
@@ -32,5 +35,30 @@ func TestText(t *testing.T) {
 		if got := Text(c.in); got != c.want {
 			t.Errorf("Text(%q)\n got %q\nwant %q", c.in, got, c.want)
 		}
+	}
+}
+
+func TestJSON(t *testing.T) {
+	in := `{"tool":"Bash","seq":12345678901234567890,"ok":true,"n":null,` +
+		`"input":{"command":"cat /Users/rohit/x.go","files":["/home/bob/a","rel/b"]},` +
+		`"diff":"--- C:\\Users\\Jane\\a\n+++ b","by":"rohit@example.com",` +
+		`"esc":"\/Users\/rohit\/y","uni":"\u002fhome\u002falice\u002fz","/Users/rohit/k":1}`
+	got := string(JSON([]byte(in)))
+	for _, leak := range []string{"/Users/", "/home/", "rohit", "Jane", "example.com", "alice"} {
+		if strings.Contains(got, leak) {
+			t.Errorf("leaks %q: %s", leak, got)
+		}
+	}
+	for _, keep := range []string{`"seq":12345678901234567890`, `"ok":true`, `"n":null`, `"rel/b"`, `"cat ~/x.go"`, `"[email]"`, `"~/k":1`} {
+		if !strings.Contains(got, keep) {
+			t.Errorf("missing %s in %s", keep, got)
+		}
+	}
+	clean := []byte(`{"content":"hi","path":"src/a.go"}`)
+	if out := JSON(clean); &out[0] != &clean[0] {
+		t.Error("clean payload should be returned untouched")
+	}
+	if got := string(JSON([]byte(`not json /Users/rohit/x`))); got != "not json ~/x" {
+		t.Errorf("invalid json fallback = %q", got)
 	}
 }

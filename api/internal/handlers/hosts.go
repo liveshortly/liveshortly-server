@@ -26,8 +26,8 @@ import (
 // by their web session. Three rules keep the blast radius bounded, and the
 // daemon re-checks all three locally because it must not trust this server:
 //
-//  1. The server NEVER sends an argv. It sends an agent NAME from a fixed
-//     allowlist; the daemon builds the command line itself. ollama also carries
+//  1. The server NEVER sends an argv. It sends an agent NAME the daemon itself
+//     registered; the daemon builds the command line itself. ollama also carries
 //     a MODEL name, which is a choice from the daemon's own registered list —
 //     still a name, never a command line.
 //  2. The working directory must be one the daemon itself registered. The
@@ -41,16 +41,30 @@ const (
 	maxHostDirs = 64
 	// maxHostFieldLen bounds every free-text host field (name, hostname, path).
 	maxHostFieldLen = 512
+	// maxHostAgents bounds how many agent harnesses one host may advertise.
+	maxHostAgents = 32
 )
 
-// spawnableAgents is the complete set of agent names a spawn command may carry.
-// Anything outside this set is rejected before it reaches a machine. Keep it in
-// step with the daemon's own allowlist in the live CLI.
-var spawnableAgents = map[string]bool{
-	"claude": true,
-	"codex":  true,
-	"gemini": true,
-	"ollama": true,
+// agentLabels maps an agent name to the framework/capture labels the CLI would
+// have reported for the same run, so a web-spawned session is
+// indistinguishable from a terminal-started one in the feed.
+var agentLabels = map[string]struct{ framework, captureMode string }{
+	"claude":      {"claude-code", "hooks"},
+	"codex":       {"codex", "rollout"},
+	"gemini":      {"gemini-cli", "pty"},
+	"ollama":      {"ollama", "pty"},
+	"agy":         {"agy", "hooks"},
+	"antigravity": {"agy", "hooks"},
+}
+
+// labelsForAgent returns the framework/capture labels for a spawned agent. A
+// harness the server has no native support for gets the CLI's generic
+// terminal/pty labels, so any registered agent is spawnable.
+func labelsForAgent(agent string) (framework, captureMode string) {
+	if l, ok := agentLabels[agent]; ok {
+		return l.framework, l.captureMode
+	}
+	return "terminal", "pty"
 }
 
 // hostRecord is what a daemon registers and what the web host picker renders.
@@ -114,15 +128,9 @@ func (h *Handler) RegisterHost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	agents := make([]string, 0, len(req.Agents))
-	for _, a := range req.Agents {
-		a = strings.TrimSpace(a)
-		if spawnableAgents[a] {
-			agents = append(agents, a)
-		}
-	}
+	agents := cleanAgents(req.Agents)
 	if len(agents) == 0 {
-		httpx.Error(w, http.StatusBadRequest, "at least one supported agent is required")
+		httpx.Error(w, http.StatusBadRequest, "at least one agent is required")
 		return
 	}
 
@@ -350,10 +358,9 @@ func (h *Handler) resolveSpawn(ctx context.Context, userID, hostID, agent, cwd, 
 	if agent == "" {
 		agent = rec.Agents[0]
 	}
-	if !spawnableAgents[agent] {
-		return spawnTarget{}, fmt.Errorf("unsupported agent %q", agent)
-	}
-	if !contains(rec.Agents, agent) {
+	// Registration membership is the check: no global allowlist, but the name
+	// must still be a name and one this machine itself reported.
+	if sanitizeHostID(agent) != agent || !contains(rec.Agents, agent) {
 		return spawnTarget{}, fmt.Errorf("host does not have %s available", agent)
 	}
 
@@ -435,8 +442,28 @@ func sanitizeHostID(s string) string {
 	return s
 }
 
-// cleanDirs validates the spawn-directory allowlist: absolute, cleaned, bounded
-// in count and length, deduplicated.
+// cleanAgents validates the agent names a daemon reported. It does not police
+// WHICH harnesses exist — the daemon builds the argv and re-checks locally —
+// only that each is a name (same alphabet as a host id), unique, and bounded.
+// Like cleanModels, a malformed entry is dropped rather than failing the
+// registration.
+func cleanAgents(in []string) []string {
+	seen := map[string]bool{}
+	out := make([]string, 0, len(in))
+	for _, a := range in {
+		a = sanitizeHostID(a)
+		if a == "" || seen[a] {
+			continue
+		}
+		seen[a] = true
+		out = append(out, a)
+		if len(out) == maxHostAgents {
+			break
+		}
+	}
+	return out
+}
+
 // maxHostModels bounds how many ollama models one host may advertise.
 const maxHostModels = 50
 
@@ -480,6 +507,8 @@ func validModelName(s string) bool {
 	return true
 }
 
+// cleanDirs validates the spawn-directory allowlist: absolute, cleaned, bounded
+// in count and length, deduplicated.
 func cleanDirs(in []string) ([]string, error) {
 	if len(in) > maxHostDirs {
 		return nil, fmt.Errorf("too many directories (max %d)", maxHostDirs)

@@ -12,6 +12,7 @@ import (
 	"liveshortly/internal/auth"
 	"liveshortly/internal/handoff"
 	"liveshortly/internal/httpx"
+	"liveshortly/internal/redact"
 	"liveshortly/internal/store"
 )
 
@@ -44,16 +45,6 @@ type createSessionReq struct {
 	// (no permission probes). It is only ever a boolean relayed to the owner's
 	// own machine — the daemon maps it to known flags; see spawnSession there.
 	BypassPermissions *bool `json:"bypass_permissions"`
-}
-
-// frameworkForAgent maps a spawnable binary name to the framework/capture
-// labels the CLI would have reported for the same run, so a web-spawned session
-// is indistinguishable from a terminal-started one in the feed.
-var frameworkForAgent = map[string]struct{ framework, captureMode string }{
-	"claude": {"claude-code", "hooks"},
-	"codex":  {"codex", "rollout"},
-	"gemini": {"gemini-cli", "pty"},
-	"ollama": {"ollama", "pty"},
 }
 
 // CreateSession creates a new live session owned by the principal.
@@ -122,10 +113,10 @@ func (h *Handler) CreateSession(w http.ResponseWriter, r *http.Request) {
 		// grants nothing a local `claude --dangerously-skip-permissions` won't.
 		t.bypass = req.BypassPermissions != nil && *req.BypassPermissions
 		spawn = &t
-		labels := frameworkForAgent[t.agent]
-		in.Agent = &labels.framework
-		in.Framework = &labels.framework
-		in.CaptureMode = &labels.captureMode
+		framework, captureMode := labelsForAgent(t.agent)
+		in.Agent = &framework
+		in.Framework = &framework
+		in.CaptureMode = &captureMode
 		// Record the resolved model so the feed shows what actually ran, even
 		// when the browser sent nothing and the host's default was used.
 		if t.model != "" {
@@ -146,7 +137,7 @@ func (h *Handler) CreateSession(w http.ResponseWriter, r *http.Request) {
 		if !ok {
 			return // resolveFork already wrote the error
 		}
-		b, err := h.buildBundle(r, src, snapshot)
+		b, err := h.buildBundle(r, src, snapshot, src.OwnerID != p.ID)
 		if err != nil {
 			httpx.Error(w, http.StatusInternalServerError, "failed to build handoff briefing")
 			return
@@ -263,6 +254,9 @@ func (h *Handler) ListSessions(w http.ResponseWriter, r *http.Request) {
 		if last, lerr := h.store.LastMeaningfulEvents(r.Context(), ids); lerr == nil {
 			for i := range results {
 				if le, ok := last[results[i].ID]; ok {
+					if results[i].OwnerID != p.ID { // shared row: LSW-23
+						le.Snippet = redact.Text(le.Snippet)
+					}
 					results[i].LastEvent = &le
 				}
 			}
@@ -364,10 +358,13 @@ func (h *Handler) GetSession(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Non-owners of a non-private session get the public-safe metadata (the
-	// OG image renders title + hero from here). LSW-14. Event payloads are
-	// not redacted yet.
+	// OG image renders title + hero from here). LSW-14. Every non-owner —
+	// share grantees included — gets redacted event payloads. LSW-23.
 	if s.OwnerID != p.ID && s.Visibility != "private" {
 		publicSession(s)
+	}
+	if s.OwnerID != p.ID {
+		publicEvents(events)
 	}
 
 	httpx.JSON(w, http.StatusOK, sessionWithEvents{

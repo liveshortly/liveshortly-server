@@ -310,7 +310,15 @@ func (g *GoogleAuth) DevicePoll(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusInternalServerError, "failed to mint token")
 		return
 	}
-	if _, err := g.store.InsertRefreshToken(ctx, u.ID, hash, "cli device"); err != nil {
+	// Label the token with what the CLI said it is, so settings can name it.
+	label := "cli device"
+	if rec.DeviceName != "" {
+		label = rec.DeviceName
+		if rec.OS != "" {
+			label += " (" + rec.OS + ")"
+		}
+	}
+	if _, err := g.store.InsertRefreshToken(ctx, u.ID, hash, label); err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "failed to store token")
 		return
 	}

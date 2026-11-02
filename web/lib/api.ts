@@ -718,6 +718,8 @@ export interface Me {
   id?: string;
   email?: string;
   name?: string;
+  /** Account handle, from the user record (not from any session). */
+  handle?: string;
   picture?: string;
   /** True when the account is on the super-admin allowlist (server-resolved). */
   is_admin?: boolean;
@@ -745,6 +747,31 @@ export async function me(signal?: AbortSignal): Promise<Me> {
   } catch (e) {
     if ((e as Error).name === "AbortError") throw e;
     return { authenticated: false };
+  }
+}
+
+/** A signed-in CLI / device (an active refresh token). `created_at` moves on
+ *  every token refresh, so it reads as "last active". */
+export interface CliToken {
+  id: string;
+  label: string;
+  created_at: string;
+}
+
+/** The caller's signed-in CLIs/devices. GET /api/me/tokens. */
+export async function listTokens(signal?: AbortSignal): Promise<CliToken[]> {
+  const data = await getJSON<{ tokens: CliToken[] | null }>("/api/me/tokens", signal);
+  return data.tokens ?? [];
+}
+
+/** Revoke a CLI/device token; it can no longer refresh. DELETE /auth/tokens/{id}. */
+export async function revokeToken(id: string): Promise<void> {
+  const res = await fetch(`${browserBase()}/auth/tokens/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  if (!res.ok && res.status !== 404) {
+    throw new ApiError(res.status, `Could not revoke: ${res.status} ${res.statusText}`);
   }
 }
 

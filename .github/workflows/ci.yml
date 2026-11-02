@@ -50,6 +50,18 @@ jobs:
       # whole safety net. A broken hook silently kills capture in every session.
       - run: python -m compileall -q cli/hooks
 
+  contrast:
+    name: web — token contrast (AA)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      # Stdlib-only (reads app/tokens.css), so no npm ci. Fails on any token
+      # pair below WCAG AA 4.5:1 in light or dark.
+      - run: node scripts/check-contrast.mjs
+        working-directory: web
+
   stack:
     name: stack — build artifacts + boot as services + smoke test
     runs-on: ubuntu-latest

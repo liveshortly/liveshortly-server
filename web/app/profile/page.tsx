@@ -4,12 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import ActivityHeatmap from "@/components/ActivityHeatmap";
 import GenAvatar from "@/components/Avatar";
 import SessionCard from "@/components/SessionCard";
-import {
-  PanelBox,
-  PlaceholderNote,
-  PreviewBanner,
-  Stat,
-} from "@/components/preview";
+import { PanelBox, PlaceholderNote, Stat } from "@/components/preview";
 import {
   isPublished,
   listSessions,
@@ -20,10 +15,8 @@ import {
 import { fmtBytes, fmtInt } from "@/lib/utils";
 
 /**
- * Developer profile. Real data where the backend has it (identity, the user's
- * own sessions, and an activity heatmap derived from real session timestamps);
- * the richer mockup panels (language DNA, traits, regulars, code archaeology,
- * tool usage) have no backend yet and render honest placeholders.
+ * Developer profile: identity, quota, an activity heatmap derived from real
+ * session timestamps, and published sessions. Panels only ship with real data.
  */
 export default function ProfilePage() {
   const [user, setUser] = useState<Me | null>(null);
@@ -48,7 +41,7 @@ export default function ProfilePage() {
     return () => ctrl.abort();
   }, []);
 
-  const handle = sessions?.[0]?.owner_handle ?? null;
+  const handle = user?.handle ?? null;
   const stats = useMemo(() => {
     const s = sessions ?? [];
     return {
@@ -120,51 +113,6 @@ export default function ProfilePage() {
           <ActivityHeatmap dates={dates} />
         )}
       </PanelBox>
-
-      {/* Two-column placeholder panels for the not-yet-backed mockup sections */}
-      <div style={{ height: 16 }} />
-      <PreviewBanner>
-        the panels below are part of the new design; their data isn&apos;t
-        captured yet
-      </PreviewBanner>
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-          gap: 16,
-        }}
-      >
-        <PanelBox title="◧ LANGUAGE DNA">
-          <PlaceholderNote>
-            Per-language breakdown of the code you touch — needs file-level
-            capture.
-          </PlaceholderNote>
-        </PanelBox>
-        <PanelBox title="✦ DEVELOPER TRAITS">
-          <PlaceholderNote>
-            Night Owl · Test-First · Deep Focus — derived once session timing and
-            tool usage are analysed.
-          </PlaceholderNote>
-        </PanelBox>
-        <PanelBox title="◎ REGULARS">
-          <PlaceholderNote>
-            Viewers who show up most across your streams.
-          </PlaceholderNote>
-        </PanelBox>
-        <PanelBox title="✉ INJECT SPOTLIGHT">
-          <PlaceholderNote>
-            Viewer comments that changed the course of a session.
-          </PlaceholderNote>
-        </PanelBox>
-        <PanelBox title="⛏ CODE ARCHAEOLOGY">
-          <PlaceholderNote>Your most-touched files and paths.</PlaceholderNote>
-        </PanelBox>
-        <PanelBox title="⚙ TOOL USAGE">
-          <PlaceholderNote>
-            Breakdown of Claude tool calls across your sessions.
-          </PlaceholderNote>
-        </PanelBox>
-      </div>
 
       {/* Published sessions — REAL */}
       <div style={{ height: 20 }} />

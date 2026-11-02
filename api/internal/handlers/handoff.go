@@ -11,6 +11,7 @@ import (
 	"liveshortly/internal/auth"
 	"liveshortly/internal/handoff"
 	"liveshortly/internal/httpx"
+	"liveshortly/internal/redact"
 	"liveshortly/internal/store"
 )
 
@@ -240,20 +241,31 @@ func (h *Handler) Lineage(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusInternalServerError, "failed to load source events")
 		return
 	}
+	if src.OwnerID != p.ID { // LSW-23
+		publicEvents(events)
+		ref.Title = redact.Text(ref.Title)
+	}
 	httpx.JSON(w, http.StatusOK, lineageResp{Source: ref, SnapshotSeq: snapshot, Events: events})
 }
 
-// buildBundle assembles the handoff briefing from a source session up to snapshot.
-func (h *Handler) buildBundle(r *http.Request, src *store.Session, snapshot int) (handoff.Bundle, error) {
-	return h.buildBundleCtx(r.Context(), src, snapshot)
+// buildBundle assembles the handoff briefing from a source session up to
+// snapshot. scrub redacts it for a reader who is not the source's owner.
+func (h *Handler) buildBundle(r *http.Request, src *store.Session, snapshot int, scrub bool) (handoff.Bundle, error) {
+	return h.buildBundleCtx(r.Context(), src, snapshot, scrub)
 }
 
 // buildBundleCtx is buildBundle without an *http.Request, for callers (e.g. the
 // quota-crossing path) that only have a context.
-func (h *Handler) buildBundleCtx(ctx context.Context, src *store.Session, snapshot int) (handoff.Bundle, error) {
+func (h *Handler) buildBundleCtx(ctx context.Context, src *store.Session, snapshot int, scrub bool) (handoff.Bundle, error) {
 	events, err := h.store.GetEventsUpTo(ctx, src.ID, snapshot)
 	if err != nil {
 		return handoff.Bundle{}, err
+	}
+	if scrub {
+		publicEvents(events)
+		cp := *src
+		publicSession(&cp)
+		src = &cp
 	}
 	hev := make([]handoff.Event, 0, len(events))
 	for _, e := range events {
