@@ -28,7 +28,9 @@ function fmtDate(ymd: string): string {
 
 export default function InstallPage() {
   // The CLI changelog's newest release (synced at build by
-  // scripts/sync-changelogs.mjs). public/install/latest.txt mirrors the same tag.
+  // scripts/sync-changelogs.mjs), for the chip only. Commands never bake a
+  // version in: the installer and the verify snippet resolve it from live-dist
+  // at run time (#42), so a stale build cannot point anyone at an old release.
   const latest = loadChangelog().latest;
   const version = latest.version ?? "";
 
@@ -41,7 +43,8 @@ cat > ~/.liveshortly/host.json <<'JSON'
 JSON
 live login`;
 
-  const verify = `v=${version}; a=live-$v-darwin-arm64   # or linux-amd64, darwin-amd64, linux-arm64
+  const verify = `v=$(curl -fsSL https://github.com/liveshortly/live-dist/releases/latest/download/latest.txt)
+a=live-$v-darwin-arm64   # or linux-amd64, darwin-amd64, linux-arm64
 base=https://github.com/liveshortly/live-dist/releases/download/$v
 curl -fsSLO "$base/$a.gz" && curl -fsSLO "$base/$a.sha256"
 gunzip -k "$a.gz" && shasum -a 256 "$a" && cat "$a.sha256"`;

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -26,10 +27,11 @@ import (
 // by their web session. Three rules keep the blast radius bounded, and the
 // daemon re-checks all three locally because it must not trust this server:
 //
-//  1. The server NEVER sends an argv. It sends an agent NAME the daemon itself
-//     registered; the daemon builds the command line itself. ollama also carries
-//     a MODEL name, which is a choice from the daemon's own registered list —
-//     still a name, never a command line.
+//  1. The server NEVER sends an argv. It sends an agent NAME, and only one the
+//     daemon itself registered; the daemon builds the command line itself and
+//     refuses a name outside its own startup set. ollama also carries a MODEL
+//     name, which is a choice from the daemon's own registered list — still a
+//     name, never a command line.
 //  2. The working directory must be one the daemon itself registered. The
 //     server rejects anything else, and the daemon rejects it again. The ollama
 //     model is bound the same way, against the same registration.
@@ -41,31 +43,22 @@ const (
 	maxHostDirs = 64
 	// maxHostFieldLen bounds every free-text host field (name, hostname, path).
 	maxHostFieldLen = 512
-	// maxHostAgents bounds how many agent harnesses one host may advertise.
-	maxHostAgents = 32
 )
 
-// agentLabels maps an agent name to the framework/capture labels the CLI would
-// have reported for the same run, so a web-spawned session is
-// indistinguishable from a terminal-started one in the feed.
-var agentLabels = map[string]struct{ framework, captureMode string }{
-	"claude":      {"claude-code", "hooks"},
-	"codex":       {"codex", "rollout"},
-	"gemini":      {"gemini-cli", "pty"},
-	"ollama":      {"ollama", "pty"},
-	"agy":         {"agy", "hooks"},
-	"antigravity": {"agy", "hooks"},
-}
+// Agent names are not enumerated here. Which harnesses a machine can run is a
+// property of that machine — the daemon probes PATH and reads the operator's
+// own adapter file (see agents.go in the live CLI) — so a fixed list here would
+// mean every newly installed harness needed an API deploy before it could be
+// spawned, and names the daemon legitimately offered were silently dropped.
+//
+// This is not the trust boundary and never was: a spawn carries a NAME, the
+// daemon resolves it against the set IT registered at startup and builds the
+// argv itself. What is enforced here is shape — so a name stays a name — plus
+// a bound, and membership in the host's own registration (see resolveSpawn).
+var agentNamePattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$`)
 
-// labelsForAgent returns the framework/capture labels for a spawned agent. A
-// harness the server has no native support for gets the CLI's generic
-// terminal/pty labels, so any registered agent is spawnable.
-func labelsForAgent(agent string) (framework, captureMode string) {
-	if l, ok := agentLabels[agent]; ok {
-		return l.framework, l.captureMode
-	}
-	return "terminal", "pty"
-}
+// maxHostAgents bounds how many agents one host may advertise.
+const maxHostAgents = 64
 
 // hostRecord is what a daemon registers and what the web host picker renders.
 // Stored as JSON in Redis under host:{user}:{host} with a TTL.
@@ -358,9 +351,12 @@ func (h *Handler) resolveSpawn(ctx context.Context, userID, hostID, agent, cwd, 
 	if agent == "" {
 		agent = rec.Agents[0]
 	}
-	// Registration membership is the check: no global allowlist, but the name
-	// must still be a name and one this machine itself reported.
-	if sanitizeHostID(agent) != agent || !contains(rec.Agents, agent) {
+	if !agentNamePattern.MatchString(agent) {
+		return spawnTarget{}, fmt.Errorf("unsupported agent %q", agent)
+	}
+	// The check that bounds anything: the name must be one this host registered
+	// (and the daemon checks it again locally).
+	if !contains(rec.Agents, agent) {
 		return spawnTarget{}, fmt.Errorf("host does not have %s available", agent)
 	}
 
@@ -442,28 +438,8 @@ func sanitizeHostID(s string) string {
 	return s
 }
 
-// cleanAgents validates the agent names a daemon reported. It does not police
-// WHICH harnesses exist — the daemon builds the argv and re-checks locally —
-// only that each is a name (same alphabet as a host id), unique, and bounded.
-// Like cleanModels, a malformed entry is dropped rather than failing the
-// registration.
-func cleanAgents(in []string) []string {
-	seen := map[string]bool{}
-	out := make([]string, 0, len(in))
-	for _, a := range in {
-		a = sanitizeHostID(a)
-		if a == "" || seen[a] {
-			continue
-		}
-		seen[a] = true
-		out = append(out, a)
-		if len(out) == maxHostAgents {
-			break
-		}
-	}
-	return out
-}
-
+// cleanDirs validates the spawn-directory allowlist: absolute, cleaned, bounded
+// in count and length, deduplicated.
 // maxHostModels bounds how many ollama models one host may advertise.
 const maxHostModels = 50
 
@@ -507,8 +483,27 @@ func validModelName(s string) bool {
 	return true
 }
 
-// cleanDirs validates the spawn-directory allowlist: absolute, cleaned, bounded
-// in count and length, deduplicated.
+// cleanAgents validates the agent names a daemon reported: bounded in number,
+// deduplicated, and each a plain name rather than anything that could be read
+// as a path or a command. The names themselves are not enumerated — see the
+// note on agentNamePattern.
+func cleanAgents(in []string) []string {
+	out := make([]string, 0, len(in))
+	seen := map[string]bool{}
+	for _, a := range in {
+		a = strings.TrimSpace(a)
+		if !agentNamePattern.MatchString(a) || seen[a] {
+			continue
+		}
+		seen[a] = true
+		out = append(out, a)
+		if len(out) == maxHostAgents {
+			break
+		}
+	}
+	return out
+}
+
 func cleanDirs(in []string) ([]string, error) {
 	if len(in) > maxHostDirs {
 		return nil, fmt.Errorf("too many directories (max %d)", maxHostDirs)

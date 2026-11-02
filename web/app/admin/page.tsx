@@ -136,7 +136,7 @@ export default function AdminPage() {
                 </div>
                 <div
                   className="label"
-                  style={{ marginTop: 3, color: "var(--faint)" }}
+                  style={{ marginTop: 3, color: "var(--muted)" }}
                 >
                   {t.hint ?? (t.href ? "view details →" : " ")}
                 </div>

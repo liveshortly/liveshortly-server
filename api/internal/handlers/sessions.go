@@ -36,15 +36,42 @@ type createSessionReq struct {
 	// Web-spawned session: start the agent on one of the caller's own machines
 	// running `live daemon`, instead of the caller running `live <agent>`
 	// themselves. HostID selects the machine, Cwd the (pre-registered) working
-	// directory, and Agent is then read as a spawnable binary name — "claude",
-	// "codex" or "gemini" — not as a framework label. See hosts.go for the
-	// security model.
+	// directory, and Agent is then read as a spawnable agent name — "claude",
+	// "codex", or any other harness that machine advertised — not as a
+	// framework label. See hosts.go for the security model.
 	HostID *string `json:"host_id"`
 	Cwd    *string `json:"cwd"`
 	// BypassPermissions asks the daemon to run the spawned agent unattended
 	// (no permission probes). It is only ever a boolean relayed to the owner's
 	// own machine — the daemon maps it to known flags; see spawnSession there.
 	BypassPermissions *bool `json:"bypass_permissions"`
+}
+
+// frameworkForAgent maps a spawnable agent name to the framework/capture
+// labels the CLI would have reported for the same run, so a web-spawned session
+// is indistinguishable from a terminal-started one in the feed.
+//
+// A machine may advertise any harness it has installed, so this map is a lookup
+// and not an allowlist: a name that is not here gets the same labels the CLI
+// gives a command it has no native support for (profileFor's default).
+var frameworkForAgent = map[string]struct{ framework, captureMode string }{
+	"claude":      {"claude-code", "hooks"},
+	"codex":       {"codex", "rollout"},
+	"gemini":      {"gemini-cli", "pty"},
+	"ollama":      {"ollama", "pty"},
+	"agy":         {"agy", "hooks"},
+	"antigravity": {"agy", "hooks"},
+}
+
+// genericAgentLabels mirrors profileFor's default in the live CLI: an unknown
+// harness is captured through a pty, under the "terminal" framework label.
+var genericAgentLabels = struct{ framework, captureMode string }{"terminal", "pty"}
+
+func labelsForAgent(agent string) (framework, captureMode string) {
+	if l, ok := frameworkForAgent[agent]; ok {
+		return l.framework, l.captureMode
+	}
+	return genericAgentLabels.framework, genericAgentLabels.captureMode
 }
 
 // CreateSession creates a new live session owned by the principal.
