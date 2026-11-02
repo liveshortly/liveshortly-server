@@ -1,0 +1,437 @@
+/* Session view chrome (LSW-04/05/06): status strip, permission bar + review
+   sheet, composer, info panel. Transcript styles live in EventStream.module.css.
+   `.session-page` (globals) still sizes the page to the viewport; these rules
+   lay out what's inside it. */
+
+.page {
+  padding-inline: 0;
+  background: var(--canvas);
+}
+/* Phones: full screen, only the transcript scrolls. Tripled class to beat the
+   globals' `.ws-main .session-page` / mobile `height: auto` rules. */
+@media (max-width: 860px) {
+  .page.page.page {
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+    padding-inline: 0;
+  }
+}
+.gate {
+  align-items: center;
+  justify-content: center;
+}
+.gate > p {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-8);
+}
+.body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+.main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.prior {
+  max-height: 40%;
+  overflow: auto;
+  border-bottom: 1px solid var(--hairline);
+}
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-8);
+  padding-top: 80px;
+  text-align: center;
+}
+.empty p {
+  margin: 0;
+}
+.muted {
+  color: var(--fg-3);
+}
+.errText {
+  margin: 0;
+  color: var(--bad);
+}
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.signIn {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+/* ── Status strip ─────────────────────────────────────────────────── */
+.strip {
+  background: var(--surface);
+  border-bottom: 1px solid var(--hairline);
+  padding: var(--space-8) var(--space-16);
+}
+.stripRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  min-width: 0;
+}
+.title {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg);
+}
+.titleBtn {
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: text;
+  text-align: left;
+}
+.titleBtn:hover {
+  text-decoration: underline dotted;
+}
+.titleBtn:focus-visible,
+.back:focus-visible,
+.reviewRow:focus-visible,
+.send:focus-visible,
+.modelSelect:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.renameField {
+  min-width: 0;
+  flex: 0 1 360px;
+  padding: 2px var(--space-8);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-hud);
+  background: var(--raised);
+  color: var(--fg);
+}
+.renameField[aria-invalid] {
+  border-color: var(--bad);
+}
+.activity {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  color: var(--fg-3);
+  white-space: nowrap;
+}
+.spacer {
+  flex: 1;
+}
+.chip {
+  padding: 2px 8px;
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--accent);
+  white-space: nowrap;
+}
+.modelSelect {
+  cursor: pointer;
+}
+.metaLine {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-top: 2px;
+  color: var(--fg-3);
+}
+.metaLink {
+  color: inherit;
+  text-decoration: underline;
+}
+.mobileOnly,
+.back {
+  display: none;
+}
+.back {
+  color: var(--fg);
+  font-size: 22px;
+  line-height: 1;
+  text-decoration: none;
+}
+@media (max-width: 860px) {
+  .mobileOnly {
+    display: inline-flex;
+  }
+  .wideOnly {
+    display: none;
+  }
+  .strip {
+    padding: var(--space-8) var(--space-12);
+  }
+  .stripRow {
+    gap: var(--space-8);
+  }
+}
+
+/* ── Permission bar + review sheet ────────────────────────────────── */
+.permBar {
+  margin: 0 var(--space-16) var(--space-8);
+  padding: var(--space-12);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  border-radius: var(--radius-hud);
+  background: color-mix(in srgb, var(--warn) 10%, var(--canvas));
+  border: 1px solid color-mix(in srgb, var(--warn) 40%, transparent);
+  color: var(--fg);
+}
+.permBar p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.permHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  color: var(--warn);
+}
+.riskChip {
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--bad);
+  color: var(--bad);
+  background: var(--canvas);
+}
+.reviewRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  width: 100%;
+  padding: var(--space-8);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-hud);
+  background: var(--sunken);
+  color: var(--fg-2);
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.reviewGist {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.permActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+  flex-direction: row-reverse;
+  justify-content: flex-end;
+}
+.review {
+  width: min(600px, calc(100vw - 72px));
+  height: min(420px, calc(100vh - 160px));
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+@media (max-width: 640px) {
+  .review {
+    width: auto;
+    height: calc(100dvh - 140px);
+  }
+}
+.reviewBody {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+.reviewBody p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.reviewActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+  margin-top: var(--space-12);
+}
+.reviewActions > :first-child {
+  margin-right: auto;
+}
+.toolDetail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  color: var(--fg-2);
+}
+.path {
+  color: var(--fg-2);
+  overflow-wrap: anywhere;
+}
+.cmdWrap {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-8);
+}
+.cmd {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-8) var(--space-12);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-hud);
+  background: var(--surface);
+  color: var(--fg);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* ── Composer + footers ───────────────────────────────────────────── */
+.composer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-12);
+  background: var(--surface);
+  border-top: 1px solid var(--hairline);
+}
+.composerErr {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+.composerRow {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-8);
+}
+.field {
+  flex: 1;
+  min-height: 22px;
+  max-height: 200px;
+  resize: none;
+  padding: var(--space-8) var(--space-12);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-hud);
+  background: var(--canvas);
+  color: var(--fg);
+  font: inherit;
+}
+.field:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+.field::placeholder {
+  color: var(--fg-3);
+}
+.send {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  margin-bottom: 4px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
+  cursor: pointer;
+}
+.send:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+@media (max-width: 640px) {
+  .hint {
+    display: none;
+  }
+}
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-12);
+  padding: var(--space-12);
+  background: var(--surface);
+  border-top: 1px solid var(--hairline);
+  color: var(--fg-3);
+}
+
+/* ── Info panel (⌘I) ──────────────────────────────────────────────── */
+.info {
+  width: 300px;
+  flex-shrink: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  padding: var(--space-12) var(--space-16);
+  background: var(--surface);
+  border-left: 1px solid var(--hairline);
+  color: var(--fg-2);
+}
+@media (max-width: 1100px) {
+  .info {
+    position: fixed;
+    inset: 0 0 0 auto;
+    width: min(340px, 100vw);
+    z-index: 40;
+    box-shadow: -8px 0 30px var(--shadow);
+  }
+}
+.infoHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.infoList {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+.infoList > div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-12);
+}
+.infoList dd {
+  margin: 0;
+  color: var(--fg);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.files {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--fg);
+}
+.infoActions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-8);
+}

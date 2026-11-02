@@ -1,493 +1,355 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { SessionEvent } from "@/lib/api";
-import { agentName, summarizePayload, localTime, truncate } from "@/lib/utils";
+import {
+  bodyText,
+  diffLines,
+  foldEvents,
+  handleOf,
+  stepLine,
+  type Item,
+} from "@/lib/transcript";
+import { agentTitle } from "@/lib/utils";
+import Button from "@/components/ui/Button";
+import Icon from "@/components/ui/Icon";
+import SessionMark from "@/components/ui/SessionMark";
+import s from "./EventStream.module.css";
 
-// Internal stream-boundary markers carry no content (just a timestamp) and
-// should never show in the log. Some capture hooks emit these.
-const HIDDEN_EVENT_TYPES = new Set(["stream_start", "stream_end"]);
+const COLLAPSED_TAIL = 6;
+const DIFF_CAP = 80;
 
-// Event types that read as a conversation turn.
-const BUBBLE_TYPES = new Set(["prompt", "response", "viewer_comment"]);
-
-// Event types that interrupt a work run and stand on their own in the thread.
-// EVERYTHING else — tool calls, file writes, output, and any system/activity
-// type the capture emits — folds into one growing "work receipt" pane, so a
-// whole agent turn reads as a single block instead of a ladder of one-step
-// boxes split by stray activity rows.
-const TURN_BREAKERS = new Set([
-  ...BUBBLE_TYPES,
-  "input_requested",
-  "viewer_decision",
-]);
-
-// The classic work types still drive the chips / glyph colors.
-const WORK_TYPES = new Set(["tool_call", "file_write", "output"]);
-
-/** Color + glyph per event_type (v4 event grammar). */
-function markerFor(type: string): { color: string; glyph: string } {
-  switch (type) {
-    case "prompt":
-      return { color: "var(--ink)", glyph: "›" };
-    case "response":
-      return { color: "var(--green)", glyph: "◆" };
-    case "tool_call":
-      return { color: "var(--amber)", glyph: "$" };
-    case "file_write":
-      return { color: "var(--red)", glyph: "✎" };
-    case "output":
-      return { color: "var(--muted)", glyph: "·" };
-    case "viewer_comment":
-      return { color: "var(--violet)", glyph: "✉" };
-    case "input_requested":
-      return { color: "var(--amber)", glyph: "⌐" };
-    case "viewer_decision":
-      return { color: "var(--green)", glyph: "⏎" };
-    case "quota_exceeded":
-      return { color: "var(--red)", glyph: "⚠" };
-    default:
-      return { color: "var(--faint)", glyph: "•" };
-  }
-}
-
-/** Plain text body of an event (prompt / viewer_comment / response). */
-function bodyText(e: SessionEvent): string {
-  const p = e.payload ?? {};
-  for (const k of ["message", "text", "content"]) {
-    const v = (p as Record<string, unknown>)[k];
-    if (typeof v === "string" && v.trim()) return v;
-  }
-  return summarizePayload(p);
-}
-
-/** Sender handle for a prompt / viewer_comment, if present in the payload. */
-function handleOf(e: SessionEvent, fallback: string): string {
-  const u = (e.payload as Record<string, unknown>)?.username;
-  if (typeof u === "string" && u.trim()) return u.trim();
-  if (e.actor && e.actor !== "agent") return e.actor;
-  return fallback;
-}
-
-/** {verb, path, detail} for a single work-step row. */
-function workStep(e: SessionEvent): {
-  verb: string;
-  path: string;
-  detail: string;
-} {
-  const p = (e.payload ?? {}) as Record<string, unknown>;
-  const str = (k: string) =>
-    typeof p[k] === "string" ? (p[k] as string) : undefined;
-  const tool = str("tool_name") ?? str("tool") ?? str("name");
-  const path = str("file_path") ?? str("path") ?? str("file");
-  switch (e.event_type) {
-    case "file_write":
-      return {
-        verb: "edit",
-        path: path ?? truncate(summarizePayload(p), 60),
-        detail: str("detail") ?? str("lines") ?? "",
-      };
-    case "tool_call":
-      return {
-        verb: tool ? tool.toLowerCase() : "run",
-        path: path ?? str("command") ?? truncate(summarizePayload(p), 60),
-        detail: "",
-      };
-    case "output":
-      // NOT truncated. For a pty agent (ollama, gemini) this event is the whole
-      // reply, not a one-line work step — clipping it to 80 characters hid the
-      // answer behind an ellipsis while the terminal showed it in full. The CLI
-      // already caps the payload, so this is bounded.
-      return { verb: "out", path: str("text") ?? summarizePayload(p), detail: "" };
-    default:
-      return { verb: e.event_type, path: truncate(summarizePayload(p), 70), detail: "" };
-  }
-}
-
-/** Compact one-line descriptor for stray system-activity rows (rare types). */
-function systemLine(e: SessionEvent): string {
-  const p = (e.payload ?? {}) as Record<string, unknown>;
-  const str = (k: string) =>
-    typeof p[k] === "string" ? (p[k] as string) : undefined;
-  switch (e.event_type) {
-    case "input_requested": {
-      const kind = str("kind") === "permission" ? "permission" : "input";
-      const msg = str("message");
-      return `awaiting ${kind}${msg ? ` — ${truncate(msg, 90)}` : ""}`;
-    }
-    case "viewer_decision": {
-      const who = str("username") ?? "viewer";
-      return str("decision") === "deny"
-        ? `${who} denied the request`
-        : `${who} allowed the request`;
-    }
-    default:
-      return truncate(summarizePayload(p), 100);
-  }
-}
+const time = (iso: string) =>
+  new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 
 /**
- * Infer which earlier message a `response` is replying to: the NEAREST PRECEDING
- * prompt or viewer_comment.
+ * The session transcript (Mac LSChatView.transcript): day separators, prompt
+ * and comment bubbles, agent prose, folded work runs, reasoning, permission
+ * captions, a working row, an error row and a jump-to-latest pill. One
+ * component at every width. Agent content is rendered as text / markdown —
+ * never raw HTML.
  */
-function inferReplyTarget(
-  events: SessionEvent[],
-  index: number,
-): SessionEvent | null {
-  for (let i = index - 1; i >= 0; i--) {
-    const t = events[i].event_type;
-    if (t === "viewer_comment" || t === "prompt") return events[i];
-  }
-  return null;
-}
-
-const ADDRESSED_RE = /^@([A-Za-z0-9_.\-]+)\s*:/;
-
-/** A rendering item: either a single event or a folded run of work events. */
-type Item =
-  | { kind: "event"; event: SessionEvent; index: number }
-  | { kind: "work"; events: SessionEvent[]; index: number };
-
-function group(events: SessionEvent[]): Item[] {
-  const items: Item[] = [];
-  let run: SessionEvent[] = [];
-  let runStart = 0;
-  const flush = () => {
-    if (run.length) {
-      items.push({ kind: "work", events: run, index: runStart });
-      run = [];
-    }
-  };
-  events.forEach((e, i) => {
-    if (!TURN_BREAKERS.has(e.event_type)) {
-      if (run.length === 0) runStart = i;
-      run.push(e);
-    } else {
-      flush();
-      items.push({ kind: "event", event: e, index: i });
-    }
-  });
-  flush();
-  return items;
-}
-
-/** v4 transcript — one unified pane. Host prompts and viewer comments render
- *  as quiet cards, agent responses as document prose, tool work as foldable
- *  receipts. Auto-scrolls to the bottom while the viewer is pinned there. */
 export default function EventStream({
-  events: rawEvents,
+  events,
   live,
   ownerHandle,
   framework,
   fill,
+  busy,
+  activity,
+  error,
+  onReconnect,
+  empty,
 }: {
   events: SessionEvent[];
   live?: boolean;
   ownerHandle?: string | null;
-  /** Session capture framework, for the agent byline (claude / codex / …). */
   framework?: string | null;
-  /** Grow to fill the parent (two-pane viewer) instead of a fixed height. */
+  /** Grow to fill the parent instead of a fixed height. */
   fill?: boolean;
+  /** The agent is working now: shows the standing working row. */
+  busy?: boolean;
+  activity?: string;
+  /** Stream error text: shows the warn row with Reconnect. */
+  error?: string | null;
+  onReconnect?: () => void;
+  /** Replaces the default empty state. */
+  empty?: React.ReactNode;
 }) {
-  const agentLabel = agentName(framework).toLowerCase();
-  const events = rawEvents.filter((e) => !HIDDEN_EVENT_TYPES.has(e.event_type));
-  const items = group(events);
-  const endRef = useRef<HTMLDivElement>(null);
+  const items = useMemo(() => foldEvents(events), [events]);
+  const agent = agentTitle(framework);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const stickRef = useRef(true);
-  const rowRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const [pinned, setPinned] = useState(true);
+  const pinnedRef = useRef(true);
 
-  const me = ownerHandle && ownerHandle.trim() ? ownerHandle.trim() : "you";
+  const toBottom = (smooth = false) => {
+    const el = scrollRef.current;
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: smooth ? "smooth" : "auto" });
+  };
+
+  // First layout: a deep link (#e-123) wins; live opens at the bottom, an
+  // ended session at the top (read like a story).
+  useLayoutEffect(() => {
+    const hash = decodeURIComponent(window.location.hash.slice(1));
+    const target = hash ? document.getElementById(hash) : null;
+    if (target && scrollRef.current?.contains(target)) {
+      target.scrollIntoView({ block: "center" });
+      pinnedRef.current = false;
+      setPinned(false);
+    } else if (live) {
+      toBottom();
+    } else {
+      pinnedRef.current = false;
+      setPinned(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Follow the tail only while the reader is there.
+  useEffect(() => {
+    if (pinnedRef.current) toBottom();
+  }, [items.length, events.length, busy, error]);
 
   const onScroll = () => {
     const el = scrollRef.current;
     if (!el) return;
-    const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
-    stickRef.current = dist < 40;
-  };
-
-  useEffect(() => {
-    if (stickRef.current) endRef.current?.scrollIntoView({ block: "end" });
-  }, [events.length]);
-
-  const scrollToEvent = (id: string) => {
-    const el = rowRefs.current.get(id);
-    if (!el) return;
-    stickRef.current = false;
-    el.scrollIntoView({ behavior: "smooth", block: "center" });
-    el.animate(
-      [
-        { boxShadow: "0 0 0 2px var(--green)" },
-        { boxShadow: "0 0 0 2px transparent" },
-      ],
-      { duration: 1100, easing: "ease-out" },
-    );
-  };
-
-  const setRef = (id: string) => (node: HTMLDivElement | null) => {
-    if (node) rowRefs.current.set(id, node);
-    else rowRefs.current.delete(id);
+    const at = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
+    if (at !== pinnedRef.current) {
+      pinnedRef.current = at;
+      setPinned(at);
+    }
   };
 
   return (
-    <div
-      ref={scrollRef}
-      onScroll={onScroll}
-      className="chat-thread"
-      style={fill ? { flex: 1, minHeight: 0 } : { height: "min(64vh, 620px)" }}
-    >
-      {items.length === 0 ? (
-        <div className="et-col">
-          <div
-            style={{ padding: "24px 4px", color: "var(--faint)", fontSize: 12.5 }}
-          >
-            {live ? "Waiting for events…" : "No events recorded for this session."}
-          </div>
+    <div className={`${s.wrap}${fill ? ` ${s.fill}` : ""}`}>
+      <div
+        ref={scrollRef}
+        onScroll={onScroll}
+        className={s.scroll}
+        role="log"
+        aria-live="off"
+        aria-label="Transcript"
+        tabIndex={0}
+      >
+        <div className={s.col}>
+          {items.length === 0 &&
+            (empty ?? (
+              <p className={`${s.caption} t-callout`}>
+                {live ? "Waiting for the agent's first move…" : "No activity was recorded."}
+              </p>
+            ))}
+          {items.map((item) => (
+            <Row key={item.id} item={item} agent={agent} owner={ownerHandle ?? null} />
+          ))}
+          {busy && (
+            <div className={s.working} role="status">
+              <span className={`${s.agentLabel} t-caption`}>◆ {agent}</span>
+              <SessionMark live size={16} />
+              <span className="t-callout">{activity ?? "working"}</span>
+            </div>
+          )}
+          {error && (
+            <div className={s.error} role="alert">
+              <Icon name="exclamationmark.triangle" />
+              <span className="t-callout">{error}</span>
+              {onReconnect && <Button onClick={onReconnect}>Reconnect</Button>}
+            </div>
+          )}
         </div>
-      ) : (
-        <div className="et-col">
-          {items.map((item, itemIdx) => {
-            if (item.kind === "work") {
-              // The LAST block of a live session is the one still growing —
-              // show a "running…" footer so the viewer sees work happening.
-              const activeRun = !!live && itemIdx === items.length - 1;
-              return (
-                <div className="et-row work-row" key={`work-${item.events[0].id}`}>
-                  <WorkBlock
-                    events={item.events}
-                    setRef={setRef}
-                    active={activeRun}
-                  />
-                </div>
-              );
-            }
-            const e = item.event;
-
-            // Stray system rows (input_requested / viewer_decision / unknown).
-            if (!BUBBLE_TYPES.has(e.event_type)) {
-              const m = markerFor(e.event_type);
-              return (
-                <div
-                  key={e.id}
-                  ref={setRef(e.id)}
-                  style={{ display: "flex", justifyContent: "center" }}
-                >
-                  <div className="sys-pill tnum" title={systemLine(e)}>
-                    <span className="sp-glyph" style={{ color: m.color }}>
-                      {m.glyph}
-                    </span>
-                    <span
-                      style={{
-                        color: "var(--muted)",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {systemLine(e)}
-                    </span>
-                    <span className="sp-time">{localTime(e.ts)}</span>
-                  </div>
-                </div>
-              );
-            }
-
-            const isResponse = e.event_type === "response";
-            const isViewer = e.event_type === "viewer_comment";
-            const body = bodyText(e);
-
-            if (isResponse) {
-              const quote = inferReplyTarget(events, item.index);
-              const mAt = body.match(ADDRESSED_RE);
-              const addressed = mAt ? mAt[1] : null;
-              const quoteIsViewer = quote?.event_type === "viewer_comment";
-              return (
-                <div key={e.id} ref={setRef(e.id)} className="et-row">
-                  {/* Claude-app layout: the agent owns the full column — a slim
-                      byline, then plain document prose. No avatar gutter. */}
-                  <div className="et-byline">
-                    <span className="et-name agent">◆ {agentLabel}</span>
-                    {quote && quoteIsViewer && (
-                      <span className="et-reply">
-                        ↩ replying to{" "}
-                        <b>@{handleOf(quote, addressed ?? "viewer")}</b>
-                      </span>
-                    )}
-                    <span className="et-time" title={e.ts}>
-                      {localTime(e.ts)}
-                    </span>
-                  </div>
-                  {quote && (
-                    <button
-                      type="button"
-                      onClick={() => scrollToEvent(quote.id)}
-                      className="reply-quote"
-                      title="Jump to the message this replies to"
-                      style={{
-                        display: "block",
-                        width: "100%",
-                        maxWidth: 680,
-                        textAlign: "left",
-                        cursor: "pointer",
-                        fontFamily: "inherit",
-                      }}
-                    >
-                      <span className="rq-who">
-                        ↩ {quoteIsViewer
-                          ? `@${handleOf(quote, addressed ?? "viewer")} · viewer`
-                          : `@${handleOf(quote, me)}`}
-                      </span>
-                      <span className="rq-body">
-                        {truncate(bodyText(quote), 90)}
-                      </span>
-                    </button>
-                  )}
-                  <div className="et-prose">
-                    <div className="md">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                        {body}
-                      </ReactMarkdown>
-                    </div>
-                  </div>
-                </div>
-              );
-            }
-
-            // Typed input (host prompt / viewer comment) — Claude-app style:
-            // a compact left-aligned card with a tiny attribution line.
-            const who = handleOf(e, isViewer ? "viewer" : me);
-            // Human turns sit on the right, the agent on the left, so the
-            // conversation alternates sides and a glance tells you who spoke.
-            return (
-              <div key={e.id} ref={setRef(e.id)} className="et-row said">
-                <div className="et-byline">
-                  <span className={`et-name${isViewer ? " viewer" : ""}`}>
-                    {who}
-                  </span>
-                  <span className={`et-tag${isViewer ? " viewer" : ""}`}>
-                    {isViewer ? "VIEWER" : "HOST"}
-                  </span>
-                  <span className="et-time" title={e.ts}>
-                    {localTime(e.ts)}
-                  </span>
-                </div>
-                <div className={`et-card${isViewer ? " viewer" : ""}`}>
-                  {body}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+      </div>
+      {!pinned && items.length > 0 && (
+        <button
+          type="button"
+          className={`${s.jump} t-callout`}
+          onClick={() => {
+            pinnedRef.current = true;
+            setPinned(true);
+            toBottom(true);
+          }}
+        >
+          <Icon name="chevron.down" size={14} /> Jump to latest
+        </button>
       )}
-      <div ref={endRef} />
     </div>
   );
 }
 
-/** A foldable receipt of the agent's actions (tool calls / file writes / output). */
-function WorkBlock({
-  events,
-  setRef,
-  active = false,
-}: {
-  events: SessionEvent[];
-  setRef: (id: string) => (node: HTMLDivElement | null) => void;
-  /** Live and still growing — show the executing footer. */
-  active?: boolean;
-}) {
-  // Expanded by default for short runs; folded for long ones.
-  const [open, setOpen] = useState(events.length <= 6);
-
-  const files = events.filter((e) => e.event_type === "file_write").length;
-  const runs = events.filter((e) => e.event_type === "tool_call").length;
-  const start = new Date(events[0].ts).getTime();
-  const end = new Date(events[events.length - 1].ts).getTime();
-  const dur = Number.isFinite(start) && Number.isFinite(end) && end >= start
-    ? end - start
-    : 0;
-  const durLabel =
-    dur <= 0
-      ? ""
-      : dur < 1000
-        ? `${dur}ms`
-        : dur < 60_000
-          ? `${(dur / 1000).toFixed(1)}s`
-          : `${Math.floor(dur / 60_000)}m ${Math.round((dur % 60_000) / 1000)}s`;
-
-  return (
-    <div ref={setRef(events[0].id)} className={`work${open ? "" : " collapsed"}`}>
-      <div className="work-box">
-        <button type="button" onClick={() => setOpen((v) => !v)} className="work-toggle tnum">
-          <span className="work-chevron">▾</span>
-          <span style={{ fontWeight: 600, color: "var(--ink)" }}>
-            {durLabel ? `worked ${durLabel} · ` : ""}
-            {events.length} step{events.length === 1 ? "" : "s"}
+/** Rows are memoised: a live session re-folds on every frame, but only the
+ *  growing tail changes, so markdown is not re-parsed for the whole log. */
+const Row = memo(
+  function Row({ item, agent, owner }: { item: Item; agent: string; owner: string | null }) {
+    if (item.kind === "day") {
+      return (
+        <div className={s.day} role="separator">
+          <span className="t-caption" suppressHydrationWarning>
+            {new Date(item.ts).toLocaleDateString([], {
+              weekday: "long",
+              month: "long",
+              day: "numeric",
+            })}
           </span>
-          {files > 0 && (
-            <span className="work-chip red">
-              {files} edit{files === 1 ? "" : "s"}
-            </span>
-          )}
-          {runs > 0 && (
-            <span className="work-chip amber">
-              {runs} run{runs === 1 ? "" : "s"}
-            </span>
-          )}
-          <span className="work-dur">{localTime(events[0].ts)}</span>
-        </button>
-        <div className="work-body">
-          {events.map((e) => {
-            const { verb, path, detail } = workStep(e);
-            const m = markerFor(e.event_type);
-            // Output is prose the viewer is meant to read, so it wraps over as
-            // many lines as it needs; every other work step stays a tidy
-            // single-line row.
-            const isOutput = e.event_type === "output";
-            return (
-              <div
-                key={e.id}
-                className={isOutput ? "work-step work-step--block" : "work-step"}
-              >
-                <span className="verb" style={{ color: m.color }}>
-                  {verb}
-                </span>
-                <span
-                  className={isOutput ? "path tnum work-output" : "path tnum"}
-                  title={isOutput ? undefined : path}
-                >
-                  {path}
-                </span>
-                {detail && (
-                  <span style={{ color: "var(--faint)", fontSize: 10 }}>
-                    {detail}
-                  </span>
-                )}
-                <span className="wtime tnum">{localTime(e.ts)}</span>
-              </div>
-            );
-          })}
         </div>
-        {active && (
-          <div className="work-running" role="status" aria-live="polite">
-            <span className="work-running-dots" aria-hidden>
-              <span />
-              <span />
-              <span />
-            </span>
-            <span className="work-running-text tnum">
-              {runningLabel(events[events.length - 1])}
-            </span>
+      );
+    }
+    if (item.kind === "work") return <WorkRun events={item.events} />;
+    return <Single event={item.event} grouped={item.grouped} agent={agent} owner={owner} />;
+  },
+  (a, b) =>
+    a.agent === b.agent &&
+    a.owner === b.owner &&
+    (a.item === b.item ||
+      (a.item.kind === "work" && b.item.kind === "work"
+        ? a.item.events.length === b.item.events.length && a.item.id === b.item.id
+        : a.item.kind === "single" && b.item.kind === "single"
+          ? a.item.event === b.item.event && a.item.grouped === b.item.grouped
+          : a.item.id === b.item.id)),
+);
+
+function Single({
+  event: e,
+  grouped,
+  agent,
+  owner,
+}: {
+  event: SessionEvent;
+  grouped: boolean;
+  agent: string;
+  owner: string | null;
+}) {
+  const id = `e-${e.seq}`;
+  const text = bodyText(e);
+  const at = (
+    <time className={s.time} dateTime={e.ts} suppressHydrationWarning>
+      {time(e.ts)}
+    </time>
+  );
+  switch (e.event_type) {
+    case "prompt":
+    case "viewer_comment": {
+      const who = handleOf(e);
+      const ownerSaid = e.event_type === "prompt" || (!!owner && who === `@${owner}`);
+      const pending = e.id.startsWith("local-");
+      return (
+        <div id={id} className={`${s.row} ${s.said}`} data-pending={pending || undefined}>
+          {!grouped && (
+            <div className={s.byline}>
+              <span className={`t-caption ${ownerSaid ? s.ownerName : s.viewerName}`}>
+                {who === "agent" ? (owner ? `@${owner}` : "host") : who}
+              </span>
+              {at}
+            </div>
+          )}
+          <div className={`${s.bubble} ${ownerSaid ? s.ownerBubble : s.viewerBubble} t-body`}>
+            {text}
           </div>
+          {pending && <span className={`${s.time} t-caption`}>sending…</span>}
+        </div>
+      );
+    }
+    case "response":
+      return (
+        <div id={id} className={s.row}>
+          {!grouped && (
+            <div className={s.byline}>
+              <span className={`${s.agentLabel} t-caption`}>◆ {agent}</span>
+              {at}
+            </div>
+          )}
+          <div className="md t-body">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
+          </div>
+        </div>
+      );
+    case "thinking":
+    case "reasoning":
+      return (
+        <details id={id} className={`${s.row} ${s.panel}`}>
+          <summary className={s.panelHead}>
+            <span className="t-caption">Reasoning</span>
+            <Icon name="chevron.down" size={12} />
+          </summary>
+          <p className={`${s.reasoning} t-callout`}>{text}</p>
+        </details>
+      );
+    default: {
+      // input_requested / viewer_decision: a centred caption.
+      const p = e.payload ?? {};
+      const line =
+        e.event_type === "viewer_decision"
+          ? `${handleOf(e) === "agent" ? "viewer" : handleOf(e)} ${
+              p.decision === "deny" ? "denied" : "allowed"
+            } the request`
+          : `awaiting ${p.kind === "permission" ? "permission" : "input"}`;
+      return (
+        <p id={id} className={`${s.caption} t-callout`}>
+          {line} · {at}
+        </p>
+      );
+    }
+  }
+}
+
+/** Folded tool activity (Mac LSWorkRun): the last 6 steps until expanded;
+ *  expanded, each step opens its full output or diff. Edits and writes are
+ *  neutral — red is only for errors and denials. */
+function WorkRun({ events }: { events: SessionEvent[] }) {
+  const [open, setOpen] = useState(false);
+  const n = events.length;
+  const shown = open || n <= COLLAPSED_TAIL ? events : events.slice(-COLLAPSED_TAIL);
+  return (
+    <div id={`e-${events[0].seq}`} className={`${s.row} ${s.panel}`}>
+      <button
+        type="button"
+        className={s.panelHead}
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <Icon name="gearshape" size={12} />
+        <span className="t-caption">
+          Agent activity · {n} step{n === 1 ? "" : "s"}
+        </span>
+        <span className={s.chevron} data-open={open || undefined}>
+          <Icon name="chevron.down" size={12} />
+        </span>
+      </button>
+      <div className={s.steps}>
+        {!open && n > COLLAPSED_TAIL && (
+          <span className="t-caption">… {n - COLLAPSED_TAIL} earlier steps</span>
+        )}
+        {shown.map((e) =>
+          open ? (
+            <details key={e.id} className={s.step}>
+              <summary className={`${s.stepLine} t-mono`}>{stepLine(e)}</summary>
+              <StepDetail e={e} />
+            </details>
+          ) : (
+            <div key={e.id} className={`${s.stepLine} t-mono`} title={stepLine(e)}>
+              {stepLine(e)}
+            </div>
+          ),
         )}
       </div>
     </div>
   );
 }
 
-/** "running — $ go test ./..." for the executing footer. */
-function runningLabel(e: SessionEvent): string {
-  const { verb, path } = workStep(e);
-  return `running — ${verb} ${truncate(path, 72)}`;
+function StepDetail({ e }: { e: SessionEvent }) {
+  const p = e.payload ?? {};
+  // Hooks put the tool input under `input`; some captures flatten it.
+  const input = (p.input ?? p) as Record<string, unknown>;
+  if (typeof input.old_string === "string" || typeof input.new_string === "string") {
+    return <Diff oldS={String(input.old_string ?? "")} newS={String(input.new_string ?? "")} />;
+  }
+  const full =
+    e.event_type === "output"
+      ? bodyText(e)
+      : typeof input.command === "string"
+        ? `$ ${input.command}${typeof p.output === "string" ? `\n\n${p.output}` : ""}`
+        : typeof input.content === "string"
+          ? input.content
+          : JSON.stringify(input, null, 2);
+  return <pre className={`${s.code} t-mono`}>{full}</pre>;
+}
+
+/** Unified diff, removed red / added green, 80 lines then "… N more". */
+export function Diff({ oldS, newS }: { oldS: string; newS: string }) {
+  const [all, setAll] = useState(false);
+  const lines = diffLines(oldS, newS);
+  const shown = all ? lines : lines.slice(0, DIFF_CAP);
+  return (
+    <div className={`${s.code} t-mono`}>
+      {shown.map((l, i) => (
+        <div key={i} className={l.sign === "-" ? s.del : s.add}>
+          {l.sign} {l.text}
+        </div>
+      ))}
+      {lines.length > shown.length && (
+        <button type="button" className={`${s.more} t-caption`} onClick={() => setAll(true)}>
+          … {lines.length - shown.length} more · show all
+        </button>
+      )}
+    </div>
+  );
 }

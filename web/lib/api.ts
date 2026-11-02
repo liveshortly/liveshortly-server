@@ -382,9 +382,11 @@ export function listSessions(
 export function getSession(
   id: string,
   signal?: AbortSignal,
+  /** Only events with seq > sinceSeq (tail catch-up after a reconnect). */
+  sinceSeq?: number,
 ): Promise<SessionDetail> {
   return getJSON<SessionDetail>(
-    `/api/sessions/${encodeURIComponent(id)}`,
+    `/api/sessions/${encodeURIComponent(id)}${sinceSeq ? `?since_seq=${Math.floor(sinceSeq)}` : ""}`,
     signal,
   );
 }
