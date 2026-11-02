@@ -13,7 +13,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Avatar from "@/components/Avatar";
 import BrandMark from "@/components/BrandMark";
-import Badge from "@/components/Badge";
+import StatusBadge from "@/components/ui/StatusBadge";
 import DeleteSessionButton from "@/components/DeleteSessionButton";
 import EventStream from "@/components/EventStream";
 import MobileEventFeed from "@/components/MobileEventFeed";
@@ -50,8 +50,13 @@ type Connection = "idle" | "connecting" | "open" | "closed" | "ended";
 
 export default function SessionViewer({
   params,
+  initial,
 }: {
   params: Promise<{ id: string }>;
+  /** The public (cookieless, server-fetched) view, so an open session's
+   *  content is in the HTML. The client still refetches with the visitor's
+   *  cookie for owner/commenter fields. */
+  initial?: SessionDetail | null;
 }) {
   const { id } = use(params);
   const router = useRouter();
@@ -60,8 +65,10 @@ export default function SessionViewer({
   // anonymous viewers (no drawer) — the topbar shows a back link instead.
   const drawer = useWorkspaceDrawer();
 
-  const [meta, setMeta] = useState<SessionDetail | null>(null);
-  const [events, setEvents] = useState<SessionEvent[]>([]);
+  const [meta, setMeta] = useState<SessionDetail | null>(initial ?? null);
+  const [events, setEvents] = useState<SessionEvent[]>(() =>
+    [...(initial?.events ?? [])].sort((a, b) => a.seq - b.seq),
+  );
   const [err, setErr] = useState<string | null>(null);
   const [noAccess, setNoAccess] = useState(false);
   const [needsAuth, setNeedsAuth] = useState(false);
@@ -79,7 +86,9 @@ export default function SessionViewer({
   // expiry timestamp.
   const [typers, setTypers] = useState<Map<string, number>>(new Map());
 
-  const seen = useRef<Set<string>>(new Set());
+  const seen = useRef<Set<string>>(
+    new Set((initial?.events ?? []).map((e) => e.id)),
+  );
 
   const addEvents = (incoming: SessionEvent[]) => {
     if (incoming.length === 0) return;
@@ -291,15 +300,9 @@ export default function SessionViewer({
   }, [claudeTyping, events.length]);
 
   // Notify the viewer (browser notification + soft chime) when input is newly
-  // requested — so anyone watching knows it's their turn to answer.
+  // requested — so anyone watching knows it's their turn to answer. Permission
+  // is only ever asked on a click (Settings → Notifications), never on load.
   const notifiedFor = useRef<string | null>(null);
-  useEffect(() => {
-    if (typeof window !== "undefined" && "Notification" in window) {
-      if (Notification.permission === "default") {
-        Notification.requestPermission().catch(() => {});
-      }
-    }
-  }, []);
   useEffect(() => {
     if (!inputPending || !inputRequest) return;
     if (notifiedFor.current === inputRequest.id) return;
@@ -459,22 +462,14 @@ export default function SessionViewer({
         <div className="sv-hero-main">
           <div className="sv-hero-eyebrow">
             {meta &&
-              (meta.status === "live" ? (
-                <span className="sv-hero-badge" title="Live">
-                  <span className="live-dot" aria-hidden />
-                  LIVE
-                </span>
+              (meta.status === "ended" && meta.ended_reason === "quota" ? (
+                <StatusBadge
+                  status="ended"
+                  label="Ended · quota"
+                  title="Auto-ended — owner reached their storage quota"
+                />
               ) : (
-                <span
-                  className="sv-hero-badge ended"
-                  title={
-                    meta.ended_reason === "quota"
-                      ? "Auto-ended — owner reached their storage quota"
-                      : undefined
-                  }
-                >
-                  {meta.ended_reason === "quota" ? "Ended · quota" : "Ended"}
-                </span>
+                <StatusBadge status={meta.status} />
               ))}
             <span>Session · {frameworkLabel(meta?.framework)}</span>
             <span style={{ color: "var(--faint)" }}>{shortId(id)}</span>
@@ -490,13 +485,7 @@ export default function SessionViewer({
           {/* Mobile-only compact meta line — mirrors the mock's slim header. */}
           {meta && (
             <div className="session-mobile-meta label">
-              <span
-                className={
-                  meta.status === "live" ? "session-mm-live" : undefined
-                }
-              >
-                {meta.status === "live" ? "● LIVE" : "● ENDED"}
-              </span>
+              <StatusBadge status={meta.status} />
               {meta.model && <span>· {meta.model}</span>}
               <span>
                 {meta.status === "live"
@@ -576,7 +565,7 @@ export default function SessionViewer({
                 ⑃ Forks · {meta.fork_count}
               </span>
             )}
-            {meta && <Badge status={meta.status} size="md" />}
+            {meta && <StatusBadge status={meta.status} />}
             </div>
             {/* Mobile-only: the same actions in a bottom sheet (desktop uses the
                 inline action row above). */}

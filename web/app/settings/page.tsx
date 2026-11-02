@@ -7,6 +7,7 @@ import { useAuth } from "@/components/AuthContext";
 import { useHosts } from "@/components/HostsContext";
 import { useTheme, type ThemeMode } from "@/components/ThemeProvider";
 import { listTokens, revokeToken, type CliToken } from "@/lib/api";
+import { enableNotifications, pushMissing } from "@/lib/push";
 import { timeAgo } from "@/lib/utils";
 import styles from "./settings.module.css";
 
@@ -36,9 +37,14 @@ export default function SettingsPage() {
   const [tokens, setTokens] = useState<CliToken[] | null>(null);
   const [tokErr, setTokErr] = useState(false);
   const [notif, setNotif] = useState<NotificationPermission | "unsupported">("default");
+  // Web Push off while permission is granted (e.g. granted before push existed).
+  const [needsPush, setNeedsPush] = useState(false);
 
   useEffect(() => {
     setNotif("Notification" in window ? Notification.permission : "unsupported");
+    if ("Notification" in window && Notification.permission === "granted") {
+      pushMissing().then(setNeedsPush).catch(() => {});
+    }
     const ctrl = new AbortController();
     listTokens(ctrl.signal)
       .then(setTokens)
@@ -111,7 +117,9 @@ export default function SettingsPage() {
             <div className="t-headline">Browser notifications</div>
             <div className={`t-callout ${styles.note}`}>
               {notif === "granted"
-                ? "On. Open sessions notify you when an agent needs approval."
+                ? needsPush
+                  ? "On for open tabs. Turn on to also hear about approvals with LiveShortly closed."
+                  : "On. You hear when an agent needs approval."
                 : notif === "denied"
                   ? "Blocked. Allow notifications for this site in your browser settings."
                   : notif === "unsupported"
@@ -119,11 +127,14 @@ export default function SettingsPage() {
                     : "Off. Turn on to hear about approval requests in open sessions."}
             </div>
           </div>
-          {notif === "default" && (
+          {(notif === "default" || (notif === "granted" && needsPush)) && (
             <button
               type="button"
               className={styles.button}
-              onClick={async () => setNotif(await Notification.requestPermission())}
+              onClick={async () => {
+                setNotif(await enableNotifications());
+                setNeedsPush(await pushMissing().catch(() => false));
+              }}
             >
               Turn on
             </button>

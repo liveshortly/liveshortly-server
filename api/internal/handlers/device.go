@@ -300,11 +300,6 @@ func (g *GoogleAuth) DevicePoll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	access, err := g.mgr.MintAccess(websession.TokenUser{ID: u.ID, Email: u.Email, Name: u.Name})
-	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "failed to mint token")
-		return
-	}
 	rawRefresh, hash, err := websession.GenerateRefreshToken()
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "failed to mint token")
@@ -318,8 +313,14 @@ func (g *GoogleAuth) DevicePoll(w http.ResponseWriter, r *http.Request) {
 			label += " (" + rec.OS + ")"
 		}
 	}
-	if _, err := g.store.InsertRefreshToken(ctx, u.ID, hash, label); err != nil {
+	rtID, err := g.store.InsertRefreshToken(ctx, u.ID, hash, label)
+	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "failed to store token")
+		return
+	}
+	access, err := g.mgr.MintAccess(websession.TokenUser{ID: u.ID, Email: u.Email, Name: u.Name, SessionID: rtID})
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to mint token")
 		return
 	}
 

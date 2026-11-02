@@ -5,6 +5,7 @@
 package websession
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
@@ -35,6 +36,9 @@ type TokenUser struct {
 	ID    string
 	Email string
 	Name  string
+	// SessionID is the refresh token an access token was issued alongside
+	// ("sid" claim), so revoking that token can kill the access token too.
+	SessionID string
 }
 
 // Claims is the principal decoded from a token.
@@ -43,6 +47,7 @@ type Claims struct {
 	Email  string
 	Name   string
 	Typ    string
+	Sid    string
 }
 
 // jwtClaims is the on-the-wire claim set: subject=users.id plus profile + typ.
@@ -50,6 +55,7 @@ type jwtClaims struct {
 	Email string `json:"email,omitempty"`
 	Name  string `json:"name,omitempty"`
 	Typ   string `json:"typ"`
+	Sid   string `json:"sid,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -57,6 +63,11 @@ type jwtClaims struct {
 type Manager struct {
 	secret        []byte
 	secureCookies bool
+
+	// Revoked, when set, is consulted for every bearer access token carrying a
+	// sid; true (or an error — fail closed) rejects the token before its exp.
+	// Wired to the Redis revocation set in main (LSW-28).
+	Revoked func(ctx context.Context, sid string) (bool, error)
 }
 
 // NewManager builds a Manager from the signing secret and the web base URL
@@ -74,6 +85,7 @@ func (m *Manager) mint(u TokenUser, typ string, ttl time.Duration) (string, erro
 		Email: u.Email,
 		Name:  u.Name,
 		Typ:   typ,
+		Sid:   u.SessionID,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   u.ID,
 			IssuedAt:  jwt.NewNumericDate(now),
@@ -88,6 +100,10 @@ func (m *Manager) MintAccess(u TokenUser) (string, error) { return m.mint(u, Typ
 
 // MintWeb returns a ~7d cookie token (typ=web).
 func (m *Manager) MintWeb(u TokenUser) (string, error) { return m.mint(u, TypeWeb, sessionTTL) }
+
+// AccessTTL is the access token lifetime — also how long a revocation must be
+// remembered, since no access token outlives it.
+func (m *Manager) AccessTTL() time.Duration { return accessTTL }
 
 // AccessTTLSeconds is the access token lifetime in seconds (for expires_in).
 func (m *Manager) AccessTTLSeconds() int { return int(accessTTL.Seconds()) }
@@ -111,7 +127,7 @@ func (m *Manager) Parse(token, expectTyp string) (Claims, error) {
 	if expectTyp != "" && c.Typ != expectTyp {
 		return Claims{}, errors.New("unexpected token type")
 	}
-	return Claims{UserID: c.Subject, Email: c.Email, Name: c.Name, Typ: c.Typ}, nil
+	return Claims{UserID: c.Subject, Email: c.Email, Name: c.Name, Typ: c.Typ, Sid: c.Sid}, nil
 }
 
 // SetSessionCookie writes the web JWT as the session cookie.
@@ -157,11 +173,19 @@ func (m *Manager) WebUserFromRequest(r *http.Request) (Claims, bool) {
 // session cookie, returning false if neither is present and valid.
 func (m *Manager) FromRequest(r *http.Request) (Claims, bool) {
 	if tok := bearerToken(r); tok != "" {
-		if cl, err := m.Parse(tok, TypeAccess); err == nil {
+		if cl, err := m.Parse(tok, TypeAccess); err == nil && !m.revoked(r.Context(), cl.Sid) {
 			return cl, true
 		}
 	}
 	return m.WebUserFromRequest(r)
+}
+
+func (m *Manager) revoked(ctx context.Context, sid string) bool {
+	if sid == "" || m.Revoked == nil {
+		return false // pre-sid tokens (and tests without Redis) keep the old ≤1h behavior
+	}
+	gone, err := m.Revoked(ctx, sid)
+	return gone || err != nil
 }
 
 // Secure reports whether cookies should carry the Secure flag.

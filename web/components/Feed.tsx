@@ -4,8 +4,8 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import FeedCard from "@/components/FeedCard";
-import Skeleton from "@/components/Skeleton";
-import { getFeed, type Session } from "@/lib/api";
+import Skeleton from "@/components/ui/Skeleton";
+import { getFeed, type FeedPage, type Session } from "@/lib/api";
 import { fmtInt, frameworkLabel } from "@/lib/utils";
 import st from "./Feed.module.css";
 
@@ -15,26 +15,29 @@ const TRENDING_COUNT = 4;
 
 const WEEK_MS = 7 * 24 * 3600 * 1000;
 
-export default function Feed() {
+/** `initial` = the first page, fetched on the server for this `?q=`, so the
+ *  feed is in the HTML; the client only fetches again when the query changes. */
+export default function Feed({ initial }: { initial?: FeedPage | null }) {
   return (
     <Suspense fallback={null}>
-      <FeedInner />
+      <FeedInner initial={initial ?? null} />
     </Suspense>
   );
 }
 
-function FeedInner() {
+function FeedInner({ initial }: { initial: FeedPage | null }) {
   // Seeded from ?q=… so the topbar search (which navigates to /feed?q=…)
   // lands directly on results.
   const initialQuery = useSearchParams().get("q")?.trim() ?? "";
   const [query, setQuery] = useState(initialQuery);
   const [debounced, setDebounced] = useState(initialQuery);
-  const [items, setItems] = useState<Session[]>([]);
-  const [cursor, setCursor] = useState<string>("");
+  const [items, setItems] = useState<Session[]>(initial?.results ?? []);
+  const [cursor, setCursor] = useState<string>(initial?.next_cursor ?? "");
   const [loading, setLoading] = useState(false);
-  const [done, setDone] = useState(false);
+  const [done, setDone] = useState(!!initial && !initial.next_cursor);
   const [err, setErr] = useState<string | null>(null);
-  const [firstLoaded, setFirstLoaded] = useState(false);
+  const [firstLoaded, setFirstLoaded] = useState(!!initial);
+  const skipFirst = useRef(!!initial);
   const [agent, setAgent] = useState<string | null>(null);
 
   const searching = debounced.length > 0;
@@ -48,6 +51,10 @@ function FeedInner() {
   // Reset + load the first page whenever the (debounced) query changes.
   const reqId = useRef(0);
   useEffect(() => {
+    if (skipFirst.current) {
+      skipFirst.current = false; // the server already loaded this query
+      return;
+    }
     const my = ++reqId.current;
     setItems([]);
     setCursor("");

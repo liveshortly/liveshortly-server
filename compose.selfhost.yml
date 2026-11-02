@@ -43,6 +43,9 @@ services:
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:?Set GOOGLE_CLIENT_SECRET}
       SESSION_SECRET: ${SESSION_SECRET:?Set SESSION_SECRET}
       SUPER_ADMIN_EMAILS: ${SUPER_ADMIN_EMAILS:?Set SUPER_ADMIN_EMAILS}
+      # Optional Web Push for approval requests; empty disables it (deploy/DEPLOY.md).
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-}
     volumes: [api_data:/app/data/sessions]
     healthcheck:
       test: [CMD, wget, -qO-, "http://127.0.0.1:8000/health"]

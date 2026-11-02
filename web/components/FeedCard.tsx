@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Avatar from "@/components/Avatar";
+import StatusBadge from "@/components/ui/StatusBadge";
 import type { Session } from "@/lib/api";
 import { fmtInt, frameworkLabel, timeAgo } from "@/lib/utils";
 import s from "./FeedCard.module.css";
@@ -19,11 +20,7 @@ export default function FeedCard({ session }: { session: Session }) {
   return (
     <Link href={`/session/${session.id}`} className={s.card}>
       <div className={s.chips}>
-        {live && (
-          <span className={s.live}>
-            <span className="live-dot" aria-hidden /> Live
-          </span>
-        )}
+        {live && <StatusBadge status="live" />}
         {(agent !== "—" || session.model) && (
           <span className={s.chip} title={session.model ?? undefined}>
             {[agent !== "—" ? agent : null, session.model].filter(Boolean).join(" · ")}

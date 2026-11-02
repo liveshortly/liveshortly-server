@@ -25,8 +25,7 @@
   min-width: 0;
 }
 
-.chip,
-.live {
+.chip {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -38,12 +37,6 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.live {
-  color: var(--green);
-  border-color: var(--green);
-  flex-shrink: 0;
 }
 
 .title {

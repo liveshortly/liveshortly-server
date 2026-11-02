@@ -34,6 +34,13 @@ func agentSeenKey(id string) string { return fmt.Sprintf("session:%s:agent_seen"
 func deviceKey(dc string) string   { return "device:" + dc }
 func userCodeKey(uc string) string { return "usercode:" + uc }
 
+// Refresh-token revocation (LSW-28). revokedKey marks a refresh token id whose
+// access tokens must stop working now; rotatedKey links a rotated-in token to
+// the one it replaced, so revoking the newest also kills a predecessor's
+// still-unexpired access token. Both live only as long as an access token.
+func revokedKey(id string) string { return "authrevoked:" + id }
+func rotatedKey(id string) string { return "authrotated:" + id }
+
 // Host (a machine running `live daemon`) keys. Every key is namespaced by the
 // OWNING user id, so a host id chosen by one user's daemon can never address
 // another user's host — ownership holds by construction, not by a lookup.
@@ -371,4 +378,30 @@ func (b *Bus) UserCodeGet(ctx context.Context, userCode string) (string, bool, e
 // DeviceDelete removes both the device and user_code keys (consumes the flow).
 func (b *Bus) DeviceDelete(ctx context.Context, deviceCode, userCode string) error {
 	return b.rdb.Del(ctx, deviceKey(deviceCode), userCodeKey(userCode)).Err()
+}
+
+// TokenRotated records that refresh token newID replaced oldID.
+func (b *Bus) TokenRotated(ctx context.Context, newID, oldID string, ttl time.Duration) error {
+	return b.rdb.Set(ctx, rotatedKey(newID), oldID, ttl).Err()
+}
+
+// TokenRevoke marks id and every predecessor still within ttl as revoked.
+func (b *Bus) TokenRevoke(ctx context.Context, id string, ttl time.Duration) error {
+	for i := 0; id != "" && i < 100; i++ { // chain length ≈ refreshes per ttl
+		if err := b.rdb.Set(ctx, revokedKey(id), "1", ttl).Err(); err != nil {
+			return err
+		}
+		prev, err := b.rdb.Get(ctx, rotatedKey(id)).Result()
+		if err != nil && err != redis.Nil {
+			return err
+		}
+		id = prev
+	}
+	return nil
+}
+
+// TokenRevoked reports whether access tokens bound to refresh token id are revoked.
+func (b *Bus) TokenRevoked(ctx context.Context, id string) (bool, error) {
+	n, err := b.rdb.Exists(ctx, revokedKey(id)).Result()
+	return n > 0, err
 }

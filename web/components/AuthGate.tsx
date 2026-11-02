@@ -12,31 +12,28 @@ import { loginUrl, me as fetchMe, type Me } from "@/lib/api";
 
 type Phase = "loading" | "authed" | "anon";
 
+// App routes: need a signed-in user. Keep in sync with the matcher in
+// middleware.ts, which redirects signed-out visitors before they get here.
+// EVERYTHING else is public (landing, feed, docs, install, changelog, session,
+// replay, story) or a 404, and renders its content on the server.
+const PRIVATE_PREFIXES = ["/hud", "/sessions", "/profile", "/settings", "/admin", "/compose"];
+const isPrivate = (p: string) =>
+  PRIVATE_PREFIXES.some((x) => p === x || p.startsWith(`${x}/`));
+
 /**
- * AuthN gate for the whole app. Checks GET /api/me on mount:
- * - loading  → minimal placeholder
- * - anon     → marketing landing page (product pitch + sign-in/up + the
- *              public feed), EXCEPT on /session/*, which may be watchable
- *              anonymously (visibility="open"); that route gets a minimal
- *              guest header instead and decides access itself from the API
- *              response (401 there prompts sign-in inline).
- * - authed   → HUD header (with the user) + the requested page
+ * Client-side auth enhancement. Checks GET /api/me on mount, but public pages
+ * never wait on it — their server-rendered content shows immediately:
+ * - authed     → HUD shell (with the user) + the requested page
+ * - `/`        → the page itself (the landing; middleware already sent
+ *                signed-in visitors to /sessions)
+ * - public/404 → guest header + the page; swaps to the HUD shell if /api/me
+ *                says the visitor is signed in
+ * - private    → placeholder while checking, landing if the cookie was stale
  */
 export default function AuthGate({ children }: { children: React.ReactNode }) {
   const [phase, setPhase] = useState<Phase>("loading");
   const [user, setUser] = useState<Me | null>(null);
-  const pathname = usePathname();
-  const isSessionRoute = pathname?.startsWith("/session/") ?? false;
-  // Routes an anonymous visitor may see directly (with a guest header) instead
-  // of the marketing landing page — session watch, docs, install, feed, replay, story.
-  const isPublicRoute =
-    isSessionRoute ||
-    (pathname?.startsWith("/docs") ?? false) ||
-    (pathname?.startsWith("/install") ?? false) ||
-    (pathname?.startsWith("/feed") ?? false) ||
-    ["/changelog", "/latest", "/releases"].includes(pathname ?? "") ||
-    (pathname?.startsWith("/replay/") ?? false) ||
-    (pathname?.startsWith("/story/") ?? false);
+  const pathname = usePathname() ?? "/";
 
   useEffect(() => {
     let alive = true;
@@ -62,7 +59,16 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  if (phase === "loading") {
+  if (phase === "authed" && user) {
+    return (
+      <AuthContext.Provider value={user}>
+        <AppShell user={user}>{children}</AppShell>
+      </AuthContext.Provider>
+    );
+  }
+
+  if (isPrivate(pathname)) {
+    if (phase === "anon") return <Landing />;
     return (
       <div
         style={{
@@ -80,27 +86,22 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (phase === "anon" || !user) {
-    if (isPublicRoute) {
-      return (
-        <AuthContext.Provider value={null}>
-          <GuestHeader />
-          <main className="app-main">{children}</main>
-        </AuthContext.Provider>
-      );
-    }
-    return <Landing />;
-  }
-
   return (
-    <AuthContext.Provider value={user}>
-      <AppShell user={user}>{children}</AppShell>
+    <AuthContext.Provider value={null}>
+      {pathname === "/" ? (
+        children
+      ) : (
+        <>
+          <GuestHeader pending={phase === "loading"} />
+          <main className="app-main">{children}</main>
+        </>
+      )}
     </AuthContext.Provider>
   );
 }
 
-/** Minimal top bar shown to anonymous visitors watching an open session link. */
-function GuestHeader() {
+/** Minimal top bar for anonymous visitors on public pages. */
+function GuestHeader({ pending }: { pending: boolean }) {
   return (
     <header
       style={{
@@ -162,7 +163,13 @@ function GuestHeader() {
             ⇩ Install CLI
           </Link>
           <ThemeToggle />
-          <a href={loginUrl()} className="lp-signin-btn">
+          {/* Hidden (not removed) until /api/me answers, so a signed-in
+              visitor never sees a "Sign in" flash and nothing shifts. */}
+          <a
+            href={loginUrl()}
+            className="lp-signin-btn"
+            style={pending ? { visibility: "hidden" } : undefined}
+          >
             Sign in
           </a>
         </div>

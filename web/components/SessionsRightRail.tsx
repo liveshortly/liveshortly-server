@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { activity as fetchActivity, type ActivityItem, type Session } from "@/lib/api";
-import Skeleton from "@/components/Skeleton";
+import Skeleton from "@/components/ui/Skeleton";
 import { fmtInt, timeAgo } from "@/lib/utils";
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;

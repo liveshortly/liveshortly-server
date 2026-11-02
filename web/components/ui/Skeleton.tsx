@@ -1,8 +1,9 @@
+import s from "./ui.module.css";
+
 /**
  * A static placeholder block standing in for content that hasn't loaded yet.
- * Sized to match the real content so nothing shifts once it arrives. This app
- * deliberately has no idle-motion loops (see the near-static note in
- * globals.css), so this holds still rather than shimmering.
+ * Sized to match the real content so nothing shifts once it arrives. It holds
+ * still rather than shimmering (no idle-motion loops).
  */
 export default function Skeleton({
   width = "100%",
@@ -17,7 +18,7 @@ export default function Skeleton({
 }) {
   return (
     <span
-      className="skel"
+      className={s.skel}
       aria-hidden
       style={{ width, height, borderRadius: radius, ...style }}
     />
