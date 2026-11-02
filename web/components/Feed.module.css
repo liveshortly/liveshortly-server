@@ -1,0 +1,158 @@
+.feed {
+  color: var(--ink);
+}
+
+.head h1 {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.2;
+}
+
+.head p {
+  margin: 4px 0 16px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: var(--panel);
+  padding: 0 12px;
+}
+
+.search:focus-within {
+  border-color: var(--strong);
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.search input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--ink);
+  padding: 10px 0;
+  font: inherit;
+  font-size: 14px;
+}
+
+.search button,
+.tab,
+.tag {
+  font: inherit;
+  cursor: pointer;
+}
+
+.search button {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.tab {
+  padding: 5px 12px;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.tab[aria-pressed="true"] {
+  border-color: var(--strong);
+  background: var(--strong);
+  color: var(--panel);
+}
+
+.section {
+  margin-top: 28px;
+}
+
+.sectionHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.sub {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--faint);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.section .grid {
+  margin-top: 0;
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tag {
+  padding: 6px 12px;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.tag:hover,
+.tab:hover {
+  border-color: var(--strong);
+}
+
+.tag span {
+  color: var(--faint);
+  margin-left: 4px;
+}
+
+.empty {
+  margin: 20px 0 0;
+  padding: 32px 20px;
+  border: 1px dashed var(--hairline);
+  border-radius: 10px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.err {
+  margin: 12px 0 0;
+  color: var(--red);
+  font-size: 13px;
+}
+
+.status {
+  margin: 0;
+  padding: 18px 0;
+  text-align: center;
+  color: var(--faint);
+  font-size: 13px;
+}

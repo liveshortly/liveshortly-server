@@ -88,6 +88,7 @@ func main() {
 
 	// Auth layer: Google web login + CLI device flow, both minting app tokens.
 	webSessions := websession.NewManager(cfg.SessionSecret, cfg.WebBaseURL)
+	webSessions.Revoked = b.TokenRevoked // DELETE /auth/tokens/{id} kills access tokens now
 	googleAuth := handlers.NewGoogleAuth(cfg, webSessions, st, b)
 
 	r := router(cfg, h, googleAuth, webSessions)
@@ -185,6 +186,7 @@ func router(cfg config.Config, h *handlers.Handler, ga *handlers.GoogleAuth, mgr
 	r.Post("/auth/logout", ga.Logout)
 	r.Post("/auth/device/start", ga.DeviceStart)
 	r.Post("/auth/device/approve", ga.DeviceApprove)
+	r.Post("/auth/device/deny", ga.DeviceDeny)
 	r.Post("/auth/device/poll", ga.DevicePoll)
 	r.Post("/auth/token", ga.Token)
 	r.Delete("/auth/tokens/{id}", ga.RevokeToken)
@@ -216,6 +218,12 @@ func router(cfg config.Config, h *handlers.Handler, ga *handlers.GoogleAuth, mgr
 
 			r.Get("/stats", h.Stats)
 			r.Get("/me/activity", h.Activity)
+			r.Get("/me/tokens", ga.ListTokens)
+			// Notifications (LSW-21): bell feed + Web Push subscriptions.
+			r.Get("/notifications", h.Notifications)
+			r.Get("/push/key", h.PushKey)
+			r.Post("/push/subscriptions", h.SavePushSubscription)
+			r.Delete("/push/subscriptions", h.SavePushSubscription)
 			// Admin — the handlers enforce the super-admin allowlist (403).
 			r.Get("/admin/stats", h.AdminStats)
 			r.Get("/admin/users", h.AdminUsers)
@@ -246,6 +254,7 @@ func router(cfg config.Config, h *handlers.Handler, ga *handlers.GoogleAuth, mgr
 			r.Post("/sessions/{id}/decision", h.PostDecision)
 			r.Get("/sessions/{id}/decision", h.GetDecision)
 			r.Post("/sessions/{id}/typing", h.Typing)
+			r.Post("/sessions/{id}/seen", h.MarkSeen)
 			r.Post("/sessions/{id}/publish", h.Publish)
 			r.Post("/sessions/{id}/unpublish", h.Unpublish)
 			r.Post("/sessions/{id}/handoff", h.GenerateHandoff)

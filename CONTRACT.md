@@ -73,12 +73,13 @@ of forks made from a session and is present on every row (feed/list included).
 | GET  | `/health` | — | `{"ok":true,"ts":"RFC3339"}` |
 | POST | `/api/sessions` | `{"title"?,"model"?,"framework"?,"tags"?:[],"agent"?,"capture_mode"?, "forked_from"?, "forked_from_session_id"?, "forked_from_seq"?}` | `201 {...Session,"url":"/session/{id}","handoff"?:Bundle}` — `429` over the live-session cap, `413` over the storage cap (see Quotas) |
 | POST | `/api/sessions/{id}/handoff` | `{"seq"?:int}` | `200 {"code","session_id","snapshot_seq","expires_at","command"}` (auth: any reader) |
-| GET  | `/api/sessions?status=live\|ended\|all&q=&limit=&offset=` | — | `200 {"results":[Session],"total":int}` — list rows also carry `last_event: {"type","snippet","ts"} \| absent`, the newest prompt/response/viewer_comment as a one-line summary (snippet ≤140 chars) |
+| GET  | `/api/sessions?status=live\|ended\|all&q=&limit=&offset=` | — | `200 {"results":[Session],"total":int}` — list rows also carry `last_event: {"type","snippet","ts"} \| absent`, the newest prompt/response/viewer_comment as a one-line summary (snippet ≤140 chars), `suggested_title` (prompt-derived, never-renamed rows only; redacted on shared rows) and `unread` (events after the caller's read mark; absent/0 when never opened). Page past 100 with `offset` against `total` |
 | GET  | `/api/feed?q=&cursor=&limit=` | — | `200 {"results":[Session],"next_cursor":string}` (public — anonymous OK; published only) |
 | POST | `/api/sessions/{id}/publish` | — | `200 Session` (owner; lists in feed + public) |
 | POST | `/api/sessions/{id}/unpublish` | — | `200 Session` (owner; removes from feed + private) |
 | POST | `/api/sessions/{id}/typing` | — | `204` (ephemeral "viewer is typing" presence, live only) |
-| GET  | `/api/sessions/{id}` | — | `200 {...Session,"events":[Event]}` (view_count++) |
+| POST | `/api/sessions/{id}/seen` | `{"seq"?:int}` | `204` — the caller's read mark (any reader; auth required): seen up to `seq`, clamped to the latest, or the latest when omitted. Never moves backwards |
+| GET  | `/api/sessions/{id}?since_seq=` | — | `200 {...Session,"events":[Event]}` (view_count++ once per page view: not on a `since_seq` tail fetch, nor with `?view=0`, which a server render passes when the browser will refetch). Carries `suggested_title` like list rows (redacted for non-owners). `since_seq` is optional: when given, `events` carries only those with `seq > since_seq`, so a client holding the earlier ones refetches just the tail; omitted (or `0`) returns the full list, which is what every existing client gets. The session's own `event_count` remains the authoritative total, so a client can tell whether it is missing anything. A value that is not a non-negative integer is `400`, not a silent full response |
 | PATCH | `/api/sessions/{id}` | `{"title"?,"visibility"?,"link_role"?,"model"?}` | `200 Session` (owner only) |
 | POST | `/api/sessions/{id}/events` | `{"event_type":string,"payload":object,"actor"?:string}` | `201 Event` — payload belt-capped to 256 KB before store; if this event crosses the owner's storage quota the response is `201 {...Event,"ended":true,"reason":"quota","summary_url","handoff_code","handoff_command"}` and the session is auto-ended |
 | GET  | `/api/sessions/{id}/summary.md` | — | `200 text/markdown` (attachment; on-demand digest; same read auth as the session) |
@@ -160,9 +161,13 @@ is not listed, because it is not spawnable.
 
 | Method | Path | Body | Response |
 |---|---|---|---|
-| POST | `/api/hosts/register` | `{"host_id","name"?,"hostname"?,"os"?,"arch"?,"dirs":[abs paths],"agents":[…],"models"?:[…]}` | `200 {"host_id","ttl_secs","registered":true}` — `400` on a bad id, a relative path, or no agent |
+| POST | `/api/hosts/register` | `{"host_id","name"?,"hostname"?,"os"?,"arch"?,"dirs":[abs paths],"agents":[…],"models"?:[…]}` | `200 {"host_id","ttl_secs","registered":true}` — `400` on a bad id, a relative path, no valid agent left, or only `ollama` with no `models` |
 | GET | `/api/hosts` | — | `200 {"hosts":[Host]}` — the caller's ONLINE machines only |
 | GET | `/api/hosts/{id}/stream` | — | `200` SSE command stream (owner only, Bearer) — `404` if the host has not registered |
+
+`agents` is not a fixed list: the server does not police which harnesses exist,
+only that each entry is a safe name. Malformed or duplicate names are dropped
+(not a `400`), the rest capped at 32. The daemon re-checks any spawn locally.
 
 `POST /api/sessions` gains `{"host_id"?, "cwd"?, "bypass_permissions"?}`. When
 `host_id` is set, `agent` is read as a **spawnable agent name**, not a
@@ -211,8 +216,8 @@ disconnect).
 A spawn command is remote code execution on the owner's machine, authorized by
 their web session. Three rules bound it, and the daemon re-checks all three
 locally because it must not trust the server:
-1. The server **never sends an argv** — only an agent NAME from a fixed
-   allowlist. The daemon builds the command line itself.
+1. The server **never sends an argv** — only an agent NAME the host itself
+   registered. The daemon builds the command line itself.
 2. The working directory must be one the **daemon itself registered**. Both ends
    reject anything else; `filepath.Clean` runs before the check so traversal
    cannot escape the allowlist.
@@ -388,31 +393,10 @@ Per-user overrides (super-admin, via `PATCH /api/admin/users/{id}/quota`):
 `LIVE_AGENT_GRACE` (`10m`) — how long a Live-shim session whose agent stream has
 gone away may stay idle before the abandoned-agent reaper ends it (Go duration).
 
-## Web design — terminal HUD (light)
-Aesthetic: a nerdy financial/terminal HUD on a warm paper background. Monospace
-everywhere, boxed panels with hairline borders, UPPERCASE tracked labels, big
-tabular numbers, a pulsing `● LIVE` badge, a live UTC clock.
-
-Design tokens:
-- bg paper `#f3f1e9`; panel `#faf9f4`; hairline border `#d9d6c9`; strong border `#1c1b17`
-- ink `#1a1916`; muted `#6c6a5e`; faint `#9b998c`
-- green `#1f7a4d` (live / positive); red `#c0392b` (ended / negative); amber `#b8860b`
-- font stack: `'JetBrains Mono','IBM Plex Mono',ui-monospace,'SFMono-Regular',Menlo,monospace`
-- labels: `text-transform:uppercase; letter-spacing:0.12em; font-size:11px;` muted
-- panels: 1px solid hairline, square corners, label top-left, value large
-- dotted dividers (`border-bottom:1px dashed`)
-
-Pages / tabs (minimal — only these):
-- HUD header bar across the top: app mark, `● LIVE` status, live UTC clock, and stat
-  panels `TOTAL SESSIONS`, `LIVE NOW` (from `/api/stats`).
-- Tab nav with exactly two tabs: **LIVE** and **SESSIONS**, plus a search box.
-  - LIVE: cards/rows of `status=live` sessions; each shows title, owner, model,
-    event count, "started Xs ago", LIVE badge; click → `/session/{id}`.
-  - SESSIONS: a monospace table of ALL sessions; columns ID(short) · TITLE · OWNER ·
-    MODEL · EVENTS · STATUS · OPENED. Search box filters via `?q=`.
-- `/session/{id}`: viewer. Header with session meta + LIVE/ENDED badge. A terminal
-  event log: if live, subscribe to the SSE stream; if ended, the events come with
-  the session GET. Render each event by type with a colored left marker; auto-scroll.
+## Web design
+Tokens, type and rules: `web/DESIGN.md` (source of truth: the PocketAI Mac
+palette, mirrored in `web/app/tokens.css`). The earlier terminal-HUD spec that
+lived here is retired.
 
 Web env: browser uses `NEXT_PUBLIC_API_URL`; server components use `API_INTERNAL_URL`
 (falls back to public). Provide a `lib/api.ts` that picks the base by `typeof window`.

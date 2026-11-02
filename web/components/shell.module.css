@@ -1,0 +1,500 @@
+/* App shell (LSW-03): header, sidebar, ⌘K palette, shortcut sheet, mobile tab
+   bar. Tokens only. Breakpoints: phone <768, tablet 768–1100, desktop >1100. */
+
+.skip {
+  position: absolute;
+  left: var(--space-8);
+  top: -100px;
+  z-index: 400;
+  padding: var(--space-8) var(--space-12);
+  border-radius: var(--radius-hud);
+  background: var(--raised);
+  color: var(--fg);
+}
+.skip:focus {
+  top: var(--space-8);
+}
+
+
+/* ── Header ────────────────────────────────────────────────────────── */
+.header {
+  flex-shrink: 0;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  padding: 0 var(--space-16);
+  border-bottom: 1px solid var(--hairline);
+  background: var(--surface);
+  color: var(--fg);
+  /* The last icon's centred tooltip pokes past the right edge on phones;
+     clip sideways only so dropdowns still hang below. */
+  overflow-x: clip;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  font: 700 15px/1 var(--font-sans);
+  letter-spacing: -0.02em;
+  color: var(--fg);
+  text-decoration: none;
+}
+.siteNav {
+  display: flex;
+  gap: var(--space-4);
+  margin-left: var(--space-8);
+}
+.siteNav a {
+  padding: 6px 10px;
+  border-radius: var(--radius-hud);
+  color: var(--fg-2);
+  text-decoration: none;
+}
+.siteNav a:hover,
+.siteNav a[aria-current="page"] {
+  background: var(--sunken);
+  color: var(--fg);
+}
+.headerEnd {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  margin-left: auto;
+}
+.searchBtn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-width: 220px;
+  padding: 6px 8px 6px 10px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-hud);
+  background: var(--canvas);
+  color: var(--fg-2);
+  cursor: pointer;
+}
+.searchBtn span {
+  flex: 1;
+  text-align: left;
+}
+.searchBtn kbd,
+.keys kbd {
+  padding: 1px 6px;
+  border: 1px solid var(--hairline);
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--fg-2);
+  font: 500 var(--text-callout) / 1.4 var(--font-mono);
+}
+.signIn {
+  padding: 6px 14px;
+  border-radius: var(--radius-hud);
+  background: var(--accent);
+  color: var(--on-accent);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.sheetNav {
+  display: grid;
+}
+.sheetNav a {
+  padding: var(--space-12) var(--space-4);
+  border-bottom: 1px solid var(--hairline);
+  color: var(--fg);
+  text-decoration: none;
+}
+.sheetNav a[aria-current="page"] {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.phoneOnly,
+.tabletOnly {
+  display: none;
+}
+@media (min-width: 768px) and (max-width: 1100px) {
+  .tabletOnly {
+    display: inline-flex;
+  }
+  .searchBtn {
+    min-width: 0;
+  }
+  .searchBtn span {
+    display: none;
+  }
+}
+@media (max-width: 767px) {
+  .header {
+    gap: var(--space-4);
+    padding: 0 var(--space-8) 0 var(--space-12);
+  }
+  .siteNav,
+  .searchBtn {
+    display: none;
+  }
+  .phoneOnly {
+    display: inline-flex;
+  }
+  .headerEnd {
+    gap: 2px;
+  }
+  /* The session view goes full screen with its own top bar on phones
+     (globals.css session-page phone layout). */
+  :global(body:has(.session-page)) .header {
+    display: none;
+  }
+}
+
+/* ── Sidebar ───────────────────────────────────────────────────────── */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 0;
+  color: var(--fg);
+}
+.sideTop {
+  display: grid;
+  gap: var(--space-8);
+  padding: var(--space-12) var(--space-12) var(--space-8);
+}
+.search {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: 0 var(--space-8);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-hud);
+  background: var(--canvas);
+  color: var(--fg-3);
+}
+.search:focus-within {
+  border-color: var(--accent);
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+.search input {
+  width: 100%;
+  padding: 6px 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--fg);
+}
+.split {
+  display: flex;
+  align-items: stretch;
+  border-radius: var(--radius-hud);
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.newBtn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: 6px 12px;
+  color: var(--on-accent);
+  text-decoration: none;
+}
+/* The ui/Menu trigger, recoloured for the filled split button. */
+.split > span > button {
+  height: 100%;
+  border-left: 1px solid color-mix(in srgb, var(--on-accent) 30%, transparent);
+  border-radius: 0 var(--radius-hud) var(--radius-hud) 0;
+  color: var(--on-accent);
+}
+.split > span > button:hover {
+  background: color-mix(in srgb, var(--on-accent) 15%, transparent);
+  color: var(--on-accent);
+}
+.sideScroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 var(--space-8) var(--space-12);
+}
+.section {
+  margin-top: var(--space-12);
+}
+.sectionLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  margin: 0;
+  padding: var(--space-4) var(--space-8);
+  color: var(--fg-3);
+}
+.count {
+  min-width: 18px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--on-accent);
+  text-align: center;
+}
+.unread {
+  margin-left: auto;
+}
+.row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  border-radius: var(--radius-hud);
+}
+.row:hover,
+.row:focus-within {
+  background: var(--sunken);
+}
+.row[data-active] {
+  background: var(--raised);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+.rowLink {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: 6px var(--space-8);
+  color: var(--fg);
+  text-decoration: none;
+}
+.rowText {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+.row[data-active] .rowText > :first-child {
+  font-weight: 600;
+}
+.rowMenu {
+  opacity: 0;
+}
+.row:hover .rowMenu,
+.row:focus-within .rowMenu,
+.row[data-active] .rowMenu {
+  opacity: 1;
+}
+@media (hover: none) {
+  .rowMenu {
+    opacity: 1;
+  }
+}
+.rename {
+  width: 100%;
+  min-width: 0;
+  padding: 2px 6px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: var(--raised);
+  color: var(--fg);
+}
+.ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.meta {
+  color: var(--fg-3);
+}
+.muted {
+  margin: 0;
+  padding: var(--space-4) var(--space-8);
+  color: var(--fg-2);
+}
+.error {
+  margin: var(--space-8);
+  color: var(--bad);
+}
+.more,
+.plainRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: 6px var(--space-8);
+  border-radius: var(--radius-hud);
+  color: var(--fg-2);
+  text-decoration: none;
+}
+.plainRow {
+  color: var(--fg);
+}
+.plainRow .meta {
+  margin-left: auto;
+}
+.more:hover,
+.plainRow:hover {
+  background: var(--sunken);
+  color: var(--fg);
+}
+.sideFoot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-8) var(--space-12);
+  border-top: 1px solid var(--hairline);
+}
+.sideFoot > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+.account {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-width: 0;
+  color: var(--fg-2);
+}
+.daemonDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-soft);
+}
+.gear {
+  display: inline-flex;
+  padding: 6px;
+  border-radius: var(--radius-hud);
+  color: var(--fg-2);
+}
+.gear:hover {
+  background: var(--sunken);
+  color: var(--fg);
+}
+.dialogActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-8);
+  margin-top: var(--space-20);
+}
+
+/* ── ⌘K palette ────────────────────────────────────────────────────── */
+.palette {
+  margin: calc(-1 * var(--space-20));
+}
+.paletteField {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-12);
+  border-bottom: 1px solid var(--hairline);
+}
+.prompt {
+  color: var(--accent);
+  font: 600 var(--text-title) / 1 var(--font-mono);
+}
+.paletteField:focus-within {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+.paletteField input {
+  flex: 1;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--fg);
+}
+.paletteList {
+  max-height: min(340px, 50vh);
+  overflow-y: auto;
+  padding: var(--space-4) 0;
+}
+.paletteRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  padding: var(--space-8) var(--space-12);
+  color: var(--fg-3);
+  cursor: pointer;
+}
+.paletteRow[aria-selected="true"] {
+  background: var(--accent-soft);
+  box-shadow: inset 3px 0 0 var(--accent);
+  color: var(--accent);
+}
+.paletteTitle {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg);
+}
+.paletteSub {
+  flex-shrink: 0;
+  max-width: 45%;
+  margin-left: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg-2);
+}
+.paletteEmpty {
+  margin: 0;
+  padding: var(--space-12);
+  color: var(--fg-2);
+}
+.paletteFoot {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--space-8) var(--space-12);
+  border-top: 1px solid var(--hairline);
+  color: var(--fg-2);
+}
+
+/* ── Shortcut sheet ────────────────────────────────────────────────── */
+.shortcuts {
+  display: grid;
+  gap: var(--space-8);
+  margin: 0;
+}
+.shortcuts > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-12);
+}
+.shortcuts dd {
+  margin: 0;
+  color: var(--fg-2);
+}
+.keys {
+  display: inline-flex;
+  gap: var(--space-4);
+}
+
+/* ── Mobile tab bar ────────────────────────────────────────────────── */
+.tabBar {
+  display: none;
+}
+@media (max-width: 767px) {
+  .tabBar {
+    flex-shrink: 0;
+    display: flex;
+    border-top: 1px solid var(--hairline);
+    background: var(--surface);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+.tab {
+  position: relative;
+  flex: 1;
+  min-height: 52px;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 2px;
+  color: var(--fg-2);
+  text-decoration: none;
+}
+.tab[aria-current="page"] {
+  color: var(--accent);
+  font-weight: 600;
+}
+.tab .count {
+  position: absolute;
+  top: 4px;
+  left: calc(50% + 6px);
+}

@@ -1,17 +1,11 @@
 import type { Metadata } from "next";
-import { getSession, type SessionDetail } from "@/lib/api";
+import { notFound } from "next/navigation";
+import { sessionTitle } from "@/lib/api";
+import { loadPublicSession } from "@/lib/publicSession";
 import SessionClient from "./SessionClient";
 
-/** Fetch the session server-side for metadata. Only publicly-viewable sessions
- *  (visibility "open") resolve for the anonymous crawler; anything else falls
- *  back to generic metadata. Never throws. */
-async function loadSession(id: string): Promise<SessionDetail | null> {
-  try {
-    return await getSession(id);
-  } catch {
-    return null;
-  }
-}
+// SessionClient refetches with the visitor's cookie, and that fetch counts the view.
+const loadSession = (id: string) => loadPublicSession(id, false);
 
 export async function generateMetadata({
   params,
@@ -20,9 +14,9 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { id } = await params;
   const s = await loadSession(id);
-  if (!s) return { title: "Session" };
+  if (!s || s === "missing") return { title: "Session" };
 
-  const title = s.title?.trim() || "Untitled session";
+  const title = sessionTitle(s);
   const status = s.status === "live" ? "LIVE" : "ended";
   const desc =
     `${status} · @${s.owner_handle} · ${s.event_count ?? 0} events` +
@@ -43,5 +37,7 @@ export default async function Page({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  return <SessionClient params={params} />;
+  const s = await loadSession((await params).id);
+  if (s === "missing") notFound();
+  return <SessionClient params={params} initial={s} />;
 }

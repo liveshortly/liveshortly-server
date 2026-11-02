@@ -3,6 +3,7 @@ package handlers
 
 import (
 	"context"
+	"log"
 	"net/http"
 
 	"liveshortly/internal/bus"
@@ -10,6 +11,7 @@ import (
 	"liveshortly/internal/handoff"
 	"liveshortly/internal/storage"
 	"liveshortly/internal/store"
+	"liveshortly/internal/webpush"
 )
 
 // Handler holds the dependencies shared by every endpoint.
@@ -18,11 +20,24 @@ type Handler struct {
 	bus   *bus.Bus
 	blob  *storage.Store
 	cfg   config.Config
+
+	// Web Push (LSW-21); nil / "" when VAPID_PRIVATE_KEY is unset.
+	push        webpush.Sender
+	vapidPublic string
 }
 
 // New constructs a Handler.
 func New(st *store.Store, b *bus.Bus, blob *storage.Store, cfg config.Config) *Handler {
-	return &Handler{store: st, bus: b, blob: blob, cfg: cfg}
+	h := &Handler{store: st, bus: b, blob: blob, cfg: cfg}
+	if cfg.VAPIDPrivateKey != "" {
+		v, err := webpush.New(cfg.VAPIDPrivateKey, cfg.VAPIDSubject)
+		if err != nil {
+			log.Printf("web push disabled: %v", err)
+		} else {
+			h.push, h.vapidPublic = v, v.PublicKey
+		}
+	}
+	return h
 }
 
 // sessionWithURL flattens a Session and adds the canonical web URL. On a forked

@@ -24,6 +24,33 @@ jobs:
   api:
     name: api — vet + test
     runs-on: ubuntu-latest
+
+    # DB-backed tests (internal/testutil.Setup, store tests) t.Skip without a
+    # live Postgres + Redis, so give them real ones. Same images as the stack job
+    # and the compose files.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: liveshortly
+          POSTGRES_PASSWORD: ci-not-a-secret
+          POSTGRES_DB: liveshortly
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U liveshortly -d liveshortly"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+
+    env:
+      TEST_DATABASE_URL: postgresql://liveshortly:ci-not-a-secret@127.0.0.1:5432/liveshortly?sslmode=disable
+      TEST_REDIS_URL: redis://127.0.0.1:6379
+      LS_TEST_DB: postgresql://liveshortly:ci-not-a-secret@127.0.0.1:5432/liveshortly?sslmode=disable
+
     steps:
       - uses: actions/checkout@v4
 
@@ -35,9 +62,16 @@ jobs:
       - run: go vet ./...
         working-directory: api
 
-      # Store/bus tests that need a live Postgres self-skip unless LS_TEST_DB is
-      # set, so this stays hermetic.
-      - run: go test ./...
+      # store.Migrate is additive only; the base schema comes from these files.
+      # init.sql first — see the stack job for why a plain glob breaks.
+      - name: Apply schema
+        run: |
+          for f in api/infra/postgres/init.sql api/infra/postgres/0*.sql; do
+            psql "${TEST_DATABASE_URL}" -v ON_ERROR_STOP=1 -q -f "$f"
+          done
+
+      # -p 1: packages share one database; don't let them race each other.
+      - run: go test -p 1 ./...
         working-directory: api
 
   hooks:
@@ -50,6 +84,39 @@ jobs:
       # Hooks are stdlib-only and have no test suite; a syntax check is the
       # whole safety net. A broken hook silently kills capture in every session.
       - run: python -m compileall -q cli/hooks
+
+  contrast:
+    name: web — token contrast (AA)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      # Stdlib-only (reads app/tokens.css), so no npm ci. Fails on any token
+      # pair below WCAG AA 4.5:1 in light or dark.
+      - run: node scripts/check-contrast.mjs
+        working-directory: web
+
+  a11y:
+    name: web — axe (WCAG 2.2 AA, public pages)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      # Builds, starts `next start` with no API, and runs axe-core over the
+      # public pages (light + dark, phone + desktop) in the runner's
+      # preinstalled Chrome. Fails on any serious/critical violation.
+      # Signed-in pages are not covered (they need the API and a session).
+      - run: npm ci && npm run a11y
+        working-directory: web
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+          CHROME_PATH: /usr/bin/google-chrome
 
   stack:
     name: stack — build artifacts + boot as services + smoke test

@@ -12,6 +12,7 @@ import (
 	"liveshortly/internal/auth"
 	"liveshortly/internal/handoff"
 	"liveshortly/internal/httpx"
+	"liveshortly/internal/redact"
 	"liveshortly/internal/store"
 )
 
@@ -163,7 +164,7 @@ func (h *Handler) CreateSession(w http.ResponseWriter, r *http.Request) {
 		if !ok {
 			return // resolveFork already wrote the error
 		}
-		b, err := h.buildBundle(r, src, snapshot)
+		b, err := h.buildBundle(r, src, snapshot, src.OwnerID != p.ID)
 		if err != nil {
 			httpx.Error(w, http.StatusInternalServerError, "failed to build handoff briefing")
 			return
@@ -280,8 +281,26 @@ func (h *Handler) ListSessions(w http.ResponseWriter, r *http.Request) {
 		if last, lerr := h.store.LastMeaningfulEvents(r.Context(), ids); lerr == nil {
 			for i := range results {
 				if le, ok := last[results[i].ID]; ok {
+					if results[i].OwnerID != p.ID { // shared row: LSW-23
+						le.Snippet = redact.Text(le.Snippet)
+					}
 					results[i].LastEvent = &le
 				}
+			}
+		}
+		// Prompt-derived titles for never-renamed rows (LSW-09). Prompt text,
+		// so shared rows get it redacted like the subtitle (LSW-23).
+		h.suggestTitles(r, results)
+		for i := range results {
+			if results[i].OwnerID != p.ID && results[i].SuggestedTitle != nil {
+				t := redact.Text(*results[i].SuggestedTitle)
+				results[i].SuggestedTitle = &t
+			}
+		}
+		// Unread badges from the caller's server-side read marks (LSW-32).
+		if unread, uerr := h.store.UnreadCounts(r.Context(), p.ID, ids); uerr == nil {
+			for i := range results {
+				results[i].Unread = unread[results[i].ID]
 			}
 		}
 	}
@@ -326,7 +345,27 @@ func (h *Handler) GetSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	events, err := h.store.GetEvents(r.Context(), id)
+	// Incremental fetch (LSI-10): a client holding events up to `since_seq`
+	// asks only for what came after. Absent = the full list, so every existing
+	// client is unaffected. A malformed value is a 400 rather than a silent
+	// full refetch — the whole point of the parameter is to stop refetching,
+	// so failing quietly would hide the bug it exists to prevent.
+	sinceSeq := 0
+	if raw := r.URL.Query().Get("since_seq"); raw != "" {
+		n, convErr := strconv.Atoi(raw)
+		if convErr != nil || n < 0 {
+			httpx.Error(w, http.StatusBadRequest, "since_seq must be a non-negative integer")
+			return
+		}
+		sinceSeq = n
+	}
+
+	var events []store.Event
+	if sinceSeq > 0 {
+		events, err = h.store.GetEventsSince(r.Context(), id, sinceSeq)
+	} else {
+		events, err = h.store.GetEvents(r.Context(), id)
+	}
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "failed to load events")
 		return
@@ -339,8 +378,13 @@ func (h *Handler) GetSession(w http.ResponseWriter, r *http.Request) {
 		canComment = false
 	}
 
-	// view_count bump is best-effort and must not block the response.
-	go func() { _ = h.store.IncViewCount(detach(r), id) }()
+	// view_count bump is best-effort and must not block the response. One page
+	// view = one bump: a tail catch-up (since_seq) isn't a new view, and
+	// ?view=0 lets a server render skip it when the browser refetches the
+	// same page with the visitor's cookie (which counts).
+	if sinceSeq == 0 && r.URL.Query().Get("view") != "0" {
+		go func() { _ = h.store.IncViewCount(detach(r), id) }()
+	}
 
 	// Live-shim presence: whether an agent stream is currently attached. Cheap
 	// Redis EXISTS; best-effort (false on error).
@@ -360,6 +404,26 @@ func (h *Handler) GetSession(w http.ResponseWriter, r *http.Request) {
 		watchers, _ = h.bus.WatcherCount(r.Context(), id)
 	}
 
+	// The prompt-derived title the list shows, so the page header matches it.
+	one := []store.Session{*s}
+	h.suggestTitles(r, one)
+	s.SuggestedTitle = one[0].SuggestedTitle
+
+	// Non-owners of a non-private session get the public-safe metadata (the
+	// OG image renders title + hero from here). LSW-14. Every non-owner —
+	// share grantees included — gets redacted event payloads and suggested
+	// title (prompt text). LSW-23.
+	if s.OwnerID != p.ID && s.Visibility != "private" {
+		publicSession(s)
+	}
+	if s.OwnerID != p.ID {
+		publicEvents(events)
+		if s.SuggestedTitle != nil {
+			t := redact.Text(*s.SuggestedTitle)
+			s.SuggestedTitle = &t
+		}
+	}
+
 	httpx.JSON(w, http.StatusOK, sessionWithEvents{
 		Session:        *s,
 		CanComment:     canComment,
@@ -368,6 +432,74 @@ func (h *Handler) GetSession(w http.ResponseWriter, r *http.Request) {
 		WatcherCount:   watchers,
 		Events:         events,
 	})
+}
+
+// suggestTitles sets SuggestedTitle on never-renamed rows (unredacted — the
+// caller decides who sees prompt text). Best-effort: rows keep their title.
+func (h *Handler) suggestTitles(r *http.Request, rows []store.Session) {
+	if len(rows) == 0 {
+		return
+	}
+	ids := make([]string, len(rows))
+	for i := range rows {
+		ids[i] = rows[i].ID
+	}
+	titles, err := h.store.SuggestedTitles(r.Context(), ids)
+	if err != nil {
+		return
+	}
+	for i := range rows {
+		if t, ok := titles[rows[i].ID]; ok {
+			rows[i].SuggestedTitle = &t
+		}
+	}
+}
+
+type seenReq struct {
+	Seq int `json:"seq"`
+}
+
+// MarkSeen records the caller's read mark on a session they can read: up to
+// `seq` (the last event the page rendered), or the latest event when omitted.
+// Clamped to the real max so a bogus seq can't hide future events.
+// POST /api/sessions/{id}/seen → 204. LSW-32.
+func (h *Handler) MarkSeen(w http.ResponseWriter, r *http.Request) {
+	p, ok := auth.Principal(r.Context())
+	if !ok {
+		httpx.Error(w, http.StatusUnauthorized, "no principal")
+		return
+	}
+	id := chi.URLParam(r, "id")
+	s, err := h.store.GetSession(r.Context(), id)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to load session")
+		return
+	}
+	if s == nil {
+		httpx.Error(w, http.StatusNotFound, "session not found")
+		return
+	}
+	if allowed, err := h.canRead(r.Context(), s, p, true); err != nil || !allowed {
+		httpx.Error(w, http.StatusForbidden, "forbidden")
+		return
+	}
+	var req seenReq
+	if r.Body != nil {
+		_ = json.NewDecoder(r.Body).Decode(&req) // empty body = "up to now"
+	}
+	seq, err := h.store.MaxSeq(r.Context(), id)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to mark seen")
+		return
+	}
+	if req.Seq > 0 && req.Seq < seq {
+		seq = req.Seq
+	}
+	if err := h.store.MarkSeen(r.Context(), p.ID, id, seq); err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to mark seen")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 type patchSessionReq struct {

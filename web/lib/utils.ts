@@ -47,22 +47,6 @@ export function frameworkLabel(fw: string | null | undefined): string {
   }
 }
 
-/** Short uppercase agent name for the event-stream byline (◆ CODEX / ◆ CLAUDE). */
-export function agentName(fw: string | null | undefined): string {
-  switch (fw) {
-    case "claude-code":
-      return "CLAUDE";
-    case "codex":
-      return "CODEX";
-    case "gemini-cli":
-      return "GEMINI";
-    case "ollama":
-      return "OLLAMA";
-    default:
-      return frameworkLabel(fw).toUpperCase();
-  }
-}
-
 /** Title-case agent name for the mobile feed (Codex / Claude / Gemini). */
 export function agentTitle(fw: string | null | undefined): string {
   switch (fw) {
@@ -112,77 +96,6 @@ export function tileBg(status: "live" | "ended"): string {
   return status === "live"
     ? "color-mix(in srgb, var(--green) 4%, var(--panel))"
     : "color-mix(in srgb, var(--faint) 5%, var(--panel))";
-}
-
-/** HH:MM:SS UTC clock string for a given Date. */
-export function utcClock(d: Date = new Date()): string {
-  return `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(
-    d.getUTCSeconds(),
-  )}`;
-}
-
-/** HH:MM:SS clock string in the viewer's LOCAL timezone. */
-export function localClock(d: Date = new Date()): string {
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-}
-
-/** Short local timezone abbreviation (e.g. "PST", "IST"); falls back to "LOCAL". */
-export function tzAbbrev(d: Date = new Date()): string {
-  try {
-    const parts = new Intl.DateTimeFormat("en-US", {
-      timeZoneName: "short",
-    }).formatToParts(d);
-    const tz = parts.find((p) => p.type === "timeZoneName")?.value;
-    if (tz && !/^GMT/i.test(tz)) return tz.toUpperCase();
-    // GMT±H form — keep it compact.
-    if (tz) return tz.replace(/\s+/g, "").toUpperCase();
-  } catch {
-    // ignore
-  }
-  return "LOCAL";
-}
-
-/** Absolute UTC time of day, HH:MM:SS, from an ISO timestamp. */
-export function utcTime(iso: string | null | undefined): string {
-  if (!iso) return "--:--:--";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "--:--:--";
-  return utcClock(d);
-}
-
-/** Time of day, HH:MM:SS, in the viewer's LOCAL timezone, from an ISO timestamp. */
-export function localTime(iso: string | null | undefined): string {
-  if (!iso) return "--:--:--";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "--:--:--";
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-}
-
-/** Best-effort one-line summary of an arbitrary event payload. */
-export function summarizePayload(payload: Record<string, unknown>): string {
-  if (!payload || typeof payload !== "object") return "";
-  const prefer = [
-    "text",
-    "message",
-    "content",
-    "command",
-    "summary",
-    "name",
-    "tool",
-    "tool_name",
-    "path",
-    "file",
-    "file_path",
-  ];
-  for (const k of prefer) {
-    const v = payload[k];
-    if (typeof v === "string" && v.trim()) return v.trim();
-  }
-  try {
-    return JSON.stringify(payload);
-  } catch {
-    return String(payload);
-  }
 }
 
 /** Truncate a string to `max` chars (collapsing whitespace), adding an ellipsis. */

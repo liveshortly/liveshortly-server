@@ -1,7 +1,21 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+import BrandMark from "@/components/BrandMark";
 
-/** 404 in the terminal-HUD tone (renders inside the app shell / header). */
+export const metadata: Metadata = { title: "Page not found" };
+
+/** 404 in the terminal-HUD tone (renders inside the app shell / guest header,
+ *  signed in or out, with HTTP 404). */
 export default function NotFound() {
+  return <NotFoundView title="This page doesn't exist" />;
+}
+
+export function NotFoundView({ title }: { title: string }) {
+  const link = {
+    border: "1px solid var(--hairline)",
+    color: "var(--ink)",
+    padding: "10px 16px",
+  };
   return (
     <div
       style={{
@@ -22,6 +36,9 @@ export default function NotFound() {
           textAlign: "center",
         }}
       >
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}>
+          <BrandMark />
+        </div>
         <div className="label" style={{ color: "var(--red)" }}>
           ◦ ERROR · 404
         </div>
@@ -37,24 +54,9 @@ export default function NotFound() {
         >
           4<span style={{ color: "var(--green)" }}>0</span>4
         </div>
-        <div
-          className="label"
-          style={{ fontSize: 13, color: "var(--ink)", marginTop: 14 }}
-        >
-          ROUTE NOT FOUND
-        </div>
-        <p
-          style={{
-            color: "var(--muted)",
-            fontSize: 13,
-            lineHeight: 1.6,
-            margin: "10px auto 0",
-            maxWidth: 400,
-          }}
-        >
-          This page doesn&apos;t exist — the session may have been deleted, or the
-          link is wrong.
-        </p>
+        <h1 style={{ fontSize: 18, color: "var(--ink)", margin: "14px 0 0" }}>
+          {title}
+        </h1>
         <div
           style={{
             display: "flex",
@@ -75,18 +77,13 @@ export default function NotFound() {
               fontWeight: 700,
             }}
           >
-            ◂ BACK TO FEED
+            ⌂ HOME
           </Link>
-          <Link
-            href="/hud"
-            className="label"
-            style={{
-              border: "1px solid var(--hairline)",
-              color: "var(--ink)",
-              padding: "10px 16px",
-            }}
-          >
-            ⌂ MY HUD
+          <Link href="/feed" className="label" style={link}>
+            FEED
+          </Link>
+          <Link href="/docs" className="label" style={link}>
+            DOCS
           </Link>
         </div>
       </div>

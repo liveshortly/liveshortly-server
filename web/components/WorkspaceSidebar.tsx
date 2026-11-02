@@ -1,470 +1,403 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthContext";
+import { useHosts } from "@/components/HostsContext";
+import { useSessions, byRecent } from "@/components/SessionsContext";
 import Avatar from "@/components/Avatar";
-import { listSessions, renameSession, type Session } from "@/lib/api";
 import ProfileMenu from "@/components/ProfileMenu";
-import SessionContextMenu from "@/components/SessionContextMenu";
-import SessionStatusDot from "@/components/SessionStatusDot";
-import { timeAgo } from "@/lib/utils";
+import ShareSheet from "@/components/ShareSheet";
+import Button from "@/components/ui/Button";
+import Dialog from "@/components/ui/Dialog";
+import Icon from "@/components/ui/Icon";
+import Menu, { type MenuItem } from "@/components/ui/Menu";
+import SessionMark from "@/components/ui/SessionMark";
+import StatusBadge from "@/components/ui/StatusBadge";
+import { deleteSession, renameSession, sessionTitle, sessionViewUrl, stopSession, type Session } from "@/lib/api";
+import { ROUTES } from "@/lib/routes";
+import { repoName } from "@/lib/sessionList";
+import { agentTitle, timeAgo } from "@/lib/utils";
+import s from "./shell.module.css";
 
-const POLL_MS = 5000;
+/** The sidebar shows the newest few of each kind; the rest live in the full
+ *  lists (and ⌘K reaches any of them). Mac: SidebarView.recentLimit. */
+const RECENT = 5;
 
-type Tab = "all" | "live" | "shared";
+type Confirm = { kind: "end" | "delete"; s: Session };
 
 /**
- * ChatGPT-style session list. Lives in the app shell so it persists as the
- * user navigates between pages. Groups the user's own sessions (LIVE pinned,
- * then archived by recency) plus a "shared with me" section, with a search
- * filter and All/Live/Shared tabs. Each row links to /session/{id}.
+ * Mac/Shell/SidebarView, on the web: search, New session, then LIVE,
+ * SESSIONS, SHARED WITH ME, PROJECTS and MACHINES, and a footer with the
+ * account, a daemon dot and Settings.
  */
 export default function WorkspaceSidebar() {
   const pathname = usePathname() || "";
+  const router = useRouter();
   const activeId = pathname.startsWith("/session/")
     ? decodeURIComponent(pathname.split("/")[2] ?? "")
     : null;
   const user = useAuth();
+  const hosts = useHosts();
+  const { mine, shared, totals, patch, drop } = useSessions();
 
-  const [mine, setMine] = useState<Session[] | null>(null);
-  const [shared, setShared] = useState<Session[] | null>(null);
   const [q, setQ] = useState("");
-  const [tab, setTab] = useState<Tab>("all");
-  const [ctx, setCtx] = useState<{
-    s: Session;
-    isOwner: boolean;
-    x: number;
-    y: number;
-  } | null>(null);
-
-  const openCtx = (s: Session, isOwner: boolean, e: React.MouseEvent) => {
-    e.preventDefault();
-    setCtx({ s, isOwner, x: e.clientX, y: e.clientY });
-  };
-  const patchSession = (u: Session) => {
-    const map = (arr: Session[] | null) =>
-      arr?.map((x) => (x.id === u.id ? { ...x, ...u } : x)) ?? arr;
-    setMine(map);
-    setShared(map);
-  };
-  const dropSession = (idToDrop: string) => {
-    const filt = (arr: Session[] | null) =>
-      arr?.filter((x) => x.id !== idToDrop) ?? arr;
-    setMine(filt);
-    setShared(filt);
-  };
-
-  // Poll both lists so live status + new sessions show up without a reload.
-  useEffect(() => {
-    let alive = true;
-    const load = async () => {
-      try {
-        const [m, s] = await Promise.all([
-          listSessions({ scope: "mine", status: "all", limit: 200 }),
-          listSessions({ scope: "shared", status: "all", limit: 100 }),
-        ]);
-        if (!alive) return;
-        setMine(m.results);
-        setShared(s.results);
-      } catch {
-        // keep the last good list on a transient error
-      }
-    };
-    load();
-    const t = setInterval(load, POLL_MS);
-    return () => {
-      alive = false;
-      clearInterval(t);
-    };
-  }, []);
+  const [confirm, setConfirm] = useState<Confirm | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [share, setShare] = useState<Session | null>(null);
 
   const needle = q.trim().toLowerCase();
-  const match = (s: Session) =>
+  const match = (x: Session) =>
     !needle ||
-    s.title?.toLowerCase().includes(needle) ||
-    s.tags?.some((t) => t.toLowerCase().includes(needle));
+    sessionTitle(x).toLowerCase().includes(needle) ||
+    x.tags?.some((t) => t.toLowerCase().includes(needle));
 
-  const groups = useMemo(() => {
-    const m = (mine ?? []).filter(match);
-    const live = m.filter((s) => s.status === "live");
-    const ended = m
-      .filter((s) => s.status !== "live")
-      .sort(
-        (a, b) =>
-          +new Date(b.ended_at ?? b.created_at) -
-          +new Date(a.ended_at ?? a.created_at),
-      );
-    // Recency buckets, in order.
-    const buckets: { label: string; items: Session[] }[] = [
-      { label: "Today", items: [] },
-      { label: "Yesterday", items: [] },
-      { label: "Previous 7 days", items: [] },
-      { label: "Older", items: [] },
-    ];
-    const now = Date.now();
-    const day = 86_400_000;
-    for (const s of ended) {
-      const age = now - +new Date(s.ended_at ?? s.created_at);
-      if (age < day) buckets[0].items.push(s);
-      else if (age < 2 * day) buckets[1].items.push(s);
-      else if (age < 7 * day) buckets[2].items.push(s);
-      else buckets[3].items.push(s);
+  const g = useMemo(() => {
+    const m = [...(mine ?? [])].sort(byRecent);
+    const projects = new Map<string, number>();
+    for (const x of m) {
+      const r = repoName(x.git_remote);
+      if (r) projects.set(r, (projects.get(r) ?? 0) + 1);
     }
     return {
-      live,
-      buckets: buckets.filter((b) => b.items.length > 0),
-      shared: (shared ?? []).filter(match),
+      total: Math.max(totals.mine, m.length),
+      sharedTotal: Math.max(totals.shared, shared?.length ?? 0),
+      live: m.filter((x) => x.status === "live" && match(x)),
+      recent: m.filter((x) => x.status !== "live" && match(x)),
+      shared: [...(shared ?? [])].sort(byRecent).filter(match),
+      projects: [...projects].sort((a, b) => b[1] - a[1]).slice(0, RECENT),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mine, shared, needle]);
 
-  const loading = mine == null;
+  const agents = [...new Set((hosts ?? []).flatMap((h) => h.agents))];
 
-  const showLive = tab !== "shared" && groups.live.length > 0;
-  const showBuckets = tab === "all" ? groups.buckets : [];
-  const showShared = tab !== "live" && groups.shared.length > 0;
-  const empty =
-    !loading && !showLive && showBuckets.length === 0 && !showShared;
+  const doConfirm = async () => {
+    if (!confirm) return;
+    const { kind, s: target } = confirm;
+    setBusy(true);
+    try {
+      if (kind === "end") patch(await stopSession(target.id));
+      else {
+        await deleteSession(target.id);
+        drop(target.id);
+        if (activeId === target.id) router.push(ROUTES.sessions);
+      }
+      setError(null);
+    } catch (e) {
+      setError(`Couldn't ${kind} that session: ${(e as Error).message}`);
+    }
+    setBusy(false);
+    setConfirm(null);
+  };
+
+  const rowProps = {
+    activeId,
+    onRenamed: patch,
+    onConfirm: (c: Confirm) => setConfirm(c),
+    onShare: (x: Session) => setShare(x),
+  };
 
   return (
-    <div className="ws-sidebar-inner">
-      <div className="ws-head">
-        <Link href="/sessions" className="ws-head-link" title="Open My Sessions">
-          <span className="label">⌂ Your Sessions</span>
-          <span className="ws-head-arrow" aria-hidden>
-            →
-          </span>
-        </Link>
-      </div>
-
-      <div className="ws-tabs">
-        {(["all", "live", "shared"] as Tab[]).map((t) => (
-          <button
-            key={t}
-            type="button"
-            className="ws-tab"
-            aria-pressed={tab === t}
-            onClick={() => setTab(t)}
-          >
-            {t}
-          </button>
-        ))}
-      </div>
-
-      {/* Search */}
-      <div style={{ padding: "0 10px 8px" }}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            border: "1px solid var(--hairline)",
-            background: "var(--bg)",
-            padding: "0 10px",
-          }}
-        >
-          <span className="label" aria-hidden>
-            ⌕
-          </span>
+    <div className={s.sidebar}>
+      <div className={s.sideTop}>
+        <label className={s.search}>
+          <Icon name="magnifyingglass" size={14} />
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="SEARCH SESSIONS"
-            aria-label="Search your sessions"
+            placeholder="Search sessions"
+            aria-label="Search sessions"
             spellCheck={false}
-            className="label"
-            style={{
-              border: "none",
-              outline: "none",
-              background: "transparent",
-              color: "var(--ink)",
-              padding: "9px 0",
-              width: "100%",
-              fontSize: 11,
-              letterSpacing: "0.06em",
-            }}
+            className="t-body"
           />
-          {q && (
-            <button
-              type="button"
-              onClick={() => setQ("")}
-              aria-label="Clear"
-              className="label"
-              style={{ border: "none", background: "transparent", cursor: "pointer", color: "var(--muted)" }}
-            >
-              ✕
-            </button>
+        </label>
+        <div className={s.split}>
+          <Link href={ROUTES.newSession} className={`${s.newBtn} t-headline`}>
+            <Icon name="plus" size={14} />
+            New session
+          </Link>
+          {agents.length > 0 && (
+            <Menu
+              label="New session with agent"
+              icon="chevron.down"
+              items={agents.map((a) => ({
+                label: `New ${a.charAt(0).toUpperCase()}${a.slice(1)} session`,
+                onSelect: () => router.push(`${ROUTES.newSession}?agent=${encodeURIComponent(a)}`),
+              }))}
+            />
           )}
         </div>
       </div>
 
-      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 8px 12px" }}>
-        {loading ? (
-          <div className="label" style={{ color: "var(--muted)", padding: "16px 6px" }}>
-            LOADING<span className="blink">_</span>
-          </div>
+      <nav aria-label="Sessions" className={s.sideScroll}>
+        {mine == null ? (
+          <p className={`${s.muted} t-callout`}>Loading sessions…</p>
         ) : (
           <>
-            {showLive && (
-              <Group label="◉ LIVE" tone="green">
-                {groups.live.map((s) => (
-                  <Row key={s.id} s={s} active={s.id === activeId} live onCtx={openCtx} onRenamed={patchSession} />
+            {g.live.length > 0 && (
+              <Section label="Live" count={g.live.length}>
+                {g.live.map((x) => (
+                  <Row key={x.id} s={x} owner {...rowProps} />
                 ))}
-              </Group>
+              </Section>
             )}
 
-            {showBuckets.map((b) => (
-              <Group key={b.label} label={b.label.toUpperCase()}>
-                {b.items.map((s) => (
-                  <Row key={s.id} s={s} active={s.id === activeId} onCtx={openCtx} onRenamed={patchSession} />
-                ))}
-              </Group>
-            ))}
+            <Section label="Sessions">
+              {g.recent.slice(0, RECENT).map((x) => (
+                <Row key={x.id} s={x} owner {...rowProps} />
+              ))}
+              {g.total === 0 ? (
+                <p className={`${s.muted} t-callout`}>
+                  No sessions yet. Run <code>live claude</code> to start one.
+                </p>
+              ) : needle && g.recent.length === 0 && g.live.length === 0 ? (
+                <p className={`${s.muted} t-callout`}>No matches</p>
+              ) : (
+                <Link href={ROUTES.sessions} className={`${s.more} t-callout`}>
+                  <Icon name="list.bullet" size={14} />
+                  All sessions ({g.total})
+                </Link>
+              )}
+            </Section>
 
-            {showShared && (
-              <Group label="🔗 SHARED WITH ME">
-                {groups.shared.map((s) => (
-                  <Row key={s.id} s={s} active={s.id === activeId} shared onCtx={openCtx} onRenamed={patchSession} />
+            {g.shared.length > 0 && (
+              <Section label="Shared with me">
+                {g.shared.slice(0, RECENT).map((x) => (
+                  <Row key={x.id} s={x} {...rowProps} />
                 ))}
-              </Group>
+                <Link href={ROUTES.shared} className={`${s.more} t-callout`}>
+                  <Icon name="list.bullet" size={14} />
+                  All ({g.sharedTotal})
+                </Link>
+              </Section>
             )}
 
-            {empty && (
-              <div
-                className="label"
-                style={{ color: "var(--muted)", padding: "18px 6px", lineHeight: 1.6 }}
-              >
-                {needle ? "NO MATCHES" : "NO SESSIONS YET"}
-                {!needle && tab === "all" && (
-                  <div style={{ marginTop: 8, textTransform: "none", letterSpacing: 0, fontSize: 12 }}>
-                    Run{" "}
-                    <code style={{ color: "var(--green)" }}>live claude</code>{" "}
-                    to start one.
-                  </div>
-                )}
-              </div>
+            {g.projects.length > 0 && (
+              <Section label="Projects">
+                {g.projects.map(([repo, n]) => (
+                  <Link key={repo} href={ROUTES.project(repo)} className={`${s.plainRow} t-body`}>
+                    <Icon name="folder" size={14} />
+                    <span className={s.ellipsis}>{repo}</span>
+                    <span className={`${s.meta} t-metric`}>{n}</span>
+                  </Link>
+                ))}
+              </Section>
+            )}
+
+            {hosts && hosts.length > 0 && (
+              <Section label="Machines">
+                {hosts.map((h) => (
+                  <Link key={h.id} href={ROUTES.newSession} className={`${s.plainRow} t-body`}>
+                    <StatusBadge status="live" label="Online" />
+                    <span className={s.ellipsis}>{h.name || h.hostname}</span>
+                  </Link>
+                ))}
+              </Section>
+            )}
+
+            {error && (
+              <p role="alert" className={`${s.error} t-callout`}>
+                {error}
+              </p>
             )}
           </>
         )}
-      </div>
+      </nav>
 
       {user && (
-        <div className="ws-profile-footer">
+        <div className={s.sideFoot}>
           <ProfileMenu user={user} direction="up" align="start">
-            <span className="ws-profile-link">
+            <span className={s.account}>
               <Avatar
                 seed={user.id ?? user.email ?? user.name}
-                size={28}
+                size={24}
                 rounded={false}
-                className="ws-profile-avatar"
                 title={user.name ?? user.email ?? "Account"}
               />
-              <span className="ws-profile-info">
-                <span className="ws-profile-name">
-                  {user.name ?? user.email ?? "Account"}
-                </span>
-                {user.email && (
-                  <span className="ws-profile-email">{user.email}</span>
-                )}
+              <span className={`${s.ellipsis} t-callout`}>
+                {user.handle ? `@${user.handle}` : (user.name ?? user.email ?? "Account")}
               </span>
             </span>
           </ProfileMenu>
+          {hosts && hosts.length > 0 && (
+            <span
+              className={s.daemonDot}
+              role="img"
+              aria-label={`${hosts.length} machine${hosts.length === 1 ? "" : "s"} online`}
+              title={`${hosts.length} machine${hosts.length === 1 ? "" : "s"} online`}
+            />
+          )}
+          <Link href="/settings" className={s.gear} aria-label="Settings" title="Settings">
+            <Icon name="gearshape" />
+          </Link>
         </div>
       )}
 
-      {ctx && (
-        <SessionContextMenu
-          session={ctx.s}
-          isOwner={ctx.isOwner}
-          x={ctx.x}
-          y={ctx.y}
-          onClose={() => setCtx(null)}
-          onChanged={patchSession}
-          onDeleted={() => dropSession(ctx.s.id)}
-        />
-      )}
+      <Dialog
+        open={!!confirm}
+        onClose={() => !busy && setConfirm(null)}
+        title={
+          confirm
+            ? `${confirm.kind === "end" ? "End" : "Delete"} “${sessionTitle(confirm.s)}”?`
+            : ""
+        }
+      >
+        <p className="t-body" style={{ margin: 0 }}>
+          {confirm?.kind === "end" ? "The agent stops where it is." : "This cannot be undone."}
+        </p>
+        <div className={s.dialogActions}>
+          <Button onClick={() => setConfirm(null)} disabled={busy}>
+            Cancel
+          </Button>
+          <Button variant="destructive" busy={busy} onClick={doConfirm}>
+            {confirm?.kind === "end" ? "End session" : "Delete session"}
+          </Button>
+        </div>
+      </Dialog>
+
+      <ShareSheet session={share} owner onChanged={patch} onClose={() => setShare(null)} />
     </div>
   );
 }
 
-function Group({
+function Section({
   label,
-  tone,
+  count,
   children,
 }: {
   label: string;
-  tone?: "green";
+  count?: number;
   children: React.ReactNode;
 }) {
   return (
-    <div style={{ marginTop: 10 }}>
-      <div
-        className="label"
-        style={{
-          padding: "4px 8px",
-          color: tone === "green" ? "var(--green)" : "var(--faint)",
-          fontSize: 9,
-        }}
-      >
+    <section className={s.section}>
+      <h2 className={`${s.sectionLabel} t-caption`}>
         {label}
-      </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-        {children}
-      </div>
-    </div>
+        {count != null && (
+          <span className={`${s.count} t-metric`} aria-label={`${count} live`}>
+            {count}
+          </span>
+        )}
+      </h2>
+      {children}
+    </section>
   );
 }
 
-/** One session row, in the v3 rail's shape: swatch (with a live pip), title over
- *  a sub-line, and a right-aligned status/age. See designs/version3 `.sb-row`. */
+/** Mac SessionRow (SidebarView.swift): mark, title, last-event snippet, and a
+ *  context menu (also on right-click). */
 function Row({
-  s,
-  active,
-  live,
-  shared,
-  onCtx,
+  s: x,
+  owner,
+  activeId,
   onRenamed,
+  onConfirm,
+  onShare,
 }: {
   s: Session;
-  active: boolean;
-  live?: boolean;
-  shared?: boolean;
-  onCtx?: (s: Session, isOwner: boolean, e: React.MouseEvent) => void;
-  onRenamed?: (u: Session) => void;
+  owner?: boolean;
+  activeId: string | null;
+  onRenamed: (u: Session) => void;
+  onConfirm: (c: Confirm) => void;
+  onShare: (x: Session) => void;
 }) {
   const router = useRouter();
+  const ref = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(s.title);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const open = () => router.push(`/session/${s.id}`);
+  const [draft, setDraft] = useState(x.title);
+  const live = x.status === "live";
+  const title = sessionTitle(x);
+  // Unread from the server's per-account read marks (LSW-32); never on the
+  // row being viewed (useMarkSeen clears it).
+  const unread = x.id === activeId ? 0 : (x.unread ?? 0);
+  // ponytail: no per-event type in the list API, so the snippet is the
+  // precomputed hero line without the Mac's ◆/› prefix.
+  const sub = x.hero || (owner ? `${agentTitle(x.framework)} · ${live ? "live" : `${timeAgo(x.ended_at ?? x.created_at)} ago`}` : `@${x.owner_handle}`);
 
   const save = async () => {
     const t = draft.trim();
-    if (t && t !== s.title) {
-      try {
-        await renameSession(s.id, t);
-        onRenamed?.({ ...s, title: t });
-      } catch {
-        /* ignore — the name simply won't change */
-      }
-    }
     setEditing(false);
+    if (!t || t === x.title) return;
+    try {
+      await renameSession(x.id, t);
+      onRenamed({ ...x, title: t, suggested_title: null });
+    } catch {
+      /* the name simply won't change */
+    }
   };
 
-  // Title single-click opens (deferred so a double-click can cancel and edit);
-  // clicking the rest of the row opens instantly.
-  const onTitleClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (shared) return open(); // non-owner: no rename
-    if (timer.current) return;
-    timer.current = setTimeout(() => {
-      timer.current = null;
-      open();
-    }, 180);
-  };
-  const onTitleDouble = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (timer.current) {
-      clearTimeout(timer.current);
-      timer.current = null;
-    }
-    if (shared) return;
-    setDraft(s.title);
-    setEditing(true);
-  };
+  const items: MenuItem[] = [
+    { label: "Open", onSelect: () => router.push(ROUTES.session(x.id)) },
+    { label: "Open in new tab", onSelect: () => window.open(ROUTES.session(x.id), "_blank", "noopener") },
+    { label: "Copy link", onSelect: () => void navigator.clipboard?.writeText(sessionViewUrl(x.id)) },
+    ...(owner
+      ? [
+          { label: "Share…", onSelect: () => onShare(x) },
+          {
+            label: "Rename…",
+            onSelect: () => {
+              setDraft(x.title);
+              setEditing(true);
+            },
+          },
+          ...(live ? [{ label: "End session", destructive: true, onSelect: () => onConfirm({ kind: "end", s: x }) }] : []),
+          { label: "Delete", destructive: true, onSelect: () => onConfirm({ kind: "delete", s: x }) },
+        ]
+      : []),
+  ];
 
   return (
     <div
-      title={s.title || "untitled session"}
-      onClick={() => !editing && open()}
-      onContextMenu={(e) => onCtx?.(s, !shared, e)}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 9,
-        padding: "7px 8px",
-        borderLeft: `2px solid ${active ? "var(--green)" : "transparent"}`,
-        background: active ? "var(--panel2)" : "transparent",
-        minWidth: 0,
-        cursor: "pointer",
+      ref={ref}
+      className={s.row}
+      data-active={x.id === activeId || undefined}
+      onContextMenu={(e) => {
+        const trigger = ref.current?.querySelector<HTMLButtonElement>("[aria-haspopup=menu]");
+        if (!trigger || editing) return;
+        e.preventDefault();
+        trigger.click();
       }}
-      className="ws-row"
     >
-      <SessionStatusDot s={s} shared={shared} live={live} />
-      <span
-        style={{
-          flex: 1,
-          minWidth: 0,
-          display: "flex",
-          flexDirection: "column",
-          gap: 2,
-        }}
-      >
-        {editing ? (
+      {editing ? (
+        <span className={s.rowLink}>
+          <SessionMark live={live} />
           <input
             autoFocus
+            aria-label="Session name"
+            className={`${s.rename} t-body`}
             value={draft}
-            className="ws-row-rename"
-            onClick={(e) => e.stopPropagation()}
             onChange={(e) => setDraft(e.target.value)}
             onBlur={save}
             onKeyDown={(e) => {
               if (e.key === "Enter") save();
-              if (e.key === "Escape") {
-                setDraft(s.title);
-                setEditing(false);
-              }
+              if (e.key === "Escape") setEditing(false);
             }}
           />
-        ) : (
-          <span
-            onClick={onTitleClick}
-            onDoubleClick={onTitleDouble}
-            title={shared ? undefined : "Double-click to rename"}
-            style={{
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-              fontSize: 12,
-              color: active ? "var(--ink)" : "var(--muted)",
-              fontWeight: active ? 600 : 400,
-            }}
-          >
-            {s.title || "untitled session"}
-          </span>
-        )}
-        <span
-          style={{
-            fontSize: 9.5,
-            color: "var(--muted)",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {shared ? `@${s.owner_handle}` : s.model || "—"}
         </span>
-      </span>
-      <span
-        className="label"
-        style={{
-          flexShrink: 0,
-          color: live ? "var(--green)" : "var(--faint)",
-          fontSize: 9,
-        }}
-      >
-        {live ? "LIVE" : timeAgo(s.ended_at ?? s.created_at)}
+      ) : (
+        <Link
+          href={ROUTES.session(x.id)}
+          className={s.rowLink}
+          aria-current={x.id === activeId ? "page" : undefined}
+        >
+          <SessionMark live={live} />
+          <span className={s.rowText}>
+            <span className={`${s.ellipsis} t-body`}>{title}</span>
+            <span className={`${s.ellipsis} ${s.meta} t-callout`}>{sub}</span>
+          </span>
+          {unread > 0 && (
+            <span className={`${s.count} ${s.unread} t-metric`} aria-label={`${unread} unread`}>
+              {unread}
+            </span>
+          )}
+        </Link>
+      )}
+      <span className={s.rowMenu}>
+        <Menu label={`Actions for ${title}`} icon="ellipsis" items={items} />
       </span>
     </div>
   );
 }
-
-/**
- * Single status dot per row (replaces the old swatch icon):
- *   green (blinking) = live · blue = published · amber = shared · gray = ended.
- * Priority live > published > shared > ended, so a live-and-published session
- * reads as live.
- */

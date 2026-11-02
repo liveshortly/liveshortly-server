@@ -67,7 +67,16 @@ export interface Session {
   forked_from_seq?: number | null;
   /** When this fork was created (RFC3339). */
   forked_at?: string | null;
+  /** Prompt-derived title for never-renamed sessions (list, feed, detail);
+   *  `title` stays the generated slug. Redacted server-side for non-owners. */
+  suggested_title?: string | null;
+  /** List rows: events after the caller's read mark (absent = none / never opened). */
+  unread?: number;
 }
+
+/** What to call a session: its prompt-derived title, else its name. */
+export const sessionTitle = (s: Pick<Session, "title" | "suggested_title">) =>
+  s.suggested_title?.trim() || s.title?.trim() || "Untitled session";
 
 /** Light reference to a fork source, for the lineage badge (detail only). */
 export interface ForkRef {
@@ -382,11 +391,27 @@ export function listSessions(
 export function getSession(
   id: string,
   signal?: AbortSignal,
+  /** Only events with seq > sinceSeq (tail catch-up after a reconnect). */
+  sinceSeq?: number,
+  /** false = don't bump view_count: a server render the browser refetches. */
+  countView = true,
 ): Promise<SessionDetail> {
-  return getJSON<SessionDetail>(
-    `/api/sessions/${encodeURIComponent(id)}`,
-    signal,
-  );
+  const qs = new URLSearchParams();
+  if (sinceSeq) qs.set("since_seq", String(Math.floor(sinceSeq)));
+  if (!countView) qs.set("view", "0");
+  const q = qs.toString();
+  return getJSON<SessionDetail>(`/api/sessions/${encodeURIComponent(id)}${q ? `?${q}` : ""}`, signal);
+}
+
+/** Record the caller's read mark (seen up to `seq`) — drives list unread counts. */
+export async function markSeen(id: string, seq: number): Promise<void> {
+  const res = await fetch(`${browserBase()}/api/sessions/${encodeURIComponent(id)}/seen`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ seq: Math.floor(seq) }),
+  });
+  if (!res.ok) throw new ApiError(res.status, `Could not mark seen: ${res.status}`);
 }
 
 /** URL for the SSE stream of a session (browser base). */
@@ -718,6 +743,8 @@ export interface Me {
   id?: string;
   email?: string;
   name?: string;
+  /** Account handle, from the user record (not from any session). */
+  handle?: string;
   picture?: string;
   /** True when the account is on the super-admin allowlist (server-resolved). */
   is_admin?: boolean;
@@ -745,6 +772,31 @@ export async function me(signal?: AbortSignal): Promise<Me> {
   } catch (e) {
     if ((e as Error).name === "AbortError") throw e;
     return { authenticated: false };
+  }
+}
+
+/** A signed-in CLI / device (an active refresh token). `created_at` moves on
+ *  every token refresh, so it reads as "last active". */
+export interface CliToken {
+  id: string;
+  label: string;
+  created_at: string;
+}
+
+/** The caller's signed-in CLIs/devices. GET /api/me/tokens. */
+export async function listTokens(signal?: AbortSignal): Promise<CliToken[]> {
+  const data = await getJSON<{ tokens: CliToken[] | null }>("/api/me/tokens", signal);
+  return data.tokens ?? [];
+}
+
+/** Revoke a CLI/device token; it can no longer refresh. DELETE /auth/tokens/{id}. */
+export async function revokeToken(id: string): Promise<void> {
+  const res = await fetch(`${browserBase()}/auth/tokens/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  if (!res.ok && res.status !== 404) {
+    throw new ApiError(res.status, `Could not revoke: ${res.status} ${res.statusText}`);
   }
 }
 
@@ -874,4 +926,34 @@ export async function setSessionModel(
     }
     throw new ApiError(res.status, detail);
   }
+}
+
+/** A permission request waiting on one of the caller's live sessions (LSW-21). */
+export interface Approval {
+  session_id: string;
+  title: string;
+  message: string;
+  ts: string;
+}
+
+/** Pending approvals across the caller's live sessions (header bell). */
+export async function notifications(signal?: AbortSignal): Promise<Approval[]> {
+  const r = await getJSON<{ approvals: Approval[] }>("/api/notifications", signal);
+  return r.approvals;
+}
+
+/** VAPID public key for Web Push; "" when the server has push turned off. */
+export async function pushKey(): Promise<string> {
+  return (await getJSON<{ public_key: string }>("/api/push/key")).public_key;
+}
+
+/** Store (POST) or forget (DELETE) this browser's push endpoint. */
+export async function savePushEndpoint(endpoint: string, method: "POST" | "DELETE" = "POST"): Promise<void> {
+  const res = await fetch(`${browserBase()}/api/push/subscriptions`, {
+    method,
+    credentials: "include",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ endpoint }),
+  });
+  if (!res.ok) throw new ApiError(res.status, `push subscription ${res.status}`);
 }

@@ -1,13 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import Badge from "@/components/Badge";
+import StatusBadge from "@/components/ui/StatusBadge";
 import type { Session } from "@/lib/api";
 import { fmtInt, shortId, tileBg, timeAgo } from "@/lib/utils";
 
 /**
- * A dashboard session card — the card-grid rendering of a session, used by
- * the profile page.
+ * A dashboard session card — the card-grid counterpart to a SessionTable row.
  * Header (status + model), title + short id, optional hero snippet, a meta
  * footer (events · views · age), tags, and an optional action row (publish /
  * share for owned sessions) or access badge (for shared sessions).
@@ -52,7 +51,7 @@ export default function SessionCard({
             borderBottom: "1px solid var(--hairline)",
           }}
         >
-          <Badge s={session} />
+          <StatusBadge status={session.status} />
           <span
             className="label tnum"
             title={session.model ?? undefined}
@@ -70,7 +69,7 @@ export default function SessionCard({
 
         {/* Body — short id, title, hero snippet, tags */}
         <div style={{ padding: "11px 11px 9px", flex: 1, minWidth: 0 }}>
-          <div className="label" style={{ color: "var(--muted)" }}>
+          <div className="label" style={{ color: "var(--faint)" }}>
             {shortId(session.id)}
           </div>
           <div
@@ -110,7 +109,7 @@ export default function SessionCard({
               className="label"
               style={{
                 marginTop: 8,
-                color: "var(--muted)",
+                color: "var(--faint)",
                 overflow: "hidden",
                 textOverflow: "ellipsis",
                 whiteSpace: "nowrap",
@@ -148,8 +147,14 @@ export default function SessionCard({
           <span style={{ color: "var(--hairline)" }}>·</span>
           <span>{timeAgo(session.ended_at ?? session.created_at)}</span>
           <span style={{ marginLeft: "auto", display: "inline-flex", gap: 8 }}>
-            <span title="events">⚙ {fmtInt(session.event_count)}</span>
-            <span title="views">◔ {fmtInt(session.view_count)}</span>
+            <span title="events">
+              <span aria-hidden>⚙</span> {fmtInt(session.event_count)}
+              <span className="sr-only"> events</span>
+            </span>
+            <span title="views">
+              <span aria-hidden>◔</span> {fmtInt(session.view_count)}
+              <span className="sr-only"> views</span>
+            </span>
           </span>
         </div>
       </Link>

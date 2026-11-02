@@ -21,7 +21,8 @@ type Pos = { top: number; left: number };
  * above when there's no room below, and repositions on scroll / resize.
  *
  * Dismisses on outside-click (excluding the anchor, so the trigger button can
- * toggle) and on Escape.
+ * toggle), on Escape and when focus leaves it. Focus moves in on open and back
+ * to the anchor on close, since the portal sits at the end of the document.
  */
 export default function Popover({
   anchorEl,
@@ -41,6 +42,17 @@ export default function Popover({
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => setMounted(true), []);
+
+  useEffect(() => {
+    if (!mounted) return;
+    ref.current?.focus();
+    const el = ref.current;
+    return () => {
+      // Closed while focus was inside (Escape, a link, ✕): hand it back.
+      if (!document.activeElement || document.activeElement === document.body || el?.contains(document.activeElement))
+        anchorEl?.focus();
+    };
+  }, [mounted, anchorEl]);
 
   useLayoutEffect(() => {
     if (!anchorEl) return;
@@ -102,6 +114,11 @@ export default function Popover({
       ref={ref}
       role="dialog"
       aria-label={ariaLabel}
+      tabIndex={-1}
+      onBlur={(e) => {
+        const to = e.relatedTarget as Node | null;
+        if (to && !ref.current?.contains(to) && !anchorEl?.contains(to)) onClose();
+      }}
       style={{
         position: "fixed",
         top: pos?.top ?? -9999,
@@ -151,6 +168,8 @@ export function PopoverHeader({
         aria-label="Close"
         className="label"
         style={{
+          minWidth: 24, // WCAG 2.5.8 target size
+          minHeight: 24,
           border: "none",
           background: "transparent",
           cursor: "pointer",

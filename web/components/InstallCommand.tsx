@@ -1,8 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import s from "./InstallCommand.module.css";
 
-/** A terminal-style command block with a click-to-copy button, in the app theme. */
+/** A command block with click-to-copy. Long lines wrap (never cut off at any
+ *  width); multi-line blocks keep their lines and scroll sideways. The `$`
+ *  prompt is decoration only: Copy copies exactly `command`. */
 export default function InstallCommand({
   command,
   prompt = "$",
@@ -11,6 +14,7 @@ export default function InstallCommand({
   prompt?: string;
 }) {
   const [copied, setCopied] = useState(false);
+  const multiline = command.includes("\n");
 
   const copy = async () => {
     try {
@@ -23,51 +27,24 @@ export default function InstallCommand({
   };
 
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 12,
-        border: "1px solid var(--hairline)",
-        background: "var(--bg)",
-        padding: "12px 14px",
-        // Never let this box push its container wider than available.
-        minWidth: 0,
-        maxWidth: "100%",
-      }}
-    >
-      <span style={{ color: "var(--green)", flexShrink: 0 }} aria-hidden>
-        {prompt}
-      </span>
-      <code
-        style={{
-          fontSize: 13,
-          color: "var(--ink)",
-          whiteSpace: "nowrap",
-          flex: 1,
-          // The command itself is the scroll box: a too-long command scrolls
-          // HERE (inside the cell) instead of the whole page, and COPY stays put.
-          minWidth: 0,
-          overflowX: "auto",
-        }}
-      >
+    <div className={s.box}>
+      {!multiline && (
+        <span className={s.prompt} aria-hidden>
+          {prompt}
+        </span>
+      )}
+      {/* A multi-line block scrolls sideways: focusable so keys can scroll it. */}
+      <code className={multiline ? s.block : s.line} tabIndex={multiline ? 0 : undefined}>
         {command}
       </code>
       <button
         type="button"
         onClick={copy}
-        className="label"
-        style={{
-          flexShrink: 0,
-          border: "1px solid var(--strong)",
-          background: copied ? "var(--green)" : "transparent",
-          color: copied ? "var(--panel)" : "var(--ink)",
-          padding: "5px 10px",
-          fontSize: 10,
-          cursor: "pointer",
-        }}
+        className={s.copy}
+        data-copied={copied || undefined}
+        aria-label={copied ? "Copied" : "Copy command"}
       >
-        {copied ? "✓ COPIED" : "⧉ COPY"}
+        {copied ? "Copied" : "Copy"}
       </button>
     </div>
   );

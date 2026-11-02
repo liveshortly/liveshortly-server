@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import AuthGate from "@/components/AuthGate";
 import ThemeProvider, { themeInitScript } from "@/components/ThemeProvider";
+import { loadAll } from "./docs/docs";
 import "./globals.css";
 
 /* v4 type system: Inter carries all reading & UI; JetBrains Mono is semantic —
@@ -32,6 +33,8 @@ export const metadata: Metadata = {
   },
   description: DESCRIPTION,
   applicationName: "LiveShortly",
+  // Installed on an iPhone home screen (Web Push on iOS needs that, LSW-21).
+  appleWebApp: { capable: true, title: "LiveShortly", statusBarStyle: "default" },
   openGraph: {
     type: "website",
     siteName: "LiveShortly",
@@ -50,12 +53,15 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  // Let the dark/light theme tint the mobile browser chrome.
+  // Let the dark/light theme tint the mobile browser chrome. Mirrors --canvas
+  // in app/tokens.css (metadata can't read CSS variables).
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#F2F4F6" },
-    { media: "(prefers-color-scheme: dark)", color: "#0F1113" },
+    { media: "(prefers-color-scheme: light)", color: "#F3F1E9" },
+    { media: "(prefers-color-scheme: dark)", color: "#121110" },
   ],
 };
+
+const swRegisterScript = `if("serviceWorker" in navigator)addEventListener("load",function(){navigator.serviceWorker.register("/sw.js").catch(function(){})});`;
 
 export default function RootLayout({
   children,
@@ -67,10 +73,17 @@ export default function RootLayout({
       <head>
         {/* Set the resolved theme before paint to avoid a flash. */}
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        {/* Installable app (LSW-19): the worker serves /offline when the network
+            is gone. Production only — dev chunks aren't content-hashed. */}
+        {process.env.NODE_ENV === "production" && (
+          <script dangerouslySetInnerHTML={{ __html: swRegisterScript }} />
+        )}
       </head>
       <body className={`${inter.variable} ${jbMono.variable}`}>
         <ThemeProvider>
-          <AuthGate>{children}</AuthGate>
+          <AuthGate docs={loadAll().map(({ slug, title }) => ({ slug, title }))}>
+            {children}
+          </AuthGate>
         </ThemeProvider>
       </body>
     </html>

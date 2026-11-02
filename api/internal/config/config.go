@@ -45,6 +45,14 @@ type Config struct {
 	// 100 MB. DefaultMaxLiveSessions caps simultaneous live sessions per user.
 	DefaultStorageLimitBytes int64
 	DefaultMaxLiveSessions   int
+
+	// --- Web Push (LSW-21) ---
+	// VAPIDPrivateKey is the base64url raw 32-byte P-256 key that signs push
+	// requests (the public key is derived from it). Empty disables Web Push;
+	// the in-app bell still works. Never commit it — see deploy/DEPLOY.md.
+	// VAPIDSubject is the contact push services may use (mailto: or https:).
+	VAPIDPrivateKey string
+	VAPIDSubject    string
 }
 
 // MaxEventBytes is the hard per-event storage cap. The event's payload is
@@ -76,6 +84,9 @@ func Load() Config {
 
 		DefaultStorageLimitBytes: envInt64("DEFAULT_STORAGE_LIMIT_BYTES", 100*1024*1024),
 		DefaultMaxLiveSessions:   int(envInt64("DEFAULT_MAX_LIVE_SESSIONS", 10)),
+
+		VAPIDPrivateKey: env("VAPID_PRIVATE_KEY", ""),
+		VAPIDSubject:    env("VAPID_SUBJECT", "mailto:admin@liveshortly.com"),
 	}
 }
 

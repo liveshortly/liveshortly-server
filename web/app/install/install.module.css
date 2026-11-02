@@ -1,0 +1,237 @@
+/* Install + self-host pages (LSW-11). Theme tokens only; both themes. */
+.page {
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 48px 16px 96px;
+}
+.head {
+  margin-bottom: 36px;
+}
+.title {
+  margin: 0;
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: var(--fg);
+}
+.lede {
+  margin: 12px 0 0;
+  max-width: 62ch;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--fg-2);
+}
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin-top: 16px;
+  font-size: 14px;
+}
+.meta a {
+  color: var(--fg-2);
+}
+.meta a:hover {
+  color: var(--fg);
+}
+.chipLink {
+  text-decoration: none;
+}
+
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 16px;
+  counter-reset: step;
+}
+.step {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  gap: 16px;
+  padding: 22px;
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  background: var(--surface);
+  counter-increment: step;
+}
+.step::before {
+  content: counter(step);
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 700;
+  font-size: 15px;
+}
+.stepBody {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+}
+.h2 {
+  margin: 4px 0 0;
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--fg);
+}
+.p {
+  margin: 0;
+  max-width: 66ch;
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--fg-2);
+}
+.p code,
+.lede code,
+.faq code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  padding: 1px 5px;
+  border: 1px solid var(--hairline);
+  border-radius: 4px;
+  background: var(--raised);
+  color: var(--fg);
+}
+.p a,
+.faq a {
+  color: var(--fg);
+}
+.outLabel {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fg-3);
+}
+.output {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px dashed var(--hairline);
+  border-radius: 10px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--fg-2);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.section {
+  margin-top: 48px;
+}
+.h2Section {
+  margin: 0 0 6px;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--fg);
+}
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+  margin-top: 16px;
+}
+.card {
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  padding: 18px;
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  background: var(--surface);
+}
+.h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--fg);
+}
+
+.faq {
+  border-top: 1px solid var(--hairline);
+}
+.faq details {
+  border-bottom: 1px solid var(--hairline);
+  padding: 14px 0;
+}
+.faq summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--fg);
+}
+.faq details > :not(summary) {
+  margin-top: 10px;
+}
+
+.selfHost {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 48px;
+  padding: 20px 22px;
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  background: var(--raised);
+}
+.selfHost a {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+/* OS tabs */
+.tabs {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: var(--canvas);
+}
+.tab {
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--fg-2);
+  padding: 6px 14px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.tab[aria-selected="true"] {
+  background: var(--raised);
+  color: var(--fg);
+  box-shadow: 0 0 0 1px var(--hairline);
+}
+.panel {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+.panel[hidden] {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .page {
+    padding-top: 32px;
+  }
+  .title {
+    font-size: 28px;
+  }
+  .step {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+    padding: 18px 16px;
+  }
+}

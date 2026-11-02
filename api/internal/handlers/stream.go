@@ -12,6 +12,7 @@ import (
 
 	"liveshortly/internal/auth"
 	"liveshortly/internal/httpx"
+	"liveshortly/internal/redact"
 )
 
 // heartbeatInterval is how often a `: ping` comment is sent to keep the
@@ -87,7 +88,13 @@ func (h *Handler) Stream(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	seen := map[string]bool{}
 
+	// Non-owners get every frame redacted (LSW-23); a clean frame passes
+	// through redact.JSON untouched, so the live path stays one regex scan.
+	scrub := s.OwnerID != p.ID
 	writeData := func(payload string) bool {
+		if scrub {
+			payload = string(redact.JSON([]byte(payload)))
+		}
 		if _, err := fmt.Fprintf(w, "data: %s\n\n", payload); err != nil {
 			return false
 		}

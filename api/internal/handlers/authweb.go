@@ -189,6 +189,13 @@ func (g *GoogleAuth) Me(w http.ResponseWriter, r *http.Request) {
 		body["max_live_sessions"] = qu.MaxLiveSessions
 		body["quota_exempt"] = qu.QuotaExempt
 	}
+	// Handle + avatar come from the account record (best-effort, like quota).
+	if u, err := g.store.GetUserByID(r.Context(), c.UserID); err == nil && u != nil {
+		body["handle"] = u.Handle
+		if u.AvatarURL != "" {
+			body["picture"] = u.AvatarURL
+		}
+	}
 	httpx.JSON(w, http.StatusOK, body)
 }
 
@@ -228,23 +235,32 @@ func (g *GoogleAuth) Token(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	access, err := g.mgr.MintAccess(websession.TokenUser{ID: u.ID, Email: u.Email, Name: u.Name})
-	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "failed to mint token")
-		return
-	}
-
 	// Rotate: issue a new refresh token and revoke the old one.
 	newRaw, newHash, err := websession.GenerateRefreshToken()
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "failed to rotate token")
 		return
 	}
-	if _, err := g.store.InsertRefreshToken(ctx, u.ID, newHash, "cli"); err != nil {
+	// Keep the device label across rotation so settings can still name it.
+	label := rt.Label
+	if label == "" {
+		label = "cli"
+	}
+	newID, err := g.store.InsertRefreshToken(ctx, u.ID, newHash, label)
+	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "failed to store token")
 		return
 	}
 	_ = g.store.RevokeRefreshToken(ctx, rt.ID)
+	// The old token's access token may still be live: link it so revoking the
+	// new one (the only row settings shows) kills both.
+	_ = g.bus.TokenRotated(ctx, newID, rt.ID, g.mgr.AccessTTL())
+
+	access, err := g.mgr.MintAccess(websession.TokenUser{ID: u.ID, Email: u.Email, Name: u.Name, SessionID: newID})
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to mint token")
+		return
+	}
 
 	httpx.JSON(w, http.StatusOK, map[string]any{
 		"access_token":  access,
@@ -254,7 +270,25 @@ func (g *GoogleAuth) Token(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// RevokeToken revokes one of the caller's refresh tokens. DELETE /auth/tokens/{id}.
+// ListTokens lists the caller's signed-in CLIs/devices (active refresh tokens).
+// GET /api/me/tokens. Revoke one with DELETE /auth/tokens/{id}.
+func (g *GoogleAuth) ListTokens(w http.ResponseWriter, r *http.Request) {
+	c, ok := g.mgr.FromRequest(r)
+	if !ok {
+		httpx.JSON(w, http.StatusUnauthorized, map[string]any{"authenticated": false})
+		return
+	}
+	tokens, err := g.store.ListActiveRefreshTokens(r.Context(), c.UserID)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to list tokens")
+		return
+	}
+	httpx.JSON(w, http.StatusOK, map[string]any{"tokens": tokens})
+}
+
+// RevokeToken revokes one of the caller's refresh tokens, and — via the Redis
+// revocation set FromRequest consults — every access token issued with it, so
+// the CLI is signed out now rather than at access-token expiry. DELETE /auth/tokens/{id}.
 func (g *GoogleAuth) RevokeToken(w http.ResponseWriter, r *http.Request) {
 	c, ok := g.mgr.FromRequest(r)
 	if !ok {
@@ -269,6 +303,10 @@ func (g *GoogleAuth) RevokeToken(w http.ResponseWriter, r *http.Request) {
 	}
 	if !removed {
 		httpx.Error(w, http.StatusNotFound, "token not found")
+		return
+	}
+	if err := g.bus.TokenRevoke(r.Context(), id, g.mgr.AccessTTL()); err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to revoke access token")
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

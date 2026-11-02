@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import Badge from "@/components/Badge";
+import StatusBadge from "@/components/ui/StatusBadge";
 import { adminSessions, type AdminSessionRow } from "@/lib/api";
 import { useAdminGuard } from "@/lib/useAdminGuard";
 import { fmtInt, shortId, timeAgo } from "@/lib/utils";
@@ -68,7 +68,7 @@ function SessionsBrowser() {
             ★ SESSIONS
           </h1>
           {rows && (
-            <span className="label" style={{ color: "var(--muted)" }}>
+            <span className="label" style={{ color: "var(--faint)" }}>
               {fmtInt(rows.length)} shown
             </span>
           )}
@@ -129,7 +129,7 @@ function SessionsBrowser() {
               {rows.map((s) => (
                 <tr key={s.id} style={{ borderBottom: "1px solid var(--hairline)" }}>
                   <Td hideSm mono>
-                    <span style={{ color: "var(--muted)" }}>{shortId(s.id)}</span>
+                    <span style={{ color: "var(--faint)" }}>{shortId(s.id)}</span>
                   </Td>
                   <Td>
                     <Link href={`/session/${s.id}`} style={{ fontWeight: 600, color: "var(--ink)" }}>
@@ -140,7 +140,7 @@ function SessionsBrowser() {
                     <span style={{ color: "var(--muted)" }}>@{s.owner}</span>
                   </Td>
                   <Td>
-                    <Badge s={s} />
+                    <StatusBadge status={s.status} />
                   </Td>
                   <Td>
                     <Visibility v={s.visibility} />
@@ -164,20 +164,13 @@ function SessionsBrowser() {
   );
 }
 
-/** Visibility chip. "open" = anyone incl. signed-out; link/public need auth. */
+/** Reach badge. "open" = anyone incl. signed-out (Public); "public" = on the
+ *  feed, sign-in needed (On feed); "link" = anyone signed in with the URL. */
+const REACH = { open: "public", public: "feed", link: "link", private: "private" } as const;
+
 function Visibility({ v }: { v: string }) {
-  const map: Record<string, { label: string; color: string }> = {
-    open: { label: "PUBLIC", color: "var(--green)" },
-    public: { label: "PUBLIC*", color: "var(--green)" },
-    link: { label: "LINK", color: "var(--amber)" },
-    private: { label: "PRIVATE", color: "var(--muted)" },
-  };
-  const m = map[v] ?? { label: v.toUpperCase(), color: "var(--muted)" };
-  return (
-    <span className="label" style={{ color: m.color, border: `1px solid var(--hairline)`, padding: "2px 7px" }}>
-      {m.label}
-    </span>
-  );
+  const status = REACH[v as keyof typeof REACH];
+  return status ? <StatusBadge status={status} /> : <span className="label">{v}</span>;
 }
 
 function Th({
