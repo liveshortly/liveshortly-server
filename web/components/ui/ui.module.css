@@ -59,12 +59,6 @@
   }
 }
 
-/* Shared focus ring for every interactive primitive. */
-.btn:focus-visible,
-.menuItem:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
 
 /* ── Chip ──────────────────────────────────────────────────────────── */
 .chip {
@@ -197,7 +191,7 @@
 .sheet {
   border-radius: var(--radius-sheet);
 }
-@media (max-width: 640px) {
+@media (max-width: 767px) {
   .sheet {
     width: 100vw;
     max-width: 100vw;
@@ -459,10 +453,3 @@
   right: var(--space-4);
 }
 
-/* Focus ring for the new controls (same as .btn). */
-.field:focus-visible,
-.switch:focus-visible,
-.tab:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}

@@ -12,13 +12,15 @@
   height: auto;
 }
 .scroll {
+  /* The transcript column answers to its pane (sidebar / ⌘I panel), not the viewport. */
+  container: transcript / inline-size;
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
 .scroll:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus-ring);
   outline-offset: -2px;
 }
 .col {
@@ -29,9 +31,15 @@
   flex-direction: column;
   gap: var(--space-16);
 }
-@media (max-width: 640px) {
+@container transcript (max-width: 640px) {
   .col {
     padding: var(--space-12) var(--space-16);
+  }
+  /* Narrow: work-run output keeps its lines and scrolls sideways instead of
+     wrapping every command into a column of fragments. */
+  .code {
+    white-space: pre;
+    overflow-wrap: normal;
   }
 }
 
@@ -136,7 +144,7 @@
   display: none;
 }
 .panelHead:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus-ring);
   outline-offset: -2px;
   border-radius: var(--radius-hud);
 }
@@ -245,8 +253,4 @@
   color: var(--fg);
   box-shadow: 0 4px 14px var(--shadow);
   cursor: pointer;
-}
-.jump:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
 }

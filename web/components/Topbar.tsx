@@ -14,6 +14,7 @@ import { IconButton } from "@/components/ui/Button";
 import { loginUrl, type Me } from "@/lib/api";
 import { SITE_LINKS } from "@/lib/routes";
 import { mod } from "./Shortcuts";
+import { SIDEBAR_ID } from "./WorkspaceDrawerContext";
 import s from "./shell.module.css";
 
 /**
@@ -50,6 +51,7 @@ export default function Topbar({
             icon={menuOpen ? "xmark" : "line.3.horizontal"}
             label={menuOpen ? "Hide sidebar" : "Show sidebar"}
             aria-expanded={menuOpen}
+            aria-controls={SIDEBAR_ID}
             onClick={onMenu}
           />
         </span>

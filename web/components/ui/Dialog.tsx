@@ -6,8 +6,8 @@ import s from "./ui.module.css";
 
 /**
  * Modal dialog on the native <dialog>: showModal() makes the page behind it
- * inert (focus stays inside), Escape closes it, and the browser returns focus
- * to the trigger on close. `sheet` uses the sheet radius and docks to the
+ * inert (focus stays inside), Escape closes it, and focus returns to the
+ * trigger on close. `sheet` uses the sheet radius and docks to the
  * bottom edge on phones.
  */
 export default function Dialog({
@@ -26,11 +26,20 @@ export default function Dialog({
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
 
+  const opener = useRef<HTMLElement | null>(null);
+
   useEffect(() => {
     const d = ref.current;
     if (!d) return;
-    if (open && !d.open) d.showModal();
-    else if (!open && d.open) d.close();
+    if (open && !d.open) {
+      opener.current = document.activeElement as HTMLElement | null;
+      d.showModal();
+    } else if (!open && d.open) d.close();
+    // Not every browser restores focus on close (older Safari): do it here.
+    if (!open && opener.current?.isConnected) {
+      opener.current.focus();
+      opener.current = null;
+    }
   }, [open]);
 
   return (

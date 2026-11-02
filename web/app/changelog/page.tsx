@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { loadChangelog, type Release } from "@/lib/changelog";
+import { ScrollPre } from "@/components/ui/CodeBlock";
 import s from "./changelog.module.css";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:8080";
@@ -19,18 +20,21 @@ export const dynamic = "force-static";
 function Md({ children }: { children: string }) {
   return (
     <div className={`md ${s.md}`}>
-      <ReactMarkdown remarkPlugins={[remarkGfm]}>{children}</ReactMarkdown>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ pre: ScrollPre }}>
+        {children}
+      </ReactMarkdown>
     </div>
   );
 }
 
-function Body({ r }: { r: Release }) {
+// Section headings sit one level under the release heading (h2 latest, h3 timeline).
+function Body({ r, h: H = "h4" }: { r: Release; h?: "h3" | "h4" }) {
   return (
     <>
       {r.intro && <Md>{r.intro}</Md>}
       {r.sections.map((sec, i) => (
         <section key={i} className={s.group}>
-          <h4 className="label">{sec.title}</h4>
+          <H className="label">{sec.title}</H>
           {sec.body && <Md>{sec.body}</Md>}
         </section>
       ))}
@@ -57,7 +61,7 @@ export default function ChangelogPage() {
           Upgrade with <code>live update</code> or{" "}
           <code>brew upgrade liveshortly/tap/live</code>.
         </p>
-        <Body r={latest} />
+        <Body r={latest} h="h3" />
         <a href={`#${latest.id}`} className="label">
           Jump to {latest.version} in the timeline ▾
         </a>

@@ -29,13 +29,20 @@ export default function ConfirmPopover({
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(false);
   const ref = useRef<HTMLSpanElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const cancel = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!open) return;
+    cancel.current?.focus();
     const onDown = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setOpen(false);
+      trigger.current?.focus();
+    };
     document.addEventListener("mousedown", onDown);
     document.addEventListener("keydown", onKey);
     return () => {
@@ -61,7 +68,9 @@ export default function ConfirmPopover({
   return (
     <span ref={ref} className="cf-wrap">
       <button
+        ref={trigger}
         type="button"
+        aria-expanded={open}
         className={`label cf-trigger${open ? " on" : ""}`}
         title={triggerTitle}
         onClick={() => {
@@ -78,10 +87,14 @@ export default function ConfirmPopover({
           <div className="cf-msg">{message}</div>
           <div className="cf-row">
             <button
+              ref={cancel}
               type="button"
               className="cf-no"
               disabled={busy}
-              onClick={() => setOpen(false)}
+              onClick={() => {
+                setOpen(false);
+                trigger.current?.focus();
+              }}
             >
               Cancel
             </button>

@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import Topbar from "@/components/Topbar";
 import AppFooter from "@/components/AppFooter";
@@ -8,7 +8,7 @@ import WorkspaceSidebar from "@/components/WorkspaceSidebar";
 import MobileTabBar from "@/components/MobileTabBar";
 import CommandPalette, { type DocLink } from "@/components/CommandPalette";
 import { ShortcutsSheet, useShortcuts } from "@/components/Shortcuts";
-import { WorkspaceDrawerContext } from "@/components/WorkspaceDrawerContext";
+import { SIDEBAR_ID, WorkspaceDrawerContext } from "@/components/WorkspaceDrawerContext";
 import { HostsProvider } from "@/components/HostsContext";
 import { SessionsProvider } from "@/components/SessionsContext";
 import type { Me } from "@/lib/api";
@@ -48,10 +48,33 @@ export default function AppShell({
   // Navigating closes the drawer.
   useEffect(() => setDrawer(false), [pathname]);
 
+  // The drawer (<=1100px) is modal: everything else is inert while it is open,
+  // focus moves in, Escape closes it, and focus goes back to the opener.
+  const root = useRef<HTMLDivElement>(null);
+  const sidebar = useRef<HTMLElement>(null);
+  const main = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const aside = sidebar.current;
+    if (!drawer || !aside || !window.matchMedia("(max-width: 1100px)").matches) return;
+    const opener = document.activeElement as HTMLElement | null;
+    const outside = [...(root.current?.children ?? []), main.current].filter(
+      (el): el is HTMLElement => el instanceof HTMLElement && !el.contains(aside),
+    );
+    outside.forEach((el) => (el.inert = true));
+    aside.querySelector<HTMLElement>("a[href], button, input")?.focus();
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setDrawer(false);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      outside.forEach((el) => (el.inert = false));
+      document.removeEventListener("keydown", onKey);
+      if (opener?.isConnected) opener.focus();
+    };
+  }, [drawer]);
+
   const inSession = pathname.startsWith("/session/");
 
   return (
-    <div className="v3-app">
+    <div ref={root} className="v3-app">
       <HostsProvider>
         <SessionsProvider>
           <a href="#main" className={s.skip}>
@@ -65,13 +88,18 @@ export default function AppShell({
           />
           <WorkspaceDrawerContext.Provider value={drawerCtx}>
             <div className="workspace" data-drawer={drawer ? "open" : "closed"}>
-              <aside className="ws-sidebar" aria-label="Sidebar">
+              <aside ref={sidebar} id={SIDEBAR_ID} className="ws-sidebar" aria-label="Sidebar">
+                {drawer && (
+                  <button type="button" className={s.skip} onClick={() => setDrawer(false)}>
+                    Close sidebar
+                  </button>
+                )}
                 <WorkspaceSidebar />
               </aside>
 
               <div className="ws-backdrop" onClick={() => setDrawer(false)} aria-hidden />
 
-              <main id="main" className="ws-main">
+              <main ref={main} id="main" className="ws-main">
                 {isFullBleed(pathname) ? children : <div className="ws-content">{children}</div>}
                 {/* The session view fills the pane and scrolls internally. */}
                 {!inSession && <AppFooter />}
