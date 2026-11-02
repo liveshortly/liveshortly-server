@@ -47,7 +47,7 @@ curl -fsSLO "$base/$a.gz" && curl -fsSLO "$base/$a.sha256"
 gunzip -k "$a.gz" && shasum -a 256 "$a" && cat "$a.sha256"`;
 
   return (
-    <main className={s.page}>
+    <div className={s.page}>
       <header className={s.head}>
         <h1 className={s.title}>Install LiveShortly</h1>
         <p className={s.lede}>
@@ -238,6 +238,6 @@ gunzip -k "$a.gz" && shasum -a 256 "$a" && cat "$a.sha256"`;
         </p>
         <Link href="/install/self-host">Self-host LiveShortly →</Link>
       </aside>
-    </main>
+    </div>
   );
 }

@@ -15,7 +15,7 @@ import {
 } from "@/lib/api";
 import { fmtInt, timeAgo } from "@/lib/utils";
 import ShareSheet from "@/components/ShareSheet";
-import { useWorkspaceDrawer } from "@/components/WorkspaceDrawerContext";
+import { SIDEBAR_ID, useWorkspaceDrawer } from "@/components/WorkspaceDrawerContext";
 import Button, { IconButton } from "@/components/ui/Button";
 import Dialog from "@/components/ui/Dialog";
 import Menu, { type MenuItem } from "@/components/ui/Menu";
@@ -125,6 +125,7 @@ export default function StatusStrip({
             className={s.mobileOnly}
             onClick={() => drawer.toggle()}
             aria-expanded={drawer.open}
+            aria-controls={SIDEBAR_ID}
           />
         ) : (
           <Link href="/" className={`${s.mobileOnly} ${s.back}`} aria-label="Back">
@@ -263,6 +264,7 @@ function RenameField({
     }
   };
   return (
+    <>
     <input
       autoFocus
       className={`${s.renameField} t-headline`}
@@ -279,6 +281,12 @@ function RenameField({
         else if (e.key === "Escape") onDone(null);
       }}
     />
+    {err && (
+      <span role="alert" className="sr-only">
+        Couldn&apos;t rename. Press Enter to retry.
+      </span>
+    )}
+    </>
   );
 }
 

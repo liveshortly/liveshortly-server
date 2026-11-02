@@ -14,6 +14,7 @@ import {
 } from "@/lib/transcript";
 import { agentTitle } from "@/lib/utils";
 import Button from "@/components/ui/Button";
+import { ScrollPre } from "@/components/ui/CodeBlock";
 import Icon from "@/components/ui/Icon";
 import SessionMark from "@/components/ui/SessionMark";
 import s from "./EventStream.module.css";
@@ -66,7 +67,9 @@ export default function EventStream({
 
   const toBottom = (smooth = false) => {
     const el = scrollRef.current;
-    if (el) el.scrollTo({ top: el.scrollHeight, behavior: smooth ? "smooth" : "auto" });
+    // A JS `behavior` overrides the CSS reduced-motion reset, so check here.
+    const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: smooth && !still ? "smooth" : "auto" });
   };
 
   // First layout: a deep link (#e-123) wins; live opens at the bottom, an
@@ -238,7 +241,9 @@ function Single({
             </div>
           )}
           <div className="md t-body">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ pre: ScrollPre }}>
+              {text}
+            </ReactMarkdown>
           </div>
         </div>
       );
@@ -330,7 +335,12 @@ function StepDetail({ e }: { e: SessionEvent }) {
         : typeof input.content === "string"
           ? input.content
           : JSON.stringify(input, null, 2);
-  return <pre className={`${s.code} t-mono`}>{full}</pre>;
+  // Scrolls on overflow, so it must take keyboard focus (WCAG 2.1.1).
+  return (
+    <pre className={`${s.code} t-mono`} tabIndex={0}>
+      {full}
+    </pre>
+  );
 }
 
 /** Unified diff, removed red / added green, 80 lines then "… N more". */

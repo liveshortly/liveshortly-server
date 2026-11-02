@@ -91,7 +91,7 @@ export default function ProfilePage() {
       </PanelBox>
 
       {err && (
-        <div className="label" style={{ color: "var(--red)", margin: "14px 0" }}>
+        <div role="alert" className="label" style={{ color: "var(--red)", margin: "14px 0" }}>
           ⚠ {err}
         </div>
       )}
