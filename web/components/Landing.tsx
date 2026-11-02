@@ -7,6 +7,11 @@ import BrandMark from "@/components/BrandMark";
 import FeedCard from "@/components/FeedCard";
 import ThemeToggle from "@/components/ThemeToggle";
 import Avatar from "@/components/Avatar";
+import InstallCommand from "@/components/InstallCommand";
+import Button from "@/components/ui/Button";
+import ReplayCard from "@/components/landing/ReplayCard";
+import type { Replay } from "@/components/landing/replay";
+import s from "@/components/landing/Landing.module.css";
 import {
   getFeed,
   getLiveFeed,
@@ -15,28 +20,27 @@ import {
   type PublicStats,
   type Session,
 } from "@/lib/api";
+import { AGENTS, INSTALL_CMD } from "@/lib/install";
 import { fmtInt } from "@/lib/utils";
 
-const INSTALL_CMD = "curl -fsSL https://raw.githubusercontent.com/liveshortly/live-dist/main/install.sh | bash";
-const LOGIN_CMD = "live login";
-const RUN_CMD = "live claude";
-const DAEMON_CMD = "live daemon";
-const TYPEWRITER_WORDS = ["write software", "collab", "blog"];
 const SEARCH_DEBOUNCE_MS = 300;
 const RECENT_LIMIT = 24;
 const RECENT_SHOWN = 8;
+const GITHUB_URL = "https://github.com/liveshortly/live";
 
-/** Full-page landing view for anonymous visitors: the v3 browse shell — product
- *  pitch and a looping demo on the right, the real public feed underneath, and
- *  a persistent sidebar of what's live, who's publishing and which tags run hot.
- *  Every number and row on this page comes from the API; nothing is fabricated. */
-/** Server-fetched first paint for the live strip, recent feed and counts. */
+/** Server-fetched first paint for the live strip, recent feed, counts and the
+ *  hero replay. */
 export type LandingData = {
   live: Session[];
   recent: Session[];
   stats: PublicStats | null;
+  replay?: Replay | null;
 };
 
+/** Full-page landing view for anonymous visitors: what LiveShortly is, a real
+ *  public session, then the real public feed. Every number and row on this
+ *  page comes from the API; nothing is fabricated, and nothing empty or zero
+ *  is shown. */
 export default function Landing({ initial }: { initial?: LandingData }) {
   return (
     <Suspense
@@ -54,23 +58,21 @@ function LandingInner({ initial }: { initial?: LandingData }) {
   const [live, setLive] = useState<Session[]>(initial?.live ?? []);
   const [recent, setRecent] = useState<Session[]>(initial?.recent ?? []);
   const [stats, setStats] = useState<PublicStats | null>(initial?.stats ?? null);
-  const [loaded, setLoaded] = useState(!!initial);
 
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Session[] | null>(null);
-  const searchInput = useRef<HTMLInputElement>(null);
 
   const signIn = () => {
     // Full-page navigation — NOT fetch — so Google OAuth can run.
     window.location.href = loginUrl();
   };
 
-  // Live strip, recent feed page and the proof counts, all in one shot.
+  // Only when rendered without server data.
   useEffect(() => {
-    if (initial) return; // the server already fetched them
+    if (initial) return;
     const ctrl = new AbortController();
     (async () => {
-      const [l, r, s] = await Promise.allSettled([
+      const [l, r, st] = await Promise.allSettled([
         getLiveFeed(12, ctrl.signal),
         getFeed({ limit: RECENT_LIMIT }, ctrl.signal),
         publicStats(ctrl.signal),
@@ -78,10 +80,10 @@ function LandingInner({ initial }: { initial?: LandingData }) {
       if (ctrl.signal.aborted) return;
       if (l.status === "fulfilled") setLive(l.value.results);
       if (r.status === "fulfilled") setRecent(r.value.results);
-      if (s.status === "fulfilled") setStats(s.value);
-      setLoaded(true);
+      if (st.status === "fulfilled") setStats(st.value);
     })();
     return () => ctrl.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Debounced feed search. An empty query drops back to the curated sections.
@@ -108,19 +110,11 @@ function LandingInner({ initial }: { initial?: LandingData }) {
     };
   }, [query]);
 
-  // Creators + tags are rolled up from the sessions actually on the feed —
-  // no separate endpoint, and no number the visitor can't click through to.
-  const known = useMemo(() => dedupe([...live, ...recent]), [live, recent]);
-  const creators = useMemo(() => rollupCreators(known), [known]);
-  const tags = useMemo(() => rollupTags(known), [known]);
-
   const searching = results !== null;
   const liveOwners = useMemo(
-    () => [...new Set(live.map((s) => s.owner_handle))].slice(0, 3),
+    () => [...new Set(live.map((x) => x.owner_handle))].slice(0, 3),
     [live],
   );
-
-  const focusSearch = () => searchInput.current?.focus();
 
   return (
     <div className="lp-shell">
@@ -133,7 +127,6 @@ function LandingInner({ initial }: { initial?: LandingData }) {
         <div className="lp-searchpill">
           <span aria-hidden>⌕</span>
           <input
-            ref={searchInput}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search sessions, owners, tags…"
@@ -159,15 +152,15 @@ function LandingInner({ initial }: { initial?: LandingData }) {
         </div>
 
         <div className="lp-top-actions">
-          <Link href="/docs" className="lp-install-link" title="Platform Documentation">
+          <Link href="/docs" className="lp-install-link">
             Docs
           </Link>
-          <Link href="/install" className="lp-install-link" title="Install the CLI">
-            ⇩ Install CLI
+          <Link href="/install" className="lp-install-link">
+            Install
           </Link>
           <ThemeToggle />
           <button type="button" className="lp-signin-btn" onClick={signIn}>
-            Sign In
+            Sign in
           </button>
         </div>
       </div>
@@ -176,19 +169,25 @@ function LandingInner({ initial }: { initial?: LandingData }) {
         <div className="lp-main-inner">
           {authFailed && (
             <div
-              className="label"
+              role="alert"
               style={{
                 border: "1px solid var(--red)",
                 color: "var(--red)",
                 padding: "10px 14px",
                 marginBottom: 18,
+                fontSize: 13,
               }}
             >
-              ⚠ SIGN-IN FAILED — TRY AGAIN
+              Sign-in failed. Try again.
             </div>
           )}
 
-          <MarketingHero onSignIn={signIn} liveCount={live.length} />
+          <Hero
+            onSignIn={signIn}
+            liveCount={live.length}
+            replay={initial?.replay ?? null}
+            latest={recent[0] ?? null}
+          />
 
           <Proof stats={stats} liveOwners={liveOwners} liveCount={live.length} />
 
@@ -215,28 +214,22 @@ function LandingInner({ initial }: { initial?: LandingData }) {
             </>
           ) : (
             <>
-              <section id="live-now">
-                <div className="lp-sec-head">
-                  <h2 className="lp-sec-title live">◉ Live now</h2>
-                  <Link href="/feed" className="lp-sec-link">
-                    See all →
-                  </Link>
-                </div>
-                {live.length > 0 ? (
-                  <CardGrid sessions={live} />
-                ) : (
-                  <div className="lp-empty">
-                    {loaded
-                      ? "Nothing streaming right now — start a session from your terminal"
-                      : "Loading…"}
+              {live.length > 0 && (
+                <section id="live-now">
+                  <div className="lp-sec-head">
+                    <h2 className="lp-sec-title live">◉ Live now</h2>
+                    <Link href="/feed" className="lp-sec-link">
+                      See all →
+                    </Link>
                   </div>
-                )}
-              </section>
+                  <CardGrid sessions={live} />
+                </section>
+              )}
 
               {recent.length > 0 && (
                 <section>
                   <div className="lp-sec-head">
-                    <h2 className="lp-sec-title">▣ Recently published</h2>
+                    <h2 className="lp-sec-title">Recently published</h2>
                     <Link href="/feed" className="lp-sec-link">
                       See all →
                     </Link>
@@ -244,10 +237,10 @@ function LandingInner({ initial }: { initial?: LandingData }) {
                   <CardGrid sessions={recent.slice(0, RECENT_SHOWN)} />
                 </section>
               )}
-
-              <HowItWorks />
             </>
           )}
+
+          <HowItWorks />
 
           <Footer />
         </div>
@@ -257,293 +250,79 @@ function LandingInner({ initial }: { initial?: LandingData }) {
 }
 
 /* ────────────────────────────────────────────────────────────────────────
-   Sidebar — public browse rail. Live / Recent / Tags all read the same feed.
+   Hero — static pitch + CTA on the left, a real public session on the right.
    ──────────────────────────────────────────────────────────────────────── */
 
-type Tab = "live" | "recent" | "tags";
-
-function Sidebar({
-  live,
-  recent,
-  creators,
-  tags,
-  loaded,
-  onSignIn,
-  onSearch,
-  onTag,
-}: {
-  live: Session[];
-  recent: Session[];
-  creators: Creator[];
-  tags: [string, number][];
-  loaded: boolean;
-  onSignIn: () => void;
-  onSearch: () => void;
-  onTag: (tag: string) => void;
-}) {
-  const [tab, setTab] = useState<Tab>("live");
-
-  return (
-    <aside className="lp-sidebar">
-      <div className="lp-sb-head">
-        <span className="lp-sb-title">Browse</span>
-      </div>
-
-      <div className="lp-sb-tabs" role="tablist" aria-label="Browse sessions">
-        {(["live", "recent", "tags"] as Tab[]).map((t) => (
-          <button
-            key={t}
-            type="button"
-            role="tab"
-            aria-selected={tab === t}
-            className="lp-sb-tab"
-            onClick={() => setTab(t)}
-          >
-            {t}
-          </button>
-        ))}
-      </div>
-
-      <button type="button" className="lp-sb-search" onClick={onSearch}>
-        <span aria-hidden>⌕</span> Search sessions
-      </button>
-
-      {tab === "live" && (
-        <>
-          <div className="lp-sb-group-label live">
-            ◉ Live now · {live.length}
-          </div>
-          {live.length > 0 ? (
-            live.map((s) => <SessionRow key={s.id} session={s} live />)
-          ) : (
-            <div className="lp-sb-empty">
-              {loaded ? "No sessions streaming right now." : "Loading…"}
-            </div>
-          )}
-
-          {creators.length > 0 && (
-            <>
-              <div className="lp-sb-group-label">Trending Creators</div>
-              {creators.map((c) => (
-                <div key={c.handle} className="lp-sb-creator">
-                  <span
-                    className="lp-sb-creator-avatar"
-                    style={{ background: avatarColor(c.handle) }}
-                    aria-hidden
-                  >
-                    {initials(c.handle)}
-                  </span>
-                  <div className="lp-sb-creator-body">
-                    <div className="lp-sb-creator-name">@{c.handle}</div>
-                    <div className="lp-sb-creator-meta tnum">
-                      {c.sessions} session{c.sessions === 1 ? "" : "s"} ·{" "}
-                      {fmtInt(c.views)} views
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </>
-          )}
-
-          {tags.length > 0 && (
-            <>
-              <div className="lp-sb-group-label">Popular Tags</div>
-              {tags.slice(0, 3).map(([tag, n]) => (
-                <TagRow key={tag} tag={tag} count={n} onTag={onTag} />
-              ))}
-            </>
-          )}
-        </>
-      )}
-
-      {tab === "recent" && (
-        <>
-          <div className="lp-sb-group-label">Recently published</div>
-          {recent.length > 0 ? (
-            recent
-              .slice(0, 12)
-              .map((s) => (
-                <SessionRow key={s.id} session={s} live={s.status === "live"} />
-              ))
-          ) : (
-            <div className="lp-sb-empty">
-              {loaded ? "Nothing published yet." : "Loading…"}
-            </div>
-          )}
-        </>
-      )}
-
-      {tab === "tags" && (
-        <>
-          <div className="lp-sb-group-label">Popular Tags</div>
-          {tags.length > 0 ? (
-            tags.map(([tag, n]) => (
-              <TagRow key={tag} tag={tag} count={n} onTag={onTag} />
-            ))
-          ) : (
-            <div className="lp-sb-empty">
-              {loaded ? "No tags on the feed yet." : "Loading…"}
-            </div>
-          )}
-        </>
-      )}
-
-      <div className="lp-sb-signin">
-        <button type="button" className="lp-sb-signin-btn" onClick={onSignIn}>
-          Sign In
-        </button>
-        <div className="lp-sb-signin-sub">
-          Sign in to start your own session and build your library.
-        </div>
-      </div>
-    </aside>
-  );
+function agentList(): string {
+  return `${AGENTS.slice(0, -1).join(", ")} or ${AGENTS[AGENTS.length - 1]}`;
 }
 
-function SessionRow({ session, live }: { session: Session; live: boolean }) {
-  return (
-    <Link href={`/session/${session.id}`} className="lp-sb-row">
-      <span className="lp-sb-swatch">{live && <span className="live-dot" />}</span>
-      <span className="lp-sb-row-main">
-        <span className="t">{session.title || "untitled session"}</span>
-        <span className="s">
-          @{session.owner_handle} · {fmtInt(session.view_count)} views
-        </span>
-      </span>
-    </Link>
-  );
-}
-
-function TagRow({
-  tag,
-  count,
-  onTag,
-}: {
-  tag: string;
-  count: number;
-  onTag: (t: string) => void;
-}) {
-  return (
-    <button type="button" className="lp-sb-tag-row" onClick={() => onTag(tag)}>
-      <span className="label" style={{ color: "var(--green)" }}>
-        #{tag}
-      </span>
-      <span className="lp-sb-tag-count tnum">{fmtInt(count)}</span>
-    </button>
-  );
-}
-
-/* ────────────────────────────────────────────────────────────────────────
-   Hero — pitch + CTA on the left, the looping "how it works" demo on the right.
-   ──────────────────────────────────────────────────────────────────────── */
-
-function MarketingHero({
+function Hero({
   onSignIn,
   liveCount,
+  replay,
+  latest,
 }: {
   onSignIn: () => void;
   liveCount: number;
+  replay: Replay | null;
+  latest: Session | null;
 }) {
-  const word = useTypewriter(TYPEWRITER_WORDS);
+  // A real replay; else the newest real published session; else nothing.
+  const side = replay ? (
+    <ReplayCard replay={replay} />
+  ) : latest ? (
+    <div style={{ minWidth: 0 }}>
+      <div className={s.sideLabel}>Latest published session</div>
+      <FeedCard session={latest} />
+    </div>
+  ) : null;
 
   return (
-    <div className="lp-mkt-hero">
+    <div className={`lp-mkt-hero${side ? "" : ` ${s.heroSolo}`}`}>
       <div style={{ minWidth: 0 }}>
-        <div className="lp-mkt-eyebrow">
-          <span className="live-dot" aria-hidden />
-          {liveCount > 0
-            ? `${liveCount} session${liveCount === 1 ? "" : "s"} live now`
-            : "LiveShortly"}
-        </div>
-        <h1 className="lp-mkt-title">
-          Watch Agent{" "}
-          <br />
-          <span className="lp-tw-word">{word}</span>
-          <span className="lp-tw-cursor" aria-hidden /> — live.
+        {liveCount > 0 && (
+          <div className="lp-mkt-eyebrow">
+            <span className="live-dot" aria-hidden />
+            {liveCount} session{liveCount === 1 ? "" : "s"} live now
+          </div>
+        )}
+        <h1 className={`lp-mkt-title ${s.title}`}>
+          Watch your coding agent work, live
         </h1>
-        <p className="lp-mkt-sub">
-          LiveShortly turns any Claude Code session into a live-streamed,
-          replayable, shareable feed. Viewers watch every prompt and tool call as
-          it happens — and can talk back to a running session in real time.
+        <p className={s.sub}>
+          Stream {agentList()} sessions from your terminal to a link others
+          can watch, comment on and replay. Free on LiveShortly, or run your
+          own server.
         </p>
 
         <div className="lp-cta">
-          <button
-            type="button"
-            className="lp-btn"
-            onClick={onSignIn}
-            title="Sign in with Google"
-          >
-            <span className="lp-btn-g" aria-hidden>
-              G
-            </span>
-            Get Started — Sign Up Free
-          </button>
+          <Button variant="prominent" onClick={onSignIn} title="Sign in with Google">
+            Get started
+          </Button>
+        </div>
+
+        <div className={s.install}>
+          <span className={s.installLabel}>Install the CLI</span>
+          <InstallCommand command={INSTALL_CMD} />
+        </div>
+
+        <div className={s.links}>
+          <Link href="/install">Install guide</Link>
+          <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer">
+            GitHub
+          </a>
+          <Link href="/install/self-host">Self-host it</Link>
         </div>
       </div>
 
-      <Demo />
-    </div>
-  );
-}
-
-/** A self-contained, looping preview of the product: prompt in, tools + response
- *  out. Illustrative by design (it is the pitch, not the feed) — every other
- *  number and row on this page is live API data. */
-function Demo() {
-  return (
-    <div className="lp-demo">
-      <div className="lp-demo-titlebar">
-        <div className="lp-demo-dots" aria-hidden>
-          <span className="lp-demo-dot r" />
-          <span className="lp-demo-dot a" />
-          <span className="lp-demo-dot g" />
-        </div>
-        <span className="lp-demo-title">LiveShortly · How it works</span>
-        <span className="lp-demo-badge">
-          <span className="live-dot" aria-hidden />
-          Demo
-        </span>
-      </div>
-      <div className="lp-demo-urlbar">🔒 live.example.com/session/lucid-cobra-6110</div>
-      <div className="lp-demo-body">
-        <div className="lp-demo-status">
-          <span className="live-dot" aria-hidden />
-          Live lucid-cobra-6110 · claude-opus-4-8
-        </div>
-
-        <div className="lp-demo-scene a">
-          <div className="lp-demo-bubble">
-            <span className="lp-demo-who">You</span>
-            build the JWT auth middleware
-          </div>
-        </div>
-        <div className="lp-demo-scene b">
-          <div className="lp-demo-tool">
-            <span className="w">Wrote</span>api/authn.go{" "}
-            <span style={{ color: "var(--green)" }}>+187</span>
-          </div>
-          <div className="lp-demo-resp">
-            <span className="lp-demo-who">Claude</span>
-            done — Authn now verifies Bearer + cookie tokens on every route
-          </div>
-        </div>
-      </div>
-      <div className="lp-demo-foot">
-        <span className="lp-demo-play" aria-hidden>
-          ▶
-        </span>
-        <span className="lp-demo-caption">Open the URL — watch it live</span>
-        <div className="lp-demo-track">
-          <div className="lp-demo-fill" />
-        </div>
-      </div>
+      {side}
     </div>
   );
 }
 
 /* ────────────────────────────────────────────────────────────────────────
-   Proof strip — real aggregate counts + the handles actually streaming.
+   Proof strip — real aggregate counts (zeros hidden) + who is streaming.
    ──────────────────────────────────────────────────────────────────────── */
 
 function Proof({
@@ -555,24 +334,29 @@ function Proof({
   liveOwners: string[];
   liveCount: number;
 }) {
+  const items = stats
+    ? (
+        [
+          [stats.total_sessions, "Sessions streamed"],
+          [stats.published, "Published"],
+          [stats.total_views, "Views"],
+          [stats.creators, "Creators"],
+        ] as const
+      ).filter(([v]) => v > 0)
+    : [];
+  if (items.length === 0 && liveOwners.length === 0) return null;
+
   return (
     <div className="lp-proof">
-      <div className="lp-proof-stat">
-        <span className="v tnum">{stats ? fmtInt(stats.total_sessions) : "—"}</span>
-        <span className="l">Total sessions</span>
-      </div>
-      <div className="lp-proof-sep" />
-      <div className="lp-proof-stat">
-        <span className="v tnum" style={{ color: "var(--green)" }}>
-          {stats ? fmtInt(stats.live_now) : "—"}
-        </span>
-        <span className="l">Live now</span>
-      </div>
-      <div className="lp-proof-sep" />
-      <div className="lp-proof-stat">
-        <span className="v tnum">{stats ? fmtInt(stats.creators) : "—"}</span>
-        <span className="l">Creators</span>
-      </div>
+      {items.map(([v, l], i) => (
+        <div key={l} style={{ display: "contents" }}>
+          {i > 0 && <div className="lp-proof-sep" />}
+          <div className="lp-proof-stat">
+            <span className="v tnum">{fmtInt(v)}</span>
+            <span className="l">{l}</span>
+          </div>
+        </div>
+      ))}
 
       {liveOwners.length > 0 && (
         <div className="lp-proof-watch">
@@ -597,320 +381,131 @@ function Proof({
   );
 }
 
-/* ────────────────────────────────────────────────────────────────────────
-   Feed cards
-   ──────────────────────────────────────────────────────────────────────── */
-
 function CardGrid({ sessions }: { sessions: Session[] }) {
   return (
     <div className="lp-grid">
-      {sessions.map((s) => (
-        <FeedCard key={s.id} session={s} />
+      {sessions.map((x) => (
+        <FeedCard key={x.id} session={x} />
       ))}
     </div>
   );
 }
 
 /* ────────────────────────────────────────────────────────────────────────
-   How it works — the real install → run → share flow with copyable commands.
+   How it works — install → run → share, each with its command and output.
    ──────────────────────────────────────────────────────────────────────── */
 
 function HowItWorks() {
-  // Type the full one-liner `live login && live claude` in step 2, animated.
-  const RUN_FLOW = `${LOGIN_CMD} && ${RUN_CMD}`;
-  const typedCmd = useTypewriter([RUN_FLOW]);
-  // Collapsed by default on mobile (tap the header to expand); open on desktop.
-  const [open, setOpen] = useState(true);
-  useEffect(() => {
-    setOpen(!window.matchMedia("(max-width: 760px)").matches);
-  }, []);
   return (
-    <details
-      className="lp-how-wrap"
-      open={open}
-      onToggle={(e) => setOpen(e.currentTarget.open)}
-    >
-      <summary className="lp-sec-head lp-how-summary">
-        <h2 className="lp-sec-title">How it works</h2>
-        <span className="lp-how-eyebrow">◦ Get started in 3 steps</span>
-      </summary>
-      <div className="lp-how">
-        <div className="lp-how-step">
-          <div className="lp-how-head">
-            <span className="lp-how-n tnum">01</span>
-            <span className="lp-how-h">Install Live</span>
-          </div>
-          <div className="lp-how-d">
-            One command drops the live CLI onto your PATH. Idempotent — rerun any
-            time to update.
-          </div>
-          <div className="lp-how-code">
-            <span className="cmd">
-              <b>$</b>
-              {INSTALL_CMD}
-            </span>
-            <CopyButton command={INSTALL_CMD} className="lp-how-copy" />
-          </div>
-          <Link href="/install" className="lp-how-sub">
-            All versions →
-          </Link>
-        </div>
-
-        <div className="lp-how-step">
-          <div className="lp-how-head">
-            <span className="lp-how-n tnum">02</span>
-            <span className="lp-how-h">Run Live Claude</span>
-          </div>
-          <div className="lp-how-d">
-            Configure your server using the <Link href="/install">install guide</Link>, then run <code>live login</code> and <code>live claude</code>{" "}
-            wraps Claude Code and opens a session, printing your share URL the
-            moment it starts streaming.
-          </div>
-          <div className="lp-how-code">
-            <span className="cmd">
-              <b>$</b>
-              <span className="lp-cmd-type">{typedCmd}</span>
-              <span className="lp-cmd-caret" aria-hidden>
-                ▋
-              </span>
-            </span>
-            <CopyButton command={RUN_FLOW} className="lp-how-copy" />
-          </div>
-          <div className="lp-how-sub" style={{ color: "var(--green)" }}>
-            ▸ Streaming · live.example.com/session/…
-          </div>
-        </div>
-
-        <div className="lp-how-step">
-          <div className="lp-how-head">
-            <span className="lp-how-n tnum">03</span>
-            <span className="lp-how-h">Share or Publish</span>
-          </div>
-          <div className="lp-how-d">
-            Open the URL to watch live from the browser, send a private link to a
-            teammate, or publish it to the public feed.
-          </div>
-          <div className="lp-how-badges">
-            {["Private Link", "Public Feed", "Open · No Login"].map((b) => (
-              <span key={b} className="lp-how-badge">
-                {b}
-              </span>
-            ))}
-          </div>
-        </div>
+    <section className="lp-how-wrap" aria-labelledby="how">
+      <div className="lp-sec-head">
+        <h2 id="how" className="lp-sec-title">
+          How it works
+        </h2>
       </div>
+      <ol className="lp-how" style={{ listStyle: "none", padding: 0, margin: "18px 0 0" }}>
+        <li className="lp-how-step">
+          <div className="lp-how-head">
+            <span className="lp-how-n tnum">1</span>
+            <h3 className="lp-how-h">Install the CLI</h3>
+          </div>
+          <div className="lp-how-d">
+            One command puts <code>live</code> on your PATH. macOS and Linux
+            (Windows via WSL).
+          </div>
+          <div style={{ marginTop: 12 }}>
+            <InstallCommand command={INSTALL_CMD} />
+          </div>
+          <p className={s.out}>installed → /usr/local/bin/live</p>
+        </li>
+
+        <li className="lp-how-step">
+          <div className="lp-how-head">
+            <span className="lp-how-n tnum">2</span>
+            <h3 className="lp-how-h">Sign in and run your agent</h3>
+          </div>
+          <div className="lp-how-d">
+            Sign in once (the <Link href="/install">install guide</Link> has
+            the one-time setup), then start your agent through{" "}
+            <code>live</code>.
+          </div>
+          <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
+            <InstallCommand command="live login" />
+            <InstallCommand command="live claude" />
+          </div>
+          <p className={s.out}>● live streaming → …/session/…</p>
+        </li>
+
+        <li className="lp-how-step">
+          <div className="lp-how-head">
+            <span className="lp-how-n tnum">3</span>
+            <h3 className="lp-how-h">Share or publish</h3>
+          </div>
+          <div className="lp-how-d">
+            Sessions start private. Send the link to a teammate, open it to
+            anyone with the link, or publish it to the public feed. Viewers
+            can comment while it runs, and it stays as a replay afterwards.
+          </div>
+        </li>
+      </ol>
 
       {/* The daemon is the one feature nobody discovers on their own: the UI
           that would advertise it (the "+ New session" button) only appears once
-          a machine is connected, so it stays invisible to exactly the people
-          who have not connected one. This is where they find out it exists. */}
+          a machine is connected. This is where they find out it exists. */}
       <div className="lp-daemon">
         <div className="lp-daemon-copy">
-          <div className="lp-daemon-eyebrow">◦ Or skip the terminal entirely</div>
-          <h3 className="lp-daemon-title">Start sessions from the browser</h3>
+          <h3 className="lp-daemon-title">Or start sessions from the browser</h3>
           <p className="lp-daemon-d">
-            Leave <code>live daemon</code> running in a project and{" "}
-            <b>+ New session</b> appears on the site. Pick the machine, the agent
-            and the directory, and it starts a real run there — same hooks, same
-            permission gating, same feed as if you had typed{" "}
-            <code>live claude</code> yourself. Take it over locally at any time.
+            Leave <code>live daemon</code> running and <b>New session</b>{" "}
+            appears on the site. Pick the machine, the agent and the directory,
+            and it starts a real run there, with the same permission prompts as
+            in your terminal. Take it over locally at any time.
           </p>
           <div className="lp-daemon-note">
-            Only the directories you name can ever be used, and only{" "}
-            <code>claude</code>, <code>codex</code> or <code>gemini</code> can be
-            started. Your machine builds the command — the server only names an
-            agent.
+            Only the directories you name can be used. Your machine builds the
+            command; the server only names an agent.
           </div>
         </div>
         <div className="lp-daemon-cmds">
-          <div className="lp-how-code">
-            <span className="cmd">
-              <b>$</b>
-              {DAEMON_CMD}
-            </span>
-            <CopyButton command={DAEMON_CMD} className="lp-how-copy" />
-          </div>
+          <InstallCommand command="live daemon --dir ~/code" />
           <div className="lp-daemon-cmd-note">
-            offers the current directory — repeat <code>--dir</code> for more
+            repeat <code>--dir</code> to offer more directories
           </div>
         </div>
       </div>
-    </details>
+    </section>
   );
 }
 
 function Footer() {
-  const year = new Date().getFullYear();
   return (
     <footer className="lp-foot">
+      <span style={{ display: "flex", flexWrap: "wrap", gap: "6px 14px" }}>
+        <Link href="/docs">Docs</Link>
+        <Link href="/install">Install</Link>
+        <Link href="/changelog">Changelog</Link>
+        <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer">
+          GitHub
+        </a>
+        <Link href="/install/self-host">Self-host</Link>
+      </span>
       <span>
-        <Link href="/docs" style={{ marginRight: 12, textDecoration: "underline", color: "var(--ink)" }}>
-          Documentation
-        </Link>
-        <Link href="/install" style={{ marginRight: 12, textDecoration: "underline", color: "var(--ink)" }}>
-          Install CLI
-        </Link>
-        Made with <span style={{ color: "var(--green)" }}>♥</span> by{" "}
+        Made by{" "}
         <a href="https://x.com/ironfisto/" target="_blank" rel="noopener noreferrer">
           @ironfisto
         </a>{" "}
         ·{" "}
         <a href="https://x.com/whorsehgal" target="_blank" rel="noopener noreferrer">
           @whorsehgal
-        </a>
+        </a>{" "}
+        · © LiveShortly
       </span>
-      <span>© {year} LiveShortly · All rights reserved</span>
     </footer>
   );
-}
-
-function CopyButton({
-  command,
-  className,
-}: {
-  command: string;
-  className?: string;
-}) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <button
-      type="button"
-      className={className}
-      aria-label={`Copy: ${command}`}
-      onClick={async () => {
-        try {
-          await navigator.clipboard.writeText(command);
-          setCopied(true);
-          setTimeout(() => setCopied(false), 1400);
-        } catch {
-          // clipboard may be blocked; the command is still selectable
-        }
-      }}
-    >
-      {copied ? "✓ Copied" : "⧉ Copy"}
-    </button>
-  );
-}
-
-/* ────────────────────────────────────────────────────────────────────────
-   Helpers
-   ──────────────────────────────────────────────────────────────────────── */
-
-interface Creator {
-  handle: string;
-  sessions: number;
-  views: number;
-}
-
-function dedupe(sessions: Session[]): Session[] {
-  const seen = new Set<string>();
-  return sessions.filter((s) => !seen.has(s.id) && seen.add(s.id));
-}
-
-/** Top publishers among the sessions currently loaded — sessions first, views
- *  as the tiebreak. Rolled up client-side from the feed the visitor can see. */
-function rollupCreators(sessions: Session[]): Creator[] {
-  const by = new Map<string, Creator>();
-  for (const s of sessions) {
-    const c = by.get(s.owner_handle) ?? {
-      handle: s.owner_handle,
-      sessions: 0,
-      views: 0,
-    };
-    c.sessions += 1;
-    c.views += s.view_count;
-    by.set(s.owner_handle, c);
-  }
-  return [...by.values()]
-    .sort((a, b) => b.sessions - a.sessions || b.views - a.views)
-    .slice(0, 3);
-}
-
-function rollupTags(sessions: Session[]): [string, number][] {
-  const counts = new Map<string, number>();
-  for (const s of sessions)
-    for (const t of s.tags ?? []) counts.set(t, (counts.get(t) ?? 0) + 1);
-  return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12);
-}
-
-const AVATAR_COLORS = [
-  "var(--admin)",
-  "var(--green)",
-  "var(--amber)",
-  "var(--faint)",
-];
-
-/** Stable colour per handle — same creator, same swatch, every render. */
-function avatarColor(handle: string): string {
-  let h = 0;
-  for (let i = 0; i < handle.length; i++) h = (h * 31 + handle.charCodeAt(i)) | 0;
-  return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
-}
-
-function initials(handle: string): string {
-  const parts = handle.replace(/[@_.-]+/g, " ").trim().split(/\s+/);
-  const a = parts[0]?.[0] ?? "?";
-  const b = parts.length > 1 ? parts[1][0] : (parts[0]?.[1] ?? "");
-  return (a + b).toUpperCase();
 }
 
 function joinHandles(handles: string[]): string {
   const hs = handles.map((h) => `@${h}`);
   if (hs.length === 1) return hs[0];
   return `${hs.slice(0, -1).join(", ")} & ${hs[hs.length - 1]}`;
-}
-
-/** Types a word out, holds, deletes it, moves to the next — forever. Viewers who
- *  ask for reduced motion get the first word, printed once. */
-function useTypewriter(words: string[]): string {
-  const [text, setText] = useState("");
-
-  useEffect(() => {
-    if (
-      typeof window !== "undefined" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    ) {
-      setText(words[0]);
-      return;
-    }
-
-    const TYPE_MS = 55;
-    const DELETE_MS = 32;
-    const HOLD_MS = 1500;
-    const GAP_MS = 300;
-    let wi = 0;
-    let ci = 0;
-    let deleting = false;
-    let timer: ReturnType<typeof setTimeout>;
-
-    const tick = () => {
-      const word = words[wi];
-      if (!deleting) {
-        ci++;
-        setText(word.slice(0, ci));
-        if (ci === word.length) {
-          deleting = true;
-          timer = setTimeout(tick, HOLD_MS);
-          return;
-        }
-        timer = setTimeout(tick, TYPE_MS);
-      } else {
-        ci--;
-        setText(word.slice(0, ci));
-        if (ci === 0) {
-          deleting = false;
-          wi = (wi + 1) % words.length;
-          timer = setTimeout(tick, GAP_MS);
-          return;
-        }
-        timer = setTimeout(tick, DELETE_MS);
-      }
-    };
-    timer = setTimeout(tick, TYPE_MS);
-    return () => clearTimeout(timer);
-    // `words` is a module-level constant list at every call site.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  return text;
 }

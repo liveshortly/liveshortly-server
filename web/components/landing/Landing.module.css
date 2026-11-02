@@ -1,0 +1,165 @@
+/* Landing (LSW-10): hero additions + the real-session replay. The older lp-*
+   classes in globals.css still carry the topbar, feed sections and steps. */
+.heroSolo {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+.title {
+  font-size: clamp(28px, 4.2vw, 40px);
+  line-height: 1.12;
+  letter-spacing: -0.025em;
+}
+.sub {
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--fg-2);
+  max-width: 52ch;
+  margin: 0 0 22px;
+}
+.install {
+  display: grid;
+  gap: 6px;
+  margin-top: 18px;
+  max-width: 560px;
+}
+.installLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fg-3);
+}
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin-top: 16px;
+  font-size: 13px;
+}
+.links a {
+  color: var(--fg-2);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.links a:hover {
+  color: var(--fg);
+}
+.sideLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fg-3);
+  margin-bottom: 8px;
+}
+
+/* ── replay ── */
+.replay {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  background: var(--surface);
+  overflow: hidden;
+  text-decoration: none;
+  color: inherit;
+}
+.replay:hover {
+  border-color: var(--line-strong);
+}
+.replay:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.replayBar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--hairline);
+  background: var(--raised);
+  min-width: 0;
+}
+.replayTag {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+}
+.replayTitle {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg);
+}
+.replayLines {
+  list-style: none;
+  margin: 0;
+  padding: 14px;
+  display: grid;
+  gap: 8px;
+  max-height: 340px;
+  overflow: hidden;
+  mask-image: linear-gradient(to bottom, #000 80%, transparent);
+}
+.replayLines li {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--fg);
+  overflow-wrap: anywhere;
+  animation: lineIn 380ms ease-out both;
+  animation-delay: calc(var(--i) * 650ms);
+}
+.who {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--fg-3);
+}
+.you {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--raised);
+}
+.agent .who {
+  color: var(--accent);
+}
+.replayLines .tool {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--fg-2);
+}
+@keyframes lineIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .replayLines li {
+    animation: none;
+  }
+}
+.replayFoot {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 6px 12px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--hairline);
+  font-size: 12px;
+  color: var(--fg-2);
+}
+.replayOpen {
+  font-weight: 600;
+  color: var(--fg);
+}
+
+/* ── how it works: expected output under each command ── */
+.out {
+  margin: 8px 0 0;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--fg-2);
+  overflow-wrap: anywhere;
+}

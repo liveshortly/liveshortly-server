@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import AuthGate from "@/components/AuthGate";
 import ThemeProvider, { themeInitScript } from "@/components/ThemeProvider";
+import { loadAll } from "./docs/docs";
 import "./globals.css";
 
 /* v4 type system: Inter carries all reading & UI; JetBrains Mono is semantic —
@@ -71,7 +72,9 @@ export default function RootLayout({
       </head>
       <body className={`${inter.variable} ${jbMono.variable}`}>
         <ThemeProvider>
-          <AuthGate>{children}</AuthGate>
+          <AuthGate docs={loadAll().map(({ slug, title }) => ({ slug, title }))}>
+            {children}
+          </AuthGate>
         </ThemeProvider>
       </body>
     </html>

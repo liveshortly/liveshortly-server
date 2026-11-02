@@ -139,6 +139,10 @@ type Session struct {
 	// LastEvent is a list-row enrichment: the most recent human-meaningful
 	// event (prompt/response/viewer_comment) so rows can say what happened last.
 	LastEvent *LastEvent `json:"last_event,omitempty"`
+	// SuggestedTitle is a list-row enrichment for sessions the owner never
+	// renamed: a title derived from the first prompt. Title keeps the
+	// generated name as the slug. LSW-09.
+	SuggestedTitle *string `json:"suggested_title,omitempty"`
 
 	// --- Handoff / fork lineage ---
 	// ForkCount is the total number of sessions forked from this one (denormalised,
@@ -785,9 +789,9 @@ func (st *Store) LastMeaningfulEvents(ctx context.Context, ids []string) (map[st
 	return out, rows.Err()
 }
 
-// eventSnippet pulls the human text out of an event payload, flattened and
-// truncated for a one-line row subtitle.
-func eventSnippet(payload []byte) string {
+// eventText pulls the human text out of an event payload; eventSnippet
+// flattens and truncates it for a one-line row subtitle.
+func eventText(payload []byte) string {
 	// Same key precedence the web/app body helpers use.
 	var p struct {
 		Message string `json:"message"`
@@ -796,8 +800,11 @@ func eventSnippet(payload []byte) string {
 		Prompt  string `json:"prompt"`
 	}
 	_ = json.Unmarshal(payload, &p)
-	s := firstNonEmptyStr(p.Message, p.Text, p.Content, p.Prompt)
-	s = strings.Join(strings.Fields(s), " ")
+	return firstNonEmptyStr(p.Message, p.Text, p.Content, p.Prompt)
+}
+
+func eventSnippet(payload []byte) string {
+	s := strings.Join(strings.Fields(eventText(payload)), " ")
 	if r := []rune(s); len(r) > 140 {
 		s = string(r[:140]) + "…"
 	}
@@ -811,6 +818,68 @@ func firstNonEmptyStr(vals ...string) string {
 		}
 	}
 	return ""
+}
+
+// SuggestedTitles returns, per session id, a title derived from the first
+// prompt — only for sessions whose owner never renamed them (custom_title is
+// false). One query for a whole list page; LSW-09.
+func (st *Store) SuggestedTitles(ctx context.Context, ids []string) (map[string]string, error) {
+	out := map[string]string{}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	const q = `
+		SELECT DISTINCT ON (e.session_id) e.session_id, e.payload
+		FROM session_events e JOIN sessions s ON s.id = e.session_id
+		WHERE e.session_id = ANY($1) AND NOT s.custom_title AND e.event_type = 'prompt'
+		ORDER BY e.session_id, e.seq ASC`
+	rows, err := st.pool.Query(ctx, q, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var sid string
+		var payload []byte
+		if err := rows.Scan(&sid, &payload); err != nil {
+			return nil, err
+		}
+		if t := SuggestTitle(eventText(payload)); t != "" {
+			out[sid] = t
+		}
+	}
+	return out, rows.Err()
+}
+
+// SuggestTitle turns a prompt into a short row title, deterministically: the
+// first non-empty line, markdown/quote lead-ins dropped, whitespace collapsed,
+// cut to 60 runes on a word boundary, first letter upper-cased. "" when too
+// little is left to name anything.
+func SuggestTitle(prompt string) string {
+	line := ""
+	for _, l := range strings.Split(prompt, "\n") {
+		if l = strings.TrimSpace(l); l != "" {
+			line = l
+			break
+		}
+	}
+	line = strings.TrimLeft(line, "#>*-`\"' ")
+	line = strings.Join(strings.Fields(line), " ")
+	line = strings.TrimRight(line, ".:;,`\"' ")
+	r := []rune(line)
+	const max = 60
+	if len(r) > max {
+		cut := string(r[:max])
+		if i := strings.LastIndex(cut, " "); i > 30 {
+			cut = cut[:i]
+		}
+		line = strings.TrimRight(cut, ".:;, ") + "…"
+		r = []rune(line)
+	}
+	if len(r) < 3 {
+		return ""
+	}
+	return strings.ToUpper(string(r[0])) + string(r[1:])
 }
 
 // GetEvents returns all persisted events for a session ordered by seq ascending.

@@ -261,6 +261,18 @@ func (h *Handler) ListSessions(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
+		// Prompt-derived titles for never-renamed rows (LSW-09). Prompt text,
+		// so shared rows get it redacted like the subtitle (LSW-23).
+		if titles, terr := h.store.SuggestedTitles(r.Context(), ids); terr == nil {
+			for i := range results {
+				if t, ok := titles[results[i].ID]; ok {
+					if results[i].OwnerID != p.ID {
+						t = redact.Text(t)
+					}
+					results[i].SuggestedTitle = &t
+				}
+			}
+		}
 	}
 
 	httpx.JSON(w, http.StatusOK, map[string]any{

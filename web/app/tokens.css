@@ -42,9 +42,7 @@
   --win-zoom: #28c840;
 }
 
-/* .ins-hero is an always-dark band. */
-:root[data-theme="dark"],
-.ins-hero {
+:root[data-theme="dark"] {
   color-scheme: dark;
   --canvas: #121110;
   --surface: #1a1916;
@@ -65,10 +63,9 @@
   --code-bg: #0c0b0a;
 }
 
-/* Derived tokens + the names existing components use. Re-declared on dark
-   scopes so they resolve against that scope's palette. */
-:root,
-.ins-hero {
+/* Derived tokens + the names existing components use. A nested dark scope
+   must re-declare these so they resolve against its palette. */
+:root {
   --ok: var(--accent);
   --accent-soft: color-mix(in srgb, var(--accent) 12%, transparent);
   --green-tint: color-mix(in srgb, var(--accent) 8%, transparent);
