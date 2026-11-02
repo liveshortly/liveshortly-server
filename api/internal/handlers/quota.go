@@ -55,7 +55,7 @@ func (h *Handler) handleQuotaCrossing(ctx context.Context, sessionID string, ev 
 		Reason:         "quota",
 		SummaryURL:     "/api/sessions/" + sessionID + "/summary.md",
 		HandoffCode:    code,
-		HandoffCommand: "live claude --handoff " + code,
+		HandoffCommand: handoffCommandFor(ctx, h, sessionID, code),
 	}
 }
 
@@ -114,4 +114,13 @@ func jsonMsg(v map[string]any) json.RawMessage {
 		return json.RawMessage("{}")
 	}
 	return b
+}
+
+// handoffCommandFor continues a quota-ended session in the same agent.
+func handoffCommandFor(ctx context.Context, h *Handler, sessionID, code string) string {
+	s, err := h.store.GetSession(ctx, sessionID)
+	if err != nil {
+		return handoff.Command(nil, code)
+	}
+	return handoff.Command(s, code)
 }

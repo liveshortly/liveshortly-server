@@ -204,7 +204,7 @@ export function toolSummary(call: SessionEvent): string {
   const tool = str(call.payload, "tool") ?? str(call.payload, "tool_name") ?? "tool";
   const input = (call.payload?.input ?? {}) as P;
   let gist: string | undefined;
-  if (tool === "Bash") {
+  if (tool === "Bash" || tool === "Shell") {
     gist = (str(input, "command") ?? str(call.payload, "command"))?.split("\n")[0];
   } else if (["Edit", "Write", "MultiEdit", "Read", "NotebookEdit"].includes(tool)) {
     const path = str(input, "file_path");

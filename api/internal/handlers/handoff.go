@@ -80,18 +80,12 @@ func (h *Handler) GenerateHandoff(w http.ResponseWriter, r *http.Request) {
 
 	now := time.Now()
 	code := handoff.Sign(h.cfg.SessionSecret, id, snapshot, handoff.DefaultTTL, now)
-	agent := "claude"
-	if s.Agent != nil && *s.Agent == "gemini-cli" {
-		agent = "gemini"
-	} else if s.Agent != nil && *s.Agent == "codex" {
-		agent = "codex"
-	}
 	httpx.JSON(w, http.StatusOK, handoffResp{
 		Code:        code,
 		SessionID:   id,
 		SnapshotSeq: snapshot,
 		ExpiresAt:   now.Add(handoff.DefaultTTL),
-		Command:     "live " + agent + " --handoff " + code,
+		Command:     handoff.Command(s, code),
 	})
 }
 
