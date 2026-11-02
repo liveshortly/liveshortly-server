@@ -83,6 +83,7 @@ func (st *Store) ResolvePendingShares(ctx context.Context, email, userID string)
 type RefreshToken struct {
 	ID     string
 	UserID string
+	Label  string
 }
 
 // InsertRefreshToken stores a hashed refresh token and returns its id.
@@ -95,9 +96,9 @@ func (st *Store) InsertRefreshToken(ctx context.Context, userID, tokenHash, labe
 
 // RefreshTokenByHash returns the active (non-revoked) token for a hash, or nil.
 func (st *Store) RefreshTokenByHash(ctx context.Context, tokenHash string) (*RefreshToken, error) {
-	const q = `SELECT id, user_id FROM refresh_tokens WHERE token_hash = $1 AND revoked_at IS NULL`
+	const q = `SELECT id, user_id, COALESCE(label, '') FROM refresh_tokens WHERE token_hash = $1 AND revoked_at IS NULL`
 	var rt RefreshToken
-	err := st.pool.QueryRow(ctx, q, tokenHash).Scan(&rt.ID, &rt.UserID)
+	err := st.pool.QueryRow(ctx, q, tokenHash).Scan(&rt.ID, &rt.UserID, &rt.Label)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -105,6 +106,33 @@ func (st *Store) RefreshTokenByHash(ctx context.Context, tokenHash string) (*Ref
 		return nil, err
 	}
 	return &rt, nil
+}
+
+// ActiveToken is one signed-in CLI/device as shown in web settings. Tokens
+// rotate on every refresh, so CreatedAt is when the device last refreshed.
+type ActiveToken struct {
+	ID        string    `json:"id"`
+	Label     string    `json:"label"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// ListActiveRefreshTokens returns userID's non-revoked tokens, newest first.
+func (st *Store) ListActiveRefreshTokens(ctx context.Context, userID string) ([]ActiveToken, error) {
+	rows, err := st.pool.Query(ctx, `SELECT id, COALESCE(label, ''), created_at FROM refresh_tokens
+		WHERE user_id = $1 AND revoked_at IS NULL ORDER BY created_at DESC`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []ActiveToken{}
+	for rows.Next() {
+		var t ActiveToken
+		if err := rows.Scan(&t.ID, &t.Label, &t.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, t)
+	}
+	return out, rows.Err()
 }
 
 // TouchRefreshToken stamps last_used_at on a token (best-effort).

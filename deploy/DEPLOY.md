@@ -121,6 +121,24 @@ rebuilt box is fully configured by re-running the deploy.
 The workflow refuses to write a partial env file: a missing secret would
 otherwise take the api down on its next restart, with a non-obvious cause.
 
+### Optional: Web Push for approval requests (LSW-21)
+
+Signed-in owners can get a browser notification when an agent asks permission,
+even with the tab closed. It needs a VAPID private key in `api.env`
+(`VAPID_PRIVATE_KEY`, plus `VAPID_SUBJECT`, e.g. `mailto:ops@example.com`); the
+API derives the public key. Unset, Web Push is off and the in-app bell still
+works. The deploy workflow does not write it yet. Never commit the key —
+rotating it invalidates every browser subscription.
+
+```bash
+# base64url raw 32-byte P-256 private key
+openssl ecparam -name prime256v1 -genkey -noout -outform DER \
+  | tail -c +8 | head -c 32 | base64 | tr '+/' '-_' | tr -d '='
+```
+
+Self-hosting with Docker Compose is covered in `web/content/docs/self-hosting.md`
+(served at `/docs/self-hosting`).
+
 ## 4. Services
 
 The api is a static Go binary at `/opt/liveshortly/api/server`; the web is a

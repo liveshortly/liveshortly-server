@@ -85,7 +85,7 @@ Modern software engineering is transitioning rapidly toward **Agentic AI Coding 
 Pair programming with AI often requires sharing progress with teammates, junior developers, or public audiences. Screen-sharing tools (Zoom, Discord, Twitch) consume significant bandwidth, pixelate text, blur code diffs, provide no interactive inspection of tool calls, and prevent late joiners from reviewing what happened earlier.
 
 #### The Solution
-- Run `live claude` (or `live <agent>`). A lightweight Go sidecar creates a session and returns a clean URL: `https://liveshortly.com/session/<id>`.
+- Run `live claude` (or `live <agent>`). A lightweight Go sidecar creates a session and returns a clean URL: `https://live.example.com/session/<id>`.
 - The Web UI renders a **Financial-Terminal HUD** (light and dark mode) showing live turns, tool calls, file diffs (`+`/`-`), and command outputs in crisp monospace typography.
 - Late joiners connect via SSE, automatically replay the Redis sequence buffer to catch up from seq 1, and seamlessly transition into the live real-time stream.
 - Live presence tracks active watchers via ephemeral Redis ZSETs and displays a pulsating `● LIVE` badge and live UTC clock.
@@ -251,7 +251,7 @@ Developers who live inside tmux and Neovim do not want to switch context to a we
 Creating authentic technical content (tutorials, case studies, architectural post-mortems) requires tedious manual recording, screenshotting, and transcribing of terminal sessions.
 
 #### The Solution
-- **Public Feed & Search:** 1-click **Publish** makes any session discoverable on `liveshortly.com/feed` with full-text search (`tsvector` across titles, hero snippets, and tags).
+- **Public Feed & Search:** 1-click **Publish** makes any session discoverable on your instance’s `/feed` page with full-text search (`tsvector` across titles, hero snippets, and tags).
 - **Dev Story Mode (`/story/[id]`):** Generates an editorial summary containing duration, token expenditure, key file edits, and turn breakdowns.
 - **Dynamic Open Graph & Twitter Cards:** Server-rendered visual cards rendered in the app's monospace theme showing live status, author avatar, prompt snippets, and view counts.
 - **1-Click Share to X:** Flips privacy to public and opens a pre-formatted tweet with title, tags, and direct replay link.
@@ -392,7 +392,8 @@ sequenceDiagram
 ### Installation
 ```bash
 # macOS & Linux (Prebuilt binary, auto-checksummed)
-curl -fsSL https://liveshortly.com/i.sh | bash
+curl -fsSL https://raw.githubusercontent.com/liveshortly/live-dist/main/install.sh | bash
+# Deploy your web server and configure ~/.liveshortly/host.json before login.
 
 # Homebrew (macOS / Linux)
 brew tap liveshortly/tap
@@ -603,6 +604,6 @@ For Claude Code, messages are delivered via the `hookSpecificOutput.additionalCo
 
 **LiveShortly** · *Stream, Replay, and Steer AI Coding Sessions.*
 <br/>
-[liveshortly.com](https://liveshortly.com) · [GitHub Repository](https://github.com/liveshortly/liveshortly-server)
+[Self-hosting guide](../deploy/DEPLOY.md) · [GitHub Repository](https://github.com/liveshortly/liveshortly-server)
 
 </div>

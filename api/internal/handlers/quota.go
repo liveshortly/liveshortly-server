@@ -94,7 +94,7 @@ func (h *Handler) SummaryMarkdown(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusInternalServerError, "failed to load session")
 		return
 	}
-	bundle, err := h.buildBundleCtx(r.Context(), s, snapshot)
+	bundle, err := h.buildBundleCtx(r.Context(), s, snapshot, s.OwnerID != p.ID)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "failed to build summary")
 		return

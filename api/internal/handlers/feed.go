@@ -10,6 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"liveshortly/internal/httpx"
+	"liveshortly/internal/redact"
 	"liveshortly/internal/store"
 )
 
@@ -62,7 +63,8 @@ func (h *Handler) Feed(w http.ResponseWriter, r *http.Request) {
 			httpx.Error(w, http.StatusInternalServerError, "failed to load live feed")
 			return
 		}
-		httpx.JSON(w, http.StatusOK, map[string]any{"results": results, "next_cursor": ""})
+		h.suggestTitles(r, results)
+		writeFeed(w, results, "")
 		return
 	}
 	if q != "" {
@@ -77,7 +79,8 @@ func (h *Handler) Feed(w http.ResponseWriter, r *http.Request) {
 		if len(results) == limit {
 			next = encodeOffsetCursor(offset + limit)
 		}
-		httpx.JSON(w, http.StatusOK, map[string]any{"results": results, "next_cursor": next})
+		h.suggestTitles(r, results)
+		writeFeed(w, results, next)
 		return
 	}
 
@@ -94,6 +97,16 @@ func (h *Handler) Feed(w http.ResponseWriter, r *http.Request) {
 		if last.PublishedAt != nil {
 			next = encodeKeysetCursor(*last.PublishedAt, last.ID)
 		}
+	}
+	h.suggestTitles(r, results)
+	writeFeed(w, results, next)
+}
+
+// writeFeed serves a feed page. The feed is public, so every row is redacted
+// (home paths, emails, capture host) before it leaves the server (LSW-14).
+func writeFeed(w http.ResponseWriter, results []store.Session, next string) {
+	for i := range results {
+		publicSession(&results[i])
 	}
 	httpx.JSON(w, http.StatusOK, map[string]any{"results": results, "next_cursor": next})
 }
@@ -141,4 +154,36 @@ func decodeOffsetCursor(s string) int {
 		return 0
 	}
 	return n
+}
+
+// publicEvents redacts event payloads (every JSON string: tool inputs/outputs,
+// paths, diffs, commands) and actors before they are served to a non-owner.
+// LSW-23.
+func publicEvents(evs []store.Event) {
+	for i := range evs {
+		evs[i].Payload = redact.JSON(evs[i].Payload)
+		if evs[i].Actor != nil {
+			a := redact.Text(*evs[i].Actor)
+			evs[i].Actor = &a
+		}
+	}
+}
+
+// publicSession scrubs a session row before it is served to someone who is
+// not its owner: title, suggested title + hero snippet redacted, the user@host capture handle
+// dropped, and an email-shaped owner handle cut to its local part.
+func publicSession(s *store.Session) {
+	s.Title = redact.Text(s.Title)
+	if s.SuggestedTitle != nil {
+		t := redact.Text(*s.SuggestedTitle)
+		s.SuggestedTitle = &t
+	}
+	if s.Hero != nil {
+		h := redact.Text(*s.Hero)
+		s.Hero = &h
+	}
+	s.ClientHandle = nil
+	if i := strings.IndexByte(s.OwnerHandle, '@'); i > 0 {
+		s.OwnerHandle = s.OwnerHandle[:i]
+	}
 }

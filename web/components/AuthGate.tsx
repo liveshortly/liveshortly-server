@@ -1,41 +1,40 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AuthContext } from "@/components/AuthContext";
 import AppShell from "@/components/AppShell";
-import BrandMark from "@/components/BrandMark";
+import AppFooter from "@/components/AppFooter";
 import Landing from "@/components/Landing";
-import ThemeToggle from "@/components/ThemeToggle";
-import { loginUrl, me as fetchMe, type Me } from "@/lib/api";
+import Topbar from "@/components/Topbar";
+import type { DocLink } from "@/components/CommandPalette";
+import { me as fetchMe, type Me } from "@/lib/api";
+import { isPrivate } from "@/lib/routes";
+import s from "./shell.module.css";
 
 type Phase = "loading" | "authed" | "anon";
 
 /**
- * AuthN gate for the whole app. Checks GET /api/me on mount:
- * - loading  → minimal placeholder
- * - anon     → marketing landing page (product pitch + sign-in/up + the
- *              public feed), EXCEPT on /session/*, which may be watchable
- *              anonymously (visibility="open"); that route gets a minimal
- *              guest header instead and decides access itself from the API
- *              response (401 there prompts sign-in inline).
- * - authed   → HUD header (with the user) + the requested page
+ * Client-side auth enhancement. Checks GET /api/me on mount, but public pages
+ * never wait on it — their server-rendered content shows immediately:
+ * - authed     → app shell (with the user) + the requested page
+ * - `/`        → the page itself (the landing; middleware already sent
+ *                signed-in visitors to /sessions)
+ * - public/404 → the one header + the page + the one footer; swaps to the
+ *                shell if /api/me says the visitor is signed in
+ * - private    → placeholder while checking, landing if the cookie was stale
  */
-export default function AuthGate({ children }: { children: React.ReactNode }) {
+export default function AuthGate({
+  docs,
+  children,
+}: {
+  /** Docs titles for the ⌘K palette (read on the server in app/layout.tsx). */
+  docs: DocLink[];
+  children: React.ReactNode;
+}) {
   const [phase, setPhase] = useState<Phase>("loading");
   const [user, setUser] = useState<Me | null>(null);
-  const pathname = usePathname();
-  const isSessionRoute = pathname?.startsWith("/session/") ?? false;
-  // Routes an anonymous visitor may see directly (with a guest header) instead
-  // of the marketing landing page — session watch, docs, install, feed, replay, story.
-  const isPublicRoute =
-    isSessionRoute ||
-    (pathname?.startsWith("/docs") ?? false) ||
-    (pathname?.startsWith("/install") ?? false) ||
-    (pathname?.startsWith("/feed") ?? false) ||
-    (pathname?.startsWith("/replay/") ?? false) ||
-    (pathname?.startsWith("/story/") ?? false);
+  const pathname = usePathname() ?? "/";
 
   useEffect(() => {
     let alive = true;
@@ -61,7 +60,18 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  if (phase === "loading") {
+  if (phase === "authed" && user) {
+    return (
+      <AuthContext.Provider value={user}>
+        <AppShell user={user} docs={docs}>
+          {children}
+        </AppShell>
+      </AuthContext.Provider>
+    );
+  }
+
+  if (isPrivate(pathname)) {
+    if (phase === "anon") return <Landing />;
     return (
       <div
         style={{
@@ -79,93 +89,22 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (phase === "anon" || !user) {
-    if (isPublicRoute) {
-      return (
-        <AuthContext.Provider value={null}>
-          <GuestHeader />
-          <main className="app-main">{children}</main>
-        </AuthContext.Provider>
-      );
-    }
-    return <Landing />;
-  }
-
   return (
-    <AuthContext.Provider value={user}>
-      <AppShell user={user}>{children}</AppShell>
+    <AuthContext.Provider value={null}>
+      <a href="#main" className={s.skip}>
+        Skip to content
+      </a>
+      {pathname === "/" ? (
+        children
+      ) : (
+        <>
+          <Topbar user={null} pending={phase === "loading"} />
+          <main id="main" className="app-main">
+            {children}
+          </main>
+          <AppFooter />
+        </>
+      )}
     </AuthContext.Provider>
-  );
-}
-
-/** Minimal top bar shown to anonymous visitors watching an open session link. */
-function GuestHeader() {
-  return (
-    <header
-      style={{
-        borderBottom: "1px solid var(--strong)",
-        background: "var(--panel)",
-      }}
-    >
-      <div
-        style={{
-          maxWidth: 1180,
-          margin: "0 auto",
-          padding: "12px 16px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 12,
-          flexWrap: "wrap",
-        }}
-      >
-        <Link
-          href="/"
-          aria-label="LiveShortly home"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 9,
-            fontSize: 18,
-            fontWeight: 700,
-            letterSpacing: "-0.02em",
-          }}
-        >
-          <BrandMark />
-          LiveShortly
-          <span className="blink" style={{ color: "var(--muted)" }}>
-            _
-          </span>
-        </Link>
-        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <Link
-            href="/docs"
-            style={{
-              fontSize: 13,
-              fontFamily: "monospace",
-              color: "var(--ink)",
-              textDecoration: "none",
-            }}
-          >
-            Docs
-          </Link>
-          <Link
-            href="/install"
-            style={{
-              fontSize: 13,
-              fontFamily: "monospace",
-              color: "var(--ink)",
-              textDecoration: "none",
-            }}
-          >
-            ⇩ Install CLI
-          </Link>
-          <ThemeToggle />
-          <a href={loginUrl()} className="lp-signin-btn">
-            Sign in
-          </a>
-        </div>
-      </div>
-    </header>
   );
 }

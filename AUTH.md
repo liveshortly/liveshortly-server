@@ -17,12 +17,12 @@ The old `X-LiveShortly-Handle` ownership is REMOVED (kept only as an optional di
 - **Refresh token**: opaque `lsr_<hex>`, stored **sha256-hashed** in `refresh_tokens`; used to mint new access tokens.
 
 ## Device-flow OAuth (CLI login) — endpoints at root (nginx routes `/auth/`, `/device`)
-1. `POST /auth/device/start` → `{device_code, user_code, verification_uri, verification_uri_complete, interval:5, expires_in:600}`. Server stores `device_code → {user_code, status:"pending", user_id:null}` in Redis (TTL 600).
+1. `POST /auth/device/start` (optional body `{device_name?, os?}`, each clipped to 64 chars; they label the resulting token, e.g. `rohit-mbp (darwin)`) → `{device_code, user_code, verification_uri, verification_uri_complete, interval:5, expires_in:600}`. Server stores `device_code → {user_code, status:"pending", user_id:null}` in Redis (TTL 600).
 2. `GET /device?code=USER_CODE` → HTML approval page. If no valid `ls_session` cookie → redirect to `/auth/google/login?next=/device?code=USER_CODE`. If logged in → show "Approve CLI access for &lt;email&gt;" + Approve button.
-3. `POST /auth/device/approve` (cookie-authed) `{user_code}` → bind device's `user_id`=current user, status="approved".
-4. `POST /auth/device/poll` `{device_code}` → `{status:"pending"}` (200) until approved, then `{access_token, refresh_token, expires_in, token_type:"Bearer", user:{email,name}}` and consume the code.
+3. `POST /auth/device/approve` (cookie-authed; form or JSON `{user_code}`) → bind device's `user_id`=current user, status="approved". `POST /auth/device/deny` (same auth/body) → status="denied". A code is decided **once**: a second approve/deny gets **409** `code already used` (no re-binding to another account, no flipping a denial). Both refuse a cross-site browser POST with **403**: a request with an `Origin` header must match the API host, `WEB_BASE_URL`'s host, or an `OAUTH_ALLOWED_HOSTS` entry (no `Origin` → allowed; the SameSite cookie covers it).
+4. `POST /auth/device/poll` `{device_code}` → `{status:"pending"}` (200) until decided. Approved → `{access_token, refresh_token, expires_in, token_type:"Bearer", user:{email,name}}`; denied → **403** `access_denied`. Either way the code is consumed.
 5. `POST /auth/token` `{grant_type:"refresh_token", refresh_token}` → `{access_token, expires_in}` (validate hash, not revoked; rotate refresh optionally).
-6. `POST /auth/logout` (web) clears cookie. `DELETE /auth/tokens/{id}` revokes a refresh token.
+6. `POST /auth/logout` (web) clears cookie. `GET /api/me/tokens` → `{tokens:[{id, label, created_at}]}`, the caller's signed-in CLIs (non-revoked refresh tokens, newest first; tokens rotate on refresh, so `created_at` is the last refresh). `DELETE /auth/tokens/{id}` revokes one (`204`, `404` if not yours) and every access token minted from it, immediately.
 
 ## Middleware (replaces the old web/CLI split)
 Resolve the principal for every `/api` request:
@@ -76,7 +76,7 @@ quota_exempt` (effective limits, override → config default).
 ## CLI shared credential store
 File: `~/.liveshortly/credentials.json` (mode 0600):
 ```json
-{ "api_url":"https://server.liveshortly.com", "access_token":"...", "refresh_token":"lsr_...",
+{ "api_url":"https://live.example.com", "access_token":"...", "refresh_token":"lsr_...",
   "expires_at":"RFC3339", "user":{"email":"...","name":"..."} }
 ```
 Plugin behavior:

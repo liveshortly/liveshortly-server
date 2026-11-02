@@ -29,6 +29,10 @@ const nextConfig: NextConfig = {
       { source: "/device/:path*", destination: `${api}/device/:path*` },
     ];
   },
+  // /hud was a second copy of /sessions (LSW-03): one dashboard now.
+  async redirects() {
+    return [{ source: "/hud/:path*", destination: "/sessions", permanent: true }];
+  },
   async headers() {
     // The HTML documents reference content-hashed JS/CSS bundles. If a shared
     // cache (CDN) holds the HTML for a long time, it keeps pointing at the OLD

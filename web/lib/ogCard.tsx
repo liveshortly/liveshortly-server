@@ -28,6 +28,7 @@ export function ogCard(o: {
   title: string;
   status?: "live" | "ended" | null;
   model?: string | null;
+  agent?: string | null; // e.g. "Claude Code"
   shortId?: string;
   snippet?: string | null; // hero snippet
   highlight?: string | null; // a real line from the session (prompt/response)
@@ -56,14 +57,26 @@ export function ogCard(o: {
     >
       {/* Brand strip */}
       <div style={{ display: "flex", alignItems: "center" }}>
-        <div
-          style={{ width: 30, height: 30, background: C.green, borderRadius: 7 }}
-        />
+        {/* The brand mark (components/BrandMark.tsx), in literal colours. */}
+        <svg width="34" height="34" viewBox="0 0 32 32">
+          <rect width="32" height="32" rx="6" fill={C.green} />
+          <rect x="7" y="8.5" width="6.5" height="15" rx="1.5" fill={C.panel} />
+          <rect
+            x="16.5"
+            y="8.5"
+            width="8.5"
+            height="15"
+            rx="1.5"
+            fill={C.green}
+            stroke={C.panel}
+            strokeWidth="2"
+          />
+        </svg>
         <div style={{ fontSize: 26, fontWeight: 700, marginLeft: 14 }}>
           LiveShortly
         </div>
         <div style={{ display: "flex", flex: 1 }} />
-        <div style={{ fontSize: 22, color: C.muted }}>liveshortly.com</div>
+        <div style={{ fontSize: 22, color: C.muted }}>LiveShortly</div>
       </div>
 
       {/* The session card */}
@@ -78,7 +91,7 @@ export function ogCard(o: {
         }}
       >
         {/* Header: status badge + model (only for real sessions) */}
-        {(o.status != null || o.model) && (
+        {(o.status != null || o.model || o.agent) && (
           <div
             style={{
               display: "flex",
@@ -104,9 +117,9 @@ export function ogCard(o: {
             ) : (
               <div style={{ display: "flex" }} />
             )}
-            {o.model && (
+            {(o.agent || o.model) && (
               <div style={{ fontSize: 24, color: C.muted, letterSpacing: 1 }}>
-                {o.model.toUpperCase()}
+                {[o.agent, o.model].filter(Boolean).join(" · ").toUpperCase()}
               </div>
             )}
           </div>

@@ -1,0 +1,150 @@
+.page {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: var(--space-32) var(--space-16) var(--space-56);
+  color: var(--fg);
+}
+
+.page h1,
+.page h2 {
+  margin: 0;
+}
+
+.toc {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8) var(--space-16);
+  margin: var(--space-16) 0 var(--space-24);
+}
+
+.toc a {
+  color: var(--fg-2);
+}
+
+.toc a:hover {
+  color: var(--fg);
+}
+
+.section {
+  padding: var(--space-24) 0;
+  border-top: 1px solid var(--hairline);
+  scroll-margin-top: var(--space-56);
+}
+
+.section > h2 {
+  margin-bottom: var(--space-12);
+}
+
+.note {
+  color: var(--fg-2);
+  margin: var(--space-4) 0 0;
+}
+
+.error {
+  color: var(--bad);
+}
+
+.account {
+  display: flex;
+  gap: var(--space-16);
+  align-items: flex-start;
+}
+
+.avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-hud);
+  border: 1px solid var(--hairline);
+  object-fit: cover;
+}
+
+.fields {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-8) var(--space-16);
+  align-items: baseline;
+  margin: 0;
+  min-width: 0;
+}
+
+.fields dt {
+  color: var(--fg-3);
+}
+
+.fields dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-16);
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.choices legend {
+  padding: 0;
+  margin-bottom: var(--space-8);
+}
+
+.choices label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  cursor: pointer;
+}
+
+.choices input {
+  accent-color: var(--accent);
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-16);
+}
+
+.list {
+  list-style: none;
+  margin: var(--space-12) 0 0;
+  padding: 0;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-hud);
+  background: var(--surface);
+}
+
+.item {
+  padding: var(--space-12) var(--space-16);
+}
+
+.item + .item {
+  border-top: 1px solid var(--hairline);
+}
+
+.dirs {
+  list-style: none;
+  margin: var(--space-8) 0 0;
+  padding: 0;
+  color: var(--fg-2);
+  overflow-wrap: anywhere;
+}
+
+.button {
+  font: 600 var(--text-callout)/1 var(--font-sans);
+  padding: var(--space-8) var(--space-12);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-hud);
+  background: var(--raised);
+  color: var(--fg);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.button:hover {
+  border-color: var(--fg-3);
+}
+

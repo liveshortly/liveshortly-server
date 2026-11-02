@@ -15,6 +15,9 @@ export type WorkspaceDrawer = {
   toggle: () => void;
 };
 
+/** The drawer's element id, for the toggles' aria-controls. */
+export const SIDEBAR_ID = "ws-sidebar";
+
 export const WorkspaceDrawerContext = createContext<WorkspaceDrawer | null>(
   null,
 );

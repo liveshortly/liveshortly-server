@@ -1,0 +1,80 @@
+# Standalone self-hosted stack. See deploy/DEPLOY.md; use --env-file explicitly.
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: liveshortly
+      POSTGRES_DB: liveshortly
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./api/infra/postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./api/infra/postgres/002-auth.sql:/docker-entrypoint-initdb.d/02-auth.sql:ro
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U liveshortly -d liveshortly]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: [redis-server, --appendonly, "yes", --maxmemory-policy, noeviction]
+    volumes: [redis_data:/data]
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  api:
+    build: ./api
+    restart: unless-stopped
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    environment:
+      PORT: "8000"
+      DATABASE_URL: postgresql://liveshortly:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@postgres:5432/liveshortly
+      REDIS_URL: redis://redis:6379
+      STORAGE_PATH: /app/data/sessions
+      CORS_ORIGINS: ${PUBLIC_ORIGIN:-http://localhost:8080}
+      WEB_BASE_URL: ${PUBLIC_ORIGIN:-http://localhost:8080}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?Set GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:?Set GOOGLE_CLIENT_SECRET}
+      SESSION_SECRET: ${SESSION_SECRET:?Set SESSION_SECRET}
+      # Optional Web Push for approval requests; empty disables it (deploy/DEPLOY.md).
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-}
+    volumes: [api_data:/app/data/sessions]
+    healthcheck:
+      test: [CMD, wget, -qO-, "http://127.0.0.1:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+  web:
+    build:
+      context: ./web
+      args:
+        NEXT_PUBLIC_API_URL: ${PUBLIC_ORIGIN:-http://localhost:8080}
+        NEXT_PUBLIC_SITE_URL: ${PUBLIC_ORIGIN:-http://localhost:8080}
+    restart: unless-stopped
+    depends_on:
+      api: {condition: service_healthy}
+    environment:
+      API_INTERNAL_URL: http://api:8000
+      NEXT_PUBLIC_API_URL: ${PUBLIC_ORIGIN:-http://localhost:8080}
+      NEXT_PUBLIC_SITE_URL: ${PUBLIC_ORIGIN:-http://localhost:8080}
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on: [api, web]
+    environment:
+      PUBLIC_SCHEME: ${PUBLIC_SCHEME:-http}
+    ports: ["${BIND_ADDRESS:-127.0.0.1}:${HTTP_PORT:-8080}:8080"]
+    volumes:
+      - ./deploy/nginx/selfhost.conf.template:/etc/nginx/templates/default.conf.template:ro
+volumes:
+  postgres_data:
+  redis_data:
+  api_data:

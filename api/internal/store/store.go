@@ -13,6 +13,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"liveshortly/internal/redact"
 )
 
 // Store wraps a pgx connection pool.
@@ -137,6 +139,13 @@ type Session struct {
 	// LastEvent is a list-row enrichment: the most recent human-meaningful
 	// event (prompt/response/viewer_comment) so rows can say what happened last.
 	LastEvent *LastEvent `json:"last_event,omitempty"`
+	// SuggestedTitle is a list-row enrichment for sessions the owner never
+	// renamed: a title derived from the first prompt. Title keeps the
+	// generated name as the slug. LSW-09.
+	SuggestedTitle *string `json:"suggested_title,omitempty"`
+	// Unread is a list-row enrichment: events after the caller's last-seen
+	// seq (session_seen). 0/absent for sessions the caller never opened. LSW-32.
+	Unread int `json:"unread,omitempty"`
 
 	// --- Handoff / fork lineage ---
 	// ForkCount is the total number of sessions forked from this one (denormalised,
@@ -600,7 +609,24 @@ func (st *Store) GetEventsUpTo(ctx context.Context, sessionID string, snapshot i
 	const q = `
 		SELECT id, session_id, seq, actor, event_type, payload, ts
 		FROM session_events WHERE session_id = $1 AND seq <= $2 ORDER BY seq ASC`
-	rows, err := st.pool.Query(ctx, q, sessionID, snapshot)
+	return st.queryEvents(ctx, q, sessionID, snapshot)
+}
+
+// GetEventsSince returns a session's events with seq > sinceSeq, ascending —
+// the incremental fetch behind `GET /api/sessions/{id}?since_seq=N` (LSI-10).
+// A client that already holds events up to N asks only for what it is missing;
+// passing 0 is the same as the full list.
+func (st *Store) GetEventsSince(ctx context.Context, sessionID string, sinceSeq int) ([]Event, error) {
+	const q = `
+		SELECT id, session_id, seq, actor, event_type, payload, ts
+		FROM session_events WHERE session_id = $1 AND seq > $2 ORDER BY seq ASC`
+	return st.queryEvents(ctx, q, sessionID, sinceSeq)
+}
+
+// queryEvents runs an event query whose columns are the standard seven, in
+// order. Shared so the three event reads cannot drift in their scanning.
+func (st *Store) queryEvents(ctx context.Context, q string, args ...any) ([]Event, error) {
+	rows, err := st.pool.Query(ctx, q, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -766,9 +792,9 @@ func (st *Store) LastMeaningfulEvents(ctx context.Context, ids []string) (map[st
 	return out, rows.Err()
 }
 
-// eventSnippet pulls the human text out of an event payload, flattened and
-// truncated for a one-line row subtitle.
-func eventSnippet(payload []byte) string {
+// eventText pulls the human text out of an event payload; eventSnippet
+// flattens and truncates it for a one-line row subtitle.
+func eventText(payload []byte) string {
 	// Same key precedence the web/app body helpers use.
 	var p struct {
 		Message string `json:"message"`
@@ -777,8 +803,11 @@ func eventSnippet(payload []byte) string {
 		Prompt  string `json:"prompt"`
 	}
 	_ = json.Unmarshal(payload, &p)
-	s := firstNonEmptyStr(p.Message, p.Text, p.Content, p.Prompt)
-	s = strings.Join(strings.Fields(s), " ")
+	return firstNonEmptyStr(p.Message, p.Text, p.Content, p.Prompt)
+}
+
+func eventSnippet(payload []byte) string {
+	s := strings.Join(strings.Fields(eventText(payload)), " ")
 	if r := []rune(s); len(r) > 140 {
 		s = string(r[:140]) + "…"
 	}
@@ -794,28 +823,74 @@ func firstNonEmptyStr(vals ...string) string {
 	return ""
 }
 
+// SuggestedTitles returns, per session id, a title derived from the first
+// prompt — only for sessions whose owner never renamed them (custom_title is
+// false). One query for a whole list page; LSW-09.
+func (st *Store) SuggestedTitles(ctx context.Context, ids []string) (map[string]string, error) {
+	out := map[string]string{}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	const q = `
+		SELECT DISTINCT ON (e.session_id) e.session_id, e.payload
+		FROM session_events e JOIN sessions s ON s.id = e.session_id
+		WHERE e.session_id = ANY($1) AND NOT s.custom_title AND e.event_type = 'prompt'
+		ORDER BY e.session_id, e.seq ASC`
+	rows, err := st.pool.Query(ctx, q, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var sid string
+		var payload []byte
+		if err := rows.Scan(&sid, &payload); err != nil {
+			return nil, err
+		}
+		if t := SuggestTitle(eventText(payload)); t != "" {
+			out[sid] = t
+		}
+	}
+	return out, rows.Err()
+}
+
+// SuggestTitle turns a prompt into a short row title, deterministically: the
+// first non-empty line, markdown/quote lead-ins dropped, whitespace collapsed,
+// cut to 60 runes on a word boundary, first letter upper-cased. "" when too
+// little is left to name anything.
+func SuggestTitle(prompt string) string {
+	line := ""
+	for _, l := range strings.Split(prompt, "\n") {
+		if l = strings.TrimSpace(l); l != "" {
+			line = l
+			break
+		}
+	}
+	line = strings.TrimLeft(line, "#>*-`\"' ")
+	line = strings.Join(strings.Fields(line), " ")
+	line = strings.TrimRight(line, ".:;,`\"' ")
+	r := []rune(line)
+	const max = 60
+	if len(r) > max {
+		cut := string(r[:max])
+		if i := strings.LastIndex(cut, " "); i > 30 {
+			cut = cut[:i]
+		}
+		line = strings.TrimRight(cut, ".:;, ") + "…"
+		r = []rune(line)
+	}
+	if len(r) < 3 {
+		return ""
+	}
+	return strings.ToUpper(string(r[0])) + string(r[1:])
+}
+
 // GetEvents returns all persisted events for a session ordered by seq ascending.
 func (st *Store) GetEvents(ctx context.Context, sessionID string) ([]Event, error) {
 	const q = `
 		SELECT id, session_id, seq, actor, event_type, payload, ts
 		FROM session_events WHERE session_id = $1 ORDER BY seq ASC`
-	rows, err := st.pool.Query(ctx, q, sessionID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	out := []Event{}
-	for rows.Next() {
-		var e Event
-		var payload []byte
-		if err := rows.Scan(&e.ID, &e.SessionID, &e.Seq, &e.Actor, &e.EventType, &payload, &e.TS); err != nil {
-			return nil, err
-		}
-		e.Payload = json.RawMessage(payload)
-		out = append(out, e)
-	}
-	return out, rows.Err()
+	return st.queryEvents(ctx, q, sessionID)
 }
 
 // InsertEvent persists one event with a pre-allocated seq and returns it.
@@ -917,6 +992,45 @@ func (st *Store) AutoEndQuota(ctx context.Context, id string) (*Session, error) 
 		return nil, err
 	}
 	return st.GetSession(ctx, id)
+}
+
+// MarkSeen records that userID has seen sessionID up to seq. The mark never
+// moves backwards, so a stale tab can't resurrect read events as unread.
+func (st *Store) MarkSeen(ctx context.Context, userID, sessionID string, seq int) error {
+	_, err := st.pool.Exec(ctx, `
+		INSERT INTO session_seen (user_id, session_id, seq) VALUES ($1, $2, $3)
+		ON CONFLICT (user_id, session_id) DO UPDATE
+		SET seq = GREATEST(session_seen.seq, EXCLUDED.seq), seen_at = now()`,
+		userID, sessionID, seq)
+	return err
+}
+
+// UnreadCounts returns, per session id, how many events came after userID's
+// last-seen seq. Sessions the user never opened are absent (no badge). One
+// query for a whole list page; the count walks the (session_id, seq) index.
+func (st *Store) UnreadCounts(ctx context.Context, userID string, ids []string) (map[string]int, error) {
+	out := map[string]int{}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	rows, err := st.pool.Query(ctx, `
+		SELECT ss.session_id,
+		       (SELECT count(*) FROM session_events e WHERE e.session_id = ss.session_id AND e.seq > ss.seq)
+		FROM session_seen ss WHERE ss.user_id = $1 AND ss.session_id = ANY($2)`,
+		userID, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var sid string
+		var n int
+		if err := rows.Scan(&sid, &n); err != nil {
+			return nil, err
+		}
+		out[sid] = n
+	}
+	return out, rows.Err()
 }
 
 // IncViewCount bumps view_count by one (best-effort by the caller).
@@ -1057,7 +1171,8 @@ func (st *Store) PublishSession(ctx context.Context, id string) (*Session, error
 	if s == nil {
 		return nil, nil
 	}
-	hero := st.heroForSession(ctx, id, s.Title)
+	// Redacted at write too, so home paths never enter the search index.
+	hero := redact.Text(st.heroForSession(ctx, id, s.Title))
 	const q = `UPDATE sessions
 		SET published_at = COALESCE(published_at, now()),
 		    visibility = 'public',
@@ -1084,11 +1199,15 @@ func (st *Store) UnpublishSession(ctx context.Context, id string) (*Session, err
 	return st.GetSession(ctx, id)
 }
 
+// feedListable keeps empty sessions out of browse/search (still reachable by
+// link). Live sessions are exempt: they may just not have emitted yet. LSW-14.
+const feedListable = " AND (s.event_count > 0 OR s.status = 'live')"
+
 // FeedBrowse returns a page of published sessions newest-first, using keyset
 // pagination on (published_at, id). Pass a nil cursor for the first page.
 func (st *Store) FeedBrowse(ctx context.Context, beforePublished *time.Time, beforeID string, limit int) ([]Session, error) {
 	args := []any{}
-	where := "WHERE s.published_at IS NOT NULL"
+	where := "WHERE s.published_at IS NOT NULL" + feedListable
 	if beforePublished != nil {
 		where += " AND (s.published_at, s.id) < ($1, $2)"
 		args = append(args, *beforePublished, beforeID)
@@ -1111,7 +1230,7 @@ func (st *Store) FeedLive(ctx context.Context, limit int) ([]Session, error) {
 // FeedSearch returns published sessions ranked by full-text relevance to q.
 func (st *Store) FeedSearch(ctx context.Context, q string, offset, limit int) ([]Session, error) {
 	const sql = "SELECT " + sessionSelectExpr + sessionFrom +
-		" WHERE s.published_at IS NOT NULL" +
+		" WHERE s.published_at IS NOT NULL" + feedListable +
 		" AND s.search_vector @@ websearch_to_tsquery('english', $1)" +
 		" ORDER BY ts_rank(s.search_vector, websearch_to_tsquery('english', $1)) DESC," +
 		" s.published_at DESC, s.id DESC LIMIT $2 OFFSET $3"
