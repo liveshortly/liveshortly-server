@@ -25,7 +25,7 @@ export default function DesignPage() {
 
   const row = { display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" } as const;
   return (
-    <main style={{ display: "grid", gap: 32, padding: "32px 0" }}>
+    <div style={{ display: "grid", gap: 32, padding: "32px 0" }}>
       <h1 className="t-display">Components</h1>
 
       <section style={{ display: "grid", gap: 12 }}>
@@ -114,6 +114,6 @@ export default function DesignPage() {
           ))}
         </div>
       </section>
-    </main>
+    </div>
   );
 }

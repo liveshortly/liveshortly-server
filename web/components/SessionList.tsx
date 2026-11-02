@@ -619,7 +619,7 @@ function ListRow({
             {displayTitle(r)}
           </span>
         )}
-        <span className={`t-caption ${s.sub}`}>
+        <span className={`t-caption ${s.sub}`} role={renameErr ? "alert" : undefined}>
           {renameErr ? "Couldn't rename — press Enter to retry" : subtitle(r)}
         </span>
       </span>

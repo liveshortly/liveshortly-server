@@ -82,7 +82,7 @@
   margin-top: 12px;
 }
 
-.group h4 {
+.group > :is(h3, h4) {
   margin: 0 0 6px;
 }
 
@@ -90,7 +90,7 @@
   color: var(--ink);
 }
 
-@media (max-width: 640px) {
+@media (max-width: 767px) {
   .entry {
     grid-template-columns: 1fr;
     gap: 8px;

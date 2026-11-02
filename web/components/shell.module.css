@@ -15,17 +15,6 @@
   top: var(--space-8);
 }
 
-.header a:focus-visible,
-.header button:focus-visible,
-.sidebar a:focus-visible,
-.sidebar button:focus-visible,
-.sidebar input:focus-visible,
-.tab:focus-visible,
-.searchBtn:focus-visible,
-.sheetNav a:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
 
 /* ── Header ────────────────────────────────────────────────────────── */
 .header {
@@ -38,6 +27,9 @@
   border-bottom: 1px solid var(--hairline);
   background: var(--surface);
   color: var(--fg);
+  /* The last icon's centred tooltip pokes past the right edge on phones;
+     clip sideways only so dropdowns still hang below. */
+  overflow-x: clip;
 }
 .brand {
   display: flex;
@@ -147,10 +139,8 @@
   .headerEnd {
     gap: 2px;
   }
-}
-/* The session view goes full screen with its own top bar at this width
-   (globals.css session-page mobile layout). */
-@media (max-width: 860px) {
+  /* The session view goes full screen with its own top bar on phones
+     (globals.css session-page phone layout). */
   :global(body:has(.session-page)) .header {
     display: none;
   }
@@ -181,6 +171,8 @@
 }
 .search:focus-within {
   border-color: var(--accent);
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
 }
 .search input {
   width: 100%;
@@ -393,6 +385,10 @@
 .prompt {
   color: var(--accent);
   font: 600 var(--text-title) / 1 var(--font-mono);
+}
+.paletteField:focus-within {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
 }
 .paletteField input {
   flex: 1;

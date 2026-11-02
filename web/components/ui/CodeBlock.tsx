@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ComponentProps } from "react";
 import Button from "./Button";
 import s from "./ui.module.css";
 
@@ -29,4 +29,10 @@ export default function CodeBlock({ code, copy, label }: { code: string; copy?: 
       )}
     </div>
   );
+}
+
+/** A markdown <pre> (react-markdown `components.pre`): it scrolls sideways, so
+ *  it takes keyboard focus (WCAG 2.1.1). */
+export function ScrollPre({ node: _node, ...p }: ComponentProps<"pre"> & { node?: unknown }) {
+  return <pre tabIndex={0} {...p} />;
 }

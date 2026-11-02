@@ -6,7 +6,8 @@
     "prebuild": "node scripts/sync-changelogs.mjs && node scripts/gen-cli-ref.mjs",
     "dev": "next dev",
     "build": "next build",
-    "start": "next start -H 0.0.0.0 -p 3000"
+    "start": "next start -H 0.0.0.0 -p 3000",
+    "a11y": "npm run build && node scripts/check-a11y.mjs"
   },
   "dependencies": {
     "next": "^15.3.0",
@@ -20,6 +21,8 @@
     "@types/node": "^20.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "axe-core": "^4.14.0",
+    "puppeteer-core": "^25.16.0",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.0.0"
   }

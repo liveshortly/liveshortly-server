@@ -10,6 +10,7 @@ import Topbar from "@/components/Topbar";
 import type { DocLink } from "@/components/CommandPalette";
 import { me as fetchMe, type Me } from "@/lib/api";
 import { isPrivate } from "@/lib/routes";
+import s from "./shell.module.css";
 
 type Phase = "loading" | "authed" | "anon";
 
@@ -90,6 +91,9 @@ export default function AuthGate({
 
   return (
     <AuthContext.Provider value={null}>
+      <a href="#main" className={s.skip}>
+        Skip to content
+      </a>
       {pathname === "/" ? (
         children
       ) : (

@@ -1,4 +1,4 @@
-/* Docs app: left nav · content · "On this page". One column under 960px,
+/* Docs app: left nav · content · "On this page". One column at tablet width and below (≤1100px),
    where the nav becomes a toggled sheet and the TOC a dropdown. */
 .shell {
   max-width: 1200px;
@@ -45,7 +45,7 @@
 }
 
 .search:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 1px;
 }
 
@@ -277,7 +277,7 @@
   display: none;
 }
 
-@media (max-width: 960px) {
+@media (max-width: 1100px) {
   .shell {
     grid-template-columns: minmax(0, 1fr);
     gap: var(--space-16);

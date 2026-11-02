@@ -147,8 +147,14 @@ export default function SessionCard({
           <span style={{ color: "var(--hairline)" }}>·</span>
           <span>{timeAgo(session.ended_at ?? session.created_at)}</span>
           <span style={{ marginLeft: "auto", display: "inline-flex", gap: 8 }}>
-            <span title="events">⚙ {fmtInt(session.event_count)}</span>
-            <span title="views">◔ {fmtInt(session.view_count)}</span>
+            <span title="events">
+              <span aria-hidden>⚙</span> {fmtInt(session.event_count)}
+              <span className="sr-only"> events</span>
+            </span>
+            <span title="views">
+              <span aria-hidden>◔</span> {fmtInt(session.view_count)}
+              <span className="sr-only"> views</span>
+            </span>
           </span>
         </div>
       </Link>

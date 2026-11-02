@@ -1,5 +1,6 @@
-// WCAG AA check for text/background token pairs in app/tokens.css.
-// Run: node scripts/check-contrast.mjs  (exits 1 if any pair is below 4.5:1)
+// WCAG AA check for text/background token pairs in app/tokens.css, plus the
+// focus ring against every surface it can sit on (WCAG 1.4.11 non-text, 3:1).
+// Run: node scripts/check-contrast.mjs  (exits 1 if any pair is below its minimum)
 import { readFileSync } from "node:fs";
 
 const css = readFileSync(new URL("../app/tokens.css", import.meta.url), "utf8");
@@ -34,17 +35,19 @@ const pairs = [
   ),
   ["on-accent", "accent"],
   ["code-ink", "code-bg"],
+  // Non-text: the focus ring (2px, offset 2px) sits on these.
+  ...["canvas", "surface", "raised", "sunken", "code-bg"].map((b) => ["focus-ring", b, 3]),
 ];
 
 let fails = 0;
 for (const [name, t] of [["light", light], ["dark", dark]]) {
-  for (const [fg, bg] of pairs) {
+  for (const [fg, bg, min = 4.5] of pairs) {
     if (!t[fg] || !t[bg]) throw new Error(`missing --${fg} or --${bg} (${name})`);
     const r = ratio(t[fg], t[bg]);
-    const ok = r >= 4.5;
+    const ok = r >= min;
     if (!ok) fails++;
-    console.log(`${ok ? "ok  " : "FAIL"} ${name.padEnd(5)} --${fg} on --${bg}: ${r.toFixed(2)}`);
+    console.log(`${ok ? "ok  " : "FAIL"} ${name.padEnd(5)} --${fg} on --${bg}: ${r.toFixed(2)} (min ${min})`);
   }
 }
-console.log(fails ? `\n${fails} pair(s) below AA 4.5:1` : "\nAll pairs pass AA 4.5:1");
+console.log(fails ? `\n${fails} pair(s) below their AA minimum` : "\nAll pairs pass AA (text 4.5:1, focus ring 3:1)");
 process.exit(fails ? 1 : 0);

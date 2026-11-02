@@ -33,7 +33,10 @@ export default function InstallCommand({
           {prompt}
         </span>
       )}
-      <code className={multiline ? s.block : s.line}>{command}</code>
+      {/* A multi-line block scrolls sideways: focusable so keys can scroll it. */}
+      <code className={multiline ? s.block : s.line} tabIndex={multiline ? 0 : undefined}>
+        {command}
+      </code>
       <button
         type="button"
         onClick={copy}

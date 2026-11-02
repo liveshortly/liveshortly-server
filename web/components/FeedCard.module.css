@@ -1,4 +1,5 @@
 .card {
+  container-type: inline-size;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -89,4 +90,15 @@
 
 .stats {
   margin-left: auto;
+}
+
+/* A narrow card (one column on phones, or a crowded grid) stacks the footer
+   so the author name keeps room. */
+@container (max-width: 300px) {
+  .stats {
+    margin-left: 0;
+  }
+  .author > span {
+    max-width: 100%;
+  }
 }

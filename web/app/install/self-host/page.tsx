@@ -34,7 +34,7 @@ live daemon --server --dir /path/to/project`;
 
 export default function SelfHostPage() {
   return (
-    <main className={s.page}>
+    <div className={s.page}>
       <header className={s.head}>
         <h1 className={s.title}>Self-host LiveShortly</h1>
         <p className={s.lede}>
@@ -103,6 +103,6 @@ export default function SelfHostPage() {
           </div>
         </div>
       </section>
-    </main>
+    </div>
   );
 }
