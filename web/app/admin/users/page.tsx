@@ -45,7 +45,7 @@ export default function AdminUsersPage() {
         sub={users ? `${fmtInt(users.length)} accounts` : undefined}
       />
       {err ? (
-        <div className="label" style={{ color: "var(--red)" }}>
+        <div role="alert" className="label" style={{ color: "var(--red)" }}>
           ⚠ {err}
         </div>
       ) : !users ? (
@@ -177,6 +177,7 @@ function AdminToggle({
       )}
       {err && (
         <span
+          role="alert"
           className="label"
           style={{ color: "var(--red)", maxWidth: 240, whiteSpace: "normal" }}
           title={err}
@@ -285,7 +286,11 @@ function QuotaControls({
         <SmallBtn onClick={() => save({ quota_exempt: true })} disabled={busy}>
           Remove limits
         </SmallBtn>
-        {err && <span className="label" style={{ color: "var(--red)" }}>⚠</span>}
+        {err && (
+          <span role="alert" className="label" style={{ color: "var(--red)" }}>
+            ⚠<span className="sr-only"> Couldn&apos;t save the limits</span>
+          </span>
+        )}
       </div>
     );
   }
@@ -306,10 +311,14 @@ function QuotaControls({
       >
         {busy ? "…" : "Save"}
       </SmallBtn>
-      <SmallBtn onClick={() => setEditing(false)} disabled={busy}>
+      <SmallBtn onClick={() => setEditing(false)} disabled={busy} aria-label="Cancel">
         ✕
       </SmallBtn>
-      {err && <span className="label" style={{ color: "var(--red)" }}>⚠</span>}
+      {err && (
+          <span role="alert" className="label" style={{ color: "var(--red)" }}>
+            ⚠<span className="sr-only"> Couldn&apos;t save the limits</span>
+          </span>
+        )}
     </div>
   );
 }
@@ -340,7 +349,6 @@ function QuotaInput({
           color: "var(--ink)",
           padding: "3px 6px",
           fontSize: 12,
-          outline: "none",
         }}
       />
       <span className="label" style={{ color: "var(--muted)" }}>
@@ -355,19 +363,23 @@ function SmallBtn({
   onClick,
   disabled,
   primary,
+  "aria-label": ariaLabel,
 }: {
   children: React.ReactNode;
   onClick: () => void;
   disabled?: boolean;
   primary?: boolean;
+  "aria-label"?: string;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
+      aria-label={ariaLabel}
       className="label"
       style={{
+        minHeight: 24, // WCAG 2.5.8 target size
         border: `1px solid ${primary ? "var(--admin)" : "var(--hairline)"}`,
         background: primary ? "var(--admin)" : "transparent",
         color: primary ? "var(--panel)" : "var(--ink)",

@@ -173,13 +173,12 @@ function FeedInner({ initial }: { initial: FeedPage | null }) {
       <SearchBox query={query} onQuery={setQuery} />
 
       {!searching && agents.length > 1 && (
-        <div className={st.tabs} role="tablist" aria-label="Filter by agent">
+        <div className={st.tabs} role="group" aria-label="Filter by agent">
           {[null, ...agents].map((a) => (
             <button
               key={a ?? "all"}
               type="button"
-              role="tab"
-              aria-selected={agent === a}
+              aria-pressed={agent === a}
               className={st.tab}
               onClick={() => setAgent(a)}
             >

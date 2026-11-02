@@ -9,7 +9,7 @@
 }
 /* Phones: full screen, only the transcript scrolls. Tripled class to beat the
    globals' `.ws-main .session-page` / mobile `height: auto` rules. */
-@media (max-width: 860px) {
+@media (max-width: 767px) {
   .page.page.page {
     height: 100dvh;
     min-height: 0;
@@ -77,6 +77,9 @@
 
 /* ── Status strip ─────────────────────────────────────────────────── */
 .strip {
+  /* Sized by the pane, not the viewport: the sidebar and the ⌘I panel both
+     narrow it on desktop. */
+  container: strip / inline-size;
   background: var(--surface);
   border-bottom: 1px solid var(--hairline);
   padding: var(--space-8) var(--space-16);
@@ -104,14 +107,6 @@
 }
 .titleBtn:hover {
   text-decoration: underline dotted;
-}
-.titleBtn:focus-visible,
-.back:focus-visible,
-.reviewRow:focus-visible,
-.send:focus-visible,
-.modelSelect:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
 }
 .renameField {
   min-width: 0;
@@ -146,6 +141,17 @@
 .modelSelect {
   cursor: pointer;
 }
+/* A narrow strip drops the nice-to-haves (watcher count, plain model chip)
+   before the title gets squeezed. */
+@container strip (max-width: 600px) {
+  .stripRow {
+    gap: var(--space-8);
+  }
+  .stripRow > .muted,
+  .stripRow > .chip:not(.modelSelect) {
+    display: none;
+  }
+}
 .metaLine {
   display: flex;
   flex-wrap: wrap;
@@ -167,7 +173,7 @@
   line-height: 1;
   text-decoration: none;
 }
-@media (max-width: 860px) {
+@media (max-width: 767px) {
   .mobileOnly {
     display: inline-flex;
   }
@@ -246,10 +252,18 @@
   flex-direction: column;
   gap: var(--space-12);
 }
-@media (max-width: 640px) {
+/* Phones: the review sheet is full screen (LSW-19), not a bottom sheet. */
+@media (max-width: 767px) {
+  :global(dialog):has(.review) {
+    height: 100dvh;
+    max-height: 100dvh;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+  }
   .review {
     width: auto;
-    height: calc(100dvh - 140px);
+    height: calc(100dvh - 104px - env(safe-area-inset-bottom));
   }
 }
 .reviewBody {
@@ -335,7 +349,7 @@
   font: inherit;
 }
 .field:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus-ring);
   outline-offset: -1px;
 }
 .field::placeholder {
@@ -358,7 +372,7 @@
   opacity: 0.4;
   cursor: default;
 }
-@media (max-width: 640px) {
+@media (max-width: 767px) {
   .hint {
     display: none;
   }

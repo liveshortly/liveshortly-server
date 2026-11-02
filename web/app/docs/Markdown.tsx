@@ -2,6 +2,7 @@ import Link from "next/link";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { Element, ElementContent } from "hast";
+import { ScrollPre } from "@/components/ui/CodeBlock";
 import { slugify } from "./docs";
 import s from "./docs.module.css";
 
@@ -26,6 +27,7 @@ function heading(Tag: "h2" | "h3"): Components["h2"] {
 }
 
 const components: Components = {
+  pre: ScrollPre,
   h2: heading("h2"),
   h3: heading("h3"),
   a: ({ href = "", children }) =>

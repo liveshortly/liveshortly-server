@@ -97,6 +97,27 @@ jobs:
       - run: node scripts/check-contrast.mjs
         working-directory: web
 
+  a11y:
+    name: web — axe (WCAG 2.2 AA, public pages)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      # Builds, starts `next start` with no API, and runs axe-core over the
+      # public pages (light + dark, phone + desktop) in the runner's
+      # preinstalled Chrome. Fails on any serious/critical violation.
+      # Signed-in pages are not covered (they need the API and a session).
+      - run: npm ci && npm run a11y
+        working-directory: web
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+          CHROME_PATH: /usr/bin/google-chrome
+
   stack:
     name: stack — build artifacts + boot as services + smoke test
     runs-on: ubuntu-latest
