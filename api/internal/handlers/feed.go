@@ -153,6 +153,19 @@ func decodeOffsetCursor(s string) int {
 	return n
 }
 
+// publicEvents redacts event payloads (every JSON string: tool inputs/outputs,
+// paths, diffs, commands) and actors before they are served to a non-owner.
+// LSW-23.
+func publicEvents(evs []store.Event) {
+	for i := range evs {
+		evs[i].Payload = redact.JSON(evs[i].Payload)
+		if evs[i].Actor != nil {
+			a := redact.Text(*evs[i].Actor)
+			evs[i].Actor = &a
+		}
+	}
+}
+
 // publicSession scrubs a session row before it is served to someone who is
 // not its owner: title + hero snippet redacted, the user@host capture handle
 // dropped, and an email-shaped owner handle cut to its local part.

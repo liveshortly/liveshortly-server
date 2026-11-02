@@ -5,7 +5,7 @@ import Link from "next/link";
 import { logout as apiLogout, type Me } from "@/lib/api";
 
 /**
- * Avatar trigger + dropdown menu. Items: Admin (admins only), Profile, Log out.
+ * Avatar trigger + dropdown menu. Items: Admin (admins only), Profile, Settings, Log out.
  * `direction` controls whether the menu grows down (topbar) or up (sidebar
  * footer). The trigger is supplied by the caller so each placement keeps its
  * own avatar/layout; this component only owns the open/close + menu.
@@ -86,6 +86,14 @@ export default function ProfileMenu({
             onClick={() => setOpen(false)}
           >
             Profile
+          </Link>
+          <Link
+            href="/settings"
+            className="pm-item"
+            role="menuitem"
+            onClick={() => setOpen(false)}
+          >
+            Settings
           </Link>
           <button
             type="button"

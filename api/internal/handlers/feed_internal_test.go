@@ -24,3 +24,16 @@ func TestPublicSessionRedacts(t *testing.T) {
 		t.Errorf("owner=%q hero=%q", s.OwnerHandle, *s.Hero)
 	}
 }
+
+// Event payloads + actors served to non-owners carry no home path or email (LSW-23).
+func TestPublicEventsRedacts(t *testing.T) {
+	actor := "rohit@example.com"
+	evs := []store.Event{{Actor: &actor, Payload: json.RawMessage(`{"input":{"file_path":"/Users/rohit/a.go"},"lines":["cd /home/rohit"]}`)}}
+	publicEvents(evs)
+	b, _ := json.Marshal(evs)
+	for _, leak := range []string{"/Users/", "/home/", "rohit@", "example.com"} {
+		if strings.Contains(string(b), leak) {
+			t.Errorf("event leaks %q: %s", leak, b)
+		}
+	}
+}

@@ -189,6 +189,13 @@ func (g *GoogleAuth) Me(w http.ResponseWriter, r *http.Request) {
 		body["max_live_sessions"] = qu.MaxLiveSessions
 		body["quota_exempt"] = qu.QuotaExempt
 	}
+	// Handle + avatar come from the account record (best-effort, like quota).
+	if u, err := g.store.GetUserByID(r.Context(), c.UserID); err == nil && u != nil {
+		body["handle"] = u.Handle
+		if u.AvatarURL != "" {
+			body["picture"] = u.AvatarURL
+		}
+	}
 	httpx.JSON(w, http.StatusOK, body)
 }
 
@@ -240,7 +247,12 @@ func (g *GoogleAuth) Token(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusInternalServerError, "failed to rotate token")
 		return
 	}
-	if _, err := g.store.InsertRefreshToken(ctx, u.ID, newHash, "cli"); err != nil {
+	// Keep the device label across rotation so settings can still name it.
+	label := rt.Label
+	if label == "" {
+		label = "cli"
+	}
+	if _, err := g.store.InsertRefreshToken(ctx, u.ID, newHash, label); err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "failed to store token")
 		return
 	}
@@ -252,6 +264,22 @@ func (g *GoogleAuth) Token(w http.ResponseWriter, r *http.Request) {
 		"expires_in":    g.mgr.AccessTTLSeconds(),
 		"token_type":    "Bearer",
 	})
+}
+
+// ListTokens lists the caller's signed-in CLIs/devices (active refresh tokens).
+// GET /api/me/tokens. Revoke one with DELETE /auth/tokens/{id}.
+func (g *GoogleAuth) ListTokens(w http.ResponseWriter, r *http.Request) {
+	c, ok := g.mgr.FromRequest(r)
+	if !ok {
+		httpx.JSON(w, http.StatusUnauthorized, map[string]any{"authenticated": false})
+		return
+	}
+	tokens, err := g.store.ListActiveRefreshTokens(r.Context(), c.UserID)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to list tokens")
+		return
+	}
+	httpx.JSON(w, http.StatusOK, map[string]any{"tokens": tokens})
 }
 
 // RevokeToken revokes one of the caller's refresh tokens. DELETE /auth/tokens/{id}.

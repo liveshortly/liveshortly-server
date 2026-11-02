@@ -3,7 +3,7 @@
   "version": "4.0.0",
   "private": true,
   "scripts": {
-    "prebuild": "node scripts/sync-changelogs.mjs",
+    "prebuild": "node scripts/sync-changelogs.mjs && node scripts/gen-cli-ref.mjs",
     "dev": "next dev",
     "build": "next build",
     "start": "next start -H 0.0.0.0 -p 3000"
