@@ -95,13 +95,6 @@ a {
   border-bottom: 1px dashed var(--hairline);
 }
 
-/* Loading placeholder block (see components/Skeleton.tsx) — static, not
-   shimmering, per the near-static design note above. */
-.skel {
-  display: inline-block;
-  background: var(--hairline);
-}
-
 /* Card/tile hover lift, shared by feed tiles and hero. */
 .lift {
   transition: border-color 120ms, box-shadow 120ms, transform 120ms;
@@ -1109,20 +1102,6 @@ a {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.hud-row-badge {
-  font-size: 9.5px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  padding: 3px 8px;
-  border: 1px solid var(--hairline);
-  color: var(--muted);
-  flex-shrink: 0;
-  white-space: nowrap;
-}
-.hud-row-badge.live {
-  color: var(--green);
-  border-color: var(--green);
-}
 .hud-row-icons {
   display: flex;
   gap: 6px;
@@ -1453,18 +1432,6 @@ a {
   }
   .session-mobile-meta > span {
     flex-shrink: 0;
-  }
-  /* LIVE reads as a bordered pill (static dot + label), matching the mockup's
-     .livepill — no pulse, per the near-static design. */
-  .session-mm-live {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    color: var(--green);
-    border: 1px solid var(--green);
-    padding: 1px 6px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
   }
 }
 
@@ -2987,21 +2954,6 @@ a {
   gap: 8px;
   flex-wrap: wrap;
 }
-.sv-hero-badge {
-  font-size: 9.5px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  padding: 3px 9px;
-  color: var(--green);
-  border: 1px solid var(--green);
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-.sv-hero-badge.ended {
-  color: var(--muted);
-  border-color: var(--hairline);
-}
 .sv-hero-meta {
   margin-top: 3px;
   font-size: 10.5px;
@@ -3773,19 +3725,6 @@ a {
   }
 }
 
-/* ── sidebar row status dot (replaces the swatch icon) ── */
-.ws-status-dot {
-  flex-shrink: 0;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--faint);
-}
-.ws-status-dot-live {
-  background: var(--green);
-  animation: liveBlink 1.4s ease-in-out infinite;
-}
-
 /* ── profile dropdown menu (topbar + sidebar footer) ── */
 .pm-wrap {
   position: relative;
@@ -4279,7 +4218,8 @@ a {
   padding-left: 0;
 }
 @media (max-width: 760px) {
-  /* Dot already conveys status — reclaim its width for the session name. */
+  /* The session mark already conveys status — reclaim the badge's width
+     for the session name. */
   .hud-row-badge {
     display: none;
   }
@@ -4624,31 +4564,6 @@ a {
   background: var(--bg);
   border: 1px solid var(--hairline);
   padding: 1px 6px;
-}
-.s4-badge {
-  font-size: 9.5px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  padding: 3px 8px;
-  border: 1px solid var(--hairline);
-  color: var(--muted);
-  flex-shrink: 0;
-  white-space: nowrap;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-.s4-badge.live {
-  color: var(--green);
-  border-color: var(--green);
-}
-.s4-badge.published {
-  color: var(--blue);
-  border-color: var(--blue);
-}
-.s4-badge.shared {
-  color: var(--admin);
-  border-color: var(--admin);
 }
 .s4-row-meta {
   display: flex;
@@ -5110,7 +5025,6 @@ kbd {
   border-color: var(--hairline);
   color: var(--green);
 }
-.hud-row-badge,
 .hud-rbtn,
 .hf-card-badge {
   border-radius: 6px;
@@ -5178,9 +5092,6 @@ kbd {
 }
 .sv-hero-art {
   display: none;
-}
-.sv-hero-badge {
-  border-radius: 999px;
 }
 .stream-log-head {
   color: var(--faint);
@@ -5537,18 +5448,6 @@ a.sv-chip:hover {
   font-size: 11px;
   color: var(--faint);
 }
-.sv-hero-badge {
-  border-radius: 999px;
-  text-transform: none;
-  letter-spacing: 0.06em;
-  font-weight: 700;
-  font-size: 10px;
-  background: var(--green-tint);
-  border-color: var(--green-line);
-}
-.sv-hero-badge.ended {
-  background: transparent;
-}
 .sv-hero-meta {
   font-size: 11px;
   color: var(--muted);
@@ -5673,11 +5572,6 @@ a.sv-chip:hover {
   letter-spacing: 0.01em;
   font-size: 10.5px;
   font-weight: 600;
-}
-.hud-row-badge {
-  border-radius: 999px;
-  text-transform: none;
-  letter-spacing: 0.02em;
 }
 .v3-sec-title {
   text-transform: none;
@@ -6011,13 +5905,6 @@ a.sv-chip:hover {
 }
 .s4-row-sub {
   margin-top: 1px;
-}
-.s4-badge {
-  border-radius: 999px;
-  text-transform: none;
-  letter-spacing: 0.02em;
-  font-size: 10px;
-  padding: 2px 9px;
 }
 .s4-row-meta {
   gap: 10px;

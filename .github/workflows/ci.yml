@@ -23,6 +23,33 @@ jobs:
   api:
     name: api — vet + test
     runs-on: ubuntu-latest
+
+    # DB-backed tests (internal/testutil.Setup, store tests) t.Skip without a
+    # live Postgres + Redis, so give them real ones. Same images as the stack job
+    # and the compose files.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: liveshortly
+          POSTGRES_PASSWORD: ci-not-a-secret
+          POSTGRES_DB: liveshortly
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U liveshortly -d liveshortly"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+
+    env:
+      TEST_DATABASE_URL: postgresql://liveshortly:ci-not-a-secret@127.0.0.1:5432/liveshortly?sslmode=disable
+      TEST_REDIS_URL: redis://127.0.0.1:6379
+      LS_TEST_DB: postgresql://liveshortly:ci-not-a-secret@127.0.0.1:5432/liveshortly?sslmode=disable
+
     steps:
       - uses: actions/checkout@v4
 
@@ -34,9 +61,16 @@ jobs:
       - run: go vet ./...
         working-directory: api
 
-      # Store/bus tests that need a live Postgres self-skip unless LS_TEST_DB is
-      # set, so this stays hermetic.
-      - run: go test ./...
+      # store.Migrate is additive only; the base schema comes from these files.
+      # init.sql first — see the stack job for why a plain glob breaks.
+      - name: Apply schema
+        run: |
+          for f in api/infra/postgres/init.sql api/infra/postgres/0*.sql; do
+            psql "${TEST_DATABASE_URL}" -v ON_ERROR_STOP=1 -q -f "$f"
+          done
+
+      # -p 1: packages share one database; don't let them race each other.
+      - run: go test -p 1 ./...
         working-directory: api
 
   hooks:

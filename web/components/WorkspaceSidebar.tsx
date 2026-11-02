@@ -8,7 +8,7 @@ import Avatar from "@/components/Avatar";
 import { listSessions, renameSession, type Session } from "@/lib/api";
 import ProfileMenu from "@/components/ProfileMenu";
 import SessionContextMenu from "@/components/SessionContextMenu";
-import SessionStatusDot from "@/components/SessionStatusDot";
+import SessionMark from "@/components/ui/SessionMark";
 import { timeAgo } from "@/lib/utils";
 
 const POLL_MS = 5000;
@@ -394,7 +394,7 @@ function Row({
       }}
       className="ws-row"
     >
-      <SessionStatusDot s={s} shared={shared} live={live} />
+      <SessionMark live={!!live || s.status === "live"} />
       <span
         style={{
           flex: 1,

@@ -9,7 +9,7 @@ import {
   PlaceholderNote,
   PreviewBanner,
 } from "@/components/preview";
-import Skeleton from "@/components/Skeleton";
+import Skeleton from "@/components/ui/Skeleton";
 import { getSession, type SessionDetail } from "@/lib/api";
 import { fmtInt, timeAgo } from "@/lib/utils";
 

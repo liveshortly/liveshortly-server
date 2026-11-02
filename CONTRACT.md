@@ -152,7 +152,7 @@ is not listed, because it is not spawnable.
   "name": "rohit's macbook",
   "hostname": "rohit-mbp", "os": "darwin", "arch": "arm64",
   "dirs":   ["/Users/rohit/code/api"],   // absolute; the spawn allowlist
-  "agents": ["claude","codex"],          // subset of claude|codex|gemini|ollama
+  "agents": ["claude","codex","aider"],  // whatever the daemon found; [A-Za-z0-9_-]{1,64}, ≤32
   "models": ["llama3.2:1b"],             // ollama only; the model allowlist
   "seen_at": "RFC3339"
 }
@@ -160,14 +160,19 @@ is not listed, because it is not spawnable.
 
 | Method | Path | Body | Response |
 |---|---|---|---|
-| POST | `/api/hosts/register` | `{"host_id","name"?,"hostname"?,"os"?,"arch"?,"dirs":[abs paths],"agents":[…],"models"?:[…]}` | `200 {"host_id","ttl_secs","registered":true}` — `400` on a bad id, a relative path, or no supported agent |
+| POST | `/api/hosts/register` | `{"host_id","name"?,"hostname"?,"os"?,"arch"?,"dirs":[abs paths],"agents":[…],"models"?:[…]}` | `200 {"host_id","ttl_secs","registered":true}` — `400` on a bad id, a relative path, no valid agent left, or only `ollama` with no `models` |
 | GET | `/api/hosts` | — | `200 {"hosts":[Host]}` — the caller's ONLINE machines only |
 | GET | `/api/hosts/{id}/stream` | — | `200` SSE command stream (owner only, Bearer) — `404` if the host has not registered |
 
+`agents` is not a fixed list: the server does not police which harnesses exist,
+only that each entry is a safe name. Malformed or duplicate names are dropped
+(not a `400`), the rest capped at 32. The daemon re-checks any spawn locally.
+
 `POST /api/sessions` gains `{"host_id"?, "cwd"?, "bypass_permissions"?}`. When
-`host_id` is set, `agent` is read as a **spawnable binary name**
-(`claude`/`codex`/`gemini`/`ollama`), not a framework label — the server maps it
-to the same `framework`/`capture_mode` the CLI would have reported. For
+`host_id` is set, `agent` is read as a **spawnable agent name**, not a framework
+label, and MUST be one that host registered (empty → the host's first); `400`
+otherwise. The server maps it to the same `framework`/`capture_mode` the CLI
+would have reported (`terminal`/`pty` for an agent it has no native labels for). For
 `ollama`, `model` names which model to run and MUST be one the host registered
 (empty → the host's first); it is rejected with `400` otherwise. For `claude`,
 `model` is an OPTIONAL alias from the fixed allowlist `sonnet|opus|haiku`
@@ -202,8 +207,8 @@ disconnect).
 A spawn command is remote code execution on the owner's machine, authorized by
 their web session. Three rules bound it, and the daemon re-checks all three
 locally because it must not trust the server:
-1. The server **never sends an argv** — only an agent NAME from a fixed
-   allowlist. The daemon builds the command line itself.
+1. The server **never sends an argv** — only an agent NAME the host itself
+   registered. The daemon builds the command line itself.
 2. The working directory must be one the **daemon itself registered**. Both ends
    reject anything else; `filepath.Clean` runs before the check so traversal
    cannot escape the allowlist.

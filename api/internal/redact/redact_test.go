@@ -26,6 +26,16 @@ func TestText(t *testing.T) {
 		{`{"file":"/Users/rohit/x.go"}`, `{"file":"~/x.go"}`},
 		// emails + local hostnames
 		{"ping rohit@example.com on rohits-mbp.local", "ping [email] on [host]"},
+		// git remotes: the user@host login is not an email (LSW-23)
+		{"remote git@github.com:user/repo.git", "remote git@github.com:user/repo.git"},
+		{"clone ssh://git@gitlab.example.com/team/app.git", "clone ssh://git@gitlab.example.com/team/app.git"},
+		{"ssh://git@github.com:22/u/r", "ssh://git@github.com:22/u/r"},
+		{"rsync deploy@build.example.org:/srv/app ./", "rsync deploy@build.example.org:/srv/app ./"},
+		// …but real emails next to them still go
+		{"Author: Alice <alice@corp.io>", "Author: Alice <[email]>"},
+		{"mail alice@example.com: see git@github.com:a/b", "mail [email]: see git@github.com:a/b"},
+		{"mailto:bob@example.com.", "mailto:[email]."},
+		{"alice@example.com", "[email]"},
 		// left alone: not a home dir, or mid-path
 		{"edit /usr/local/bin/x and /var/home/x/y", "edit /usr/local/bin/x and /var/home/x/y"},
 		{"src/Users/list.tsx", "src/Users/list.tsx"},

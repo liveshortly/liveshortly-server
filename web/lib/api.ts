@@ -902,3 +902,33 @@ export async function setSessionModel(
     throw new ApiError(res.status, detail);
   }
 }
+
+/** A permission request waiting on one of the caller's live sessions (LSW-21). */
+export interface Approval {
+  session_id: string;
+  title: string;
+  message: string;
+  ts: string;
+}
+
+/** Pending approvals across the caller's live sessions (header bell). */
+export async function notifications(signal?: AbortSignal): Promise<Approval[]> {
+  const r = await getJSON<{ approvals: Approval[] }>("/api/notifications", signal);
+  return r.approvals;
+}
+
+/** VAPID public key for Web Push; "" when the server has push turned off. */
+export async function pushKey(): Promise<string> {
+  return (await getJSON<{ public_key: string }>("/api/push/key")).public_key;
+}
+
+/** Store (POST) or forget (DELETE) this browser's push endpoint. */
+export async function savePushEndpoint(endpoint: string, method: "POST" | "DELETE" = "POST"): Promise<void> {
+  const res = await fetch(`${browserBase()}/api/push/subscriptions`, {
+    method,
+    credentials: "include",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ endpoint }),
+  });
+  if (!res.ok) throw new ApiError(res.status, `push subscription ${res.status}`);
+}

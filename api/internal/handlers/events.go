@@ -50,6 +50,11 @@ func (h *Handler) EmitEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// An agent asking permission: wake the owner's browsers (LSW-21).
+	if req.EventType == "input_requested" && store.IsPermissionRequest(req.Payload) {
+		go h.notifyApproval(detach(r), s.OwnerID)
+	}
+
 	// Mid-stream storage crossing: the event that tipped the owner over their
 	// limit is kept (already stored above), then the session is auto-ended and a
 	// quota_exceeded event is emitted so viewers + agent see why. The response

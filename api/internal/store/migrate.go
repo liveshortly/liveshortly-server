@@ -89,6 +89,17 @@ var migrations = []string{
 	// file for how a deployment grants its first one.
 	`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT false`,
 	`CREATE INDEX IF NOT EXISTS users_is_admin_idx ON users (is_admin) WHERE is_admin`,
+
+	// --- Web Push (LSW-21) ---
+	// One row per browser that turned notifications on. Pushes carry no
+	// payload (the service worker fetches /api/notifications), so the
+	// endpoint is all that is stored — no p256dh/auth keys.
+	`CREATE TABLE IF NOT EXISTS push_subscriptions (
+		endpoint   TEXT PRIMARY KEY,
+		user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+	)`,
+	`CREATE INDEX IF NOT EXISTS push_subscriptions_user_idx ON push_subscriptions (user_id)`,
 }
 
 // Migrate applies the additive, idempotent migrations above. It runs before the

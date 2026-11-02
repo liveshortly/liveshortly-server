@@ -2,9 +2,11 @@ import { ImageResponse } from "next/og";
 import { getSession, type SessionEvent } from "@/lib/api";
 import { ogCard, OG_SIZE, OG_CONTENT_TYPE } from "@/lib/ogCard";
 import { ogFonts } from "@/lib/ogFonts";
-import { shortId, timeAgo, truncate } from "@/lib/utils";
+import { frameworkLabel, shortId, timeAgo, truncate } from "@/lib/utils";
 
 // Node runtime so it can reach the internal API and generate per-request.
+// The fetch is server-side and cookieless, so only an open session's public,
+// redacted view ever reaches the card; anything else gets the generic card.
 export const alt = "LiveShortly session card";
 export const size = OG_SIZE;
 export const contentType = OG_CONTENT_TYPE;
@@ -40,6 +42,7 @@ export default async function Image({
         title: s.title?.trim() || "Untitled session",
         status: s.status,
         model: s.model,
+        agent: s.framework ? frameworkLabel(s.framework) : null,
         shortId: shortId(s.id),
         snippet: s.hero ?? s.title ?? null,
         highlight: highlightFrom(s.events),
@@ -49,7 +52,9 @@ export default async function Image({
         views: s.view_count,
         published: !!s.published_at,
       }),
-      { ...OG_SIZE, fonts },
+      // Short shared-cache life (ImageResponse defaults to a year, immutable):
+      // a session made private, renamed or deleted must stop previewing soon.
+      { ...OG_SIZE, fonts, headers: { "Cache-Control": "public, max-age=600" } },
     );
   } catch {
     // Private / not-found → generic brand card in the same theme.
@@ -58,7 +63,7 @@ export default async function Image({
         title: "A live coding session",
         subtitle: "Stream your Claude Code sessions",
       }),
-      { ...OG_SIZE, fonts },
+      { ...OG_SIZE, fonts, headers: { "Cache-Control": "public, max-age=600" } },
     );
   }
 }

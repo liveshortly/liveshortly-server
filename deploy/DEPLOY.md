@@ -55,6 +55,24 @@ Use your actual origin. Starting the API without Google credentials does not
 provide a working account-based session setup. Use the key-authenticated Pocket
 daemon if you want a setup without Google sign-in.
 
+### Optional: Web Push for approval requests
+
+Signed-in owners can get a browser notification when an agent asks permission,
+even with the tab closed. It needs a VAPID key pair; the API derives the public
+key from the private one. Generate it on the server and put it in `.env.selfhost`
+(never commit it — rotating it invalidates every browser subscription):
+
+```bash
+# base64url raw 32-byte P-256 private key
+openssl ecparam -name prime256v1 -genkey -noout -outform DER \
+  | tail -c +8 | head -c 32 | base64 | tr '+/' '-_' | tr -d '='
+```
+
+| Variable | Value |
+| --- | --- |
+| `VAPID_PRIVATE_KEY` | the output above; empty disables Web Push (the in-app bell still works) |
+| `VAPID_SUBJECT` | a contact for push services, e.g. `mailto:ops@example.com` |
+
 ## 3. Start and verify
 
 Run this **standalone** Compose file, not a merge with the development files:

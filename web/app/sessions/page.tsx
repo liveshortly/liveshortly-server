@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import ShareDialog from "@/components/ShareDialog";
 import SessionsRightRail from "@/components/SessionsRightRail";
-import Skeleton from "@/components/Skeleton";
+import Skeleton from "@/components/ui/Skeleton";
+import StatusBadge from "@/components/ui/StatusBadge";
 import {
   deleteSession,
   isPublished,
@@ -395,16 +396,11 @@ function timeLabel(s: Row): string {
 }
 
 function badge(s: Row) {
-  if (s.status === "live")
-    return (
-      <span className="s4-badge live">
-        <span className="live-dot" />
-        Live
-      </span>
-    );
-  if (s.shared) return <span className="s4-badge shared">Shared</span>;
-  if (isPublished(s)) return <span className="s4-badge published">Published</span>;
-  return <span className="s4-badge">Ended</span>;
+  return (
+    <StatusBadge
+      status={s.status === "live" ? "live" : s.shared ? "shared" : isPublished(s) ? "feed" : "ended"}
+    />
+  );
 }
 
 function sortRows(list: Row[], sort: Sort): Row[] {

@@ -7,6 +7,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"regexp"
+	"strings"
+	"unicode"
 )
 
 // Each home pattern keeps the char before it (group 1) so a path embedded
@@ -23,13 +25,34 @@ var (
 )
 
 // Text redacts home paths to "~", emails to "[email]" and *.local hostnames
-// to "[host]". Safe on any string; a no-op when there is nothing to hide.
+// to "[host]". Git remote logins (git@github.com:u/r, ssh://git@host/…) are
+// not emails and are kept. Safe on any string; a no-op when there is nothing to hide.
 func Text(s string) string {
 	s = winHome.ReplaceAllString(s, "${1}~")
 	s = unixHome.ReplaceAllString(s, "${1}~")
 	s = tildeUser.ReplaceAllString(s, "${1}~${2}")
-	s = email.ReplaceAllString(s, "[email]")
+	s = emails(s)
 	return localHost.ReplaceAllString(s, "[host]")
+}
+
+// emails replaces each email match with "[email]", skipping the user@host of an
+// ssh URL (preceded by "://") or an scp-style remote (followed by ":path").
+func emails(s string) string {
+	var b strings.Builder
+	last := 0
+	for _, m := range email.FindAllStringIndex(s, -1) {
+		i, j := m[0], m[1]
+		if strings.HasSuffix(s[:i], "://") || (j+1 < len(s) && s[j] == ':' && !unicode.IsSpace(rune(s[j+1]))) {
+			continue
+		}
+		b.WriteString(s[last:i])
+		b.WriteString("[email]")
+		last = j
+	}
+	if last == 0 {
+		return s
+	}
+	return b.String() + s[last:]
 }
 
 // JSON redacts every string (values and object keys) inside a JSON document —

@@ -30,24 +30,31 @@ const RECENT_SHOWN = 8;
  *  pitch and a looping demo on the right, the real public feed underneath, and
  *  a persistent sidebar of what's live, who's publishing and which tags run hot.
  *  Every number and row on this page comes from the API; nothing is fabricated. */
-export default function Landing() {
+/** Server-fetched first paint for the live strip, recent feed and counts. */
+export type LandingData = {
+  live: Session[];
+  recent: Session[];
+  stats: PublicStats | null;
+};
+
+export default function Landing({ initial }: { initial?: LandingData }) {
   return (
     <Suspense
       fallback={<div style={{ minHeight: "100dvh", background: "var(--bg)" }} />}
     >
-      <LandingInner />
+      <LandingInner initial={initial} />
     </Suspense>
   );
 }
 
-function LandingInner() {
+function LandingInner({ initial }: { initial?: LandingData }) {
   const params = useSearchParams();
   const authFailed = params.has("auth_error");
 
-  const [live, setLive] = useState<Session[]>([]);
-  const [recent, setRecent] = useState<Session[]>([]);
-  const [stats, setStats] = useState<PublicStats | null>(null);
-  const [loaded, setLoaded] = useState(false);
+  const [live, setLive] = useState<Session[]>(initial?.live ?? []);
+  const [recent, setRecent] = useState<Session[]>(initial?.recent ?? []);
+  const [stats, setStats] = useState<PublicStats | null>(initial?.stats ?? null);
+  const [loaded, setLoaded] = useState(!!initial);
 
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Session[] | null>(null);
@@ -60,6 +67,7 @@ function LandingInner() {
 
   // Live strip, recent feed page and the proof counts, all in one shot.
   useEffect(() => {
+    if (initial) return; // the server already fetched them
     const ctrl = new AbortController();
     (async () => {
       const [l, r, s] = await Promise.allSettled([

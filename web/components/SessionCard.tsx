@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import Badge from "@/components/Badge";
+import StatusBadge from "@/components/ui/StatusBadge";
 import type { Session } from "@/lib/api";
 import { fmtInt, shortId, tileBg, timeAgo } from "@/lib/utils";
 
@@ -51,7 +51,7 @@ export default function SessionCard({
             borderBottom: "1px solid var(--hairline)",
           }}
         >
-          <Badge status={session.status} />
+          <StatusBadge status={session.status} />
           <span
             className="label tnum"
             title={session.model ?? undefined}

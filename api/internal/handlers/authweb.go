@@ -235,12 +235,6 @@ func (g *GoogleAuth) Token(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	access, err := g.mgr.MintAccess(websession.TokenUser{ID: u.ID, Email: u.Email, Name: u.Name})
-	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "failed to mint token")
-		return
-	}
-
 	// Rotate: issue a new refresh token and revoke the old one.
 	newRaw, newHash, err := websession.GenerateRefreshToken()
 	if err != nil {
@@ -252,11 +246,21 @@ func (g *GoogleAuth) Token(w http.ResponseWriter, r *http.Request) {
 	if label == "" {
 		label = "cli"
 	}
-	if _, err := g.store.InsertRefreshToken(ctx, u.ID, newHash, label); err != nil {
+	newID, err := g.store.InsertRefreshToken(ctx, u.ID, newHash, label)
+	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "failed to store token")
 		return
 	}
 	_ = g.store.RevokeRefreshToken(ctx, rt.ID)
+	// The old token's access token may still be live: link it so revoking the
+	// new one (the only row settings shows) kills both.
+	_ = g.bus.TokenRotated(ctx, newID, rt.ID, g.mgr.AccessTTL())
+
+	access, err := g.mgr.MintAccess(websession.TokenUser{ID: u.ID, Email: u.Email, Name: u.Name, SessionID: newID})
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to mint token")
+		return
+	}
 
 	httpx.JSON(w, http.StatusOK, map[string]any{
 		"access_token":  access,
@@ -282,7 +286,9 @@ func (g *GoogleAuth) ListTokens(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, map[string]any{"tokens": tokens})
 }
 
-// RevokeToken revokes one of the caller's refresh tokens. DELETE /auth/tokens/{id}.
+// RevokeToken revokes one of the caller's refresh tokens, and — via the Redis
+// revocation set FromRequest consults — every access token issued with it, so
+// the CLI is signed out now rather than at access-token expiry. DELETE /auth/tokens/{id}.
 func (g *GoogleAuth) RevokeToken(w http.ResponseWriter, r *http.Request) {
 	c, ok := g.mgr.FromRequest(r)
 	if !ok {
@@ -297,6 +303,10 @@ func (g *GoogleAuth) RevokeToken(w http.ResponseWriter, r *http.Request) {
 	}
 	if !removed {
 		httpx.Error(w, http.StatusNotFound, "token not found")
+		return
+	}
+	if err := g.bus.TokenRevoke(r.Context(), id, g.mgr.AccessTTL()); err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "failed to revoke access token")
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

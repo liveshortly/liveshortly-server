@@ -9,12 +9,13 @@ import Avatar from "@/components/Avatar";
 import ProfileMenu from "@/components/ProfileMenu";
 import NewSessionButton from "@/components/NewSessionButton";
 import DaemonStatus from "@/components/DaemonStatus";
+import NotificationBell from "@/components/NotificationBell";
 import type { Me } from "@/lib/api";
 
 /**
  * Global authenticated topbar — designs/version3/feed.html `.topbar`. Search
- * submits to /feed?q=… (Feed.tsx seeds its query from that param); the
- * notifications icon is decorative (no backend notification feed exists).
+ * submits to /feed?q=… (Feed.tsx seeds its query from that param); the bell
+ * lists approvals pending across the user's sessions (LSW-21).
  */
 export default function Topbar({
   user,
@@ -80,6 +81,7 @@ export default function Topbar({
             <path d="M9.5 6.5a3 3 0 0 0-4.3-.2L3.3 8.2a3 3 0 0 0 4.2 4.2l1-1" />
           </svg>
         </Link>
+        <NotificationBell />
         <ThemeToggle />
         <ProfileMenu user={user} direction="down" align="end">
           <Avatar

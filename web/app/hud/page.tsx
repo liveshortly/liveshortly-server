@@ -5,7 +5,8 @@ import Link from "next/link";
 import ShareDialog from "@/components/ShareDialog";
 import PublishAction from "@/components/PublishAction";
 import DeleteSessionButton from "@/components/DeleteSessionButton";
-import SessionStatusDot from "@/components/SessionStatusDot";
+import SessionMark from "@/components/ui/SessionMark";
+import StatusBadge from "@/components/ui/StatusBadge";
 import SessionsRightRail from "@/components/SessionsRightRail";
 import { listSessions, type Session } from "@/lib/api";
 import { fmtInt, timeAgo } from "@/lib/utils";
@@ -180,7 +181,7 @@ function Row({
   return (
     <div className="hud-row">
       <Link href={`/session/${session.id}`} className="hud-row-link">
-        <SessionStatusDot s={session} shared={shared} live={live} />
+        <SessionMark live={live} />
         <div style={{ minWidth: 0, flex: 1 }}>
           <div className="hud-row-title">{session.title || "untitled session"}</div>
           <div className="hud-row-sub">
@@ -191,10 +192,7 @@ function Row({
                 } ${timeAgo(live ? session.created_at : (session.ended_at ?? session.created_at))} ago`}
           </div>
         </div>
-        <span className={`hud-row-badge${live ? " live" : ""}`}>
-          {live && <span className="live-dot" />}
-          {live ? "Live" : "Ended"}
-        </span>
+        <StatusBadge status={session.status} className="hud-row-badge" />
         <div className="hud-row-events tnum">{fmtInt(session.event_count)} ev</div>
       </Link>
       {actions}
