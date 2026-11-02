@@ -449,13 +449,13 @@ Make any real Claude Code session stream into LiveShortly. Merge
 
 ## ✦ Design system
 
-A financial-terminal HUD — monospace everything, hairline boxes, UPPERCASE tracked labels,
-big tabular numbers, a pulsing `● LIVE`, a live UTC clock. Fully **themeable** via CSS variables
-(`--bg`, `--panel`, `--ink`, `--green`, …) with **light** and **dark** palettes; new visitors
-default to dark, and the choice persists (light / dark / system).
+Calm, native-feeling UI matching the PocketAI Mac app: SF/Inter for reading,
+JetBrains Mono only for machine output, one green reserved for live, light and
+dark themes. The Mac palette is the source of truth, mirrored in
+[`web/app/tokens.css`](web/app/tokens.css); see [`web/DESIGN.md`](web/DESIGN.md)
+for the tokens, rules and the component library (`web/components/ui`).
 
-| Token | Light | Dark | | Token | Light | Dark |
-|---|---|---|---|---|---|---|
+---|---|---|---|---|---|---|
 | bg | `#e7e8ea` | `#1e2123` | | ink | `#1b1c1e` | `#e9ebed` |
 | panel | `#f3f4f5` | `#282c2f` | | 🟢 live | `#1f7a4d` | `#54b885` |
 | hairline | `#d0d2d5` | `#3d4247` | | 🔴 ended | `#c0392b` | `#e7705f` |
@@ -487,15 +487,15 @@ LiveShortly/
 ├── web/                    # Next.js · App Router · Tailwind v4
 │   ├── app/                #   / (feed) · hud · profile · admin{,/users,/sessions}
 │   │   ├── session/[id]/   #   viewer (client) + server metadata + opengraph-image
-│   │   ├── replay|story|compose/[id]/   #   alternate session views
+│   │   ├── replay|story/[id]/   #   alternate session views (preview)
 │   │   └── opengraph-image · twitter-image
-│   ├── components/         #   HudHeader · EventStream · Feed · SessionCard
-│   │                       #   · ShareToTwitter · PublicLinkDialog · AuthGate …
+│   ├── components/         #   AppShell · EventStream · Feed · SessionList
+│   │                       #   · ui/* (component library) · landing/ …
 │   └── lib/                #   api.ts · ogCard/ogFonts · useAdminGuard
 ├── cli/                    # Claude Code capture hooks (Python, stdlib)
 │   ├── hooks/
 │   └── settings.example.json
-├── design/                 # offline HTML mockups (UI/UX reference)
+├── design/                 # historical offline HTML mockups (spec: web/DESIGN.md)
 ├── deploy/                 # systemd units, nginx conf, box provisioning
 ├── docker-compose.yml · docker-compose.local.yml   # local dev only — prod runs systemd
 ├── CONTRACT.md             # the binding API + design spec

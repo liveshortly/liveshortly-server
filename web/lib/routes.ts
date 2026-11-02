@@ -4,7 +4,7 @@
 // runtime check still goes through isPrivate. Everything else is public
 // (landing, feed, docs, install, changelog, session, replay, story) or a 404.
 // /hud is not here: it redirects to /sessions (next.config.ts).
-export const PRIVATE_PREFIXES = ["/sessions", "/new", "/profile", "/settings", "/admin", "/compose"];
+export const PRIVATE_PREFIXES = ["/sessions", "/new", "/profile", "/settings", "/admin"];
 
 export const isPrivate = (p: string) =>
   PRIVATE_PREFIXES.some((x) => p === x || p.startsWith(`${x}/`));

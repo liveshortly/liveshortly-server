@@ -100,6 +100,17 @@ var migrations = []string{
 		created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 	)`,
 	`CREATE INDEX IF NOT EXISTS push_subscriptions_user_idx ON push_subscriptions (user_id)`,
+
+	// --- Per-account read marks (LSW-32) ---
+	// The highest event seq each user has seen in each session, so list rows
+	// carry an unread count that follows the account across browsers.
+	`CREATE TABLE IF NOT EXISTS session_seen (
+		user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		session_id UUID NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+		seq        INT NOT NULL DEFAULT 0,
+		seen_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+		PRIMARY KEY (user_id, session_id)
+	)`,
 }
 
 // Migrate applies the additive, idempotent migrations above. It runs before the

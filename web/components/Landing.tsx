@@ -3,9 +3,9 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import BrandMark from "@/components/BrandMark";
+import AppFooter from "@/components/AppFooter";
 import FeedCard from "@/components/FeedCard";
-import ThemeToggle from "@/components/ThemeToggle";
+import Topbar from "@/components/Topbar";
 import Avatar from "@/components/Avatar";
 import InstallCommand from "@/components/InstallCommand";
 import Button from "@/components/ui/Button";
@@ -116,56 +116,12 @@ function LandingInner({ initial }: { initial?: LandingData }) {
     [live],
   );
 
+  // The shared header + footer (LSW-03); the feed search moved from the old
+  // landing topbar into the page, above the feed sections.
   return (
-    <div className="lp-shell">
-      <div className="lp-topbar">
-        <span className="lp-brand">
-          <BrandMark />
-          LiveShortly
-        </span>
-
-        <div className="lp-searchpill">
-          <span aria-hidden>⌕</span>
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search sessions, owners, tags…"
-            aria-label="Search published sessions"
-            spellCheck={false}
-          />
-          {query && (
-            <button
-              type="button"
-              onClick={() => setQuery("")}
-              aria-label="Clear search"
-              style={{
-                border: "none",
-                background: "none",
-                color: "var(--faint)",
-                cursor: "pointer",
-                fontSize: 13,
-              }}
-            >
-              ✕
-            </button>
-          )}
-        </div>
-
-        <div className="lp-top-actions">
-          <Link href="/docs" className="lp-install-link">
-            Docs
-          </Link>
-          <Link href="/install" className="lp-install-link">
-            Install
-          </Link>
-          <ThemeToggle />
-          <button type="button" className="lp-signin-btn" onClick={signIn}>
-            Sign in
-          </button>
-        </div>
-      </div>
-
-      <div className="lp-main">
+    <>
+      <Topbar user={null} />
+      <main id="main" className="lp-main">
         <div className="lp-main-inner">
           {authFailed && (
             <div
@@ -190,6 +146,33 @@ function LandingInner({ initial }: { initial?: LandingData }) {
           />
 
           <Proof stats={stats} liveOwners={liveOwners} liveCount={live.length} />
+
+          <div className={`lp-searchpill ${s.search}`} role="search">
+            <span aria-hidden>⌕</span>
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search sessions, owners, tags…"
+              aria-label="Search published sessions"
+              spellCheck={false}
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                aria-label="Clear search"
+                style={{
+                  border: "none",
+                  background: "none",
+                  color: "var(--faint)",
+                  cursor: "pointer",
+                  fontSize: 13,
+                }}
+              >
+                ✕
+              </button>
+            )}
+          </div>
 
           {searching ? (
             <>
@@ -241,11 +224,10 @@ function LandingInner({ initial }: { initial?: LandingData }) {
           )}
 
           <HowItWorks />
-
-          <Footer />
         </div>
-      </div>
-    </div>
+      </main>
+      <AppFooter />
+    </>
   );
 }
 
@@ -474,33 +456,6 @@ function HowItWorks() {
         </div>
       </div>
     </section>
-  );
-}
-
-function Footer() {
-  return (
-    <footer className="lp-foot">
-      <span style={{ display: "flex", flexWrap: "wrap", gap: "6px 14px" }}>
-        <Link href="/docs">Docs</Link>
-        <Link href="/install">Install</Link>
-        <Link href="/changelog">Changelog</Link>
-        <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer">
-          GitHub
-        </a>
-        <Link href="/install/self-host">Self-host</Link>
-      </span>
-      <span>
-        Made by{" "}
-        <a href="https://x.com/ironfisto/" target="_blank" rel="noopener noreferrer">
-          @ironfisto
-        </a>{" "}
-        ·{" "}
-        <a href="https://x.com/whorsehgal" target="_blank" rel="noopener noreferrer">
-          @whorsehgal
-        </a>{" "}
-        · © LiveShortly
-      </span>
-    </footer>
   );
 }
 

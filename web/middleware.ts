@@ -32,6 +32,5 @@ export const config = {
     "/profile/:path*",
     "/settings/:path*",
     "/admin/:path*",
-    "/compose/:path*",
   ],
 };

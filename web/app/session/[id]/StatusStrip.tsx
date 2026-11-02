@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   CLAUDE_MODELS,
@@ -14,7 +14,7 @@ import {
   type SessionDetail,
 } from "@/lib/api";
 import { fmtInt, timeAgo } from "@/lib/utils";
-import ShareDialog from "@/components/ShareDialog";
+import ShareSheet from "@/components/ShareSheet";
 import { useWorkspaceDrawer } from "@/components/WorkspaceDrawerContext";
 import Button, { IconButton } from "@/components/ui/Button";
 import Dialog from "@/components/ui/Dialog";
@@ -49,9 +49,20 @@ export default function StatusStrip({
   const [actionErr, setActionErr] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
-  const shareRef = useRef<HTMLSpanElement>(null);
   const [canAskNotify, setCanAskNotify] = useState(false);
-  const title = meta.title?.trim() || "Untitled session";
+  const title = meta.suggested_title?.trim() || meta.title?.trim() || "Untitled session";
+
+  // ⌘⇧S / Ctrl+Shift+S opens the share sheet.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && !e.altKey && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        setShareOpen(true);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   useEffect(() => {
     setCanAskNotify("Notification" in window && Notification.permission === "default");
@@ -82,8 +93,8 @@ export default function StatusStrip({
       label: "Copy link",
       onSelect: () => void navigator.clipboard?.writeText(sessionViewUrl(meta.id)).catch(() => {}),
     },
-    ...(owner ? [{ label: "Share…", onSelect: () => setShareOpen(true) }] : []),
-    { label: "Session info, fork & publish (⌘I)", onSelect: onToggleInfo },
+    { label: "Share… (⌘⇧S)", onSelect: () => setShareOpen(true) },
+    { label: "Session info (⌘I)", onSelect: onToggleInfo },
     ...(owner && live && canAskNotify
       ? [
           {
@@ -121,7 +132,7 @@ export default function StatusStrip({
           </Link>
         )}
         {renaming ? (
-          <RenameField meta={meta} onDone={(t) => (t && onMeta({ title: t }), setRenaming(false))} />
+          <RenameField meta={meta} onDone={(t) => (t && onMeta({ title: t, suggested_title: null }), setRenaming(false))} />
         ) : owner ? (
           <button
             type="button"
@@ -176,21 +187,17 @@ export default function StatusStrip({
         ) : (
           meta.model && <span className={`${s.chip} ${s.wideOnly} t-caption`}>{meta.model}</span>
         )}
-        {owner && (
-          <span ref={shareRef} className={s.wideOnly}>
-            <Button onClick={() => setShareOpen((v) => !v)} aria-expanded={shareOpen}>
-              Share
-            </Button>
-          </span>
-        )}
-        {shareOpen && (
-          <ShareDialog
-            sessionId={meta.id}
-            title={meta.title}
-            anchorEl={shareRef.current}
-            onClose={() => setShareOpen(false)}
-          />
-        )}
+        <span className={s.wideOnly}>
+          <Button onClick={() => setShareOpen(true)} aria-haspopup="dialog">
+            Share
+          </Button>
+        </span>
+        <ShareSheet
+          session={shareOpen ? meta : null}
+          owner={owner}
+          onChanged={onMeta}
+          onClose={() => setShareOpen(false)}
+        />
         <Menu label="Session actions" icon="ellipsis" items={items} />
       </div>
 

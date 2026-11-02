@@ -26,6 +26,7 @@ import {
   typingLine,
 } from "@/lib/transcript";
 import { agentTitle, truncate } from "@/lib/utils";
+import { useMarkSeen } from "@/lib/useMarkSeen";
 import Composer, { ReadOnlyFooter } from "./Composer";
 import InfoPanel from "./InfoPanel";
 import PermissionBar from "./PermissionBar";
@@ -189,6 +190,7 @@ export default function SessionClient({
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  useMarkSeen(id, events[events.length - 1]?.seq ?? 0);
   const probe = useMemo(() => (live ? pendingProbe(events) : null), [live, events]);
   const toolCall = useMemo(() => (probe ? toolCallBefore(events, probe) : null), [events, probe]);
   const activity = useMemo(() => activityLabel(events), [events]);

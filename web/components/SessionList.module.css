@@ -51,14 +51,9 @@
 .head h1 {
   margin: 0;
 }
+/* Chrome comes from ui/Input; flex-basis sizes it inside the flex header. */
 .search {
-  width: 220px;
-  max-width: 100%;
-  padding: 5px var(--space-8);
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-hud);
-  background: var(--canvas);
-  color: var(--fg);
+  flex: 0 1 220px;
 }
 .viewToggle {
   display: inline-flex;
@@ -89,7 +84,6 @@
   color: var(--on-accent);
 }
 .chip:focus-visible,
-.search:focus-visible,
 .rowLink:focus-visible,
 .continueCard:focus-visible {
   outline: 2px solid var(--accent);
@@ -241,4 +235,11 @@
     order: 10;
     width: 100%;
   }
+}
+
+/* ── Paging past the API's 100-row page ───────────────────────────── */
+.loadMore {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-16) 0;
 }

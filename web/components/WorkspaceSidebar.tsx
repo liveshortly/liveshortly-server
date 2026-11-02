@@ -8,14 +8,14 @@ import { useHosts } from "@/components/HostsContext";
 import { useSessions, byRecent } from "@/components/SessionsContext";
 import Avatar from "@/components/Avatar";
 import ProfileMenu from "@/components/ProfileMenu";
-import ShareDialog from "@/components/ShareDialog";
+import ShareSheet from "@/components/ShareSheet";
 import Button from "@/components/ui/Button";
 import Dialog from "@/components/ui/Dialog";
 import Icon from "@/components/ui/Icon";
 import Menu, { type MenuItem } from "@/components/ui/Menu";
 import SessionMark from "@/components/ui/SessionMark";
 import StatusBadge from "@/components/ui/StatusBadge";
-import { deleteSession, renameSession, sessionViewUrl, stopSession, type Session } from "@/lib/api";
+import { deleteSession, renameSession, sessionTitle, sessionViewUrl, stopSession, type Session } from "@/lib/api";
 import { ROUTES } from "@/lib/routes";
 import { repoName } from "@/lib/sessionList";
 import { agentTitle, timeAgo } from "@/lib/utils";
@@ -40,18 +40,18 @@ export default function WorkspaceSidebar() {
     : null;
   const user = useAuth();
   const hosts = useHosts();
-  const { mine, shared, patch, drop } = useSessions();
+  const { mine, shared, totals, patch, drop } = useSessions();
 
   const [q, setQ] = useState("");
   const [confirm, setConfirm] = useState<Confirm | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [share, setShare] = useState<{ s: Session; el: HTMLElement | null } | null>(null);
+  const [share, setShare] = useState<Session | null>(null);
 
   const needle = q.trim().toLowerCase();
   const match = (x: Session) =>
     !needle ||
-    x.title?.toLowerCase().includes(needle) ||
+    sessionTitle(x).toLowerCase().includes(needle) ||
     x.tags?.some((t) => t.toLowerCase().includes(needle));
 
   const g = useMemo(() => {
@@ -62,8 +62,8 @@ export default function WorkspaceSidebar() {
       if (r) projects.set(r, (projects.get(r) ?? 0) + 1);
     }
     return {
-      total: m.length,
-      sharedTotal: shared?.length ?? 0,
+      total: Math.max(totals.mine, m.length),
+      sharedTotal: Math.max(totals.shared, shared?.length ?? 0),
       live: m.filter((x) => x.status === "live" && match(x)),
       recent: m.filter((x) => x.status !== "live" && match(x)),
       shared: [...(shared ?? [])].sort(byRecent).filter(match),
@@ -97,7 +97,7 @@ export default function WorkspaceSidebar() {
     activeId,
     onRenamed: patch,
     onConfirm: (c: Confirm) => setConfirm(c),
-    onShare: (x: Session, el: HTMLElement | null) => setShare({ s: x, el }),
+    onShare: (x: Session) => setShare(x),
   };
 
   return (
@@ -241,7 +241,7 @@ export default function WorkspaceSidebar() {
         onClose={() => !busy && setConfirm(null)}
         title={
           confirm
-            ? `${confirm.kind === "end" ? "End" : "Delete"} “${confirm.s.title || "session"}”?`
+            ? `${confirm.kind === "end" ? "End" : "Delete"} “${sessionTitle(confirm.s)}”?`
             : ""
         }
       >
@@ -258,14 +258,7 @@ export default function WorkspaceSidebar() {
         </div>
       </Dialog>
 
-      {share && (
-        <ShareDialog
-          sessionId={share.s.id}
-          title={share.s.title}
-          anchorEl={share.el}
-          onClose={() => setShare(null)}
-        />
-      )}
+      <ShareSheet session={share} owner onChanged={patch} onClose={() => setShare(null)} />
     </div>
   );
 }
@@ -309,17 +302,19 @@ function Row({
   activeId: string | null;
   onRenamed: (u: Session) => void;
   onConfirm: (c: Confirm) => void;
-  onShare: (x: Session, el: HTMLElement | null) => void;
+  onShare: (x: Session) => void;
 }) {
   const router = useRouter();
   const ref = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(x.title);
   const live = x.status === "live";
-  const title = x.title || "Untitled session";
+  const title = sessionTitle(x);
+  // Unread from the server's per-account read marks (LSW-32); never on the
+  // row being viewed (useMarkSeen clears it).
+  const unread = x.id === activeId ? 0 : (x.unread ?? 0);
   // ponytail: no per-event type in the list API, so the snippet is the
-  // precomputed hero line without the Mac's ◆/› prefix; unread counts need
-  // a per-account "seen" on the server.
+  // precomputed hero line without the Mac's ◆/› prefix.
   const sub = x.hero || (owner ? `${agentTitle(x.framework)} · ${live ? "live" : `${timeAgo(x.ended_at ?? x.created_at)} ago`}` : `@${x.owner_handle}`);
 
   const save = async () => {
@@ -328,7 +323,7 @@ function Row({
     if (!t || t === x.title) return;
     try {
       await renameSession(x.id, t);
-      onRenamed({ ...x, title: t });
+      onRenamed({ ...x, title: t, suggested_title: null });
     } catch {
       /* the name simply won't change */
     }
@@ -340,7 +335,7 @@ function Row({
     { label: "Copy link", onSelect: () => void navigator.clipboard?.writeText(sessionViewUrl(x.id)) },
     ...(owner
       ? [
-          { label: "Share…", onSelect: () => onShare(x, ref.current) },
+          { label: "Share…", onSelect: () => onShare(x) },
           {
             label: "Rename…",
             onSelect: () => {
@@ -393,6 +388,11 @@ function Row({
             <span className={`${s.ellipsis} t-body`}>{title}</span>
             <span className={`${s.ellipsis} ${s.meta} t-callout`}>{sub}</span>
           </span>
+          {unread > 0 && (
+            <span className={`${s.count} ${s.unread} t-metric`} aria-label={`${unread} unread`}>
+              {unread}
+            </span>
+          )}
         </Link>
       )}
       <span className={s.rowMenu}>

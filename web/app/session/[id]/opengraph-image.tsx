@@ -1,5 +1,5 @@
 import { ImageResponse } from "next/og";
-import { getSession, type SessionEvent } from "@/lib/api";
+import { getSession, sessionTitle, type SessionEvent } from "@/lib/api";
 import { ogCard, OG_SIZE, OG_CONTENT_TYPE } from "@/lib/ogCard";
 import { ogFonts } from "@/lib/ogFonts";
 import { frameworkLabel, shortId, timeAgo, truncate } from "@/lib/utils";
@@ -36,10 +36,10 @@ export default async function Image({
   const { id } = await params;
   const fonts = ogFonts();
   try {
-    const s = await getSession(id);
+    const s = await getSession(id, undefined, undefined, false); // a crawler, not a view
     return new ImageResponse(
       ogCard({
-        title: s.title?.trim() || "Untitled session",
+        title: sessionTitle(s),
         status: s.status,
         model: s.model,
         agent: s.framework ? frameworkLabel(s.framework) : null,

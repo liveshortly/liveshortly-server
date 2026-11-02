@@ -1,17 +1,14 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import type { Session, SessionDetail, SessionEvent } from "@/lib/api";
 import { fmtInt, frameworkLabel } from "@/lib/utils";
-import HandoffButton from "@/components/HandoffButton";
-import PublicLinkDialog from "@/components/PublicLinkDialog";
-import PublishAction from "@/components/PublishAction";
-import ShareToTwitter from "@/components/ShareToTwitter";
+import ShareSheet from "@/components/ShareSheet";
 import Button, { IconButton } from "@/components/ui/Button";
 import s from "./session.module.css";
 
 /** Optional right panel (⌘I): session info, watchers, forks, files touched,
- *  and the existing share / fork / publish controls (LSW-07 replaces those). */
+ *  and the one Share sheet (LSW-07: link, feed, invites, 𝕏, embed, handoff). */
 export default function InfoPanel({
   meta,
   events,
@@ -23,8 +20,7 @@ export default function InfoPanel({
   onMeta: (u: Session) => void;
   onClose: () => void;
 }) {
-  const [linkOpen, setLinkOpen] = useState(false);
-  const linkRef = useRef<HTMLSpanElement>(null);
+  const [shareOpen, setShareOpen] = useState(false);
 
   // Files touched, from the work runs (newest first).
   const files = useMemo(() => {
@@ -91,26 +87,15 @@ export default function InfoPanel({
 
       <span className="t-caption">Actions</span>
       <div className={s.infoActions}>
-        <HandoffButton sessionId={meta.id} fullWidth />
-        <ShareToTwitter session={meta} onChanged={onMeta} />
-        {meta.is_owner && <PublishAction session={meta} onChanged={onMeta} />}
-        {meta.is_owner && (
-          <span ref={linkRef}>
-            <Button onClick={() => setLinkOpen((v) => !v)} aria-expanded={linkOpen}>
-              Share link…
-            </Button>
-          </span>
-        )}
-        {linkOpen && (
-          <PublicLinkDialog
-            sessionId={meta.id}
-            title={meta.title}
-            visibility={meta.visibility ?? "private"}
-            anchorEl={linkRef.current}
-            onClose={() => setLinkOpen(false)}
-            onChanged={onMeta}
-          />
-        )}
+        <Button onClick={() => setShareOpen(true)} aria-haspopup="dialog">
+          Share, publish or fork…
+        </Button>
+        <ShareSheet
+          session={shareOpen ? meta : null}
+          owner={meta.is_owner === true}
+          onChanged={onMeta}
+          onClose={() => setShareOpen(false)}
+        />
       </div>
     </aside>
   );

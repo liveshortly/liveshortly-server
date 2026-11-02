@@ -163,3 +163,8 @@
   color: var(--fg-2);
   overflow-wrap: anywhere;
 }
+
+/* Feed search: lives in the page now that the header is the shared Topbar. */
+.search {
+  margin: 0 auto 24px;
+}

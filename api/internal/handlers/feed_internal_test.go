@@ -12,7 +12,8 @@ import (
 func TestPublicSessionRedacts(t *testing.T) {
 	hero := "Edited /Users/rohit/.gemini/x"
 	ch := "rohit@rohits-mbp"
-	s := store.Session{Title: "fix /home/rohit/app", Hero: &hero, ClientHandle: &ch, OwnerHandle: "rohit@example.com"}
+	sug := "Fix /Users/rohit/app for rohit@example.com"
+	s := store.Session{Title: "fix /home/rohit/app", Hero: &hero, ClientHandle: &ch, OwnerHandle: "rohit@example.com", SuggestedTitle: &sug}
 	publicSession(&s)
 	b, _ := json.Marshal(s)
 	for _, leak := range []string{"/Users/", "/home/", "rohit@", "example.com"} {
