@@ -1,8 +1,7 @@
 name: CI
 
-# Runs on every PR and on main. `deploy.yml` ships main to production; this
-# workflow is the gate in front of it — make it a required status check on
-# main so nothing merges that could not build and boot.
+# Runs on PRs and main. Hosted deployment is manual-only; this verifies builds
+# and an isolated stack before self-hosting operators pull the changes.
 #
 # The `stack` job is a real deployment: it builds the api binary and the web
 # standalone bundle exactly as deploy.yml does, runs them as plain processes

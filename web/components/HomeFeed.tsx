@@ -178,7 +178,7 @@ function Onboarding() {
               <span className="ob-step-n tnum">01</span>
               <div className="ob-step-body">
                 <div className="ob-step-t">Install the CLI</div>
-                <CopyCmd cmd="curl -fsSL https://liveshortly.com/i.sh | bash" />
+                <CopyCmd cmd="curl -fsSL https://raw.githubusercontent.com/liveshortly/live-dist/main/install.sh | bash" />
               </div>
             </li>
             <li>
@@ -187,7 +187,7 @@ function Onboarding() {
                 <div className="ob-step-t">Run a session</div>
                 <CopyCmd cmd="live claude" />
                 <div className="ob-step-s">
-                  Sign in once with <code>live login</code>, then{" "}
+                  Configure this server using the <Link href="/install">install guide</Link>, sign in with <code>live login</code>, then{" "}
                   <code>live claude</code> wraps Claude Code and opens a session.
                 </div>
               </div>

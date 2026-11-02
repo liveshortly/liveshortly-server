@@ -1,0 +1,145 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   Design tokens — the ONE source for colour, type, spacing and radius.
+   Palette is the shipped PocketAI Mac palette
+   (PocketUI/Resources/Colors.xcassets). Two values differ from the assets so
+   text passes WCAG AA (checked by `node scripts/check-contrast.mjs`):
+     light warn #B07C1E → #865E17   (was 3.2:1 on canvas)
+     dark  bad  #D4654F → #D76E5A   (was 4.3:1 on raised)
+   Rules: --fg-3 is meta text only, never body text. Status colours are text
+   on canvas/surface/raised, not on --sunken (neutral text only there).
+   ThemeProvider always sets data-theme before paint, so there is no
+   prefers-color-scheme copy here; without JS the page is light.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+:root {
+  color-scheme: light;
+  --canvas: #f3f1e9;
+  --surface: #faf9f4;
+  --raised: #ffffff;
+  --sunken: #eae7dc;
+  --hairline: #e0ddd2;
+  --line-strong: #c9c5b6;
+  --fg: #1a1916;
+  --fg-2: #55524a;
+  --fg-3: #6a675e;
+  --accent: #1f7a4d; /* = ok */
+  --on-accent: #ffffff;
+  --warn: #865e17;
+  --bad: #c0392b;
+  --info: #2c6e7a;
+  --admin: #6d3fc4; /* web-only: super-admin surfaces */
+  --shadow: rgba(26, 25, 22, 0.12);
+  /* Code blocks stay dark in both themes. */
+  --code-bg: #121110;
+  --code-ink: #c9c5b6;
+  --code-line: #2e2c27;
+  /* Text on photos / dark overlays / red fills — same in both themes. */
+  --on-media: #ffffff;
+  --live-on-media: #baffce;
+  /* macOS window-chrome dots (terminal mocks). */
+  --win-close: #ff5f57;
+  --win-min: #febc2e;
+  --win-zoom: #28c840;
+}
+
+/* .ins-hero is an always-dark band. */
+:root[data-theme="dark"],
+.ins-hero {
+  color-scheme: dark;
+  --canvas: #121110;
+  --surface: #1a1916;
+  --raised: #242320;
+  --sunken: #0c0b0a;
+  --hairline: #2e2c27;
+  --line-strong: #44413a;
+  --fg: #ebe8e0;
+  --fg-2: #a8a399;
+  --fg-3: #8e8a81;
+  --accent: #3db27e;
+  --on-accent: #0c1a12;
+  --warn: #d9a441;
+  --bad: #d76e5a;
+  --info: #4f9aa8;
+  --admin: #b18cef;
+  --shadow: rgba(0, 0, 0, 0.5);
+  --code-bg: #0c0b0a;
+}
+
+/* Derived tokens + the names existing components use. Re-declared on dark
+   scopes so they resolve against that scope's palette. */
+:root,
+.ins-hero {
+  --ok: var(--accent);
+  --accent-soft: color-mix(in srgb, var(--accent) 12%, transparent);
+  --green-tint: color-mix(in srgb, var(--accent) 8%, transparent);
+  --green-line: color-mix(in srgb, var(--accent) 35%, transparent);
+
+  --bg: var(--canvas);
+  --panel: var(--surface);
+  --panel2: var(--raised);
+  --card: var(--raised);
+  --card-line: var(--hairline);
+  --grad-hero: var(--raised);
+  --strong: var(--fg); /* legacy: strong fill (buttons), not a border */
+  --ink: var(--fg);
+  --muted: var(--fg-2);
+  --faint: var(--fg-3);
+  --green: var(--accent);
+  --red: var(--bad);
+  --amber: var(--warn);
+  --blue: var(--info);
+  --violet: var(--admin);
+}
+
+:root {
+  /* Type — system UI face to match the Mac; mono only for machine truth. */
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text",
+    var(--font-inter, Inter), Inter, system-ui, "Segoe UI", sans-serif;
+  --font-mono: var(--font-jbmono, "JetBrains Mono"), "JetBrains Mono",
+    ui-monospace, "SFMono-Regular", Menlo, monospace;
+  /* Scale from PocketFont.swift (macOS text styles). */
+  --text-display: 26px;
+  --text-title: 17px;
+  --text-headline: 13px;
+  --text-body: 13px;
+  --text-callout: 12px;
+  --text-footnote: 10px;
+  --text-caption: 10px;
+  --text-mono: 12px;
+  --text-metric: 10px;
+
+  /* Spacing (PocketSpacing.swift). */
+  --space-2: 2px;
+  --space-4: 4px;
+  --space-8: 8px;
+  --space-12: 12px;
+  --space-16: 16px;
+  --space-20: 20px;
+  --space-24: 24px;
+  --space-32: 32px;
+  --space-40: 40px;
+  --space-56: 56px;
+
+  /* Radius. */
+  --radius-hud: 8px;
+  --radius-bubble: 12px;
+  --radius-card: 14px;
+  --radius-sheet: 22px;
+}
+
+.t-display { font: 700 var(--text-display)/1.2 var(--font-sans); }
+.t-title { font: 600 var(--text-title)/1.3 var(--font-sans); }
+.t-headline { font: 600 var(--text-headline)/1.4 var(--font-sans); }
+.t-body { font: 400 var(--text-body)/1.45 var(--font-sans); }
+.t-callout { font: 400 var(--text-callout)/1.4 var(--font-sans); }
+.t-footnote { font: 400 var(--text-footnote)/1.4 var(--font-sans); }
+.t-caption {
+  font: 500 var(--text-caption)/1.3 var(--font-sans);
+  text-transform: uppercase;
+  letter-spacing: 0.9px;
+}
+.t-mono { font: 400 var(--text-mono)/1.45 var(--font-mono); }
+.t-metric {
+  font: 500 var(--text-metric)/1.3 var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}

@@ -78,7 +78,7 @@ of forks made from a session and is present on every row (feed/list included).
 | POST | `/api/sessions/{id}/publish` | — | `200 Session` (owner; lists in feed + public) |
 | POST | `/api/sessions/{id}/unpublish` | — | `200 Session` (owner; removes from feed + private) |
 | POST | `/api/sessions/{id}/typing` | — | `204` (ephemeral "viewer is typing" presence, live only) |
-| GET  | `/api/sessions/{id}` | — | `200 {...Session,"events":[Event]}` (view_count++) |
+| GET  | `/api/sessions/{id}?since_seq=` | — | `200 {...Session,"events":[Event]}` (view_count++). `since_seq` is optional: when given, `events` carries only those with `seq > since_seq`, so a client holding the earlier ones refetches just the tail; omitted (or `0`) returns the full list, which is what every existing client gets. The session's own `event_count` remains the authoritative total, so a client can tell whether it is missing anything. A value that is not a non-negative integer is `400`, not a silent full response |
 | PATCH | `/api/sessions/{id}` | `{"title"?,"visibility"?,"link_role"?,"model"?}` | `200 Session` (owner only) |
 | POST | `/api/sessions/{id}/events` | `{"event_type":string,"payload":object,"actor"?:string}` | `201 Event` — payload belt-capped to 256 KB before store; if this event crosses the owner's storage quota the response is `201 {...Event,"ended":true,"reason":"quota","summary_url","handoff_code","handoff_command"}` and the session is auto-ended |
 | GET  | `/api/sessions/{id}/summary.md` | — | `200 text/markdown` (attachment; on-demand digest; same read auth as the session) |

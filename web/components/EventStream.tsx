@@ -358,8 +358,10 @@ export default function EventStream({
             // Typed input (host prompt / viewer comment) — Claude-app style:
             // a compact left-aligned card with a tiny attribution line.
             const who = handleOf(e, isViewer ? "viewer" : me);
+            // Human turns sit on the right, the agent on the left, so the
+            // conversation alternates sides and a glance tells you who spoke.
             return (
-              <div key={e.id} ref={setRef(e.id)} className="et-row">
+              <div key={e.id} ref={setRef(e.id)} className="et-row said">
                 <div className="et-byline">
                   <span className={`et-name${isViewer ? " viewer" : ""}`}>
                     {who}

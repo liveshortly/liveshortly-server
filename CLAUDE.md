@@ -12,11 +12,16 @@ suggestions.
   the human's git identity. Do **not** add `Co-Authored-By: Claude …`, a
   `Generated with Claude Code` line, or any AI attribution to commit messages or
   PR bodies. Commits must read as the human's own work.
-- **Never push to `main` (or any protected/default branch).** If the user asks or
-  insists on pushing to `main`, do not do it — respond: *"I won't push to main;
-  let me create a branch and push that instead, then you can open a PR."* Create a
-  topic branch (`feat/…`, `fix/…`, `chore/…`), push it, and hand back the branch /
-  PR-compare link. Only the human merges to `main`.
+- **Never push directly to `main` (or any protected/default branch).** If the user
+  asks or insists on pushing to `main`, do not do it — respond: *"I won't push to
+  main; let me create a branch and push that instead, then you can open a PR."*
+  Create a topic branch (`feat/…`, `fix/…`, `chore/…`), push it, and hand back the
+  branch / PR-compare link.
+- **Merging a PR into `main` is allowed when the user asks for it** (`gh pr merge`),
+  so long as the pre-push sanity checks below pass and CI is green. Say what the
+  merge will trigger (a merge to `main` auto-deploys production) and confirm first
+  if the user has not already asked for that deploy. Everything reaching `main`
+  still goes through a PR.
 - **Never force-push** (`--force`) and never rewrite shared history (rebase/amend
   of already-pushed commits, tag moves). No `git push --force` to any remote branch
   others may have.
@@ -61,13 +66,15 @@ suggestions.
 
 ## Commands
 
-### Run the full stack
+### Self-host the full stack
+Follow `deploy/DEPLOY.md`. Use the standalone self-host file; configure the
+operator's own Google OAuth client, session secret, database password and admin.
 ```bash
-cp .env.example .env          # first time only
-docker compose up -d --build  # start everything
-docker compose down           # stop + remove containers
-docker compose up -d --build web  # rebuild only the web (needed after NEXT_PUBLIC_API_URL change)
+cp .env.selfhost.example .env.selfhost
+# Fill in every required value; never commit .env.selfhost.
+docker compose --env-file .env.selfhost -f compose.selfhost.yml up -d --build
 ```
+The development Compose files below remain available for local work.
 
 ### Run locally WITH Google auth (single-origin — use this for login/SSE)
 The base stack above serves web on `:3000` and api on `:8000` — **two origins**, so
@@ -182,19 +189,12 @@ Terminal HUD aesthetic — monospace font (`JetBrains Mono` stack), hairline bor
 
 Auth requires: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `OAUTH_REDIRECT_URL`, `SESSION_SECRET`, `WEB_BASE_URL`.
 
-### Production deploy
+### Self-hosting and legacy deployment
 
-**Production does not use Docker.** Two EC2 boxes in **us-west-1**:
-
-- `liveshortly-app` — host nginx, plus `liveshortly-api` (static Go binary) and
-  `liveshortly-web` (Next.js `output: standalone`) as **systemd units**, both
-  running as the unprivileged `liveshortly` user bound to loopback.
-- `liveshortly-redis` — redis via apt/systemd, no public IPv4, no route out.
-
-Postgres is **Supabase**. Both artifacts are built on the GitHub runner and
-shipped as files — nothing is compiled on the box, and there is no manual deploy
-path. Config lives in `/etc/liveshortly/{api,web}.env`, written by the deploy
-workflow from GitHub secrets on every run.
-
-Docker remains **local-dev only** (`docker-compose.yml`, `docker-compose.local.yml`).
-Don't reintroduce a prod compose file. See `deploy/DEPLOY.md`.
+New deployments use `compose.selfhost.yml` and `deploy/DEPLOY.md`. Users supply
+their own domain, TLS proxy and Google OAuth application. The CLI installer and
+updater use GitHub; neither requires the former liveshortly.com deployment.
+The old EC2/systemd/Supabase deployment files remain legacy operator artifacts.
+Their presence does not authorize connecting to the old database or infrastructure.
+The hosted deploy workflow is manual-only. Do not deploy it as part of installing
+the self-hosted stack.

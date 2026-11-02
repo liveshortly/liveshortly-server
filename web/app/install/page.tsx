@@ -1,364 +1,169 @@
 import type { Metadata } from "next";
-import { readdir, readFile } from "fs/promises";
-import path from "path";
 import InstallCommand from "@/components/InstallCommand";
 
 export const metadata: Metadata = {
-  title: "Install",
+  title: "Install and self-host",
   description:
-    "Install the live CLI — one command to stream your Claude Code sessions. All released versions and their install commands.",
+    "Install the live CLI from GitHub and connect it to your own LiveShortly server.",
 };
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://liveshortly.com";
+const INSTALL =
+  "curl -fsSL https://raw.githubusercontent.com/liveshortly/live-dist/main/install.sh | bash";
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:8080";
 
-interface Release {
-  version: string;
-  targets: string[]; // e.g. "darwin-arm64"
-}
+/** What the installer actually guarantees. Facts, not adjectives. */
+const FACTS = [
+  "macOS & Linux",
+  "arm64 & amd64",
+  "Checksum-verified",
+  "No Go toolchain",
+  "No account",
+];
 
-/** Read the published release binaries under public/install and group them by
- *  version. Filenames look like live-v0.2.0-darwin-arm64.gz. */
-async function loadReleases(): Promise<{ releases: Release[]; latest: string | null }> {
-  const dir = path.join(process.cwd(), "public", "install");
-  try {
-    const files = await readdir(dir);
-    const byVersion = new Map<string, Set<string>>();
-    const re = /^live-(v\d+\.\d+\.\d+)-([a-z0-9]+-[a-z0-9]+)\.gz$/;
-    for (const f of files) {
-      const m = f.match(re);
-      if (!m) continue;
-      const [, version, target] = m;
-      if (!byVersion.has(version)) byVersion.set(version, new Set());
-      byVersion.get(version)!.add(target);
-    }
-    const releases = [...byVersion.entries()]
-      .map(([version, targets]) => ({ version, targets: [...targets].sort() }))
-      .sort((a, b) => cmpVersion(b.version, a.version)); // newest first
-
-    let latest: string | null = null;
-    try {
-      latest = (await readFile(path.join(dir, "latest.txt"), "utf8")).trim();
-    } catch {
-      latest = releases[0]?.version ?? null;
-    }
-    return { releases, latest };
-  } catch {
-    return { releases: [], latest: null };
-  }
-}
-
-/** How many releases to show before collapsing the rest. Older binaries stay
- *  published and installable — `--version vX.Y.Z` pins never break — they are
- *  just folded away so the page leads with what people actually want. */
-const SHOWN_RELEASES = 3;
-
-function ReleaseRow({
-  r,
-  latest,
-  installBase,
-}: {
-  r: Release;
-  latest: string | null;
-  installBase: string;
-}) {
-  const isLatest = r.version === latest;
-  const pinned = `${installBase} -s -- --version ${r.version}`;
+function Check() {
   return (
-    <div
-      style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="var(--ins-accent)"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      style={{ flexShrink: 0 }}
     >
-      <span
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 8,
-          minWidth: 118,
-        }}
-      >
-        <span
-          className="tnum"
-          style={{ fontSize: 15, fontWeight: 700, color: "var(--ink)" }}
-        >
-          {r.version}
-        </span>
-        {isLatest && (
-          <span
-            className="label"
-            style={{
-              border: "1px solid var(--green)",
-              color: "var(--green)",
-              padding: "1px 6px",
-              fontSize: 9,
-            }}
-          >
-            LATEST
-          </span>
-        )}
-      </span>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <InstallCommand command={pinned} />
-      </div>
-    </div>
+      <path d="m3.5 8.5 3 3 6-6" />
+    </svg>
   );
 }
 
-/** Compare vMAJOR.MINOR.PATCH strings. */
-function cmpVersion(a: string, b: string): number {
-  const pa = a.replace(/^v/, "").split(".").map(Number);
-  const pb = b.replace(/^v/, "").split(".").map(Number);
-  for (let i = 0; i < 3; i++) {
-    if ((pa[i] ?? 0) !== (pb[i] ?? 0)) return (pa[i] ?? 0) - (pb[i] ?? 0);
-  }
-  return 0;
-}
-
-export default async function InstallPage() {
-  const { releases, latest } = await loadReleases();
-  const installBase = `curl -fsSL ${SITE_URL}/i.sh | bash`;
+export default function InstallPage() {
+  const config = JSON.stringify({ api_url: SITE_URL, web_url: SITE_URL });
+  const setup = `mkdir -p "$HOME/.liveshortly"
+cat > "$HOME/.liveshortly/host.json" <<'JSON'
+${config}
+JSON
+live login`;
 
   return (
-    <div style={{ maxWidth: 1080, margin: "0 auto" }}>
-      {/* Header */}
-      <div style={{ marginBottom: 22 }}>
-        <div className="label" style={{ color: "var(--green)" }}>
-          ◧ INSTALL · LIVE CLI
-        </div>
-        <h1
-          style={{
-            fontSize: 26,
-            fontWeight: 700,
-            lineHeight: 1.15,
-            margin: "10px 0 0",
-            color: "var(--ink)",
-          }}
-        >
-          Install <span style={{ color: "var(--green)" }}>live</span>
-        </h1>
-        <p
-          style={{
-            color: "var(--muted)",
-            fontSize: 14,
-            lineHeight: 1.6,
-            margin: "10px 0 0",
-            maxWidth: 620,
-          }}
-        >
-          One command to stream your Claude Code sessions to LiveShortly — it
-          fetches, builds, installs the <code>live</code> binary onto your PATH,
-          and signs you in. Idempotent: rerun any time to update.
-        </p>
-      </div>
+    <>
+      {/* The command is the page, so it gets the hero — on the same dark band
+          the landing uses, because these two are one marketing surface and
+          were reading as two different products. */}
+      <header className="ins-hero">
+        <div className="ins-hero-in">
+          <h1 className="ins-title">
+            One command, and it&rsquo;s <em>your</em> server.
+          </h1>
+          <p className="ins-sub">
+            LiveShortly is self-hosted. The installer pulls a checksum-verified
+            binary straight from GitHub — no account, no managed service,
+            nothing phoning home.
+          </p>
 
-      {/* Primary install (latest) */}
-      <section
-        style={{
-          border: "1px solid var(--hairline)",
-          background: "var(--panel)",
-          padding: "18px 18px 20px",
-          marginBottom: 20,
-        }}
-      >
-        <div
-          className="label dashed-b"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 10,
-            paddingBottom: 8,
-            marginBottom: 14,
-            color: "var(--ink)",
-          }}
-        >
-          <span>▸ QUICK INSTALL — LATEST</span>
-          {latest && (
-            <span className="tnum" style={{ color: "var(--green)" }}>
-              {latest}
-            </span>
-          )}
-        </div>
-        <InstallCommand command={installBase} />
-        <div className="label" style={{ color: "var(--faint)", marginTop: 12 }}>
-          NO PREREQUISITES · PREBUILT BINARY · MACOS + LINUX · AMD64 + ARM64 —
-          downloaded from{" "}
-          <a
-            href="https://github.com/liveshortly/live-dist/releases"
-            style={{ color: "var(--muted)", textDecoration: "underline" }}
-          >
-            github releases
-          </a>{" "}
-          and verified against its published SHA-256 before install.
-        </div>
-      </section>
+          <div className="ins-term">
+            <div className="ins-term-bar">
+              <span className="ins-dot" style={{ background: "var(--win-close)" }} />
+              <span className="ins-dot" style={{ background: "var(--win-min)" }} />
+              <span className="ins-dot" style={{ background: "var(--win-zoom)" }} />
+              <span className="ins-term-name">bash</span>
+            </div>
+            <InstallCommand command={INSTALL} hero />
+          </div>
 
-      {/* Homebrew */}
-      <section
-        style={{
-          border: "1px solid var(--hairline)",
-          background: "var(--panel)",
-          padding: "18px 18px 20px",
-          marginBottom: 20,
-        }}
-      >
-        <div
-          className="label dashed-b"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 10,
-            paddingBottom: 8,
-            marginBottom: 14,
-            color: "var(--ink)",
-          }}
-        >
-          <span>▸ HOMEBREW — macOS / LINUX</span>
-          <span className="label" style={{ color: "var(--faint)" }}>
-            NO GO NEEDED
-          </span>
+          <div className="ins-facts">
+            {FACTS.map((f) => (
+              <span className="ins-fact" key={f}>
+                <Check />
+                {f}
+              </span>
+            ))}
+          </div>
         </div>
-        {/* Two clear steps: tap the formula once, then install it. */}
-        <InstallCommand command="brew tap liveshortly/tap" />
-        <div style={{ height: 10 }} />
-        <InstallCommand command="brew install live" />
-        <div className="label" style={{ color: "var(--faint)", marginTop: 12, lineHeight: 1.7 }}>
-          UPDATE LATER · <code>brew upgrade live</code>
-        </div>
-      </section>
+      </header>
 
-      {/* Permission control (new in v0.3.0) */}
-      <section
-        style={{
-          border: "1px solid var(--hairline)",
-          background: "var(--panel)",
-          padding: "18px 18px 20px",
-          marginBottom: 20,
-        }}
-      >
-        <div
-          className="label dashed-b"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 10,
-            paddingBottom: 8,
-            marginBottom: 14,
-            color: "var(--ink)",
-          }}
-        >
-          <span>⌐ PERMISSION CONTROL</span>
-          <span className="label" style={{ color: "var(--green)" }}>
-            ON BY DEFAULT
-          </span>
-        </div>
-        <p
-          style={{
-            color: "var(--muted)",
-            fontSize: 13.5,
-            lineHeight: 1.6,
-            margin: "0 0 12px",
-          }}
-        >
-          <code>live claude</code> now lets you approve Claude&apos;s tool runs
-          from a tmux popup (if tmux is installed) or the session page — allow /
-          deny / allow-always, owner only.
-        </p>
-        <div className="label" style={{ color: "var(--faint)", lineHeight: 1.9 }}>
-          <code>live claude</code> — permission control on (tmux popup if
-          present)
-          <br />
-          <code>LIVE_WEB_PERMS=0 live claude</code> — turn it off (native
-          behavior)
-          <br />
-          <code>LIVE_TMUX=0 live claude</code> — gate, but answer only from the
-          web
-        </div>
-        <div className="label" style={{ color: "var(--amber)", marginTop: 12 }}>
-          🪄 install <code>tmux</code> — <code>brew install tmux</code> / your
-          package manager. Required for <code>live codex</code> (viewer comments
-          are typed into codex&apos;s composer); optional for{" "}
-          <code>live claude</code>, where it adds the CLI permission popup.
-        </div>
-      </section>
+      <main className="ins-body">
+        <div className="ins-steps">
+          <section className="ins-step">
+            <span className="ins-n">01</span>
+            <div style={{ minWidth: 0 }}>
+              <h2 className="ins-step-h">Get the CLI</h2>
+              <p className="ins-step-d">
+                The command above drops <code>live</code> onto your PATH.
+                Idempotent — rerun it any time to update. Homebrew works too:
+              </p>
+              <InstallCommand command="brew tap liveshortly/tap && brew install liveshortly/tap/live" />
+            </div>
+          </section>
 
-      {/* All versions */}
-      <div
-        className="label dashed-b"
-        style={{ paddingBottom: 8, marginBottom: 14, color: "var(--ink)" }}
-      >
-        ⌥ ALL VERSIONS
-        {releases.length > 0 && (
-          <span className="tnum" style={{ color: "var(--muted)" }}>
-            {" "}
-            · {releases.length}
-          </span>
-        )}
-      </div>
+          <section className="ins-step">
+            <span className="ins-n">02</span>
+            <div style={{ minWidth: 0 }}>
+              <h2 className="ins-step-h">Point it at your server</h2>
+              <p className="ins-step-d">
+                Use the origin you open in the browser for both URLs. The
+                operator deploys the platform and configures Google OAuth first.
+              </p>
+              <InstallCommand command={setup} />
+            </div>
+          </section>
 
-      {releases.length === 0 ? (
-        <div
-          className="label"
-          style={{
-            border: "1px dashed var(--hairline)",
-            background: "var(--panel)",
-            padding: "28px 16px",
-            textAlign: "center",
-            color: "var(--muted)",
-          }}
-        >
-          NO RELEASES PUBLISHED YET
+          <section className="ins-step">
+            <span className="ins-n">03</span>
+            <div style={{ minWidth: 0 }}>
+              <h2 className="ins-step-h">Run an agent</h2>
+              <p className="ins-step-d">
+                Any harness on your PATH works — <code>claude</code>,{" "}
+                <code>codex</code>, <code>gemini</code>, or anything else you
+                have installed. The share URL prints the moment it starts
+                streaming.
+              </p>
+              <InstallCommand command="live whoami && live claude" />
+            </div>
+          </section>
         </div>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {releases.slice(0, SHOWN_RELEASES).map((r) => (
-            <ReleaseRow
-              key={r.version}
-              r={r}
-              latest={latest}
-              installBase={installBase}
-            />
-          ))}
 
-          {releases.length > SHOWN_RELEASES && (
-            <details style={{ marginTop: 4 }}>
-              <summary
-                className="label"
-                style={{ cursor: "pointer", color: "var(--muted)" }}
-              >
-                {releases.length - SHOWN_RELEASES} OLDER{" "}
-                {releases.length - SHOWN_RELEASES === 1 ? "RELEASE" : "RELEASES"}
-              </summary>
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 10,
-                  marginTop: 12,
-                }}
-              >
-                {releases.slice(SHOWN_RELEASES).map((r) => (
-                  <ReleaseRow
-                    key={r.version}
-                    r={r}
-                    latest={latest}
-                    installBase={installBase}
-                  />
-                ))}
-              </div>
-            </details>
-          )}
+        <div className="ins-rule">
+          <span>Also worth knowing</span>
+          <i />
         </div>
-      )}
 
-      {/* Update note */}
-      <div
-        className="label"
-        style={{ color: "var(--faint)", marginTop: 22, lineHeight: 1.7 }}
-      >
-        ALREADY INSTALLED? · <code>live update</code> GRABS THE LATEST, OR{" "}
-        <code>live update --version vX.Y.Z</code> PINS A RELEASE.
-      </div>
-    </div>
+        <div className="ins-ref">
+          <section className="ins-card">
+            <h3>Keeping it current</h3>
+            <p>
+              <code>live update</code> pulls the latest release. Homebrew
+              installs use <code>brew upgrade liveshortly/tap/live</code>, and{" "}
+              <code>live update --version vX.Y.Z</code> pins one. Downloads come
+              from GitHub, independently of your session server.
+            </p>
+            <a href="https://github.com/liveshortly/live-dist/releases">
+              All releases and checksums
+            </a>
+          </section>
+
+          <section className="ins-card">
+            <h3>Without the web platform</h3>
+            <p>
+              Pocket mode needs no Google login, database or web platform. Sign
+              in to your agent CLIs on the server, set an access key, and start
+              the daemon:
+            </p>
+            {/* Two commands, not one two-line block: each is short enough to
+                read inside a half-width card, and you run them separately
+                anyway. */}
+            <div style={{ display: "grid", gap: 8 }}>
+              <InstallCommand command={'export LIVE_POCKET_KEY="$(openssl rand -hex 32)"'} />
+              <InstallCommand command="live daemon --server --dir /path/to/project" />
+            </div>
+            <a href="https://github.com/liveshortly/liveshortly-server/blob/main/deploy/DEPLOY.md">
+              Deploy your own web platform
+            </a>
+          </section>
+        </div>
+      </main>
+    </>
   );
 }

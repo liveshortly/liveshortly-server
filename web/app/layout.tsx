@@ -50,10 +50,11 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  // Let the dark/light theme tint the mobile browser chrome.
+  // Let the dark/light theme tint the mobile browser chrome. Mirrors --canvas
+  // in app/tokens.css (metadata can't read CSS variables).
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#F2F4F6" },
-    { media: "(prefers-color-scheme: dark)", color: "#0F1113" },
+    { media: "(prefers-color-scheme: light)", color: "#F3F1E9" },
+    { media: "(prefers-color-scheme: dark)", color: "#121110" },
   ],
 };
 

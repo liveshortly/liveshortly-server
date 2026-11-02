@@ -185,6 +185,7 @@ func router(cfg config.Config, h *handlers.Handler, ga *handlers.GoogleAuth, mgr
 	r.Post("/auth/logout", ga.Logout)
 	r.Post("/auth/device/start", ga.DeviceStart)
 	r.Post("/auth/device/approve", ga.DeviceApprove)
+	r.Post("/auth/device/deny", ga.DeviceDeny)
 	r.Post("/auth/device/poll", ga.DevicePoll)
 	r.Post("/auth/token", ga.Token)
 	r.Delete("/auth/tokens/{id}", ga.RevokeToken)
@@ -220,6 +221,7 @@ func router(cfg config.Config, h *handlers.Handler, ga *handlers.GoogleAuth, mgr
 			r.Get("/admin/stats", h.AdminStats)
 			r.Get("/admin/users", h.AdminUsers)
 			r.Patch("/admin/users/{id}/quota", h.SetUserQuota)
+			r.Patch("/admin/users/{id}/admin", h.SetUserAdmin)
 			r.Get("/admin/sessions", h.AdminSessions)
 
 			// Hosts — the caller's own machines running `live daemon`, which

@@ -29,3 +29,7 @@ data/
 Thumbs.db
 .idea/
 .vscode/
+
+# Self-hosted operator secrets
+.env.selfhost
+__pycache__/

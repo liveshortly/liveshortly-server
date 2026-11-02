@@ -1,85 +1,5 @@
 @import "tailwindcss";
-
-:root,
-:root[data-theme="light"] {
-  /* Surfaces — cool slate gray */
-  --bg: #e7e8ea;
-  --panel: #f3f4f5;
-  --panel2: #ffffff;
-  --hairline: #d0d2d5;
-  --strong: #1b1c1e;
-  --grad-hero: linear-gradient(135deg, #cfd3d8, #e7e8ea);
-
-  /* Text */
-  --ink: #1b1c1e;
-  --muted: #63666b;
-  --faint: #94979c;
-
-  /* Signals */
-  --green: #1f7a4d;
-  --red: #c0392b;
-  --amber: #a9810f;
-  --admin: #7c3aed; /* super-admin surface accent (violet) */
-  --blue: #2f6fe0; /* published-session status dot */
-
-  --shadow: rgba(20, 22, 26, 0.16);
-
-  color-scheme: light;
-
-  --font-mono: "JetBrains Mono", "IBM Plex Mono", ui-monospace,
-    "SFMono-Regular", Menlo, monospace;
-}
-
-/* Night mode — a warm, low-glare terminal palette. The semantic roles invert
-   so existing components (e.g. strong-fill buttons with panel-coloured text)
-   keep working: --strong becomes light, --ink/--panel/--bg go dark. */
-:root[data-theme="dark"] {
-  /* Cool graphite gray — lighter than near-black for better readability */
-  --bg: #1e2123;
-  --panel: #282c2f;
-  --panel2: #2d3236;
-  --hairline: #3d4247;
-  --strong: #edeff1;
-  --grad-hero: #2d3236;
-
-  --ink: #e9ebed;
-  --muted: #a6abb1;
-  --faint: #797f86;
-
-  --green: #54b885;
-  --red: #e7705f;
-  --amber: #d9ad52;
-  --admin: #b794f6; /* super-admin accent (dark) */
-    --blue: #6ba5ff;
-
-  --shadow: rgba(0, 0, 0, 0.45);
-
-  color-scheme: dark;
-}
-
-/* Honor the OS preference until the user makes an explicit choice. The
-   ThemeProvider sets data-theme on <html>; this block only applies when no
-   data-theme attribute is present (system mode / first paint). */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme]) {
-    --bg: #1e2123;
-    --panel: #282c2f;
-    --panel2: #2d3236;
-    --hairline: #3d4247;
-    --strong: #edeff1;
-    --grad-hero: #2d3236;
-    --ink: #e9ebed;
-    --muted: #a6abb1;
-    --faint: #797f86;
-    --green: #54b885;
-    --red: #e7705f;
-    --amber: #d9ad52;
-    --admin: #b794f6;
-    --blue: #6ba5ff;
-    --shadow: rgba(0, 0, 0, 0.45);
-    color-scheme: dark;
-  }
-}
+@import "./tokens.css";
 
 :root {
   --theme-transition: background-color 200ms ease, border-color 200ms ease,
@@ -113,7 +33,7 @@ body {
 body {
   background: var(--bg);
   color: var(--ink);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-feature-settings: "tnum" 1, "calt" 0;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
@@ -781,7 +701,7 @@ a {
   justify-content: center;
   font-size: 40px;
   flex-shrink: 0;
-  color: #fff;
+  color: var(--on-media);
 }
 :root[data-theme="light"] .hf-hero-badge {
   background: var(--panel);
@@ -805,7 +725,7 @@ a {
   font-size: 30px;
   font-weight: 800;
   letter-spacing: -0.02em;
-  color: #fff;
+  color: var(--on-media);
   line-height: 1.15;
 }
 :root[data-theme="light"] .hf-hero-text .ht {
@@ -905,7 +825,7 @@ a {
   letter-spacing: 0.06em;
   padding: 3px 8px;
   background: rgba(0, 0, 0, 0.35);
-  color: #fff;
+  color: var(--on-media);
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -917,7 +837,7 @@ a {
   color: var(--muted);
 }
 .hf-card-badge.live {
-  color: #baffce;
+  color: var(--live-on-media);
 }
 :root[data-theme="light"] .hf-card-badge.live {
   color: var(--green);
@@ -927,7 +847,7 @@ a {
   right: 10px;
   bottom: -14px;
   background: var(--green);
-  color: #06210f;
+  color: var(--on-accent);
   font-size: 9.5px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -1072,7 +992,7 @@ a {
   font-size: 26px;
   font-weight: 800;
   letter-spacing: -0.02em;
-  color: #fff;
+  color: var(--on-media);
 }
 :root[data-theme="light"] .hud-hero-text .ht {
   color: var(--ink);
@@ -1166,7 +1086,7 @@ a {
   align-items: center;
   justify-content: center;
   background: rgba(0, 0, 0, 0.35);
-  color: #fff;
+  color: var(--on-media);
   opacity: 0;
   font-size: 13px;
 }
@@ -2118,7 +2038,7 @@ a {
   justify-content: center;
   font-size: 9px;
   font-weight: 700;
-  color: #fff;
+  color: var(--on-media);
   flex-shrink: 0;
 }
 .lp-sb-creator-body {
@@ -2354,13 +2274,13 @@ a {
   border-radius: 50%;
 }
 .lp-demo-dot.r {
-  background: #e2685c;
+  background: var(--win-close);
 }
 .lp-demo-dot.a {
-  background: #e0aa4e;
+  background: var(--win-min);
 }
 .lp-demo-dot.g {
-  background: #4caf7d;
+  background: var(--win-zoom);
 }
 .lp-demo-title {
   font-size: 9.5px;
@@ -2584,7 +2504,7 @@ a {
   justify-content: center;
   font-size: 9.5px;
   font-weight: 700;
-  color: #fff;
+  color: var(--on-media);
   border: 2px solid var(--panel2);
   margin-left: -8px;
 }
@@ -2655,7 +2575,7 @@ a {
   letter-spacing: 0.06em;
   padding: 3px 8px;
   background: rgba(0, 0, 0, 0.35);
-  color: #fff;
+  color: var(--on-media);
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -2667,7 +2587,7 @@ a {
   color: var(--muted);
 }
 .lp-card-badge.live {
-  color: #baffce;
+  color: var(--live-on-media);
 }
 :root[data-theme="light"] .lp-card-badge.live {
   color: var(--green);
@@ -2677,7 +2597,7 @@ a {
   right: 10px;
   bottom: -14px;
   background: var(--green);
-  color: #06210f;
+  color: var(--on-accent);
   font-size: 9.5px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -3215,7 +3135,7 @@ a {
   justify-content: center;
   font-size: 9px;
   font-weight: 700;
-  color: #fff;
+  color: var(--on-media);
 }
 .sv-watch-name {
   font-size: 11.5px;
@@ -3706,7 +3626,7 @@ a {
 }
 .sv-gm-item.danger:hover {
   background: var(--red);
-  color: #fff;
+  color: var(--on-media);
 }
 .sv-gm-sep {
   height: 1px;
@@ -4239,7 +4159,7 @@ a {
 .cf-yes {
   border: 1px solid var(--red);
   background: var(--red);
-  color: #fff;
+  color: var(--on-media);
 }
 .cf-yes:hover {
   opacity: 0.9;
@@ -4818,7 +4738,7 @@ a {
   align-items: center;
   justify-content: center;
   background: rgba(0, 0, 0, 0.25);
-  color: #fff;
+  color: var(--on-media);
   opacity: 0;
   font-size: 20px;
   pointer-events: none;
@@ -5084,98 +5004,6 @@ a {
    green reserved for live; soft radii; no hairline-grid noise.
    ═══════════════════════════════════════════════════════════════════════ */
 
-:root,
-:root[data-theme="light"] {
-  --bg: #f2f4f6;
-  --panel: #ffffff;
-  --panel2: #f7f8fa;
-  --hairline: #e4e7ea;
-  --strong: #1a1d20;
-  --grad-hero: #ffffff;
-  --ink: #1a1d20;
-  --muted: #5c646d;
-  --faint: #6b747e;
-  --green: #0b8a50;
-  --red: #c8402f;
-  --amber: #9a6d0b;
-  --admin: #6d3fc4;
-  --blue: #2563c4;
-  --shadow: rgba(16, 20, 24, 0.12);
-  /* v4 additions */
-  --violet: #6d3fc4;
-  --green-tint: rgba(11, 138, 80, 0.07);
-  --green-line: rgba(11, 138, 80, 0.35);
-  --card: #ffffff;
-  --card-line: #e6e9ec;
-  --code-bg: #15181c;
-  --code-ink: #c4cbd3;
-  --code-line: #2a2f35;
-  --font-sans: var(--font-inter, Inter), Inter, system-ui, -apple-system,
-    "Segoe UI", sans-serif;
-}
-:root[data-theme="dark"] {
-  --bg: #0f1113;
-  --panel: #121417;
-  --panel2: #14171b;
-  --hairline: #1f252b;
-  --strong: #eceff3;
-  --grad-hero: #14171b;
-  --ink: #eceff3;
-  --muted: #a6afb9;
-  --faint: #7b8691;
-  --green: #34d98c;
-  --red: #ec6f60;
-  --amber: #e5ae4f;
-  --admin: #b18cef;
-  --blue: #5ea7ff;
-  --shadow: rgba(0, 0, 0, 0.5);
-  --violet: #b18cef;
-  --green-tint: rgba(52, 217, 140, 0.1);
-  --green-line: rgba(52, 217, 140, 0.35);
-  --card: #14171b;
-  --card-line: #20262d;
-  --code-bg: #0b0d10;
-  --code-ink: #c4cbd3;
-  --code-line: #1a1f25;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme]) {
-    --bg: #0f1113;
-    --panel: #121417;
-    --panel2: #14171b;
-    --hairline: #1f252b;
-    --strong: #eceff3;
-    --grad-hero: #14171b;
-    --ink: #eceff3;
-    --muted: #a6afb9;
-    --faint: #7b8691;
-    --green: #34d98c;
-    --red: #ec6f60;
-    --amber: #e5ae4f;
-    --admin: #b18cef;
-    --blue: #5ea7ff;
-    --shadow: rgba(0, 0, 0, 0.5);
-    --violet: #b18cef;
-    --green-tint: rgba(52, 217, 140, 0.1);
-    --green-line: rgba(52, 217, 140, 0.35);
-    --card: #14171b;
-    --card-line: #20262d;
-    --code-bg: #0b0d10;
-    --code-ink: #c4cbd3;
-    --code-line: #1a1f25;
-  }
-}
-
-/* Reading face: Inter. Mono stays available through --font-mono and is now
-   loaded (next/font) instead of hoping for a local install. */
-body {
-  font-family: var(--font-sans);
-  letter-spacing: 0;
-}
-:root {
-  --font-mono: var(--font-jbmono, "JetBrains Mono"), "JetBrains Mono",
-    ui-monospace, "SFMono-Regular", Menlo, monospace;
-}
 .tnum,
 code,
 pre,
@@ -5296,12 +5124,47 @@ kbd {
 }
 
 /* ── session viewer shell ───────────────────────────────────────────── */
-/* The right info panel folds away — the transcript owns the full width
-   (approved v4 layout: one unified pane; watcher count lives in the hero). */
-@media (min-width: 901px) {
-  .sv-panel {
-    display: none;
-  }
+/* The info panel is back on desktop, rebuilt as separate stacked blocks
+   rather than one continuous scroll. It had been hidden here at >=901px
+   while another rule hid it at <=900px, so between them it never rendered
+   at any width — yet SessionClient still shipped the whole <aside> and its
+   contents into the DOM on every load. It folds away below 900px, which is
+   what the earlier rule was for and still does. */
+.sv-panel {
+  flex: 0 0 320px;
+  border: none;
+  background: transparent;
+  padding: 0;
+  gap: 12px;
+}
+.sv-panel-hero,
+.sv-panel-sec {
+  border: 1px solid var(--hairline);
+  background: var(--panel);
+  border-radius: 14px;
+  padding: 14px 16px;
+  flex-shrink: 0;
+}
+.sv-panel-sec .sv-panel-h {
+  margin-top: 0;
+}
+/* The session controls now live in the rail rather than in a row above the
+   composer. In a 320px column they wrap, so give them room to be read and
+   hit: the old row sized them at 10px to fit eight across the page. */
+.sv-panel-sec .sv-action-row {
+  margin-top: 0;
+  gap: 8px;
+}
+.sv-panel-sec .sv-act,
+.sv-panel-sec .sv-action-row > button,
+.sv-panel-sec .sv-action-row .sv-act-pop > button {
+  font-size: 11px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border-color: var(--hairline);
+}
+.sv-panel-sec .sv-action-row .sv-act-pop {
+  display: inline-flex;
 }
 .sv-hero {
   background: var(--bg);
@@ -5327,7 +5190,7 @@ kbd {
 .chat-thread {
   border: none !important;
   background: transparent !important;
-  padding: 20px 4px 14px;
+  padding: 28px 4px 40px;
 }
 .et-col {
   width: 100%;
@@ -5394,13 +5257,13 @@ kbd {
 }
 .et-tag {
   flex-shrink: 0;
-  font-size: 8.5px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.08em;
-  color: var(--faint);
+  color: var(--muted);
   border: 1px solid var(--hairline);
-  border-radius: 5px;
-  padding: 1px 6px;
+  border-radius: 999px;
+  padding: 1px 7px;
 }
 .et-tag.viewer {
   color: var(--violet);
@@ -5409,12 +5272,12 @@ kbd {
 .et-time {
   flex-shrink: 0;
   font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--faint);
+  font-size: 11px;
+  color: var(--muted);
 }
 .et-reply {
-  font-size: 10.5px;
-  color: var(--faint);
+  font-size: 11px;
+  color: var(--muted);
 }
 .et-reply b {
   color: var(--violet);
@@ -5750,6 +5613,28 @@ a.sv-chip:hover {
   border-radius: 8px;
 }
 
+/* The tabs were moved off uppercase but everything around them was left
+   shouting: the header, the search field, every date group and every
+   timestamp, five uppercase treatments stacked down one 232px column. The
+   shared .label class is what did it, so stop it here and let the column
+   read as a list of names. Labels elsewhere are untouched. */
+.ws-sidebar .label {
+  text-transform: none;
+  letter-spacing: 0.01em;
+}
+/* Date groups stay quiet markers, not headings competing with the titles.
+   They were 9px in --faint, which fails contrast at any size. */
+.ws-group-h {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  padding: 4px 10px 6px;
+}
+/* A touch more room per row, and the list no longer crowds the search. */
+.ws-sidebar .ws-row {
+  margin-inline: 2px;
+}
+
 /* Daemon pill + install links: sentence case. */
 .daemon-status {
   text-transform: none;
@@ -5857,29 +5742,81 @@ a.sv-chip:hover {
   gap: 0;
   padding: 0 4px;
 }
+/* Human turns (host and viewers) sit on the right; the agent keeps the left
+   and the full column. The thread then alternates sides, so who is speaking
+   reads at a glance instead of from the name alone.
+
+   They also shrink to their content. A six-character message was being drawn
+   as a 1400px-wide card, which is what made short replies look like empty
+   banners. */
+.et-row.said {
+  align-items: flex-end;
+}
+.et-row.said .et-byline {
+  justify-content: flex-end;
+}
+.et-row.said .et-card,
+.et-row.said .et-card.viewer {
+  width: fit-content;
+  max-width: min(100%, 560px);
+}
+
+/* The byline labels the body under it, so it sits closer to that body than to
+   the turn above: it was 6px from its own content and 26px from the next
+   turn, which read as one uniform rhythm and let the turns blur together. */
 .et-byline {
   display: flex;
   align-items: baseline;
-  gap: 8px;
-  margin-bottom: 6px;
+  gap: 10px;
+  margin-bottom: 10px;
   min-width: 0;
 }
 .et-byline .et-name {
   font-size: 12px;
 }
+/* Cards and prose share the column's full width, so every turn lands on one
+   right edge. They used to stop at different places — 680px for a card
+   against ~970px of prose — which made the thread look ragged. */
 .et-card {
-  max-width: 680px;
-  font-size: 14.5px;
+  max-width: none;
+  font-size: 15px;
+  line-height: 1.65;
+  padding: 14px 18px;
   border-radius: 14px;
   background: var(--panel2);
   border: 1px solid var(--card-line);
 }
 .et-prose {
   max-width: none;
+  font-size: 15px;
+  line-height: 1.75;
 }
+.et-prose .md p {
+  margin: 0 0 0.9em;
+}
+.et-prose .md > :last-child {
+  margin-bottom: 0;
+}
+/* The column takes the width the page gives it, so code, diffs and work
+   receipts get room. Only running prose is held to a comfortable measure
+   (65–75 characters), because that is where line length decides whether the
+   eye reliably finds the start of the next line. A 700px cap on everything
+   left most of a wide screen empty. */
 .et-col {
-  max-width: 980px;
-  gap: 26px;
+  max-width: 1040px;
+  gap: 30px;
+  padding: 0 24px;
+}
+/* The measure belongs on the text, not on the container: capping .md capped
+   the code blocks with it. */
+.et-prose .md > p,
+.et-prose .md > ul,
+.et-prose .md > ol,
+.et-prose .md > blockquote,
+.et-prose .md > h1,
+.et-prose .md > h2,
+.et-prose .md > h3 {
+  max-width: 75ch;
 }
 .work-row .work,
 .work-row .work-box {
@@ -6005,11 +5942,36 @@ a.sv-chip:hover {
 }
 
 /* ── v4 pass 5: sessions page density (reported: huge empty rows) ─────── */
-/* Pages without a right rail cap and center their content column instead of
-   stretching rows across the whole viewport. */
-.v3-page-wrap:not(:has(.v3-page-rightpanel)) .v3-page-main {
+/* Cap and centre the content column instead of stretching rows across the
+   whole viewport. This used to apply only to pages WITHOUT a right rail, so
+   the sessions page — which has one — still drew ~1700px rows on a wide
+   screen, with the title at one end and its meta at the other and nothing in
+   between. The cap now holds either way, and the wrap centres the column and
+   its rail as a pair. */
+/* The column spans the page so the sidebar and the rail keep the edges; the
+   cap and the centring live on its CONTENTS instead.
+
+   Two earlier attempts got this wrong. Capping the column itself and centring
+   the column-plus-rail pair left a 172px orphan gap between the sidebar and
+   the content and another 172px dead beyond the rail. Then hugging the column
+   left pinned the rail correctly but pushed all the slack to one side, which
+   reads as a left-heavy page. Capping the contents and centring them inside a
+   full-width column gives even margins on both sides with the rail still flush
+   right.
+
+   This also has to hold with no rail: it is display:none below 1080px but
+   stays in the DOM, so a `:has(.v3-page-rightpanel)` branch still matched and
+   silently dropped the cap on exactly the narrow screens that needed it. One
+   rule for both states, no `:has()` test on the cap. */
+.v3-page-main {
+  max-width: none;
+}
+.v3-page-main > * {
   max-width: 1160px;
   margin-inline: auto;
+}
+.v3-page-rightpanel {
+  margin-left: auto;
 }
 /* Resume hero: a slim strip, not a billboard. */
 .hud-hero {
@@ -6227,4 +6189,248 @@ a.sv-chip:hover {
   letter-spacing: 0.01em;
   font-size: 11.5px;
   font-weight: 500;
+}
+
+/* ── v4 pass 8: hero as one full-width column ─────────────────────────────
+   The right-pinned info block left half the hero empty (worst on ended
+   sessions with a short title). Instead the hero stacks: eyebrow + title
+   first, then a full-width info bar — meta on the left, badges beside it,
+   actions pushed to the right — so the whole row works at any width. */
+.sv-hero {
+  flex-wrap: wrap;
+}
+.sv-hero-main {
+  flex: 1 1 100%;
+}
+.sv-hero-side {
+  flex: 1 1 100%;
+  max-width: none;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px 12px;
+  border-top: 1px solid var(--card-line);
+  padding-top: 10px;
+  margin-top: 2px;
+}
+.sv-hero-side .sv-hero-meta {
+  justify-content: flex-start;
+  text-align: left;
+}
+.sv-hero-side .session-badges {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+.sv-hero-side .sv-action-row {
+  margin-left: auto;
+  justify-content: flex-end;
+  flex: 0 0 auto;
+}
+@media (max-width: 1100px) {
+  /* not enough room for meta + badges + actions on one line: actions take
+     their own full-width line, left-aligned. */
+  .sv-hero-side .sv-action-row {
+    margin-left: 0;
+    flex: 1 1 100%;
+    justify-content: flex-start;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Install page (ins-)
+   The command is the page, so it gets a hero on the same always-dark band
+   the landing uses — the two are one marketing surface and were reading as
+   two different products: a dark hero with a terminal demo on one, a plain
+   light document on the other. The steps borrow the landing's numbered
+   idiom; everything below the rule is reference material and stays quiet.
+   ═══════════════════════════════════════════════════════════════════════ */
+.ins-hero {
+  /* Dark palette via tokens.css (.ins-hero is a dark scope). */
+  --ins-bg: var(--sunken);
+  --ins-band: var(--surface);
+  --ins-line: var(--hairline);
+  --ins-ink: var(--fg);
+  --ins-dim: var(--fg-2);
+  --ins-accent: var(--accent);
+  background: var(--ins-band);
+  color: var(--ins-ink);
+  border-bottom: 1px solid var(--ins-line);
+}
+.ins-hero-in {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 60px 24px 56px;
+}
+.ins-title {
+  margin: 0;
+  font-size: 38px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.12;
+}
+.ins-title em {
+  font-style: normal;
+  color: var(--ins-accent);
+}
+.ins-sub {
+  margin: 14px 0 0;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--ins-dim);
+  max-width: 62ch;
+}
+.ins-term {
+  margin-top: 30px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--ins-bg);
+  box-shadow: 0 24px 50px -28px rgba(0, 0, 0, 0.8);
+}
+.ins-term-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 13px;
+  background: var(--canvas);
+  border-bottom: 1px solid var(--ins-line);
+}
+.ins-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+}
+.ins-term-name {
+  margin-left: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-3);
+}
+.ins-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+  margin-top: 18px;
+}
+.ins-fact {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--ins-dim);
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  padding: 6px 12px;
+}
+
+.ins-body {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 48px 24px 90px;
+}
+.ins-steps {
+  display: grid;
+  gap: 14px;
+}
+.ins-step {
+  display: grid;
+  grid-template-columns: 34px 1fr;
+  gap: 16px;
+  align-items: start;
+  border: 1px solid var(--hairline);
+  background: var(--panel);
+  border-radius: 14px;
+  padding: 20px 22px;
+}
+.ins-n {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--green);
+  line-height: 1.3;
+}
+.ins-step-h {
+  margin: 0 0 4px;
+  font-size: 16px;
+  font-weight: 700;
+}
+.ins-step-d {
+  margin: 0 0 14px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--muted);
+  max-width: 66ch;
+}
+.ins-step-d code,
+.ins-card code {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  background: var(--bg);
+  border: 1px solid var(--hairline);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+.ins-rule {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 46px 0 22px;
+}
+.ins-rule span {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.ins-rule i {
+  flex: 1;
+  height: 1px;
+  background: var(--hairline);
+}
+.ins-ref {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.ins-card {
+  border: 1px solid var(--hairline);
+  background: var(--panel);
+  border-radius: 14px;
+  padding: 20px 22px;
+}
+.ins-card h3 {
+  margin: 0 0 6px;
+  font-size: 14px;
+  font-weight: 700;
+}
+.ins-card p {
+  margin: 0 0 12px;
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--muted);
+}
+.ins-card a {
+  color: var(--green);
+  text-decoration: underline;
+}
+.ins-card .label {
+  margin-top: 12px;
+}
+@media (max-width: 760px) {
+  .ins-ref {
+    grid-template-columns: 1fr;
+  }
+  .ins-title {
+    font-size: 30px;
+  }
+  .ins-hero-in {
+    padding: 44px 20px 40px;
+  }
+  .ins-step {
+    grid-template-columns: 26px 1fr;
+    gap: 12px;
+    padding: 18px;
+  }
 }

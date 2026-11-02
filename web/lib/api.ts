@@ -263,6 +263,38 @@ export interface AdminUser {
   storage_limit_bytes: number;
   max_live_sessions: number;
   quota_exempt: boolean;
+  /** The admin grant itself — `users.is_admin`, written by setUserAdmin. */
+  is_admin: boolean;
+}
+
+/** Grant or revoke a user's admin. Super-admin only.
+ *
+ *  The server refuses two revokes — your own, and the last remaining admin —
+ *  because admin lives only in this column, so reaching zero would lock the
+ *  deployment out of /admin entirely. Both come back as a 400 whose message is
+ *  written to be shown to the operator as-is. */
+export function setUserAdmin(
+  id: string,
+  isAdmin: boolean,
+  signal?: AbortSignal,
+): Promise<{ id: string; is_admin: boolean }> {
+  return fetch(`${browserBase()}/api/admin/users/${encodeURIComponent(id)}/admin`, {
+    method: "PATCH",
+    credentials: "include",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ is_admin: isAdmin }),
+    signal,
+  }).then(async (res) => {
+    if (!res.ok) {
+      // The refusals above carry a reason worth repeating verbatim.
+      const detail = await res
+        .json()
+        .then((b) => (typeof b?.error === "string" ? b.error : ""))
+        .catch(() => "");
+      throw new ApiError(res.status, detail || `Could not update admin: ${res.status}`);
+    }
+    return res.json();
+  });
 }
 
 /** Set (or clear) a user's per-user quota overrides. Super-admin only. A null
