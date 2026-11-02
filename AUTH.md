@@ -76,7 +76,7 @@ quota_exempt` (effective limits, override → config default).
 ## CLI shared credential store
 File: `~/.liveshortly/credentials.json` (mode 0600):
 ```json
-{ "api_url":"https://server.liveshortly.com", "access_token":"...", "refresh_token":"lsr_...",
+{ "api_url":"https://live.example.com", "access_token":"...", "refresh_token":"lsr_...",
   "expires_at":"RFC3339", "user":{"email":"...","name":"..."} }
 ```
 Plugin behavior:

@@ -10,6 +10,14 @@ Pure Python 3, **standard library only** (no pip installs). Networking uses
 raises in a way that could block or break your Claude Code session. If the API is
 unreachable, hooks degrade silently (diagnostics go to stderr only).
 
+## Recommended setup
+
+For new installations, use the maintained [`live` CLI](https://github.com/liveshortly/live)
+and [self-hosting guide](../deploy/DEPLOY.md). Configure your own server origin and
+run `live login` there. These Python hooks are a legacy integration: their
+`X-LiveShortly-Handle` identity examples predate the authenticated API and are not
+a standalone installation path for the current server.
+
 ## What gets captured
 
 | Claude Code event | Hook script            | LiveShortly event                                                   |

@@ -39,11 +39,6 @@ type Config struct {
 	SessionSecret     string
 	WebBaseURL        string
 
-	// SuperAdminEmails is the allowlist of accounts that may reach the admin
-	// stats surface. Comma-separated via SUPER_ADMIN_EMAILS; empty by default.
-	// Stored lower-cased for case-insensitive matching.
-	SuperAdminEmails []string
-
 	// --- Per-user quotas (launch-blocking) ---
 	// DefaultStorageLimitBytes is the per-user stored-session-data cap applied to
 	// users with no override. Tunable via DEFAULT_STORAGE_LIMIT_BYTES; defaults to
@@ -57,21 +52,6 @@ type Config struct {
 // big fraction of a user's quota or spike memory in a single insert. Fixed (not
 // configurable) by design — it's a safety belt, not a tuning knob.
 const MaxEventBytes = 256 * 1024 // 256 KB
-
-// IsSuperAdmin reports whether the given email is on the super-admin allowlist
-// (case-insensitive). Empty email is never an admin.
-func (c Config) IsSuperAdmin(email string) bool {
-	e := strings.ToLower(strings.TrimSpace(email))
-	if e == "" {
-		return false
-	}
-	for _, a := range c.SuperAdminEmails {
-		if a == e {
-			return true
-		}
-	}
-	return false
-}
 
 // Load reads configuration from the environment, applying defaults from the
 // contract. Required values (DATABASE_URL, REDIS_URL) have sensible local
@@ -92,11 +72,7 @@ func Load() Config {
 		OAuthAllowedHosts:  oauthAllowedHosts(env("OAUTH_ALLOWED_HOSTS", ""), webBaseURL),
 		SessionSecret:      env("SESSION_SECRET", ""),
 		WebBaseURL:         webBaseURL,
-		SuperAdminEmails: lowerAll(splitCSV(env(
-			"SUPER_ADMIN_EMAILS",
-			"",
-		))),
-		LiveAgentGrace: envDuration("LIVE_AGENT_GRACE", 10*time.Minute),
+		LiveAgentGrace:     envDuration("LIVE_AGENT_GRACE", 10*time.Minute),
 
 		DefaultStorageLimitBytes: envInt64("DEFAULT_STORAGE_LIMIT_BYTES", 100*1024*1024),
 		DefaultMaxLiveSessions:   int(envInt64("DEFAULT_MAX_LIVE_SESSIONS", 10)),

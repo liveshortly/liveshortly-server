@@ -8,6 +8,7 @@ export default function AppFooter() {
       <span className="v3-footer-links">
         <Link href="/docs">Docs</Link>
         <Link href="/install">Install CLI</Link>
+        <Link href="/changelog">Changelog</Link>
         <a
           href="https://x.com/whorsehgal"
           target="_blank"

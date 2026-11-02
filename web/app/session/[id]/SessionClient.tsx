@@ -578,24 +578,6 @@ export default function SessionViewer({
             )}
             {meta && <Badge status={meta.status} size="md" />}
             </div>
-            {/* Desktop action row — right-aligned under the meta/badges.
-                Hidden on mobile (≤860px), where the ⚙ sheet takes over. */}
-            {meta && (
-              <SessionActionRow
-                id={id}
-                meta={meta}
-                onMetaChange={(u) => setMeta((m) => (m ? { ...m, ...u } : m))}
-                onEnded={() =>
-                  setMeta((m) =>
-                    m
-                      ? { ...m, status: "ended", ended_at: new Date().toISOString() }
-                      : m,
-                  )
-                }
-                onDeleted={() => router.push("/hud")}
-                onRename={() => titleRef.current?.begin()}
-              />
-            )}
             {/* Mobile-only: the same actions in a bottom sheet (desktop uses the
                 inline action row above). */}
             {meta && (
@@ -714,6 +696,24 @@ export default function SessionViewer({
           eventTotal={eventTotal}
           isLive={isLive}
           onMetaChange={(u) => setMeta((m) => (m ? { ...m, ...u } : m))}
+          actions={
+            meta && (
+              <SessionActionRow
+                id={id}
+                meta={meta}
+                onMetaChange={(u) => setMeta((m) => (m ? { ...m, ...u } : m))}
+                onEnded={() =>
+                  setMeta((m) =>
+                    m
+                      ? { ...m, status: "ended", ended_at: new Date().toISOString() }
+                      : m,
+                  )
+                }
+                onDeleted={() => router.push("/hud")}
+                onRename={() => titleRef.current?.begin()}
+              />
+            )
+          }
         />
       </div>
 
@@ -921,6 +921,7 @@ function SessionInfoPanel({
   eventTotal,
   isLive,
   onMetaChange,
+  actions,
 }: {
   id: string;
   meta: SessionDetail | null;
@@ -928,6 +929,10 @@ function SessionInfoPanel({
   eventTotal: number;
   isLive: boolean;
   onMetaChange: (u: Session) => void;
+  /** Session controls, rendered as the rail's last block. They used to sit in
+   *  a row above the composer, where eight buttons competed with the one
+   *  control the viewer actually came to use. */
+  actions?: React.ReactNode;
 }) {
   // Distinct speakers, most recent first — real handles from real comments.
   const speakers = useMemo(() => {
@@ -992,7 +997,9 @@ function SessionInfoPanel({
           )}
         </div>
         <div className="sv-panel-sub">@{meta.owner_handle}</div>
+      </div>
 
+      <div className="sv-panel-sec">
         <div className="sv-panel-h">Session info</div>
         <dl style={{ margin: 0 }}>
           <InfoRow label="Model" value={meta.model ?? "—"} />
@@ -1036,13 +1043,13 @@ function SessionInfoPanel({
           </div>
         )}
 
-        {/* Alternate views of the same events. Compose is owner-only. */}
       </div>
 
-      <div className="sv-watch-head">
-        {isLive ? "◔ Watching now" : "✉ Participants"}
-      </div>
-      <div className="sv-watch">
+      <div className="sv-panel-sec">
+        <div className="sv-watch-head">
+          {isLive ? "Watching now" : "Participants"}
+        </div>
+        <div className="sv-watch">
         {speakers.length === 0 && others === 0 && (
           <div className="sv-watch-empty">
             {isLive
@@ -1080,7 +1087,15 @@ function SessionInfoPanel({
             </span>
           </div>
         )}
+        </div>
       </div>
+
+      {actions && (
+        <div className="sv-panel-sec">
+          <div className="sv-panel-h">Actions</div>
+          {actions}
+        </div>
+      )}
     </aside>
   );
 }

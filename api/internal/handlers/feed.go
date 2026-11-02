@@ -10,6 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"liveshortly/internal/httpx"
+	"liveshortly/internal/redact"
 	"liveshortly/internal/store"
 )
 
@@ -62,7 +63,7 @@ func (h *Handler) Feed(w http.ResponseWriter, r *http.Request) {
 			httpx.Error(w, http.StatusInternalServerError, "failed to load live feed")
 			return
 		}
-		httpx.JSON(w, http.StatusOK, map[string]any{"results": results, "next_cursor": ""})
+		writeFeed(w, results, "")
 		return
 	}
 	if q != "" {
@@ -77,7 +78,7 @@ func (h *Handler) Feed(w http.ResponseWriter, r *http.Request) {
 		if len(results) == limit {
 			next = encodeOffsetCursor(offset + limit)
 		}
-		httpx.JSON(w, http.StatusOK, map[string]any{"results": results, "next_cursor": next})
+		writeFeed(w, results, next)
 		return
 	}
 
@@ -94,6 +95,15 @@ func (h *Handler) Feed(w http.ResponseWriter, r *http.Request) {
 		if last.PublishedAt != nil {
 			next = encodeKeysetCursor(*last.PublishedAt, last.ID)
 		}
+	}
+	writeFeed(w, results, next)
+}
+
+// writeFeed serves a feed page. The feed is public, so every row is redacted
+// (home paths, emails, capture host) before it leaves the server (LSW-14).
+func writeFeed(w http.ResponseWriter, results []store.Session, next string) {
+	for i := range results {
+		publicSession(&results[i])
 	}
 	httpx.JSON(w, http.StatusOK, map[string]any{"results": results, "next_cursor": next})
 }
@@ -141,4 +151,19 @@ func decodeOffsetCursor(s string) int {
 		return 0
 	}
 	return n
+}
+
+// publicSession scrubs a session row before it is served to someone who is
+// not its owner: title + hero snippet redacted, the user@host capture handle
+// dropped, and an email-shaped owner handle cut to its local part.
+func publicSession(s *store.Session) {
+	s.Title = redact.Text(s.Title)
+	if s.Hero != nil {
+		h := redact.Text(*s.Hero)
+		s.Hero = &h
+	}
+	s.ClientHandle = nil
+	if i := strings.IndexByte(s.OwnerHandle, '@'); i > 0 {
+		s.OwnerHandle = s.OwnerHandle[:i]
+	}
 }

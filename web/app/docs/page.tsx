@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import InstallCommand from "@/components/InstallCommand";
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://liveshortly.com";
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:8080";
 
 export const metadata: Metadata = {
   title: "Documentation & Use Cases · Stream, Steer & Replay AI Coding Sessions",
@@ -57,7 +57,7 @@ export default function DocsPage() {
         },
         description:
           "Open-source platform for streaming, sharing, replaying, and collaboratively steering AI coding sessions in real time.",
-        url: "https://liveshortly.com",
+        url: SITE_URL,
       },
       {
         "@type": "TechArticle",
@@ -67,7 +67,7 @@ export default function DocsPage() {
         author: {
           "@type": "Organization",
           name: "LiveShortly Team",
-          url: "https://liveshortly.com",
+          url: SITE_URL,
         },
         datePublished: "2025-01-01",
         dateModified: "2026-08-19",
@@ -104,7 +104,7 @@ export default function DocsPage() {
             name: "Is my code secure and can I self-host LiveShortly?",
             acceptedAnswer: {
               "@type": "Answer",
-              text: "Yes. Sessions default to private. LiveShortly is 100% open-source and can be self-hosted with a single docker compose up command on your own private infrastructure.",
+              text: "Yes. Sessions default to private. LiveShortly can be self-hosted using the deployment guide, with your own OAuth credentials and infrastructure.",
             },
           },
         ],
@@ -205,10 +205,10 @@ export default function DocsPage() {
                   lineHeight: 1.6,
                 }}
               >
-                Install the <code>live</code> CLI on macOS or Linux — then type{" "}
-                <code>live claude</code> instead of <code>claude</code>:
+                Install the <code>live</code> CLI on macOS or Linux, then configure your own server before signing in. See the{" "}
+                <a href="https://github.com/liveshortly/liveshortly-server/blob/main/deploy/DEPLOY.md">self-hosting guide</a>.
               </p>
-              <InstallCommand command="curl -fsSL https://liveshortly.com/i.sh | bash" />
+              <InstallCommand command="curl -fsSL https://raw.githubusercontent.com/liveshortly/live-dist/main/install.sh | bash" />
               <div style={{ height: 10 }} />
               <InstallCommand command="live login && live claude" prompt=">" />
             </section>

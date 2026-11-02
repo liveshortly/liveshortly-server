@@ -34,6 +34,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     (pathname?.startsWith("/docs") ?? false) ||
     (pathname?.startsWith("/install") ?? false) ||
     (pathname?.startsWith("/feed") ?? false) ||
+    ["/changelog", "/latest", "/releases"].includes(pathname ?? "") ||
     (pathname?.startsWith("/replay/") ?? false) ||
     (pathname?.startsWith("/story/") ?? false);
 

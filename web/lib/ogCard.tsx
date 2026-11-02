@@ -63,7 +63,7 @@ export function ogCard(o: {
           LiveShortly
         </div>
         <div style={{ display: "flex", flex: 1 }} />
-        <div style={{ fontSize: 22, color: C.muted }}>liveshortly.com</div>
+        <div style={{ fontSize: 22, color: C.muted }}>LiveShortly</div>
       </div>
 
       {/* The session card */}

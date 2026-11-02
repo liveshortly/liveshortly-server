@@ -309,7 +309,27 @@ func (h *Handler) GetSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	events, err := h.store.GetEvents(r.Context(), id)
+	// Incremental fetch (LSI-10): a client holding events up to `since_seq`
+	// asks only for what came after. Absent = the full list, so every existing
+	// client is unaffected. A malformed value is a 400 rather than a silent
+	// full refetch — the whole point of the parameter is to stop refetching,
+	// so failing quietly would hide the bug it exists to prevent.
+	sinceSeq := 0
+	if raw := r.URL.Query().Get("since_seq"); raw != "" {
+		n, convErr := strconv.Atoi(raw)
+		if convErr != nil || n < 0 {
+			httpx.Error(w, http.StatusBadRequest, "since_seq must be a non-negative integer")
+			return
+		}
+		sinceSeq = n
+	}
+
+	var events []store.Event
+	if sinceSeq > 0 {
+		events, err = h.store.GetEventsSince(r.Context(), id, sinceSeq)
+	} else {
+		events, err = h.store.GetEvents(r.Context(), id)
+	}
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "failed to load events")
 		return
@@ -341,6 +361,13 @@ func (h *Handler) GetSession(w http.ResponseWriter, r *http.Request) {
 	watchers := 0
 	if s.Status == "live" {
 		watchers, _ = h.bus.WatcherCount(r.Context(), id)
+	}
+
+	// Non-owners of a non-private session get the public-safe metadata (the
+	// OG image renders title + hero from here). LSW-14. Event payloads are
+	// not redacted yet.
+	if s.OwnerID != p.ID && s.Visibility != "private" {
+		publicSession(s)
 	}
 
 	httpx.JSON(w, http.StatusOK, sessionWithEvents{

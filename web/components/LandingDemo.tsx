@@ -15,7 +15,7 @@ import { useEffect, useRef, useState } from "react";
  */
 
 const CMD = "live claude";
-const URL = "liveshortly.com/s/lucid-cobra-6110";
+const URL = "live.example.com/s/lucid-cobra-6110";
 const CHAT = "add rate limiting";
 
 type Scene = "terminal" | "browser";

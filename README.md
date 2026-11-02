@@ -4,7 +4,7 @@
 
 ### Share your coding session **live** — watch it stream, replay every past run, and talk back to the agent from the browser.
 
-A lean monorepo that turns any **Claude Code** session into a live, shareable, replayable stream — wrapped in a nerdy financial-terminal HUD. Self-host it, or use the live instance at **[liveshortly.com](https://liveshortly.com)**.
+A lean monorepo that turns any **Claude Code** session into a live, shareable, replayable stream — wrapped in a nerdy financial-terminal HUD. Deploy it on your own infrastructure with the [self-hosting guide](deploy/DEPLOY.md).
 
 <br/>
 
@@ -13,7 +13,7 @@ A lean monorepo that turns any **Claude Code** session into a live, shareable, r
 ![Postgres](https://img.shields.io/badge/db-Postgres%2016-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
 ![Redis](https://img.shields.io/badge/bus-Redis%207-DC382D?style=for-the-badge&logo=redis&logoColor=white)
 ![Docker](https://img.shields.io/badge/run-Docker%20Compose-2496ED?style=for-the-badge&logo=docker&logoColor=white)
-![Status](https://img.shields.io/badge/live-liveshortly.com-1f7a4d?style=for-the-badge)
+![Deployment](https://img.shields.io/badge/deployment-self--hosted-1f7a4d?style=for-the-badge)
 ![Version](https://img.shields.io/badge/release-v4.0.0-1a1916?style=for-the-badge)
 
 <br/>
@@ -67,7 +67,7 @@ happen, you can't nudge the agent mid-run, and they rot in a gist.
 - 🔎 **Discoverable** — a public feed, live counts, and search.
 - 🔗 **Shareable** — sign in with Google, share a private link, or make a session public/open and **tweet it** — one click flips it public and drops a rich card in the timeline.
 
-Self-host with `docker compose up`, or watch the live instance at **[liveshortly.com](https://liveshortly.com)**.
+Self-host the platform using [Docker Compose](deploy/DEPLOY.md). No managed LiveShortly service is required.
 
 ---
 
@@ -232,96 +232,36 @@ by the compact digest, not by replaying every prior turn into its context window
 
 ## ✦ Quickstart
 
-```bash
-git clone git@github.com:liveshortly/liveshortly-server.git
-cd LiveShortly
-cp .env.example .env          # sensible defaults, no edits needed
-docker compose up -d --build
-```
-
-| Service | URL | |
-|---|---|---|
-| 🖥️ **Web** | http://localhost:3000 | the terminal HUD |
-| ⚙️ **API** | http://localhost:8000 | `GET /health` → `{"ok":true}` |
-| 🐘 Postgres | `localhost:5432` | `sessions`, `session_events` |
-| 🧠 Redis | `localhost:6379` | seq · buffer · pub/sub · pending |
-
-> 🐘 **Port clash?** If you already run a local Postgres on `5432`, DBeaver/psql
-> will hit *that* one (and fail with `role "liveshortly" does not exist`). Either
-> stop it, or remap the container: set `POSTGRES_PORT=5433` in `.env`, `docker
-> compose up -d postgres`, and connect DBeaver to `localhost:5433`. The api is
-> unaffected — it reaches Postgres over the docker network, not the host port.
-
-**Kick the tires without Claude:**
+Follow the [self-hosting guide](deploy/DEPLOY.md) for Google OAuth, your own domain,
+TLS, CLI setup, updates and backups. The former managed website is being retired.
 
 ```bash
-# open a session
-ID=$(curl -s -X POST localhost:8000/api/sessions \
-  -H 'content-type: application/json' \
-  -d '{"title":"hello world","tags":["demo"]}' | jq -r .id)
-
-# emit an event, then watch it live in another terminal:  curl -N localhost:8000/api/sessions/$ID/stream
-curl -s -X POST localhost:8000/api/sessions/$ID/events \
-  -H 'content-type: application/json' \
-  -d '{"event_type":"prompt","payload":{"content":"build me a CLI"}}'
-
-# talk back, then drain the queue (what the hook does):
-curl -s -X POST localhost:8000/api/sessions/$ID/comments -d '{"message":"add tests!"}'
-curl -s localhost:8000/api/sessions/$ID/comments/pending   # → the message, once
+git clone https://github.com/liveshortly/liveshortly-server.git
+cd liveshortly-server
+cp .env.selfhost.example .env.selfhost
+chmod 600 .env.selfhost
+# Fill in database/session secrets, your Google OAuth client and admin email.
+docker compose --env-file .env.selfhost -f compose.selfhost.yml config --quiet
+docker compose --env-file .env.selfhost -f compose.selfhost.yml up -d --build
+curl --fail http://localhost:8080/health
 ```
 
-Open **http://localhost:3000** and your session is in the index.
+Open **http://localhost:8080** for local use, or your configured HTTPS origin for
+a remote deployment. Sign in before creating sessions. Do not expose the split
+`:3000` / `:8000` development ports as the installation's public entry point;
+the included nginx entry point handles same-origin login and live SSE streaming.
 
-### Sign in locally (Google OAuth)
-
-The base stack boots with login **disabled** (no Google credentials). To exercise
-real Google sign-in — **and live SSE streaming** — locally, run the stack behind
-the local **nginx** front (`docker-compose.local.yml`), which serves web + api on
-**one origin** `http://localhost:8080`, exactly like production.
-
-> **Don't use plain `:3000` for a live session.** The base web server proxies
-> `/api/*` through Next.js `rewrites`, which **buffer SSE** — the initial replay
-> shows on refresh, but live events never stream in. nginx (`local.conf`) sets
-> `proxy_buffering off`, so `:8080` streams correctly. It also gives OAuth + the
-> `ls_session` cookie a single origin (split `:3000`/`:8000` drops the cookie).
-
-**1.** Drop the OAuth secrets into a **gitignored** `.env.auth` — the api compose
-service loads it automatically (`required: false`, so without it the api still
-boots with auth off):
-
-```bash
-cat > .env.auth <<EOF
-GOOGLE_CLIENT_ID=<your-client-id>.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=<your-client-secret>
-SESSION_SECRET=$(openssl rand -hex 32)
-EOF
-```
-
-`docker-compose.local.yml` pins `WEB_BASE_URL` / `OAUTH_ALLOWED_HOSTS` to
-`localhost:8080` (overriding anything in `.env.auth`), so you don't set them here.
-
-**2.** Bring up the full single-origin stack:
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
-```
-
-**3.** In the **Google Cloud Console** OAuth client (APIs & Services →
-Credentials), add:
-
-| Field | Value |
-|---|---|
-| Authorised JavaScript origin | `http://localhost:8080` |
-| Authorised redirect URI | `http://localhost:8080/auth/google/callback` |
-
-Then open **http://localhost:8080** (NOT `:3000`), click **Sign In**, and you land
-back logged in — with live sessions streaming in real time.
+For **pocket.ai without a web platform or Google login**, install
+[`live`](https://github.com/liveshortly/live#choose-your-server) and run
+`live daemon --server` with an access key instead. The two setups use different APIs.
 
 ---
 
 ## ✦ Configuration
 
-All via `.env` (see [`.env.example`](.env.example)). The defaults just work.
+Self-hosting uses [`.env.selfhost.example`](.env.selfhost.example) and the
+[deployment guide](deploy/DEPLOY.md). The table below also covers development
+configuration in `.env`; required OAuth credentials are operator-provided.
 
 | Var | Default | Notes |
 |---|---|---|
@@ -342,8 +282,8 @@ All via `.env` (see [`.env.example`](.env.example)). The defaults just work.
 | `SESSION_SECRET` | — | signs the `ls_session` cookie + bearer/refresh JWTs |
 | `WEB_BASE_URL` | — | canonical web origin (used for OAuth callback + share links) |
 | `OAUTH_ALLOWED_HOSTS` | host of `WEB_BASE_URL` | comma-separated hostnames allowed to start/receive the OAuth callback |
-| `SUPER_ADMIN_EMAILS` | two founders | comma-separated allowlist for the `/admin` surface |
-| `NEXT_PUBLIC_SITE_URL` | `https://liveshortly.com` | absolute base for OG/canonical URLs (web) |
+| `SUPER_ADMIN_EMAILS` | operator-configured in self-host Compose | comma-separated allowlist for the `/admin` surface |
+| `NEXT_PUBLIC_SITE_URL` | `http://localhost:8080` | absolute base for OG/canonical URLs (web) |
 
 > ⚠️ **`NEXT_PUBLIC_*` is compile-time.** Change `NEXT_PUBLIC_API_URL` and you must
 > **rebuild** the web image — a restart reuses the old baked URL:

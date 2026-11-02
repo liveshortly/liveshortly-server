@@ -13,6 +13,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"liveshortly/internal/redact"
 )
 
 // Store wraps a pgx connection pool.
@@ -40,6 +42,8 @@ type QuotaUsage struct {
 	LiveSessions      int   `json:"live_sessions"`
 	MaxLiveSessions   int   `json:"max_live_sessions"`
 	QuotaExempt       bool  `json:"quota_exempt"`
+	// IsAdmin is the admin grant itself — the column the toggle writes.
+	IsAdmin bool `json:"is_admin"`
 }
 
 // GetQuotaUsage resolves a user's usage + effective limits (override → default),
@@ -94,12 +98,12 @@ type User struct {
 
 // Session matches the JSON shape in CONTRACT.md/AUTH.md.
 type Session struct {
-	ID          string     `json:"id"`
-	Title       string     `json:"title"`
-	OwnerHandle string     `json:"owner_handle"`
-	OwnerID     string     `json:"owner_id"`
-	Model       *string    `json:"model"`
-	Framework   *string    `json:"framework"`
+	ID          string  `json:"id"`
+	Title       string  `json:"title"`
+	OwnerHandle string  `json:"owner_handle"`
+	OwnerID     string  `json:"owner_id"`
+	Model       *string `json:"model"`
+	Framework   *string `json:"framework"`
 	// Agent + CaptureMode describe how the session is captured, reported by the
 	// Live shim. Optional; no behavior depends on them yet.
 	Agent       *string    `json:"agent"`        // claude-code | gemini-cli | codex | ollama | terminal
@@ -142,8 +146,8 @@ type Session struct {
 	ForkCount int `json:"fork_count"`
 	// ForkedFromID/Seq/At describe this session's own origin when it is itself a
 	// fork; nil otherwise. Populated on every row.
-	ForkedFromID *string    `json:"forked_from_id,omitempty"`
-	ForkedFromSeq *int      `json:"forked_from_seq,omitempty"`
+	ForkedFromID  *string    `json:"forked_from_id,omitempty"`
+	ForkedFromSeq *int       `json:"forked_from_seq,omitempty"`
 	ForkedAt      *time.Time `json:"forked_at,omitempty"`
 	// ForkerCount (distinct users who forked) and ForkedFrom (source ref) are
 	// detail-only enrichments set by GetSession, not by list/feed queries.
@@ -226,6 +230,8 @@ type AdminUser struct {
 	StorageLimitBytes int64 `json:"storage_limit_bytes"`
 	MaxLiveSessions   int   `json:"max_live_sessions"`
 	QuotaExempt       bool  `json:"quota_exempt"`
+	// IsAdmin is the admin grant itself — the column the toggle writes.
+	IsAdmin bool `json:"is_admin"`
 }
 
 // PublicStats returns the anonymous landing page's proof counts. LiveNow and
@@ -259,7 +265,7 @@ func (st *Store) AdminUsers(ctx context.Context, defStorageLimit int64, defMaxLi
 		       u.storage_bytes_used,
 		       COALESCE(u.storage_limit_bytes, $1),
 		       COALESCE(u.max_live_sessions, $2),
-		       u.quota_exempt
+		       u.quota_exempt, u.is_admin
 		FROM users u
 		LEFT JOIN sessions s ON s.owner_id = u.id
 		GROUP BY u.id
@@ -274,7 +280,8 @@ func (st *Store) AdminUsers(ctx context.Context, defStorageLimit int64, defMaxLi
 		var u AdminUser
 		if err := rows.Scan(&u.ID, &u.Handle, &u.Name, &u.Email, &u.AvatarURL,
 			&u.CreatedAt, &u.LastLoginAt, &u.LastActiveAt, &u.SessionCount, &u.LiveCount,
-			&u.StorageBytesUsed, &u.StorageLimitBytes, &u.MaxLiveSessions, &u.QuotaExempt); err != nil {
+			&u.StorageBytesUsed, &u.StorageLimitBytes, &u.MaxLiveSessions, &u.QuotaExempt,
+			&u.IsAdmin); err != nil {
 			return nil, err
 		}
 		out = append(out, u)
@@ -595,7 +602,24 @@ func (st *Store) GetEventsUpTo(ctx context.Context, sessionID string, snapshot i
 	const q = `
 		SELECT id, session_id, seq, actor, event_type, payload, ts
 		FROM session_events WHERE session_id = $1 AND seq <= $2 ORDER BY seq ASC`
-	rows, err := st.pool.Query(ctx, q, sessionID, snapshot)
+	return st.queryEvents(ctx, q, sessionID, snapshot)
+}
+
+// GetEventsSince returns a session's events with seq > sinceSeq, ascending —
+// the incremental fetch behind `GET /api/sessions/{id}?since_seq=N` (LSI-10).
+// A client that already holds events up to N asks only for what it is missing;
+// passing 0 is the same as the full list.
+func (st *Store) GetEventsSince(ctx context.Context, sessionID string, sinceSeq int) ([]Event, error) {
+	const q = `
+		SELECT id, session_id, seq, actor, event_type, payload, ts
+		FROM session_events WHERE session_id = $1 AND seq > $2 ORDER BY seq ASC`
+	return st.queryEvents(ctx, q, sessionID, sinceSeq)
+}
+
+// queryEvents runs an event query whose columns are the standard seven, in
+// order. Shared so the three event reads cannot drift in their scanning.
+func (st *Store) queryEvents(ctx context.Context, q string, args ...any) ([]Event, error) {
+	rows, err := st.pool.Query(ctx, q, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -794,23 +818,7 @@ func (st *Store) GetEvents(ctx context.Context, sessionID string) ([]Event, erro
 	const q = `
 		SELECT id, session_id, seq, actor, event_type, payload, ts
 		FROM session_events WHERE session_id = $1 ORDER BY seq ASC`
-	rows, err := st.pool.Query(ctx, q, sessionID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	out := []Event{}
-	for rows.Next() {
-		var e Event
-		var payload []byte
-		if err := rows.Scan(&e.ID, &e.SessionID, &e.Seq, &e.Actor, &e.EventType, &payload, &e.TS); err != nil {
-			return nil, err
-		}
-		e.Payload = json.RawMessage(payload)
-		out = append(out, e)
-	}
-	return out, rows.Err()
+	return st.queryEvents(ctx, q, sessionID)
 }
 
 // InsertEvent persists one event with a pre-allocated seq and returns it.
@@ -1052,7 +1060,8 @@ func (st *Store) PublishSession(ctx context.Context, id string) (*Session, error
 	if s == nil {
 		return nil, nil
 	}
-	hero := st.heroForSession(ctx, id, s.Title)
+	// Redacted at write too, so home paths never enter the search index.
+	hero := redact.Text(st.heroForSession(ctx, id, s.Title))
 	const q = `UPDATE sessions
 		SET published_at = COALESCE(published_at, now()),
 		    visibility = 'public',
@@ -1079,11 +1088,15 @@ func (st *Store) UnpublishSession(ctx context.Context, id string) (*Session, err
 	return st.GetSession(ctx, id)
 }
 
+// feedListable keeps empty sessions out of browse/search (still reachable by
+// link). Live sessions are exempt: they may just not have emitted yet. LSW-14.
+const feedListable = " AND (s.event_count > 0 OR s.status = 'live')"
+
 // FeedBrowse returns a page of published sessions newest-first, using keyset
 // pagination on (published_at, id). Pass a nil cursor for the first page.
 func (st *Store) FeedBrowse(ctx context.Context, beforePublished *time.Time, beforeID string, limit int) ([]Session, error) {
 	args := []any{}
-	where := "WHERE s.published_at IS NOT NULL"
+	where := "WHERE s.published_at IS NOT NULL" + feedListable
 	if beforePublished != nil {
 		where += " AND (s.published_at, s.id) < ($1, $2)"
 		args = append(args, *beforePublished, beforeID)
@@ -1106,7 +1119,7 @@ func (st *Store) FeedLive(ctx context.Context, limit int) ([]Session, error) {
 // FeedSearch returns published sessions ranked by full-text relevance to q.
 func (st *Store) FeedSearch(ctx context.Context, q string, offset, limit int) ([]Session, error) {
 	const sql = "SELECT " + sessionSelectExpr + sessionFrom +
-		" WHERE s.published_at IS NOT NULL" +
+		" WHERE s.published_at IS NOT NULL" + feedListable +
 		" AND s.search_vector @@ websearch_to_tsquery('english', $1)" +
 		" ORDER BY ts_rank(s.search_vector, websearch_to_tsquery('english', $1)) DESC," +
 		" s.published_at DESC, s.id DESC LIMIT $2 OFFSET $3"
@@ -1328,4 +1341,42 @@ func (st *Store) Activity(ctx context.Context, userID, email string, limit int) 
 		items = items[:limit]
 	}
 	return items, nil
+}
+
+// IsAdmin reports whether the user carries an admin grant (users.is_admin).
+// This is the only source of admin in the system — see
+// infra/postgres/006-admin.sql.
+//
+// A missing row is not an error — it is simply not an admin.
+func (s *Store) IsAdmin(ctx context.Context, userID string) (bool, error) {
+	var isAdmin bool
+	err := s.pool.QueryRow(ctx,
+		`SELECT is_admin FROM users WHERE id = $1`, userID).Scan(&isAdmin)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return false, nil
+		}
+		return false, err
+	}
+	return isAdmin, nil
+}
+
+// SetAdmin grants or revokes a user's admin. pgx.ErrNoRows means no such user.
+func (st *Store) SetAdmin(ctx context.Context, userID string, isAdmin bool) error {
+	var id string
+	return st.pool.QueryRow(ctx,
+		`UPDATE users SET is_admin = $2 WHERE id = $1 RETURNING id`,
+		userID, isAdmin).Scan(&id)
+}
+
+// CountAdmins reports how many users currently hold admin.
+//
+// It exists so a revoke can refuse to remove the last one. Admin is only
+// writable through this surface and the database, so dropping to zero would
+// leave the deployment with no way back except hand-written SQL.
+func (st *Store) CountAdmins(ctx context.Context) (int, error) {
+	var n int
+	err := st.pool.QueryRow(ctx,
+		`SELECT count(*) FROM users WHERE is_admin`).Scan(&n)
+	return n, err
 }

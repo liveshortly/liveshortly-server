@@ -3,6 +3,8 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"strings"
 	"testing"
 
 	"liveshortly/internal/config"
@@ -64,6 +66,24 @@ func TestCleanDirs(t *testing.T) {
 	}
 }
 
+// cleanAgents does not police WHICH harnesses exist — a machine may run
+// anything — only that a reported name is a name, unique, and bounded.
+func TestCleanAgents(t *testing.T) {
+	got := cleanAgents([]string{" claude ", "hermes", "claude", "pi.dev", "../rm", "a b", "", "cursor-agent"})
+	want := "claude,hermes,cursor-agent"
+	if strings.Join(got, ",") != want {
+		t.Errorf("cleanAgents = %q, want %q", strings.Join(got, ","), want)
+	}
+
+	tooMany := make([]string, maxHostAgents+10)
+	for i := range tooMany {
+		tooMany[i] = fmt.Sprintf("agent-%d", i)
+	}
+	if n := len(cleanAgents(tooMany)); n != maxHostAgents {
+		t.Errorf("cleanAgents kept %d, want the %d cap", n, maxHostAgents)
+	}
+}
+
 func TestResolveSpawnRejectsUnregistered(t *testing.T) {
 	d := testutil.Setup(t)
 	h := New(d.Store, d.Bus, d.Blob, config.Config{})
@@ -91,8 +111,10 @@ func TestResolveSpawnRejectsUnregistered(t *testing.T) {
 			t.Errorf("resolveSpawn accepted unregistered dir %q", dir)
 		}
 	}
-	// An agent the host never reported, and one outside the global allowlist.
-	for _, agent := range []string{"codex", "bash", "rm"} {
+	// An agent the host never reported — including a harness that is perfectly
+	// spawnable elsewhere — and names that are not names at all. Registration
+	// membership is the check; there is no global agent allowlist.
+	for _, agent := range []string{"codex", "hermes", "bash", "rm", "claude; rm -rf /", "../claude", "cl aude"} {
 		if _, err := h.resolveSpawn(ctx, user, host, agent, "/work/allowed", ""); err == nil {
 			t.Errorf("resolveSpawn accepted agent %q", agent)
 		}
@@ -148,19 +170,45 @@ func TestResolveSpawnBindsOllamaModelToHost(t *testing.T) {
 		}
 	}
 
-	// A model is meaningless for other agents and must not be forwarded.
+	// A model is meaningless for an agent that takes none, and must not be
+	// forwarded. codex, not claude: claude DOES take a model — an alias from a
+	// fixed list — so it is the wrong example for "this agent has no model",
+	// and it now rejects an unknown alias rather than ignoring it.
 	other, _ := json.Marshal(hostRecord{
 		ID: host, Dirs: []string{"/work/allowed"},
-		Agents: []string{"claude"}, Models: []string{"llama3.2:1b"},
+		Agents: []string{"codex", "claude"}, Models: []string{"llama3.2:1b"},
 	})
 	if err := d.Bus.HostSet(ctx, user, host, string(other)); err != nil {
 		t.Fatalf("HostSet: %v", err)
 	}
-	got, err = h.resolveSpawn(ctx, user, host, "claude", "/work/allowed", "llama3.2:1b")
+	got, err = h.resolveSpawn(ctx, user, host, "codex", "/work/allowed", "llama3.2:1b")
 	if err != nil {
-		t.Fatalf("claude with a model: %v", err)
+		t.Fatalf("codex with a model: %v", err)
 	}
 	if got.model != "" {
-		t.Errorf("model leaked to a non-ollama agent: %q", got.model)
+		t.Errorf("model leaked to an agent that takes none: %q", got.model)
+	}
+
+	// claude takes a model, but only an alias it knows: an ollama tag is not
+	// one, and is refused rather than quietly dropped.
+	if _, err := h.resolveSpawn(ctx, user, host, "claude", "/work/allowed", "llama3.2:1b"); err == nil {
+		t.Error("resolveSpawn accepted an unknown claude model alias")
+	}
+}
+
+// A harness the server has never heard of must still produce usable labels —
+// the same ones the CLI reports for a command it has no native support for.
+func TestLabelsForAgent(t *testing.T) {
+	for agent, want := range map[string][2]string{
+		"claude":      {"claude-code", "hooks"},
+		"agy":         {"agy", "hooks"},
+		"antigravity": {"agy", "hooks"},
+		"hermes":      {"terminal", "pty"},
+		"":            {"terminal", "pty"},
+	} {
+		framework, captureMode := labelsForAgent(agent)
+		if framework != want[0] || captureMode != want[1] {
+			t.Errorf("labelsForAgent(%q) = %q/%q, want %q/%q", agent, framework, captureMode, want[0], want[1])
+		}
 	}
 }

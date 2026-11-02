@@ -4,6 +4,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import BrandMark from "@/components/BrandMark";
+import FeedCard from "@/components/FeedCard";
 import ThemeToggle from "@/components/ThemeToggle";
 import Avatar from "@/components/Avatar";
 import {
@@ -16,7 +17,7 @@ import {
 } from "@/lib/api";
 import { fmtInt } from "@/lib/utils";
 
-const INSTALL_CMD = "curl -fsSL https://liveshortly.com/i.sh | bash";
+const INSTALL_CMD = "curl -fsSL https://raw.githubusercontent.com/liveshortly/live-dist/main/install.sh | bash";
 const LOGIN_CMD = "live login";
 const RUN_CMD = "live claude";
 const DAEMON_CMD = "live daemon";
@@ -496,7 +497,7 @@ function Demo() {
           Demo
         </span>
       </div>
-      <div className="lp-demo-urlbar">🔒 liveshortly.com/session/lucid-cobra-6110</div>
+      <div className="lp-demo-urlbar">🔒 live.example.com/session/lucid-cobra-6110</div>
       <div className="lp-demo-body">
         <div className="lp-demo-status">
           <span className="live-dot" aria-hidden />
@@ -596,38 +597,9 @@ function CardGrid({ sessions }: { sessions: Session[] }) {
   return (
     <div className="lp-grid">
       {sessions.map((s) => (
-        <Card key={s.id} session={s} />
+        <FeedCard key={s.id} session={s} />
       ))}
     </div>
-  );
-}
-
-function Card({ session }: { session: Session }) {
-  const live = session.status === "live";
-  return (
-    <Link href={`/session/${session.id}`} className="lp-card">
-      <div className="lp-card-art">
-        <span className={`lp-card-badge${live ? " live" : ""}`}>
-          {live && <span className="live-dot" aria-hidden />}
-          {live ? "Live" : `${fmtInt(session.view_count)} views`}
-        </span>
-        <span className="lp-card-watch">
-          ▶ {live ? "Watch Live" : "Replay"}
-        </span>
-      </div>
-      <div className="lp-card-body">
-        <div className="lp-card-title">{session.title || "untitled session"}</div>
-        <div className="lp-card-meta">
-          <span className="m">@{session.owner_handle}</span>
-          {session.model && (
-            <>
-              <span aria-hidden>·</span>
-              <span>{session.model}</span>
-            </>
-          )}
-        </div>
-      </div>
-    </Link>
   );
 }
 
@@ -682,7 +654,7 @@ function HowItWorks() {
             <span className="lp-how-h">Run Live Claude</span>
           </div>
           <div className="lp-how-d">
-            Sign in once with <code>live login</code>, then <code>live claude</code>{" "}
+            Configure your server using the <Link href="/install">install guide</Link>, then run <code>live login</code> and <code>live claude</code>{" "}
             wraps Claude Code and opens a session, printing your share URL the
             moment it starts streaming.
           </div>
@@ -697,7 +669,7 @@ function HowItWorks() {
             <CopyButton command={RUN_FLOW} className="lp-how-copy" />
           </div>
           <div className="lp-how-sub" style={{ color: "var(--green)" }}>
-            ▸ Streaming · liveshortly.com/session/…
+            ▸ Streaming · live.example.com/session/…
           </div>
         </div>
 

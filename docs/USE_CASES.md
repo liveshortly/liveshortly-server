@@ -26,7 +26,7 @@ A senior engineer is guiding a junior developer, or two teammates are pairing on
 
 ### The LiveShortly Solution
 - Type `live claude` in terminal.
-- LiveShortly outputs a live session link (`https://liveshortly.com/session/<id>`).
+- LiveShortly outputs a live session link (`https://live.example.com/session/<id>`).
 - Mentors or peers open the link and observe in crystal-clear monospace:
   - User prompts submitted to the LLM.
   - Active tool invocations (`grep`, `view_file`, `replace_file_content`, `run_command`).
@@ -101,7 +101,7 @@ A developer has a powerful Linux workstation in the office or an EC2 instance in
 
 ### The LiveShortly Solution
 - Run `live daemon --dir ~/work/backend --dir ~/work/frontend` on the remote box.
-- On `liveshortly.com`, the user clicks **+ New Session**, picks the host, directory, agent (`claude`, `codex`, `gemini`, `ollama`), and clicks Start.
+- On your self-hosted web platform, the user clicks **+ New Session**, picks the host, directory, agent (`claude`, `codex`, `gemini`, `ollama`), and clicks Start.
 - The daemon launches the agent in a secure sandbox, streams the session live to the browser, and accepts web inputs.
 
 ---

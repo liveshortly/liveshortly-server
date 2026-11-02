@@ -132,7 +132,7 @@ export default function WorkspaceSidebar() {
     <div className="ws-sidebar-inner">
       <div className="ws-head">
         <Link href="/sessions" className="ws-head-link" title="Open My Sessions">
-          <span className="label">⌂ Your Sessions</span>
+          <span className="label">Your sessions</span>
           <span className="ws-head-arrow" aria-hidden>
             →
           </span>
@@ -171,7 +171,7 @@ export default function WorkspaceSidebar() {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="SEARCH SESSIONS"
+            placeholder="Search sessions"
             aria-label="Search your sessions"
             spellCheck={false}
             className="label"
@@ -208,7 +208,7 @@ export default function WorkspaceSidebar() {
         ) : (
           <>
             {showLive && (
-              <Group label="◉ LIVE" tone="green">
+              <Group label="Live now" tone="green">
                 {groups.live.map((s) => (
                   <Row key={s.id} s={s} active={s.id === activeId} live onCtx={openCtx} onRenamed={patchSession} />
                 ))}
@@ -216,7 +216,7 @@ export default function WorkspaceSidebar() {
             )}
 
             {showBuckets.map((b) => (
-              <Group key={b.label} label={b.label.toUpperCase()}>
+              <Group key={b.label} label={b.label}>
                 {b.items.map((s) => (
                   <Row key={s.id} s={s} active={s.id === activeId} onCtx={openCtx} onRenamed={patchSession} />
                 ))}
@@ -224,7 +224,7 @@ export default function WorkspaceSidebar() {
             ))}
 
             {showShared && (
-              <Group label="🔗 SHARED WITH ME">
+              <Group label="Shared with me">
                 {groups.shared.map((s) => (
                   <Row key={s.id} s={s} active={s.id === activeId} shared onCtx={openCtx} onRenamed={patchSession} />
                 ))}
@@ -299,13 +299,11 @@ function Group({
   children: React.ReactNode;
 }) {
   return (
-    <div style={{ marginTop: 10 }}>
+    <div style={{ marginTop: 14 }}>
       <div
-        className="label"
+        className="ws-group-h"
         style={{
-          padding: "4px 8px",
-          color: tone === "green" ? "var(--green)" : "var(--faint)",
-          fontSize: 9,
+          color: tone === "green" ? "var(--green)" : "var(--muted)",
         }}
       >
         {label}
@@ -385,9 +383,12 @@ function Row({
         display: "flex",
         alignItems: "center",
         gap: 9,
-        padding: "7px 8px",
-        borderLeft: `2px solid ${active ? "var(--green)" : "transparent"}`,
+        padding: "7px 10px",
+        // Selection reads from the filled row and the weight of its title.
+        // A 2px coloured bar down the edge is the cheap version of this, and
+        // it fought the status dot sitting right beside it.
         background: active ? "var(--panel2)" : "transparent",
+        boxShadow: active ? "inset 0 0 0 1px var(--hairline)" : "none",
         minWidth: 0,
         cursor: "pointer",
       }}
@@ -449,14 +450,15 @@ function Row({
         </span>
       </span>
       <span
-        className="label"
+        className="tnum"
         style={{
           flexShrink: 0,
-          color: live ? "var(--green)" : "var(--faint)",
-          fontSize: 9,
+          color: live ? "var(--green)" : "var(--muted)",
+          fontSize: 11,
+          fontWeight: live ? 700 : 400,
         }}
       >
-        {live ? "LIVE" : timeAgo(s.ended_at ?? s.created_at)}
+        {live ? "Live" : timeAgo(s.ended_at ?? s.created_at)}
       </span>
     </div>
   );
