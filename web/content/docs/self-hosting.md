@@ -20,7 +20,14 @@ openssl rand -hex 32   # paste into POSTGRES_PASSWORD
 openssl rand -hex 32   # paste a different value into SESSION_SECRET
 ```
 
-Fill in every blank value in `.env.selfhost`. Put your administrator's Google email in `SUPER_ADMIN_EMAILS`. For local use keep `PUBLIC_ORIGIN=http://localhost:8080`. For a remote server set your own origin, such as `https://live.example.com` (no trailing slash), and `PUBLIC_SCHEME=https`.
+Fill in every blank value in `.env.selfhost`. For local use keep `PUBLIC_ORIGIN=http://localhost:8080`. For a remote server set your own origin, such as `https://live.example.com` (no trailing slash), and `PUBLIC_SCHEME=https`.
+
+Admin is a database column, not configuration. After your first sign-in, grant it once:
+
+```bash
+docker compose --env-file .env.selfhost -f compose.selfhost.yml exec -T postgres \
+  psql -U liveshortly -d liveshortly -c "UPDATE users SET is_admin = true WHERE email = 'you@example.com';"
+```
 
 ## Create a Google OAuth client
 

@@ -154,7 +154,7 @@ export function PopoverHeader({
           border: "none",
           background: "transparent",
           cursor: "pointer",
-          color: "var(--faint)",
+          color: "var(--muted)",
         }}
       >
         ✕

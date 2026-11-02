@@ -1,6 +1,6 @@
-name: Legacy hosted deployment (manual)
+name: Deploy to production
 
-# Legacy operator-only workflow; self-hosting uses compose.selfhost.yml.
+# Auto-deploy to liveshortly.com on every push to main.
 #
 # Both artifacts are built HERE, on the runner, and shipped as files: the api is
 # a static CGO-free Go binary, the web is a Next.js `output: standalone` bundle.
@@ -11,6 +11,8 @@ name: Legacy hosted deployment (manual)
 # (secret DEPLOY_KNOWN_HOSTS).
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 # Never let two deploys race; let an in-flight one finish.
@@ -76,7 +78,14 @@ jobs:
           cp -r .next/standalone/. "${GITHUB_WORKSPACE}/dist/web/"
           mkdir -p "${GITHUB_WORKSPACE}/dist/web/.next"
           cp -r .next/static "${GITHUB_WORKSPACE}/dist/web/.next/static"
-          [ -d public ] && cp -r public "${GITHUB_WORKSPACE}/dist/web/public" || true
+          # MERGE public/ in, don't nest it. File tracing already put
+          # public/install (read from disk by app/install) into standalone/public,
+          # so a plain `cp -r public dist/web/public` lands in public/public/ and
+          # every other public file (i.sh, promo/) 404s in production.
+          if [ -d public ]; then
+            mkdir -p "${GITHUB_WORKSPACE}/dist/web/public"
+            cp -r public/. "${GITHUB_WORKSPACE}/dist/web/public/"
+          fi
 
       # ---------- ship ----------
 

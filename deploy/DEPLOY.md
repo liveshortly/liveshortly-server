@@ -1,66 +1,134 @@
-# Self-host LiveShortly
+# Deploying LiveShortly to `liveshortly.com`
 
-LiveShortly runs on infrastructure you control. The former liveshortly.com
-service is being retired. Installation, CLI updates, authentication, and session
-storage do not require that website.
+Two Ubuntu EC2 boxes in **us-west-1**. Host nginx is the reverse proxy and
+**terminates TLS itself** with a Let's Encrypt certificate — the DNS record is
+DNS-only (grey cloud), so nothing else is in front to do it. Postgres is Supabase
+(managed, external); Redis has its own box.
 
-Choose one setup:
-
-| Need | Deploy |
-| --- | --- |
-| Control agents from pocket.ai using a shared key | [`live daemon --server`](https://github.com/liveshortly/live#choose-your-server); no web stack or Google OAuth |
-| Browser viewing, replay, sharing, accounts, and web-launched sessions | The Compose stack below, plus the `live` CLI on each agent machine |
-
-These are separate APIs and authentication systems. A Pocket daemon key is not a
-web-platform login, and pocket.ai's direct-daemon setting does not accept the web
-platform's URL.
-
-## 1. Prepare the web platform
-
-Use a machine with Docker Engine and the Docker Compose plugin, Git, and enough
-memory to build the Go API and Next.js frontend. Builds download their dependencies.
-
-```bash
-git clone https://github.com/liveshortly/liveshortly-server.git
-cd liveshortly-server
-cp .env.selfhost.example .env.selfhost
-chmod 600 .env.selfhost
-openssl rand -hex 32 # paste into POSTGRES_PASSWORD
-openssl rand -hex 32 # paste a different value into SESSION_SECRET
+```
+Internet ──HTTPS:443──▶ liveshortly-app  (Elastic IP 203.0.113.10)
+      (:80 301s here)      nginx (host) — terminates TLS, Let's Encrypt
+                             ├── /             ▶ web  127.0.0.1:3000
+                             └── /api, /health ▶ api  127.0.0.1:8000
+                                                  ├─ VPC ─▶ liveshortly-redis 198.51.100.7:6379
+                                                  └─ TLS ─▶ Supabase Postgres (us-west-1)
 ```
 
-Edit `.env.selfhost` and fill in every blank value. It is ignored by Git. Use a
-hex Postgres password as shown; it is embedded in the API's database URL.
-`SUPER_ADMIN_EMAILS` must contain your administrator's Google account email,
-not a LiveShortly maintainer's account.
+Why us-west-1: the api issues several queries per request, so the box must sit
+in the same region as Supabase — every millisecond of round-trip is paid
+multiple times per page.
 
-For local use, keep `PUBLIC_ORIGIN=http://localhost:8080`, `PUBLIC_SCHEME=http`,
-and the loopback bind. For a remote installation, set your own origin such as
-`https://live.example.com` and `PUBLIC_SCHEME=https`, and configure TLS as below.
-The origin has no trailing slash. Use one origin for both the web app and API.
+## Boxes
 
-## 2. Configure your Google OAuth client
+| Name | Type | Disk | Public IPv4 | Reachable from |
+|---|---|---|---|---|
+| `liveshortly-app` | t3.micro | 20 GB gp3 | Elastic IP `203.0.113.10` | :22 world (key auth only, for CI), :80 + :443 **Cloudflare ranges only** |
+| `liveshortly-redis` | t3.micro | 8 GB gp3 | **none** | :22 and :6379 **from the app box's SG only** |
 
-The web platform currently uses Google sign-in, including for the CLI device
-login. Create your own **Web application** OAuth client, configure its consent
-screen and allowed/test users, and fill in `GOOGLE_CLIENT_ID` and
-`GOOGLE_CLIENT_SECRET`.
+Both in `us-west-1a` (same AZ → no cross-AZ transfer cost, lowest redis latency).
+SSH key is the existing `ci-user` pair, imported into the account.
 
-| OAuth setting | Local example | Public example |
-| --- | --- | --- |
-| Authorized JavaScript origin | `http://localhost:8080` | `https://live.example.com` |
-| Authorized redirect URI | `http://localhost:8080/auth/google/callback` | `https://live.example.com/auth/google/callback` |
+```bash
+ssh -i ~/.ssh/ci-user.pem ubuntu@203.0.113.10                          # app box
+ssh -i ~/.ssh/ci-user.pem -J ubuntu@203.0.113.10 ubuntu@198.51.100.7   # redis box, via the app box
+```
 
-Use your actual origin. Starting the API without Google credentials does not
-provide a working account-based session setup. Use the key-authenticated Pocket
-daemon if you want a setup without Google sign-in.
+The app box keeps an Elastic IP so the address survives stop/start — the DNS A
+record and `DEPLOY_HOST` both hardcode it. Note that since Feb 2024 AWS bills
+every public IPv4 the same whether it is Elastic or auto-assigned, so the EIP is
+free stability, not an extra charge.
 
-### Optional: Web Push for approval requests
+`:80` and `:443` admit Cloudflare's published ranges only, so the origin cannot
+be reached by IP and nobody can bypass the WAF/rate limiting by skipping the
+proxy. HTTP-01 renewal still works because Let's Encrypt resolves the name to
+Cloudflare, which forwards the challenge to the origin — verified with
+`certbot renew --dry-run` after the lockdown.
+
+**This depends on the record staying proxied.** Grey-clouding it while the
+security group is Cloudflare-only takes the site down AND breaks renewal. If you
+ever need direct access (debugging, or reverting to DNS-only):
+
+```bash
+aws ec2 authorize-security-group-ingress --region us-west-1 \
+  --group-id sg-0123456789abcdef0 \
+  --ip-permissions 'IpProtocol=tcp,FromPort=80,ToPort=80,IpRanges=[{CidrIp=0.0.0.0/0}]' \
+  'IpProtocol=tcp,FromPort=443,ToPort=443,IpRanges=[{CidrIp=0.0.0.0/0}]'
+```
+
+## 1. Host prep
+
+Run `deploy/provision-app-box.sh` once on a fresh instance: service account,
+Node 20 runtime, directory layout, nginx. Then issue the certificate:
+
+```bash
+sudo certbot certonly --webroot -w /var/www/acme -d liveshortly.com \
+  --non-interactive --agree-tos -m <you@example.com>
+```
+
+The nginx config serves `/.well-known/acme-challenge/` from `/var/www/acme`
+ahead of the HTTPS redirect, so renewal keeps working unattended.
+
+## 2. Redis box
+
+Redis is an apt package under systemd, password-protected, with AOF persistence.
+The password lives in `/etc/redis/liveshortly.conf` (chmod 600, owned by redis),
+included from the packaged `redis.conf` — a drop-in, so an apt upgrade shipping a
+new `redis.conf` cannot silently drop authentication.
+
+```bash
+systemctl status redis-server
+redis-cli -a "$(sudo sed -n 's/^requirepass //p' /etc/redis/liveshortly.conf)" ping   # PONG
+```
+
+`maxmemory 512mb` with `maxmemory-policy noeviction`: a session's event buffer
+must not be silently evicted mid-stream — better that writes fail loudly.
+
+### This box has no outbound internet
+
+It has no public IPv4 and there is no NAT gateway, so `apt-get` will hang. That is deliberate — it saves the IPv4 charge on a box nothing
+connects to from outside. Two consequences:
+
+- **Rebuilding it**: launch stock Ubuntu 24.04 with
+  `--no-associate-public-ip-address --private-ip-address 198.51.100.7` (so
+  `REDIS_URL` stays valid), attach a temporary Elastic IP, run
+  `deploy/provision-redis-box.sh <password>`, then disassociate **and release**
+  the EIP. Cloud-init regenerates the SSH host key, so `ssh-keygen -R
+  198.51.100.7` locally afterwards.
+- **To patch the OS**, the same temporary-EIP cycle. An allocated-but-unattached
+  EIP is billed, so release it, don't just disassociate it.
+
+## 3. App box: secrets
+
+`/etc/liveshortly/api.env` and `/etc/liveshortly/web.env`, both **written by the
+deploy workflow** from GitHub secrets on every run (mode 640, `root:liveshortly`).
+`api.env` carries `DATABASE_URL` (Supabase), `REDIS_URL`
+(`redis://:<password>@198.51.100.7:6379`) and the Google OAuth values.
+
+Admin is **not** configured here. It is the `users.is_admin` column, so the
+`/admin` surface is granted with a database statement and takes effect without
+a redeploy:
+
+```sql
+UPDATE users SET is_admin = true WHERE email = 'someone@example.com';
+```
+
+A fresh deployment therefore has no admins until someone with database access
+runs that once.
+
+Nothing is configured by hand on the box — the workflow is the only writer, so a
+rebuilt box is fully configured by re-running the deploy.
+
+The workflow refuses to write a partial env file: a missing secret would
+otherwise take the api down on its next restart, with a non-obvious cause.
+
+### Optional: Web Push for approval requests (LSW-21)
 
 Signed-in owners can get a browser notification when an agent asks permission,
-even with the tab closed. It needs a VAPID key pair; the API derives the public
-key from the private one. Generate it on the server and put it in `.env.selfhost`
-(never commit it — rotating it invalidates every browser subscription):
+even with the tab closed. It needs a VAPID private key in `api.env`
+(`VAPID_PRIVATE_KEY`, plus `VAPID_SUBJECT`, e.g. `mailto:ops@example.com`); the
+API derives the public key. Unset, Web Push is off and the in-app bell still
+works. The deploy workflow does not write it yet. Never commit the key —
+rotating it invalidates every browser subscription.
 
 ```bash
 # base64url raw 32-byte P-256 private key
@@ -68,112 +136,64 @@ openssl ecparam -name prime256v1 -genkey -noout -outform DER \
   | tail -c +8 | head -c 32 | base64 | tr '+/' '-_' | tr -d '='
 ```
 
-| Variable | Value |
-| --- | --- |
-| `VAPID_PRIVATE_KEY` | the output above; empty disables Web Push (the in-app bell still works) |
-| `VAPID_SUBJECT` | a contact for push services, e.g. `mailto:ops@example.com` |
+Self-hosting with Docker Compose is covered in `web/content/docs/self-hosting.md`
+(served at `/docs/self-hosting`).
 
-## 3. Start and verify
+## 4. Services
 
-Run this **standalone** Compose file, not a merge with the development files:
-
-```bash
-docker compose --env-file .env.selfhost -f compose.selfhost.yml config --quiet
-docker compose --env-file .env.selfhost -f compose.selfhost.yml up -d --build
-docker compose --env-file .env.selfhost -f compose.selfhost.yml ps
-curl --fail http://localhost:8080/health
-```
-
-Open the configured origin, sign in, and confirm your account appears. The API,
-web, Postgres, and Redis have no directly published ports; nginx is the entry
-point. Named volumes preserve the database, Redis state, and session files.
-nginx disables buffering for SSE so sessions update live without refreshing.
-
-## 4. HTTPS on your own domain
-
-Point your domain at the host and terminate TLS using your reverse proxy and
-certificate tooling. Keep the Compose listener bound to `127.0.0.1:8080` when
-that proxy runs on the same host. Forward requests to that listener while
-preserving the original host and disabling response buffering.
-
-For example, inside an existing TLS-enabled nginx server block for your domain:
-
-```nginx
-location / {
-    proxy_pass http://127.0.0.1:8080;
-    proxy_http_version 1.1;
-    proxy_set_header Host $http_host;
-    proxy_set_header X-Forwarded-Proto https;
-    proxy_set_header Upgrade $http_upgrade;
-    proxy_set_header Connection "upgrade";
-    proxy_buffering off;
-    proxy_cache off;
-    proxy_read_timeout 3600s;
-}
-```
-
-Provision the certificate and HTTPS listener before using the public origin.
-If the TLS proxy is on another machine, bind nginx to a private interface and
-allow access only from that proxy. `PUBLIC_SCHEME` must match the public URL;
-it controls OAuth redirects and secure cookies. After changing the origin,
-rebuild the web image because `NEXT_PUBLIC_*` values are compiled into it.
-
-## 5. Connect agent machines
-
-Install and authenticate the agent CLIs on each machine that will execute tasks.
-Then install `live` from GitHub:
+The api is a static Go binary at `/opt/liveshortly/api/server`; the web is a
+Next.js standalone bundle at `/opt/liveshortly/web`. Both run as the unprivileged
+`liveshortly` user under systemd, bound to loopback, with nginx in front.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/liveshortly/live-dist/main/install.sh | bash
-mkdir -p "$HOME/.liveshortly"
-cat > "$HOME/.liveshortly/host.json" <<'JSON'
-{"api_url":"https://live.example.com","web_url":"https://live.example.com"}
-JSON
-live login
-live whoami
-live claude
+systemctl status liveshortly-api liveshortly-web
+journalctl -u liveshortly-api -f
+curl -s localhost:8000/health        # {"ok":true,...}
+curl -s localhost:3000 -o /dev/null -w '%{http_code}\n'   # 200
 ```
 
-Replace both URLs with your origin (`http://localhost:8080` only if the stack
-runs on the same machine). `host.json` overrides endpoint environment variables.
-For a machine offered in the web UI's **New session** picker:
+Neither service is built on the box. Both artifacts are built on the GitHub
+runner and shipped as files — which is why this instance needs no Go, no build
+tooling, and no swap headroom for a Next.js build.
+
+## 5. nginx
+
+Installed by the deploy workflow on every run. By hand:
 
 ```bash
-live daemon --dir /absolute/path/to/project
+sudo cp deploy/nginx/liveshortly.com.conf /etc/nginx/sites-available/
+sudo ln -sf /etc/nginx/sites-available/liveshortly.com.conf /etc/nginx/sites-enabled/
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo nginx -t && sudo systemctl reload nginx
 ```
 
-Run the daemon as the OS user whose agent credentials and workspaces it should
-use. A service manager can keep it alive. The `--server` flag selects the separate
-Pocket API and is not used when registering with the web platform.
+## 6. DNS / TLS
 
-## Updates, backups, and removal
+`liveshortly.com` A → **203.0.113.10**, **proxied (orange cloud)**. nginx still
+terminates TLS with its own Let's Encrypt cert, so Cloudflare talks to a real
+certificate on `:443`; `:80` 301s to `:443`.
 
-```bash
-git pull --ff-only
-docker compose --env-file .env.selfhost -f compose.selfhost.yml up -d --build
-# Agent machines:
-live update
-```
+Keep SSL/TLS mode on **Full (strict)** — never Flexible. Flexible makes
+Cloudflare fetch the origin over `:80`, which this config redirects back to
+https, giving an infinite redirect loop. The `$ls_upgrade_to_https` map in the
+nginx conf prevents that loop for Full/Full (strict), where Cloudflare arrives
+on `:443`.
 
-Review release notes before upgrading. The API applies its schema migrations on
-startup; files mounted into Postgres's init directory only run for a fresh volume.
-Back up Postgres before upgrades, and retain session-file volumes and your
-`.env.selfhost` securely. Example database backup:
+`www` and `server` subdomains have no A record today. They are in `server_name`
+but NOT in the certificate — add them to the `certbot` `-d` list before pointing
+DNS at them, or TLS will fail for those names.
 
-```bash
-docker compose --env-file .env.selfhost -f compose.selfhost.yml exec -T postgres \
-  pg_dump -U liveshortly liveshortly > liveshortly-backup.sql
-```
+## Updating later
 
-`docker compose ... down` stops the stack and preserves volumes. Adding `--volumes`
-deletes the database and stored sessions; do that only when deliberately removing
-the installation. Installing a new server does not migrate former hosted accounts
-or sessions. Export/back up old data separately before retiring that deployment.
+Push to `main`. `.github/workflows/deploy.yml` builds both artifacts on the
+runner, ships them, writes the env files, restarts the units and health-checks
+the origin. There is no manual path and no build step on the box.
 
-## Development and legacy deployment
+`NEXT_PUBLIC_API_URL` is baked into the browser bundle at build time — it is set
+in the workflow, not on the server, so changing it means editing the workflow.
 
-`docker-compose.yml` plus `docker-compose.local.yml` remain development setups.
-Use `compose.selfhost.yml` for the documented self-hosting path. The old EC2
-provisioning scripts and domain-specific nginx files are legacy deployment
-artifacts, not prerequisites. The old hosted deployment workflow is manual-only;
-installing or updating the CLI no longer triggers a website mirror deployment.
+## Local development still uses Docker
+
+`docker-compose.yml` and `docker-compose.local.yml` are unchanged and remain the
+way to run the stack locally with Postgres and Redis. Only *production* moved off
+Docker; don't reintroduce a prod compose file.

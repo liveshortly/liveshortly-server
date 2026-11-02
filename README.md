@@ -232,8 +232,8 @@ by the compact digest, not by replaying every prior turn into its context window
 
 ## ✦ Quickstart
 
-Follow the [self-hosting guide](deploy/DEPLOY.md) for Google OAuth, your own domain,
-TLS, CLI setup, updates and backups. The former managed website is being retired.
+Follow the [self-hosting guide](web/content/docs/self-hosting.md) for Google OAuth, your own domain,
+TLS, CLI setup, updates and backups. `deploy/DEPLOY.md` is the liveshortly.com runbook.
 
 ```bash
 git clone https://github.com/liveshortly/liveshortly-server.git
@@ -282,8 +282,8 @@ configuration in `.env`; required OAuth credentials are operator-provided.
 | `SESSION_SECRET` | — | signs the `ls_session` cookie + bearer/refresh JWTs |
 | `WEB_BASE_URL` | — | canonical web origin (used for OAuth callback + share links) |
 | `OAUTH_ALLOWED_HOSTS` | host of `WEB_BASE_URL` | comma-separated hostnames allowed to start/receive the OAuth callback |
-| `SUPER_ADMIN_EMAILS` | operator-configured in self-host Compose | comma-separated allowlist for the `/admin` surface |
-| `NEXT_PUBLIC_SITE_URL` | `http://localhost:8080` | absolute base for OG/canonical URLs (web) |
+| _(none)_ | — | admin is `users.is_admin`, not configuration — see below |
+| `NEXT_PUBLIC_SITE_URL` | `https://liveshortly.com` | absolute base for OG/canonical URLs (web) |
 
 > ⚠️ **`NEXT_PUBLIC_*` is compile-time.** Change `NEXT_PUBLIC_API_URL` and you must
 > **rebuild** the web image — a restart reuses the old baked URL:
@@ -515,7 +515,7 @@ Auth is **live** (see [`AUTH.md`](AUTH.md) for the binding spec). Every `/api` r
 
 **Authorization** (`handlers/authz.go`): owner → full access; a `session_shares` grant → viewer/commenter;
 `visibility=link|public` → any signed-in user with the URL; `visibility=open` → anyone at all.
-**Super-admins** are an email allowlist (`SUPER_ADMIN_EMAILS`) checked at the nav, the web route,
+**Super-admins** are the `users.is_admin` column, checked at the nav, the web route,
 and the API — the `/admin` endpoints return `403` to everyone else.
 
 ---
