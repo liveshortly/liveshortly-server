@@ -10,7 +10,7 @@ import { existsSync } from "node:fs";
 import { createRequire } from "node:module";
 import puppeteer from "puppeteer-core";
 
-const PAGES = ["/", "/docs", "/docs/getting-started", "/install", "/changelog", "/feed", "/no-such-page"];
+const PAGES = ["/", "/docs", "/docs/getting-started", "/install", "/changelog", "/feed", "/privacy", "/use-cases", "/no-such-page"];
 const VIEWPORTS = [
   { width: 1280, height: 800 },
   { width: 390, height: 844, isMobile: true, hasTouch: true },

@@ -28,3 +28,13 @@ export const SITE_LINKS = [
   { href: "/changelog", label: "Changelog" },
   { href: "https://github.com/liveshortly", label: "GitHub" },
 ] as const;
+
+/** Site pages rendered from content/pages/<slug>.md (LSW-36), in footer order. */
+export const SITE_PAGES = [
+  { slug: "about", label: "About" },
+  { slug: "use-cases", label: "Use cases" },
+  { slug: "pricing", label: "Pricing" },
+  { slug: "security", label: "Security" },
+  { slug: "privacy", label: "Privacy" },
+  { slug: "terms", label: "Terms" },
+] as const;

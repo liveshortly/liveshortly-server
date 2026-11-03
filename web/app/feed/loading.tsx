@@ -1,3 +1,4 @@
+import Link from "next/link";
 import Skeleton from "@/components/ui/Skeleton";
 import st from "@/components/Feed.module.css";
 
@@ -8,7 +9,11 @@ export default function FeedLoading() {
     <div className={st.feed} aria-busy>
       <header className={st.head}>
         <h1>Feed</h1>
-        <p>Public sessions from people building with coding agents.</p>
+        <p>
+          Public sessions from people building with coding agents. Watch the live ones
+          as they run, or replay any of them: every prompt, command and diff, in order.
+          Owners choose what to publish; see <Link href="/docs/publishing">how publishing works</Link>.
+        </p>
       </header>
       <Skeleton height={44} radius={10} style={{ display: "block" }} />
       <div className={st.grid} aria-hidden style={{ marginTop: 24 }}>
