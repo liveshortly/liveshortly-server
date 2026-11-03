@@ -66,7 +66,7 @@ Endpoints:
 quota_exempt` (effective limits, override → config default).
 
 ## Schema additions (idempotent)
-- `users`: `email TEXT UNIQUE`, `google_sub TEXT UNIQUE`, `name TEXT`, `avatar_url TEXT`.
+- `users`: `email TEXT UNIQUE`, `google_sub TEXT UNIQUE`, `name TEXT` (no picture: `avatar_url` dropped, LSW-33).
 - `users` (quotas): `storage_bytes_used BIGINT DEFAULT 0`, `storage_limit_bytes BIGINT` (null → default), `max_live_sessions INT` (null → default), `quota_exempt BOOLEAN DEFAULT false`.
 - `sessions` (quotas): `bytes_used BIGINT DEFAULT 0`, `ended_reason TEXT`.
 - `sessions`: `visibility TEXT NOT NULL DEFAULT 'private'` (`private`|`link`|`public`|`open`), `link_role TEXT NOT NULL DEFAULT 'viewer'`.

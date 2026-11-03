@@ -50,14 +50,6 @@
   align-items: flex-start;
 }
 
-.avatar {
-  width: 56px;
-  height: 56px;
-  border-radius: var(--radius-hud);
-  border: 1px solid var(--hairline);
-  object-fit: cover;
-}
-
 .fields {
   display: grid;
   grid-template-columns: max-content 1fr;

@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import BrandMark from "@/components/BrandMark";
 import ThemeToggle from "@/components/ThemeToggle";
-import Avatar from "@/components/Avatar";
 import ProfileMenu from "@/components/ProfileMenu";
 import NotificationBell from "@/components/NotificationBell";
 import Dialog from "@/components/ui/Dialog";
@@ -19,8 +18,9 @@ import s from "./shell.module.css";
 
 /**
  * The one header, signed in or out (LSW-03): logo, Feed · Docs · Install ·
- * Changelog, theme, then Sign in — or, signed in, the ⌘K search, the
- * approvals bell (LSW-21) and the account menu. Under 768px the links move
+ * Changelog · GitHub, theme, then Sign in — or, signed in, the ⌘K search, the
+ * approvals bell (LSW-21) and the account menu, shown as the handle
+ * (identity is text, LSW-33). Under 768px the links move
  * into a menu sheet so none disappears.
  */
 export default function Topbar({
@@ -87,12 +87,9 @@ export default function Topbar({
         <ThemeToggle />
         {user ? (
           <ProfileMenu user={user} direction="down" align="end">
-            <Avatar
-              seed={user.id ?? user.email ?? user.name}
-              size={28}
-              rounded={false}
-              title={user.name ?? user.email ?? "Account"}
-            />
+            <span className={`${s.handle} t-callout`}>
+              {user.handle ? `@${user.handle}` : (user.name ?? user.email ?? "Account")}
+            </span>
           </ProfileMenu>
         ) : (
           // Hidden (not removed) until /api/me answers, so nothing shifts.

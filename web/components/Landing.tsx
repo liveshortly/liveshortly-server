@@ -3,10 +3,8 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import AppFooter from "@/components/AppFooter";
 import FeedCard from "@/components/FeedCard";
 import Topbar from "@/components/Topbar";
-import Avatar from "@/components/Avatar";
 import InstallCommand from "@/components/InstallCommand";
 import Button from "@/components/ui/Button";
 import ReplayCard from "@/components/landing/ReplayCard";
@@ -226,7 +224,6 @@ function LandingInner({ initial }: { initial?: LandingData }) {
           <HowItWorks />
         </div>
       </main>
-      <AppFooter />
     </>
   );
 }
@@ -342,17 +339,6 @@ function Proof({
 
       {liveOwners.length > 0 && (
         <div className="lp-proof-watch">
-          <div className="lp-proof-avatars">
-            {liveOwners.map((h) => (
-              <Avatar
-                key={h}
-                seed={h}
-                size={26}
-                className="lp-proof-avatar"
-                title={`@${h}`}
-              />
-            ))}
-          </div>
           <span className="lp-proof-watch-label">
             {joinHandles(liveOwners)} streaming now
             {liveCount > liveOwners.length ? " · and more" : ""}

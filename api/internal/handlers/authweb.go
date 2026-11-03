@@ -133,9 +133,9 @@ func (g *GoogleAuth) Callback(w http.ResponseWriter, r *http.Request) {
 	sub := claimStr(payload.Claims, "sub")
 	email := claimStr(payload.Claims, "email")
 	name := claimStr(payload.Claims, "name")
-	picture := claimStr(payload.Claims, "picture")
+	// The "picture" claim is ignored: LiveShortly has no profile pictures (LSW-33).
 
-	u, err := g.store.UpsertGoogleUser(ctx, sub, email, name, picture)
+	u, err := g.store.UpsertGoogleUser(ctx, sub, email, name)
 	if err != nil {
 		g.fail(w, r)
 		return
@@ -189,12 +189,9 @@ func (g *GoogleAuth) Me(w http.ResponseWriter, r *http.Request) {
 		body["max_live_sessions"] = qu.MaxLiveSessions
 		body["quota_exempt"] = qu.QuotaExempt
 	}
-	// Handle + avatar come from the account record (best-effort, like quota).
+	// Handle comes from the account record (best-effort, like quota).
 	if u, err := g.store.GetUserByID(r.Context(), c.UserID); err == nil && u != nil {
 		body["handle"] = u.Handle
-		if u.AvatarURL != "" {
-			body["picture"] = u.AvatarURL
-		}
 	}
 	httpx.JSON(w, http.StatusOK, body)
 }

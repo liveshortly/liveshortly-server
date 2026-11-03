@@ -261,7 +261,6 @@ export interface AdminUser {
   handle: string;
   name: string;
   email: string;
-  avatar_url: string;
   created_at: string;
   last_login_at: string | null;
   last_active_at: string | null;
@@ -745,7 +744,6 @@ export interface Me {
   name?: string;
   /** Account handle, from the user record (not from any session). */
   handle?: string;
-  picture?: string;
   /** True when the account is on the super-admin allowlist (server-resolved). */
   is_admin?: boolean;
   /** Quota usage + effective limits (present for signed-in users). */

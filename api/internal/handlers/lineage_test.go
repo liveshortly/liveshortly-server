@@ -59,11 +59,11 @@ func setupForkWithSource(t *testing.T, d testutil.Deps, ownerID string, n int) (
 func TestLineage(t *testing.T) {
 	d := testutil.Setup(t)
 	ctx := context.Background()
-	ou, err := d.Store.UpsertGoogleUser(ctx, "sub-lineage-owner", "lineage-owner@test.local", "Lineage Owner", "")
+	ou, err := d.Store.UpsertGoogleUser(ctx, "sub-lineage-owner", "lineage-owner@test.local", "Lineage Owner")
 	if err != nil {
 		t.Fatalf("owner: %v", err)
 	}
-	xu, err := d.Store.UpsertGoogleUser(ctx, "sub-lineage-other", "lineage-other@test.local", "Lineage Other", "")
+	xu, err := d.Store.UpsertGoogleUser(ctx, "sub-lineage-other", "lineage-other@test.local", "Lineage Other")
 	if err != nil {
 		t.Fatalf("other: %v", err)
 	}

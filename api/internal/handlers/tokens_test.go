@@ -38,11 +38,11 @@ func TestListAndRevokeTokens(t *testing.T) {
 	ga := handlers.NewGoogleAuth(config.Config{}, mgr, d.Store, d.Bus)
 
 	uniq := time.Now().UnixNano()
-	me, err := d.Store.UpsertGoogleUser(ctx, fmt.Sprintf("tok-me-%d", uniq), fmt.Sprintf("me+%d@example.test", uniq), "Me", "")
+	me, err := d.Store.UpsertGoogleUser(ctx, fmt.Sprintf("tok-me-%d", uniq), fmt.Sprintf("me+%d@example.test", uniq), "Me")
 	if err != nil {
 		t.Fatal(err)
 	}
-	other, err := d.Store.UpsertGoogleUser(ctx, fmt.Sprintf("tok-other-%d", uniq), fmt.Sprintf("other+%d@example.test", uniq), "Other", "")
+	other, err := d.Store.UpsertGoogleUser(ctx, fmt.Sprintf("tok-other-%d", uniq), fmt.Sprintf("other+%d@example.test", uniq), "Other")
 	if err != nil {
 		t.Fatal(err)
 	}
