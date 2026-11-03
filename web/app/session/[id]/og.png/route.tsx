@@ -12,8 +12,20 @@ import { fmtInt, frameworkLabel, truncate } from "@/lib/utils";
 // deleted, API down) gets the generic card with nothing leaked.
 
 // Short shared-cache life: a session made private, renamed or deleted must
-// stop previewing soon.
-const HEADERS = { "Cache-Control": "public, max-age=600, stale-while-revalidate=600" };
+// stop previewing soon. The .png path is what lets Cloudflare cache it at the
+// edge (it skips extensionless paths by default); crawlers like X give up on
+// a slow image, and a cold render takes seconds.
+const TTL_MS = 600_000;
+const HEADERS = {
+  "Content-Type": "image/png",
+  "Cache-Control": "public, max-age=600, s-maxage=600, stale-while-revalidate=600",
+};
+
+// Rendered cards by id + ?v, so a crawler burst (and Cloudflare's per-PoP
+// misses) render once. ponytail: in-process map, per web instance; move to a
+// shared store if the site ever runs more than one.
+const rendered = new Map<string, { png: ArrayBuffer; at: number }>();
+const MAX_CACHED = 200;
 
 function duration(from: string, to: string | null): string | null {
   const mins = Math.round((new Date(to ?? Date.now()).getTime() - new Date(from).getTime()) / 60000);
@@ -47,11 +59,15 @@ async function props(id: string): Promise<OgCardProps> {
   }
 }
 
-export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  return new ImageResponse(ogCard(await props(id)), {
-    ...OG_SIZE,
-    fonts: ogFonts(),
-    headers: HEADERS,
-  });
+  const key = `${id}|${new URL(req.url).searchParams.get("v") ?? ""}`;
+  const hit = rendered.get(key);
+  if (hit && Date.now() - hit.at < TTL_MS) return new Response(hit.png, { headers: HEADERS });
+
+  const png = await new ImageResponse(ogCard(await props(id)), { ...OG_SIZE, fonts: ogFonts() }).arrayBuffer();
+  rendered.delete(key);
+  rendered.set(key, { png, at: Date.now() });
+  if (rendered.size > MAX_CACHED) rendered.delete(rendered.keys().next().value!);
+  return new Response(png, { headers: HEADERS });
 }
