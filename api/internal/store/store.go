@@ -89,11 +89,10 @@ func New(pool *pgxpool.Pool) *Store {
 
 // User is a persistent identity (Google web user or CLI principal).
 type User struct {
-	ID        string `json:"id"`
-	Handle    string `json:"handle"`
-	Email     string `json:"email"`
-	Name      string `json:"name"`
-	AvatarURL string `json:"avatar_url"`
+	ID     string `json:"id"`
+	Handle string `json:"handle"`
+	Email  string `json:"email"`
+	Name   string `json:"name"`
 }
 
 // Session matches the JSON shape in CONTRACT.md/AUTH.md.
@@ -224,7 +223,6 @@ type AdminUser struct {
 	Handle       string     `json:"handle"`
 	Name         string     `json:"name"`
 	Email        string     `json:"email"`
-	AvatarURL    string     `json:"avatar_url"`
 	CreatedAt    time.Time  `json:"created_at"`
 	LastLoginAt  *time.Time `json:"last_login_at"`
 	LastActiveAt *time.Time `json:"last_active_at"`
@@ -266,7 +264,7 @@ func (st *Store) PublicStats(ctx context.Context) (PublicStats, error) {
 func (st *Store) AdminUsers(ctx context.Context, defStorageLimit int64, defMaxLive int) ([]AdminUser, error) {
 	const q = `
 		SELECT u.id, u.handle, COALESCE(u.name, ''), COALESCE(u.email, ''),
-		       COALESCE(u.avatar_url, ''), u.created_at, u.last_login_at,
+		       u.created_at, u.last_login_at,
 		       GREATEST(u.last_login_at, max(s.created_at)) AS last_active,
 		       count(s.id), count(s.id) FILTER (WHERE s.status = 'live'),
 		       u.storage_bytes_used,
@@ -285,7 +283,7 @@ func (st *Store) AdminUsers(ctx context.Context, defStorageLimit int64, defMaxLi
 	out := []AdminUser{}
 	for rows.Next() {
 		var u AdminUser
-		if err := rows.Scan(&u.ID, &u.Handle, &u.Name, &u.Email, &u.AvatarURL,
+		if err := rows.Scan(&u.ID, &u.Handle, &u.Name, &u.Email,
 			&u.CreatedAt, &u.LastLoginAt, &u.LastActiveAt, &u.SessionCount, &u.LiveCount,
 			&u.StorageBytesUsed, &u.StorageLimitBytes, &u.MaxLiveSessions, &u.QuotaExempt,
 			&u.IsAdmin); err != nil {

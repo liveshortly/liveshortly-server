@@ -74,14 +74,8 @@
 }
 
 .author {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
   min-width: 0;
   color: var(--ink);
-}
-
-.author > span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -98,7 +92,7 @@
   .stats {
     margin-left: 0;
   }
-  .author > span {
+  .author {
     max-width: 100%;
   }
 }

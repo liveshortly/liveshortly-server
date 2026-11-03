@@ -3,7 +3,6 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import Topbar from "@/components/Topbar";
-import AppFooter from "@/components/AppFooter";
 import WorkspaceSidebar from "@/components/WorkspaceSidebar";
 import MobileTabBar from "@/components/MobileTabBar";
 import CommandPalette, { type DocLink } from "@/components/CommandPalette";
@@ -101,8 +100,6 @@ export default function AppShell({
 
               <main ref={main} id="main" className="ws-main">
                 {isFullBleed(pathname) ? children : <div className="ws-content">{children}</div>}
-                {/* The session view fills the pane and scrolls internally. */}
-                {!inSession && <AppFooter />}
               </main>
             </div>
           </WorkspaceDrawerContext.Provider>

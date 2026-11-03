@@ -11,31 +11,30 @@ import (
 )
 
 // userCols is the standard user projection (nullable text coalesced to "").
-const userCols = `id, handle, COALESCE(email, ''), COALESCE(name, ''), COALESCE(avatar_url, '')`
+const userCols = `id, handle, COALESCE(email, ''), COALESCE(name, '')`
 
 func scanUser(row pgx.Row) (User, error) {
 	var u User
-	err := row.Scan(&u.ID, &u.Handle, &u.Email, &u.Name, &u.AvatarURL)
+	err := row.Scan(&u.ID, &u.Handle, &u.Email, &u.Name)
 	return u, err
 }
 
 // UpsertGoogleUser inserts or updates the persistent user identified by its
 // Google subject. handle is set to the email so it stays unique and human.
-func (st *Store) UpsertGoogleUser(ctx context.Context, sub, email, name, avatar string) (User, error) {
+func (st *Store) UpsertGoogleUser(ctx context.Context, sub, email, name string) (User, error) {
 	const q = `
-		INSERT INTO users (handle, display_name, email, google_sub, name, avatar_url, last_login_at)
-		VALUES ($1, $2, $1, $3, $2, $4, now())
+		INSERT INTO users (handle, display_name, email, google_sub, name, last_login_at)
+		VALUES ($1, $2, $1, $3, $2, now())
 		ON CONFLICT (google_sub) WHERE google_sub IS NOT NULL
 		DO UPDATE SET
 			email = EXCLUDED.email,
 			name = EXCLUDED.name,
-			avatar_url = EXCLUDED.avatar_url,
 			handle = EXCLUDED.handle,
 			display_name = EXCLUDED.display_name,
 			last_login_at = now()
 		RETURNING ` + userCols
-	// $1=email (handle+email), $2=name (display_name+name), $3=sub, $4=avatar.
-	return scanUser(st.pool.QueryRow(ctx, q, email, name, sub, avatar))
+	// $1=email (handle+email), $2=name (display_name+name), $3=sub.
+	return scanUser(st.pool.QueryRow(ctx, q, email, name, sub))
 }
 
 // GetUserByID returns the user with id, or (nil, nil) if absent.
