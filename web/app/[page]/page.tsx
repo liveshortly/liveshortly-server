@@ -9,8 +9,8 @@ import Markdown from "../docs/Markdown";
 import { SITE_PAGES } from "@/lib/routes";
 import docs from "../docs/docs.module.css";
 import s from "./page.module.css";
+import { SITE_URL } from "@/lib/install";
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:8080";
 const EDIT_BASE = "https://github.com/liveshortly/liveshortly-server/edit/main/web/content/pages";
 
 export const dynamicParams = false;

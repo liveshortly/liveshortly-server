@@ -64,6 +64,9 @@ jobs:
           # Baked into the browser bundle at build time — the browser calls the
           # public origin, which nginx routes to the api.
           NEXT_PUBLIC_API_URL: ${{ env.PUBLIC_ORIGIN }}
+          # Absolute base for og:image / og:url / canonical (metadataBase). Without
+          # it every share card pointed at localhost (LSW-37).
+          NEXT_PUBLIC_SITE_URL: ${{ env.PUBLIC_ORIGIN }}
           # next.config.ts evaluates rewrites() at BUILD time, so this has to be
           # the production value here, not just in the service env.
           API_INTERNAL_URL: http://127.0.0.1:8000
@@ -129,6 +132,7 @@ jobs:
              sudo chmod 640 /etc/liveshortly/web.env && \
              sudo chown root:liveshortly /etc/liveshortly/web.env" <<EOF
           NEXT_PUBLIC_API_URL=${PUBLIC_ORIGIN}
+          NEXT_PUBLIC_SITE_URL=${PUBLIC_ORIGIN}
           API_INTERNAL_URL=http://127.0.0.1:8000
           EOF
         env:
@@ -205,3 +209,18 @@ jobs:
           ssh ${SSH_OPTS} "${DEPLOY_USER}@${DEPLOY_HOST}" \
             "sudo journalctl -u liveshortly-api -u liveshortly-web -n 40 --no-pager" || true
           exit 1
+
+      - name: Share meta points at the public origin (LSW-37)
+        run: |
+          # og:/twitter:/canonical URLs must be absolute on the public origin;
+          # crawlers can't fetch localhost, so a wrong build env silently kills
+          # every link preview.
+          for path in / /docs; do
+            tags=$(ssh ${SSH_OPTS} "${DEPLOY_USER}@${DEPLOY_HOST}" "curl -s http://127.0.0.1:3000${path}" \
+              | grep -oE '<(meta|link)[^>]*(og:|twitter:|canonical)[^>]*>' || true)
+            [ -n "$tags" ] || { echo "::error::no share meta on ${path}"; exit 1; }
+            if printf '%s\n' "$tags" | grep -E 'localhost|127\.0\.0\.1'; then
+              echo "::error::share meta on ${path} points at localhost"; exit 1
+            fi
+          done
+          echo "share meta ok"

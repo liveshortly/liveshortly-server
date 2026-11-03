@@ -1,47 +1,95 @@
 import type { ReactElement } from "react";
+import { sessionTitle, type Session } from "@/lib/api";
+import { shareSafe } from "@/lib/transcript";
 
-/** Shared 1200×630 Open Graph / Twitter card renderer. Renders the app's actual
- *  session-card look (terminal-HUD, light theme, JetBrains Mono) so a shared
- *  link previews like a real LiveShortly card — with genuine session text.
- *
- *  Only glyphs present in JetBrains Mono are used (ASCII + middle dot); Satori
- *  can't fetch fallback fonts for exotic glyphs (▪●◔⚙›) at render time.
- *
- *  OG images are static (one image served to every crawler/viewer), so they
- *  can't follow each viewer's system theme; we match the app's default (light)
- *  palette, which is what the card looks like out of the box. */
+/** Shared 1200×630 Open Graph / Twitter card (LSW-37). Dark Mac-app look from
+ *  the tokens.css dark palette, Inter for everything but the code peek
+ *  (JetBrains Mono), and a faint agent-keyed glow so cards are recognisable in
+ *  a feed. One static image serves every viewer, so it can't follow the
+ *  viewer's theme; dark stands out on X. Text passed in must already be safe to
+ *  publish (see shareSafe in lib/transcript.ts). */
 export const OG_SIZE = { width: 1200, height: 630 };
 export const OG_CONTENT_TYPE = "image/png";
 
-// App light-theme palette (mirrors globals.css :root).
+// tokens.css :root[data-theme="dark"]
 const C = {
-  bg: "#e7e8ea",
-  panel: "#f3f4f5",
-  hairline: "#d0d2d5",
-  ink: "#1b1c1e",
-  muted: "#63666b",
-  faint: "#94979c",
-  green: "#1f7a4d",
+  canvas: "#121110",
+  sunken: "#0c0b0a",
+  hairline: "#2e2c27",
+  fg: "#ebe8e0",
+  fg2: "#a8a399",
+  fg3: "#8e8a81",
+  accent: "#3db27e",
+  bad: "#d76e5a",
 };
 
-export function ogCard(o: {
+/** Agent accent for the glow and the agent dot. */
+function agentColor(fw: string | null | undefined): string {
+  switch (fw) {
+    case "claude-code":
+      return "#d97757";
+    case "gemini-cli":
+      return "#4f8df5";
+    case "agy":
+    case "antigravity":
+      return C.accent;
+    default:
+      return C.fg3; // Codex and the rest: neutral
+  }
+}
+
+const SANS = "Inter";
+const MONO = "JetBrains Mono";
+
+function BrandMark({ size }: { size: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32">
+      <rect width="32" height="32" rx="7" fill={C.accent} />
+      <rect x="7" y="8.5" width="6.5" height="15" rx="1.5" fill={C.canvas} />
+      <rect
+        x="16.5"
+        y="8.5"
+        width="8.5"
+        height="15"
+        rx="1.5"
+        fill={C.accent}
+        stroke={C.canvas}
+        strokeWidth="2"
+      />
+    </svg>
+  );
+}
+
+export type OgCardProps = {
   title: string;
   status?: "live" | "ended" | null;
+  framework?: string | null; // raw framework id, keys the accent
+  agent?: string | null; // display name, e.g. "Claude Code"
   model?: string | null;
-  agent?: string | null; // e.g. "Claude Code"
-  shortId?: string;
-  snippet?: string | null; // hero snippet
-  highlight?: string | null; // a real line from the session (prompt/response)
-  owner?: string | null;
-  age?: string | null;
-  events?: number;
-  views?: number;
-  published?: boolean;
-  subtitle?: string | null; // used by the site-default card
-}): ReactElement {
+  excerpt?: string | null;
+  edit?: { file: string; add: number; del: number } | null;
+  /** Footer facts, already formatted ("@rohit", "1h 12m", "88 events"…). */
+  meta?: string[];
+};
+
+/** A session's title as shown on share cards and og:title — never markup
+ *  (a prompt-derived title can be a raw <task-notification>). */
+export const shareTitle = (s: Pick<Session, "title" | "suggested_title">) =>
+  shareSafe(sessionTitle(s), 1) ?? "A coding session";
+
+/** The generic brand card: site default, and any session that isn't open
+ *  (private, deleted, API down) — nothing about the session leaks. */
+export const SITE_CARD: OgCardProps = {
+  title: "Watch coding agents work, live",
+  excerpt:
+    "Stream Claude Code, Codex, Gemini and Antigravity sessions as they happen. Replay them, share them, hand them off.",
+  framework: "agy",
+};
+
+export function ogCard(o: OgCardProps): ReactElement {
   const live = o.status === "live";
-  const font = "JetBrains Mono, monospace";
-  const snippet = o.snippet || o.subtitle;
+  const tint = agentColor(o.framework);
+  const agentLine = [o.agent, o.model].filter(Boolean).join(" · ");
   return (
     <div
       style={{
@@ -49,184 +97,140 @@ export function ogCard(o: {
         height: "100%",
         display: "flex",
         flexDirection: "column",
-        background: C.bg,
-        color: C.ink,
-        padding: 56,
-        fontFamily: font,
+        padding: "56px 64px 48px",
+        color: C.fg,
+        fontFamily: SANS,
+        backgroundColor: C.canvas,
+        backgroundImage: `radial-gradient(circle at 100% 0%, ${tint}55 0%, ${tint}18 40%, ${C.canvas}00 70%)`,
       }}
     >
-      {/* Brand strip */}
-      <div style={{ display: "flex", alignItems: "center" }}>
-        {/* The brand mark (components/BrandMark.tsx), in literal colours. */}
-        <svg width="34" height="34" viewBox="0 0 32 32">
-          <rect width="32" height="32" rx="6" fill={C.green} />
-          <rect x="7" y="8.5" width="6.5" height="15" rx="1.5" fill={C.panel} />
-          <rect
-            x="16.5"
-            y="8.5"
-            width="8.5"
-            height="15"
-            rx="1.5"
-            fill={C.green}
-            stroke={C.panel}
-            strokeWidth="2"
-          />
-        </svg>
-        <div style={{ fontSize: 26, fontWeight: 700, marginLeft: 14 }}>
+      {/* Top row: mark (once) · status pill · agent + model */}
+      <div style={{ display: "flex", alignItems: "center", height: 44 }}>
+        <BrandMark size={40} />
+        <div style={{ fontSize: 28, fontWeight: 600, marginLeft: 14, letterSpacing: -0.3 }}>
           LiveShortly
         </div>
-        <div style={{ display: "flex", flex: 1 }} />
-        <div style={{ fontSize: 22, color: C.muted }}>LiveShortly</div>
-      </div>
-
-      {/* The session card */}
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          flex: 1,
-          marginTop: 26,
-          border: `1px solid ${C.hairline}`,
-          background: C.panel,
-        }}
-      >
-        {/* Header: status badge + model (only for real sessions) */}
-        {(o.status != null || o.model || o.agent) && (
+        {o.status && (
           <div
             style={{
               display: "flex",
               alignItems: "center",
-              justifyContent: "space-between",
-              padding: "18px 26px",
-              borderBottom: `1px solid ${C.hairline}`,
+              marginLeft: 22,
+              padding: "6px 16px",
+              borderRadius: 999,
+              fontSize: 20,
+              fontWeight: 600,
+              letterSpacing: 1.5,
+              color: live ? C.accent : C.fg2,
+              backgroundColor: live ? `${C.accent}22` : `${C.fg3}22`,
             }}
           >
-            {o.status != null ? (
+            {live && (
               <div
                 style={{
-                  display: "flex",
-                  border: `1px solid ${live ? C.green : C.faint}`,
-                  color: live ? C.green : C.muted,
-                  padding: "6px 16px",
-                  fontSize: 22,
-                  letterSpacing: 3,
+                  width: 10,
+                  height: 10,
+                  borderRadius: 5,
+                  backgroundColor: C.accent,
+                  marginRight: 10,
                 }}
-              >
-                {live ? "LIVE" : "ENDED"}
-              </div>
-            ) : (
-              <div style={{ display: "flex" }} />
+              />
             )}
-            {(o.agent || o.model) && (
-              <div style={{ fontSize: 24, color: C.muted, letterSpacing: 1 }}>
-                {[o.agent, o.model].filter(Boolean).join(" · ").toUpperCase()}
-              </div>
-            )}
+            {live ? "LIVE" : "ENDED"}
           </div>
         )}
+        <div style={{ display: "flex", flex: 1 }} />
+        {agentLine && (
+          <div style={{ display: "flex", alignItems: "center", fontSize: 24, color: C.fg2 }}>
+            <div
+              style={{
+                width: 14,
+                height: 14,
+                borderRadius: 4,
+                backgroundColor: tint,
+                marginRight: 12,
+              }}
+            />
+            {agentLine}
+          </div>
+        )}
+      </div>
 
-        {/* Body: short id, title, snippet, session highlight */}
+      {/* Hero title: up to 2 lines, then ellipsis */}
+      <div
+        style={{
+          display: "block",
+          marginTop: 52,
+          fontSize: 62,
+          fontWeight: 600,
+          lineHeight: 1.12,
+          letterSpacing: -1.2,
+          lineClamp: 2,
+        }}
+      >
+        {o.title}
+      </div>
+
+      {o.excerpt && (
+        <div
+          style={{
+            display: "block",
+            marginTop: 26,
+            fontSize: 28,
+            lineHeight: 1.42,
+            color: C.fg2,
+            lineClamp: o.edit ? 2 : 3,
+          }}
+        >
+          {o.excerpt}
+        </div>
+      )}
+
+      {o.edit && (
         <div
           style={{
             display: "flex",
-            flexDirection: "column",
-            flex: 1,
-            padding: "26px 30px",
+            alignSelf: "flex-start",
+            alignItems: "center",
+            marginTop: 26,
+            padding: "10px 18px",
+            borderRadius: 10,
+            border: `1px solid ${C.hairline}`,
+            backgroundColor: C.sunken,
+            fontFamily: MONO,
+            fontSize: 22,
           }}
         >
-          {o.shortId && (
-            <div style={{ fontSize: 22, color: C.faint, letterSpacing: 3 }}>
-              {o.shortId}
-            </div>
+          <div style={{ color: C.fg }}>{o.edit.file}</div>
+          {o.edit.add > 0 && (
+            <div style={{ color: C.accent, marginLeft: 18 }}>{`+${o.edit.add}`}</div>
           )}
-          <div
-            style={{
-              display: "flex",
-              fontSize: 56,
-              fontWeight: 700,
-              color: C.ink,
-              marginTop: 8,
-              lineHeight: 1.1,
-              maxHeight: 132,
-              overflow: "hidden",
-            }}
-          >
-            {o.title}
-          </div>
-
-          {snippet && (
-            <div style={{ display: "flex", marginTop: 22, fontSize: 26 }}>
-              <div style={{ color: C.green, marginRight: 12 }}>{">"}</div>
-              <div style={{ color: C.muted }}>{snippet}</div>
-            </div>
-          )}
-
-          {o.highlight && (
-            <div
-              style={{
-                display: "flex",
-                marginTop: 22,
-                paddingLeft: 16,
-                borderLeft: `3px solid ${C.green}`,
-                fontSize: 24,
-                color: C.muted,
-                lineHeight: 1.4,
-                maxHeight: 108,
-                overflow: "hidden",
-              }}
-            >
-              {o.highlight}
-            </div>
+          {o.edit.del > 0 && (
+            <div style={{ color: C.bad, marginLeft: 10 }}>{`-${o.edit.del}`}</div>
           )}
         </div>
+      )}
 
-        {/* Footer: owner · age · stats + published chip. Only when the card has
-            session metadata (the site-default card omits it). */}
-        {(o.owner || o.events != null) && (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              padding: "18px 26px",
-              borderTop: `1px solid ${C.hairline}`,
-              fontSize: 24,
-            }}
-          >
-            {o.owner && <div style={{ display: "flex", color: C.ink }}>{`@${o.owner}`}</div>}
-            {o.age && (
-              <div style={{ display: "flex", color: C.faint, marginLeft: 16 }}>
-                {`· ${o.age}`}
-              </div>
-            )}
-            <div style={{ display: "flex", flex: 1 }} />
-            {o.published && (
-              <div
-                style={{
-                  display: "flex",
-                  border: `1px solid ${C.green}`,
-                  color: C.green,
-                  padding: "5px 12px",
-                  fontSize: 20,
-                  letterSpacing: 2,
-                  marginRight: 18,
-                }}
-              >
-                PUBLISHED
-              </div>
-            )}
-            {o.events != null && (
-              <div style={{ display: "flex", color: C.muted }}>
-                {`${fmt(o.events)} EVENTS   ${fmt(o.views)} VIEWS`}
-              </div>
-            )}
-          </div>
-        )}
+      <div style={{ display: "flex", flex: 1 }} />
+
+      {/* Footer: facts · call to action */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          paddingTop: 22,
+          borderTop: `1px solid ${C.hairline}`,
+          fontSize: 24,
+          color: C.fg2,
+        }}
+      >
+        <div style={{ display: "flex" }}>{(o.meta ?? []).join("  ·  ")}</div>
+        <div style={{ display: "flex", flex: 1 }} />
+        <div style={{ display: "flex", color: C.fg }}>
+          {"watch on "}
+          <span style={{ color: C.accent, marginLeft: 7 }}>liveshortly.com</span>
+        </div>
       </div>
     </div>
   );
-}
-
-function fmt(n: number | undefined): string {
-  if (n == null || Number.isNaN(n)) return "0";
-  return n.toLocaleString("en-US");
 }
