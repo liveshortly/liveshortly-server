@@ -4,6 +4,72 @@ All notable changes to `live` are documented here. Versions follow
 [SemVer](https://semver.org); each release is a git tag (`vX.Y.Z`) that the
 Homebrew formula and `live version` report.
 
+## Unreleased
+
+### Added
+- **Support matrix: "First message wakes idle agent" and "Model choice at
+  start" columns (LSH-15, LSH-16).** Also `first_message` and `model_choice` in
+  `docs/harness-matrix.json`; existing fields are unchanged.
+
+### Fixed
+- **codex app-server: a web-picked model no longer becomes the opening turn.**
+  The daemon's `--model <id>` (and `--ask-for-approval never`) values were read
+  as the initial prompt; the model now goes on `thread/start`.
+- **codex in tmux: an early web message is no longer lost silently.** live waits
+  up to 20 s for the composer (was 5 s) and posts a session notice if it
+  can't type the message.
+- **pty agents (ollama, `type_comments` adapters): a message drained before the
+  agent started is delivered** instead of dropped.
+- **agy handoff seed uses `-i`.** agy 1.4.12 exits on a bare positional prompt.
+
+## v2.3.6 — 2026-11-03
+
+### Fixed
+- **The first message from the web reaches every agent (LSH-17 and the LSH-15
+  audit).** gemini in tmux gets viewer messages typed into its composer when
+  idle (held during boot, verified, never delivered twice). codex in tmux waits
+  up to 20 s for its composer and reports failures; codex app-server no longer
+  sends the daemon's `--model`/approval values as the first prompt and sets the
+  model on `thread/start`; pty agents (ollama and others) hold messages that
+  arrive before the terminal exists.
+- agy's handoff seed is passed with `-i` (a bare argument makes agy exit).
+
+### Changed
+- The support matrix gains "First message wakes idle agent" and "Model choice
+  at start" columns (`first_message`, `model_choice` in harness-matrix.json);
+  the daemon's `model_switchable` comes from the matrix.
+
+## v2.3.5 — 2026-11-03
+
+### Added
+- **Pick a model per agent when starting a session from the web (LSH-16).**
+  `live daemon` now advertises each agent's models (claude aliases, codex's
+  model cache, agy, cursor-agent, gemini, ollama, and `models`/`model_flag` in
+  agents.json). The daemon re-checks the choice against its own list and passes
+  it as a fixed flag; anything else is refused.
+
+### Fixed
+- **agy no longer drops the first message of a web- or Mac-started session
+  (LSH-15).** live waits for agy's real input box before typing, holds early
+  messages in order, checks delivery and retries once, and tells the session
+  page why if it still can't deliver.
+
+## v2.3.4 — 2026-11-03
+
+### Added
+- **`live host`, `live host set <url>`, `live host reset` (LSI-15).** See which
+  server live talks to and where that comes from, point it at a self-hosted
+  server, or go back to https://liveshortly.com.
+
+### Fixed
+- `live login` prints the server first and, when it can't reach it, says why
+  (for example a host.json left pointing at a local server that isn't running)
+  and how to fix it. Credentials from a different server no longer block
+  signing in to the current one.
+- The permission banner's "LIVE_WEB_PERMS=0 to disable" hint (nothing reads
+  that variable) now points at `--no-permissions`; `live --help` lists what the
+  daemon really offers and the `daemon --server` options (LSH-14).
+
 ## v2.3.3 — 2026-11-03
 
 ### Added
