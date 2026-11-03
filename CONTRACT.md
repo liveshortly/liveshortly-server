@@ -154,14 +154,18 @@ is not listed, because it is not spawnable.
   "hostname": "rohit-mbp", "os": "darwin", "arch": "arm64",
   "dirs":   ["/Users/rohit/code/api"],   // absolute; the spawn allowlist
   "agents": ["claude","codex","hermes"], // whatever the daemon found locally
-  "models": ["llama3.2:1b"],             // ollama only; the model allowlist
+  "models": ["llama3.2:1b"],             // ollama only; legacy, kept one release
+  "agent_models": [                      // per-agent model allowlist (LSH-16); always present in GET
+    {"name": "claude", "models": [{"id": "opus", "label": "Opus"}], "default_model"?: "opus", "model_switchable"?: true},
+    {"name": "hermes", "models": []}     // empty: the agent runs its own default
+  ],
   "seen_at": "RFC3339"
 }
 ```
 
 | Method | Path | Body | Response |
 |---|---|---|---|
-| POST | `/api/hosts/register` | `{"host_id","name"?,"hostname"?,"os"?,"arch"?,"dirs":[abs paths],"agents":[…],"models"?:[…]}` | `200 {"host_id","ttl_secs","registered":true}` — `400` on a bad id, a relative path, no valid agent left, or only `ollama` with no `models` |
+| POST | `/api/hosts/register` | `{"host_id","name"?,"hostname"?,"os"?,"arch"?,"dirs":[abs paths],"agents":[…],"models"?:[…],"agent_models"?:[…]}` | `200 {"host_id","ttl_secs","registered":true}` — `400` on a bad id, a relative path, no valid agent left, or only `ollama` with no `models` |
 | GET | `/api/hosts` | — | `200 {"hosts":[Host]}` — the caller's ONLINE machines only |
 | GET | `/api/hosts/{id}/stream` | — | `200` SSE command stream (owner only, Bearer) — `404` if the host has not registered |
 
@@ -181,12 +185,18 @@ found locally — probed on `PATH`, plus the operator's own
 `~/.liveshortly/agents.json` — so the server validates only that a name is a
 bounded, plain `[A-Za-z0-9][A-Za-z0-9_-]{0,63}` token and that it is one the
 target host actually registered. Adding a harness is a client-side act and
-needs no API change. For
-`ollama`, `model` names which model to run and MUST be one the host registered
-(empty → the host's first); it is rejected with `400` otherwise. For `claude`,
-`model` is an OPTIONAL alias from the fixed allowlist `sonnet|opus|haiku`
-(daemon maps it to `--model <alias>`); rejected with `400` otherwise, and
-ignored for every other agent. `bypass_permissions` (bool) asks the daemon to run the agent
+needs no API change.
+
+`model` (LSH-16) MUST be on the target host's `agent_models` list **for that
+agent**, else `400`; empty means the agent's own default (for `ollama`, which
+needs one: the entry's `default_model`, else its first). An agent with an
+empty list takes no model. Registration drops entries for agents the host did
+not register, ids outside `[A-Za-z0-9._:/-]{1,128}` or starting with `-`, and a
+`default_model` not on the list. A host registered without `agent_models` (a
+daemon that predates it) is treated as `claude` → `opus|sonnet|haiku` and
+`ollama` → `models`, which is exactly what such a daemon accepts. The daemon
+re-checks the model against the catalog it built itself and passes it as the
+agent's own model flag (one argv element, never a shell). `bypass_permissions` (bool) asks the daemon to run the agent
 unattended — no permission probes; it is relayed as a boolean only (rule 1
 below: never an argv) and the daemon maps it to known flags
 (`live --no-permissions`, plus `claude --dangerously-skip-permissions` /
@@ -205,7 +215,7 @@ both ends; never an argv. `400` unknown alias / no machine online, `409` ended.
 ### SSE: `GET /api/hosts/{id}/stream` (daemon)
 Frames: `{"type":"connected","host_id"}`, then per web-created session
 `{"type":"spawn","session_id","agent","cwd","title","model"?,"bypass_permissions"?}`
-(`model` for `ollama`, or a claude alias; `bypass_permissions` a
+(`model` from that host's `agent_models` for the agent; `bypass_permissions` a
 boolean the daemon maps to known flags, never an argv), and
 `{"type":"set_model","session_id","model"}` for live model switches,
 plus `: hb` comments every 15s. Each heartbeat refreshes the host record, so the
