@@ -170,8 +170,8 @@ func TestResolveSpawnBindsOllamaModelToHost(t *testing.T) {
 		}
 	}
 
-	// A model is meaningless for an agent that takes none, and must not be
-	// forwarded. codex, not claude: claude DOES take a model — an alias from a
+	// A model for an agent the (pre-LSH-16) host listed no models for is
+	// refused, not forwarded. codex, not claude: claude DOES take a model — an alias from a
 	// fixed list — so it is the wrong example for "this agent has no model",
 	// and it now rejects an unknown alias rather than ignoring it.
 	other, _ := json.Marshal(hostRecord{
@@ -181,12 +181,8 @@ func TestResolveSpawnBindsOllamaModelToHost(t *testing.T) {
 	if err := d.Bus.HostSet(ctx, user, host, string(other)); err != nil {
 		t.Fatalf("HostSet: %v", err)
 	}
-	got, err = h.resolveSpawn(ctx, user, host, "codex", "/work/allowed", "llama3.2:1b")
-	if err != nil {
-		t.Fatalf("codex with a model: %v", err)
-	}
-	if got.model != "" {
-		t.Errorf("model leaked to an agent that takes none: %q", got.model)
+	if _, err := h.resolveSpawn(ctx, user, host, "codex", "/work/allowed", "llama3.2:1b"); err == nil {
+		t.Error("resolveSpawn forwarded a model to an agent whose host listed none")
 	}
 
 	// claude takes a model, but only an alias it knows: an ollama tag is not
@@ -210,5 +206,59 @@ func TestLabelsForAgent(t *testing.T) {
 		if framework != want[0] || captureMode != want[1] {
 			t.Errorf("labelsForAgent(%q) = %q/%q, want %q/%q", agent, framework, captureMode, want[0], want[1])
 		}
+	}
+}
+
+// LSH-16: a host's per-agent catalog binds each agent's model to that agent's
+// own list. Every rejection here is a name that must never reach an argv.
+func TestResolveSpawnBindsModelToAgentCatalog(t *testing.T) {
+	d := testutil.Setup(t)
+	h := New(d.Store, d.Bus, d.Blob, config.Config{})
+	ctx := context.Background()
+
+	const user, host = "user-catalog-spawn", "laptop"
+	agents := []string{"claude", "codex", "aider"}
+	catalog := cleanAgentModels([]agentModels{
+		{Name: "claude", Models: []modelOption{{ID: "opus"}, {ID: "claude-fable-5"}}, DefaultModel: "claude-fable-5"},
+		{Name: "codex", Models: []modelOption{{ID: "gpt-6-sol", Label: "GPT-6 Sol"}, {ID: "--yolo"}, {ID: "a b"}}, DefaultModel: "nope"},
+		{Name: "aider", Models: []modelOption{}},
+		{Name: "gemini", Models: []modelOption{{ID: "gemini-2.5-pro"}}}, // not a registered agent
+	}, agents)
+	if len(catalog) != 3 || len(catalog[1].Models) != 1 || catalog[1].DefaultModel != "" || catalog[0].DefaultModel != "claude-fable-5" {
+		t.Fatalf("cleanAgentModels = %+v", catalog)
+	}
+	rec, _ := json.Marshal(hostRecord{ID: host, Dirs: []string{"/work/allowed"}, Agents: agents, AgentModels: catalog})
+	if err := d.Bus.HostSet(ctx, user, host, string(rec)); err != nil {
+		t.Fatalf("HostSet: %v", err)
+	}
+	t.Cleanup(func() { _ = d.Bus.HostDrop(ctx, user, host) })
+
+	for _, c := range []struct{ agent, model string }{{"claude", "claude-fable-5"}, {"codex", "gpt-6-sol"}, {"codex", ""}, {"aider", ""}} {
+		got, err := h.resolveSpawn(ctx, user, host, c.agent, "/work/allowed", c.model)
+		if err != nil || got.model != c.model {
+			t.Errorf("%s/%q: got %q, %v", c.agent, c.model, got.model, err)
+		}
+	}
+	for _, c := range []struct{ agent, model string }{
+		{"codex", "opus"},         // another agent's model
+		{"claude", "sonnet"},      // a legacy alias this host did not list
+		{"codex", "--yolo"},       // dropped at registration
+		{"codex", "gpt-6-sol; x"}, // not a name
+		{"aider", "gpt-6-sol"},    // agent with no models
+	} {
+		if _, err := h.resolveSpawn(ctx, user, host, c.agent, "/work/allowed", c.model); err == nil {
+			t.Errorf("resolveSpawn accepted %s model %q", c.agent, c.model)
+		}
+	}
+}
+
+// A record from a daemon that predates LSH-16 still lists claude's aliases and
+// the flat ollama models, so old daemons keep working against this server.
+func TestLegacyHostCatalog(t *testing.T) {
+	rec := hostRecord{Agents: []string{"claude", "ollama", "codex"}, Models: []string{"llama3.2:1b"}}
+	c := rec.catalog()
+	if !entryFor(c, "claude").has("sonnet") || !entryFor(c, "claude").ModelSwitchable ||
+		!entryFor(c, "ollama").has("llama3.2:1b") || len(entryFor(c, "codex").Models) != 0 {
+		t.Fatalf("legacy catalog = %+v", c)
 	}
 }

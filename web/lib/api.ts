@@ -829,7 +829,23 @@ export interface Host {
   /** ollama models pulled on this machine. Only populated when `agents`
    *  includes "ollama"; the spawn must name one of these. */
   models?: string[];
+  /** Per-agent models the daemon accepts (LSH-16). A spawn's `model` must be
+   *  on its agent's list; an empty list means the agent's own default. Absent
+   *  from servers that predate it. */
+  agent_models?: AgentModels[];
   seen_at: string;
+}
+
+export interface ModelOption {
+  id: string;
+  label?: string;
+}
+
+export interface AgentModels {
+  name: string;
+  models: ModelOption[];
+  default_model?: string;
+  model_switchable?: boolean;
 }
 
 /** List the caller's online machines. GET /api/hosts. */
@@ -870,8 +886,8 @@ export async function createSessionOnHost(
     signal,
     credentials: "include",
     headers: { "content-type": "application/json" },
-    // `model` is only meaningful for ollama; the server ignores it otherwise
-    // and validates it against the host's own registered list either way.
+    // `model` must be one the host registered for this agent (agent_models);
+    // the server and the daemon both validate it against that list.
     // `bypass_permissions` asks the daemon to run the agent unattended (no
     // permission probes) — it only ever reaches the caller's own machine.
     body: JSON.stringify({
