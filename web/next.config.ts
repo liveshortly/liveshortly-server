@@ -43,7 +43,8 @@ const nextConfig: NextConfig = {
     ];
     return [
       { source: "/", headers: revalidate },
-      { source: "/session/:id*", headers: revalidate },
+      // Not /session/:id/og: the share image sets its own short cache (LSW-37).
+      { source: "/session/:id", headers: revalidate },
       // /install carries the installer command and the host.json snippet. It
       // is prerendered, so without this it ships Next's default
       // `s-maxage=31536000` and a shared cache could serve a year-old copy
