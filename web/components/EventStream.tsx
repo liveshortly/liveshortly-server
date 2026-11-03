@@ -284,7 +284,7 @@ function WorkRun({ events }: { events: SessionEvent[] }) {
   const n = events.length;
   const shown = open || n <= COLLAPSED_TAIL ? events : events.slice(-COLLAPSED_TAIL);
   return (
-    <div id={`e-${events[0].seq}`} className={`${s.row} ${s.panel}`}>
+    <div id={`e-${events[0].seq}`} className={`${s.row} ${s.panel} ${s.wide}`}>
       <button
         type="button"
         className={s.panelHead}

@@ -125,6 +125,11 @@
   --radius-bubble: 12px;
   --radius-card: 14px;
   --radius-sheet: 22px;
+
+  /* Session transcript width (LSW-38): prose caps here; code, diffs and the
+     agent activity block may run 220px wider. Sized against the pane. */
+  --transcript-max: 820px;
+  --transcript-wide: calc(var(--transcript-max) + 220px);
 }
 
 /* ── Breakpoints (LSW-19) ─────────────────────────────────────────────────
