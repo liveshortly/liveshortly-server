@@ -62,6 +62,13 @@ try {
         // The PWA service worker would cache across pages; idle2 tolerates polling.
         await page.setBypassServiceWorker(true);
         await page.goto(base + path, { waitUntil: "networkidle2" });
+        // Check the settled page: jump finite entrance animations (the landing
+        // replay fades lines in) to their end, or axe measures text mid-fade.
+        await page.evaluate(() =>
+          document.getAnimations().forEach((a) => {
+            if (Number.isFinite(a.effect?.getComputedTiming().endTime)) a.finish();
+          }),
+        );
         await page.addScriptTag({ path: axeSrc });
         const violations = await page.evaluate(async () => {
           const r = await window.axe.run(document, {

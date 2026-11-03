@@ -65,6 +65,12 @@ export default function EventStream({
   const [pinned, setPinned] = useState(true);
   const pinnedRef = useRef(true);
 
+  // True when the reader is within 48px of the end — or nothing scrolls.
+  const atBottom = () => {
+    const el = scrollRef.current;
+    return !el || el.scrollHeight - el.scrollTop - el.clientHeight < 48;
+  };
+
   const toBottom = (smooth = false) => {
     const el = scrollRef.current;
     // A JS `behavior` overrides the CSS reduced-motion reset, so check here.
@@ -80,12 +86,14 @@ export default function EventStream({
     if (target && scrollRef.current?.contains(target)) {
       target.scrollIntoView({ block: "center" });
       pinnedRef.current = false;
-      setPinned(false);
+      setPinned(atBottom());
     } else if (live) {
       toBottom();
     } else {
+      // Don't follow the tail, but a short transcript that can't scroll
+      // shows no Jump-to-latest pill.
       pinnedRef.current = false;
-      setPinned(false);
+      setPinned(atBottom());
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -93,16 +101,13 @@ export default function EventStream({
   // Follow the tail only while the reader is there.
   useEffect(() => {
     if (pinnedRef.current) toBottom();
+    else setPinned(atBottom());
   }, [items.length, events.length, busy, error]);
 
   const onScroll = () => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const at = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
-    if (at !== pinnedRef.current) {
-      pinnedRef.current = at;
-      setPinned(at);
-    }
+    const at = atBottom();
+    pinnedRef.current = at;
+    setPinned(at);
   };
 
   return (
