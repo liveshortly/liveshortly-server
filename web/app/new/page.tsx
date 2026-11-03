@@ -10,7 +10,13 @@ import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Chip from "@/components/ui/Chip";
 import Icon from "@/components/ui/Icon";
-import { CLAUDE_MODELS, createSessionOnHost, listHosts, type Host } from "@/lib/api";
+import {
+  CLAUDE_MODELS,
+  createSessionOnHost,
+  listHosts,
+  type AgentModels,
+  type Host,
+} from "@/lib/api";
 import { INSTALL_CMD } from "@/lib/install";
 import { spawnAgentCaps, timeAgo } from "@/lib/utils";
 import harness from "@/content/harness-matrix.json";
@@ -51,13 +57,34 @@ function harnessRow(agent: string) {
   return rows.find((r) => !r.mode && r.agents.includes(name)) ?? rows[rows.length - 1];
 }
 
-/** Models the user may pick for an agent on this host — mirrors
- *  LSHost.models(forAgent:): Claude has a fixed alias set, ollama runs what the
- *  daemon pulled, everything else takes its own default. */
-function modelsFor(host: Host, agent: string): readonly string[] {
-  if (agent === "claude" || agent === "claude-code") return CLAUDE_MODELS;
-  if (agent === "ollama") return host.models ?? [];
-  return [];
+/** Models the user may pick for an agent on this host (LSH-16): the list the
+ *  daemon registered for that agent. A server that predates agent_models gets
+ *  the old rule: Claude's fixed aliases, ollama's pulled models. */
+function modelsFor(host: Host, agent: string): AgentModels {
+  const entry = host.agent_models?.find((e) => e.name === agent);
+  if (entry) return entry;
+  if (host.agent_models) return { name: agent, models: [] };
+  const ids = agent === "claude" ? CLAUDE_MODELS : agent === "ollama" ? (host.models ?? []) : [];
+  return { name: agent, models: ids.map((id) => ({ id })), model_switchable: agent === "claude" };
+}
+
+/** The last model picked per machine + agent, so the next session starts on it. */
+const modelKey = (hostId: string, agent: string) => `ls:new-model:${hostId}:${agent}`;
+function rememberedModel(host: Host, agent: string): string {
+  try {
+    const id = localStorage.getItem(modelKey(host.id, agent)) ?? "";
+    return modelsFor(host, agent).models.some((m) => m.id === id) ? id : "";
+  } catch {
+    return "";
+  }
+}
+function rememberModel(hostId: string, agent: string, id: string) {
+  try {
+    if (id) localStorage.setItem(modelKey(hostId, agent), id);
+    else localStorage.removeItem(modelKey(hostId, agent));
+  } catch {
+    // Private mode / blocked storage: just don't remember.
+  }
 }
 
 /** The OS account the daemon runs as, read off its registered home paths
@@ -117,8 +144,9 @@ export default function NewSessionPage() {
     setHostId(h.id);
     setCwd(h.dirs[0] ?? "");
     const wanted = requestedAgent();
-    setAgent(wanted && h.agents.includes(wanted) ? wanted : (h.agents[0] ?? ""));
-    setModel("");
+    const a = wanted && h.agents.includes(wanted) ? wanted : (h.agents[0] ?? "");
+    setAgent(a);
+    setModel(rememberedModel(h, a));
     setDirQuery("");
   };
 
@@ -134,7 +162,10 @@ export default function NewSessionPage() {
     return (host?.dirs ?? []).filter((d) => !q || d.toLowerCase().includes(q));
   }, [host, dirQuery]);
 
-  const models = host ? modelsFor(host, agent) : [];
+  const catalog = host ? modelsFor(host, agent) : null;
+  const models = catalog?.models ?? [];
+  const defaultModel = models.find((m) => m.id === catalog?.default_model);
+  const picked = models.find((m) => m.id === model);
   const canStart = !!host && !!cwd && !!agent && !starting;
 
   const start = async () => {
@@ -288,7 +319,8 @@ export default function NewSessionPage() {
                 <Field label="Agent">
                   <div className={s.grid} role="radiogroup" aria-label="Agent">
                     {host.agents.map((a) => {
-                      const n = modelsFor(host, a).length;
+                      const am = modelsFor(host, a);
+                      const n = am.models.length;
                       const row = harnessRow(a);
                       return (
                         <label key={a} className={`${s.option} ${a === agent ? s.selected : ""}`}>
@@ -299,16 +331,14 @@ export default function NewSessionPage() {
                             onChange={() => {
                               setAgent(a);
                               // A model from the previous agent means nothing here.
-                              setModel("");
+                              setModel(rememberedModel(host, a));
                             }}
                           />
                           <span className={s.optMain}>
                             <span className={s.optTitle}>{AGENT_NAMES[a] ?? a}</span>
                             <span className={s.chips}>
-                              {(a === "claude" || a === "claude-code") && (
-                                <Chip>Live model switch</Chip>
-                              )}
-                              {a === "ollama" && n > 0 && (
+                              {am.model_switchable && <Chip>Live model switch</Chip>}
+                              {n > 0 && (
                                 <Chip>
                                   {n} model{n === 1 ? "" : "s"}
                                 </Chip>
@@ -327,21 +357,32 @@ export default function NewSessionPage() {
                   </div>
                 </Field>
 
-                {models.length > 0 && (
+                {agent && (
                   <Field label="Model">
                     <select
                       className={s.select}
                       aria-label="Model"
                       value={model}
-                      onChange={(e) => setModel(e.target.value)}
+                      disabled={models.length === 0}
+                      onChange={(e) => {
+                        setModel(e.target.value);
+                        rememberModel(host.id, agent, e.target.value);
+                      }}
                     >
-                      <option value="">Default</option>
+                      <option value="">
+                        {models.length === 0
+                          ? "Uses the agent's default"
+                          : defaultModel
+                            ? `Default (${defaultModel.label || defaultModel.id})`
+                            : "Default"}
+                      </option>
                       {models.map((m) => (
-                        <option key={m} value={m}>
-                          {m}
+                        <option key={m.id} value={m.id}>
+                          {m.label || m.id}
                         </option>
                       ))}
                     </select>
+                    {picked?.label && <span className={`${s.meta} ${s.mono}`}>{picked.id}</span>}
                   </Field>
                 )}
 

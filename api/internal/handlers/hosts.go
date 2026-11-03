@@ -75,7 +75,34 @@ type hostRecord struct {
 	// list and the server validates against it — but the daemon re-checks
 	// locally, which is the check that actually bounds anything.
 	Models []string `json:"models,omitempty"`
-	SeenAt string   `json:"seen_at"`
+	// AgentModels is the per-agent model catalog (LSH-16). A spawn's model
+	// must be on its agent's list; the daemon re-checks against its own copy.
+	// Absent for daemons that predate it — see catalog() for the fallback.
+	AgentModels []agentModels `json:"agent_models,omitempty"`
+	SeenAt      string        `json:"seen_at"`
+}
+
+// agentModels is the models one agent on one host may be started with. An
+// empty list means the agent runs its own default and takes no model.
+type agentModels struct {
+	Name            string        `json:"name"`
+	Models          []modelOption `json:"models"`
+	DefaultModel    string        `json:"default_model,omitempty"`
+	ModelSwitchable bool          `json:"model_switchable,omitempty"`
+}
+
+type modelOption struct {
+	ID    string `json:"id"`
+	Label string `json:"label,omitempty"`
+}
+
+func (a agentModels) has(id string) bool {
+	for _, m := range a.Models {
+		if m.ID == id {
+			return true
+		}
+	}
+	return false
 }
 
 type registerHostReq struct {
@@ -87,6 +114,9 @@ type registerHostReq struct {
 	Dirs     []string `json:"dirs"`
 	Agents   []string `json:"agents"`
 	Models   []string `json:"models"`
+	// AgentModels: per-agent models (LSH-16). Optional, so older daemons that
+	// only send the flat ollama `models` keep registering.
+	AgentModels []agentModels `json:"agent_models"`
 }
 
 // RegisterHost records (or refreshes) a machine as spawnable for the principal.
@@ -129,9 +159,10 @@ func (h *Handler) RegisterHost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	models := cleanModels(req.Models)
+	catalog := cleanAgentModels(req.AgentModels, agents)
 	// ollama without a model is unspawnable — `ollama run` needs one — so don't
 	// advertise a target the daemon would only reject on click.
-	if len(models) == 0 {
+	if len(models) == 0 && len(entryFor(catalog, "ollama").Models) == 0 {
 		filtered := agents[:0:0]
 		for _, a := range agents {
 			if a != "ollama" {
@@ -154,7 +185,9 @@ func (h *Handler) RegisterHost(w http.ResponseWriter, r *http.Request) {
 		Dirs:     dirs,
 		Agents:   agents,
 		Models:   models,
-		SeenAt:   time.Now().UTC().Format(time.RFC3339),
+		// nil (not empty) when the daemon sent none, so catalog() falls back.
+		AgentModels: catalog,
+		SeenAt:      time.Now().UTC().Format(time.RFC3339),
 	}
 	if rec.Name == "" {
 		rec.Name = rec.Hostname
@@ -198,6 +231,8 @@ func (h *Handler) ListHosts(w http.ResponseWriter, r *http.Request) {
 	for _, s := range raw {
 		var rec hostRecord
 		if json.Unmarshal([]byte(s), &rec) == nil {
+			// Always present a catalog, so clients need no per-agent rules.
+			rec.AgentModels = rec.catalog()
 			hosts = append(hosts, rec)
 		}
 	}
@@ -361,29 +396,25 @@ func (h *Handler) resolveSpawn(ctx context.Context, userID, hostID, agent, cwd, 
 		return spawnTarget{}, fmt.Errorf("host does not have %s available", agent)
 	}
 
-	// ollama needs a model. Like the directory, it must be one the daemon
-	// itself registered — never a name the browser invented. Defaulting to the
-	// first keeps the one-click path working when the picker sends nothing.
-	// claude takes an OPTIONAL model alias from a fixed allowlist (the daemon
-	// maps it to `--model <alias>`); anything else never forwards a model.
+	// The model, like the directory, must be one the daemon itself registered
+	// for THIS agent — never a name the browser invented (LSH-16). Empty means
+	// the agent's own default; ollama needs one, so it falls back to the
+	// host's default or first to keep the one-click path working.
 	model = strings.TrimSpace(model)
+	entry := entryFor(rec.catalog(), agent)
 	switch {
-	case agent == "ollama":
-		if len(rec.Models) == 0 {
-			return spawnTarget{}, fmt.Errorf("host has no ollama models pulled")
-		}
+	case agent == "ollama" && len(entry.Models) == 0:
+		return spawnTarget{}, fmt.Errorf("host has no ollama models pulled")
+	case agent == "ollama" && model == "":
+		model = entry.DefaultModel
 		if model == "" {
-			model = rec.Models[0]
+			model = entry.Models[0].ID
 		}
-		if !contains(rec.Models, model) {
-			return spawnTarget{}, fmt.Errorf("model %q is not available on this host", model)
-		}
-	case agent == "claude" && model != "":
-		if !claudeSpawnModels[model] {
-			return spawnTarget{}, fmt.Errorf("model %q is not a known claude model alias", model)
-		}
-	default:
-		model = "" // meaningless for other agents; never forward it
+	case model == "":
+	case len(entry.Models) == 0:
+		return spawnTarget{}, fmt.Errorf("%s on this host takes no model choice", agent)
+	case !entry.has(model):
+		return spawnTarget{}, fmt.Errorf("model %q is not available for %s on this host", model, agent)
 	}
 
 	// The directory must be one the daemon itself registered. Never spawn in a
@@ -420,6 +451,75 @@ func (h *Handler) publishSpawn(ctx context.Context, userID string, t spawnTarget
 		return fmt.Errorf("failed to reach host")
 	}
 	return nil
+}
+
+// catalog is the host's per-agent model list. A daemon that predates LSH-16
+// registered none, so build what it accepts: claude's fixed aliases and the
+// flat ollama list — exactly what such a daemon re-checks against.
+func (rec hostRecord) catalog() []agentModels {
+	if rec.AgentModels != nil {
+		return rec.AgentModels
+	}
+	out := make([]agentModels, 0, len(rec.Agents))
+	for _, a := range rec.Agents {
+		e := agentModels{Name: a, Models: []modelOption{}}
+		switch a {
+		case "claude":
+			for _, m := range []string{"opus", "sonnet", "haiku"} {
+				e.Models = append(e.Models, modelOption{ID: m})
+			}
+			e.ModelSwitchable = true
+		case "ollama":
+			for _, m := range rec.Models {
+				e.Models = append(e.Models, modelOption{ID: m})
+			}
+		}
+		out = append(out, e)
+	}
+	return out
+}
+
+func entryFor(catalog []agentModels, agent string) agentModels {
+	for _, e := range catalog {
+		if e.Name == agent {
+			return e
+		}
+	}
+	return agentModels{Name: agent}
+}
+
+// cleanAgentModels validates a daemon's per-agent catalog: only agents it also
+// registered, each model id in the closed alphabet and never flag-shaped,
+// bounded and deduplicated; a default only if it is on the list. Malformed
+// entries are dropped, like cleanModels. nil when the daemon sent none.
+func cleanAgentModels(in []agentModels, agents []string) []agentModels {
+	if len(in) == 0 {
+		return nil
+	}
+	out := []agentModels{}
+	seen := map[string]bool{}
+	for _, e := range in {
+		if !contains(agents, e.Name) || seen[e.Name] {
+			continue
+		}
+		seen[e.Name] = true
+		c := agentModels{Name: e.Name, Models: []modelOption{}, ModelSwitchable: e.ModelSwitchable}
+		for _, m := range e.Models {
+			id := strings.TrimSpace(m.ID)
+			if !validModelName(id) || strings.HasPrefix(id, "-") || c.has(id) {
+				continue
+			}
+			c.Models = append(c.Models, modelOption{ID: id, Label: clip(m.Label, 80)})
+			if len(c.Models) == maxHostModels {
+				break
+			}
+		}
+		if c.has(e.DefaultModel) {
+			c.DefaultModel = e.DefaultModel
+		}
+		out = append(out, c)
+	}
+	return out
 }
 
 // sanitizeHostID keeps a daemon-chosen id to a safe, key-friendly alphabet.
