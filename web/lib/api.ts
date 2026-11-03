@@ -413,9 +413,12 @@ export async function markSeen(id: string, seq: number): Promise<void> {
   if (!res.ok) throw new ApiError(res.status, `Could not mark seen: ${res.status}`);
 }
 
-/** URL for the SSE stream of a session (browser base). */
-export function streamUrl(id: string): string {
-  return `${browserBase()}/api/sessions/${encodeURIComponent(id)}/stream`;
+/** URL for the SSE stream of a session (browser base). `sinceSeq` skips the
+ *  replay of events already loaded; EventSource's own reconnects then resume
+ *  via the Last-Event-ID header, which the server prefers over this param. */
+export function streamUrl(id: string, sinceSeq?: number): string {
+  const base = `${browserBase()}/api/sessions/${encodeURIComponent(id)}/stream`;
+  return sinceSeq ? `${base}?last_event_id=${Math.floor(sinceSeq)}` : base;
 }
 
 /**

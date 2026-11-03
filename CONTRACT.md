@@ -112,12 +112,21 @@ tables, no persisted "activity log".
 ### SSE: `GET /api/sessions/{id}/stream`
 Content-Type `text/event-stream`. Frames are `data: <json>\n\n`. Sequence:
 1. `data: {"type":"connected","session_id":"...","status":"live|ended"}`
-2. Replay every buffered event (in `seq` order) as `data: <Event json>` — so late joiners catch up.
-3. Then stream live events as they are emitted.
+2. Replay every buffered event (in `seq` order) as `id: <seq>\ndata: <Event json>` — so late joiners catch up.
+   **Resume:** send `Last-Event-ID: <seq>` (the highest event `seq` already held;
+   EventSource does this itself on reconnect) and only events with `seq` > that
+   are replayed. A first connect that can't set headers may pass
+   `?last_event_id=<seq>` instead; the header wins if both are present. Absent,
+   empty or non-numeric → full replay. Ended sessions honour it the same way.
+3. Then stream live events as they are emitted (`id: <seq>` on every event frame;
+   control frames — `connected`, `watchers`, `typing`, `session_ended`… — carry no `id:`).
 4. Heartbeat comment `: ping\n\n` every 15s. Alongside each heartbeat (and once
    on connect) emit `data: {"type":"watchers","count":int}` — the live audience size.
 5. If/when the session ends, emit `data: {"type":"session_ended","session_id":"..."}` then close.
-Dedupe by event `id` so a buffered event isn't sent twice.
+The server subscribes before reading the buffer, so an event emitted mid-replay
+is never missed, and it dedupes by `seq` so it is never sent twice. Clients
+should still dedupe by `seq`/`id` (concurrent emits can arrive slightly out of
+`seq` order).
 
 ### SSE: `GET /api/sessions/{id}/agent/stream` (Live shim)
 The agent-facing push channel for the Live shim (`live claude`), so it no longer
