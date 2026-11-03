@@ -1,21 +1,10 @@
 /* Session view chrome (LSW-04/05/06): status strip, permission bar + review
    sheet, composer, info panel. Transcript styles live in EventStream.module.css.
-   `.session-page` (globals) still sizes the page to the viewport; these rules
+   `.session-page` (globals) makes the page a full-height column; these rules
    lay out what's inside it. */
 
 .page {
-  padding-inline: 0;
   background: var(--canvas);
-}
-/* Phones: full screen, only the transcript scrolls. Tripled class to beat the
-   globals' `.ws-main .session-page` / mobile `height: auto` rules. */
-@media (max-width: 767px) {
-  .page.page.page {
-    height: 100dvh;
-    min-height: 0;
-    overflow: hidden;
-    padding-inline: 0;
-  }
 }
 .gate {
   align-items: center;
@@ -386,6 +375,13 @@
   background: var(--surface);
   border-top: 1px solid var(--hairline);
   color: var(--fg-3);
+}
+/* Composer / read-only bar: the last row of the session column, never shrunk,
+   clear of the home indicator on notched phones (LSW-39). */
+.composer,
+.footer {
+  flex: none;
+  padding-bottom: calc(var(--space-12) + env(safe-area-inset-bottom));
 }
 
 /* ── Info panel (⌘I) ──────────────────────────────────────────────── */

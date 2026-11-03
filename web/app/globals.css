@@ -126,24 +126,23 @@ a {
   -webkit-overflow-scrolling: touch;
 }
 
-/* Session viewer — full-height, widened column. Breaks out of the 1180px
-   .app-main to use more horizontal real estate (capped at 1440), and fills the
-   viewport below the global header so the split window is full height. */
-.session-page {
+/* Session viewer (LSW-39) — a full-height flex column in whichever pane holds
+   it (the signed-in .ws-main, or the anonymous .session-main): status strip,
+   the transcript (the only thing that scrolls), then the composer / read-only
+   bar flush with the bottom of the window, whatever the content height. */
+.session-main {
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  /* Fixed to the viewport height below the global header. Use `vh` (not `dvh`):
-     it is universal and never dropped by the minifier, so the height always
-     applies — otherwise the element falls back to height:auto and the whole
-     page scrolls. On phones (<768px) the media query below switches this to
-     height:auto, so `vh`'s browser-chrome quirk never applies here.
-     overflow:hidden guarantees the page never scrolls — only the panes do. */
-  height: calc(100vh - 148px);
-  min-height: 480px;
+}
+.session-page {
+  flex: 1;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
-  /* Full-bleed to the viewport edges, then re-pad to cap content at ~1440. */
-  margin-inline: calc(50% - 50vw);
-  padding-inline: max(16px, calc(50vw - 720px));
 }
 
 /* ── Workspace shell (ChatGPT-style): persistent session sidebar + main pane.
@@ -178,15 +177,6 @@ a {
   max-width: 1120px;
   margin: 0 auto;
   padding: 22px 20px 40px;
-}
-/* When the session viewer lives inside the workspace, fill the main pane and sit
-   flush next to the sidebar (don't full-bleed or centre it — the shell already
-   owns the width). */
-.ws-main .session-page {
-  height: 100%;
-  min-height: 0;
-  margin-inline: 0;
-  padding-inline: 20px;
 }
 .ws-backdrop {
   display: none;
@@ -242,27 +232,6 @@ a {
 }
 .v3-icon-btn:hover {
   color: var(--ink);
-}
-
-@media (max-width: 767px) {
-  .session-page {
-    height: auto;
-    min-height: 0;
-    overflow: visible;
-  }
-  /* Full-screen the signed-in mobile session viewer: let the workspace own the whole viewport and the thread fill
-     it, with the composer / "session ended" line pinned to the bottom —
-     instead of a fixed-height 66vh pane leaving dead grey space beneath it.
-     Scoped to .ws-main / :has(.session-page) so the anonymous viewer (no
-     workspace, page scrolls) keeps its current behaviour. */
-  body:has(.session-page) .workspace {
-    height: 100vh; /* fallback if the minifier drops dvh */
-    height: 100dvh; /* excludes mobile browser chrome so nothing hides behind it */
-    min-height: 0;
-  }
-  .ws-main .session-page {
-    overflow: hidden; /* the page never scrolls — only the feed does */
-  }
 }
 
 /* Columns/elements hidden on small screens to keep tables readable. */

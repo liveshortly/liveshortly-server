@@ -96,6 +96,15 @@ export default function AuthGate({
       </a>
       {pathname === "/" ? (
         children
+      ) : pathname.startsWith("/session/") ? (
+        // One viewport, like the signed-in shell: header, then the session page,
+        // whose bottom bar sits on the window's bottom edge (LSW-39).
+        <div className="v3-app">
+          <Topbar user={null} pending={phase === "loading"} />
+          <main id="main" className="session-main">
+            {children}
+          </main>
+        </div>
       ) : (
         <>
           <Topbar user={null} pending={phase === "loading"} />
