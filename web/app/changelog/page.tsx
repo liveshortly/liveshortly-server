@@ -4,8 +4,7 @@ import remarkGfm from "remark-gfm";
 import { loadChangelog, type Release } from "@/lib/changelog";
 import { ScrollPre } from "@/components/ui/CodeBlock";
 import s from "./changelog.module.css";
-
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:8080";
+import { SITE_URL } from "@/lib/install";
 
 export const metadata: Metadata = {
   title: "Changelog",
