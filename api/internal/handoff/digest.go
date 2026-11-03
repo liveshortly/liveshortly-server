@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 // maxMarkdownBytes bounds the assembled briefing so a huge session doesn't blow
@@ -64,6 +65,8 @@ type payload struct {
 	Content  string `json:"content"`
 	Tool     string `json:"tool"`
 	Path     string `json:"path"`
+	File     string `json:"file"` // the CLI sends "file"; "path" is the older key
+	Text     string `json:"text"`
 	Command  string `json:"command"`
 	Added    *int   `json:"added"`
 	Removed  *int   `json:"removed"`
@@ -110,17 +113,26 @@ func toTurn(e Event) (Turn, bool) {
 		if p.Added != nil || p.Removed != nil {
 			delta = fmt.Sprintf(" (+%d/-%d)", valOr0(p.Added), valOr0(p.Removed))
 		}
-		return Turn{Seq: e.Seq, Role: "tool", Tool: firstNonEmpty(p.Tool, "edit"), File: p.Path,
-			Text: "edited " + firstNonEmpty(p.Path, "a file") + delta}, true
+		file := firstNonEmpty(p.File, p.Path)
+		return Turn{Seq: e.Seq, Role: "tool", Tool: firstNonEmpty(p.Tool, "edit"), File: file,
+			Text: "edited " + firstNonEmpty(file, "a file") + delta}, true
 	case "tool_call", "pre_tool":
-		summary := firstNonEmpty(p.Command, p.Path)
+		summary := firstNonEmpty(p.Command, p.File, p.Path)
 		text := "ran " + firstNonEmpty(p.Tool, "a tool")
 		if summary != "" {
 			text += ": " + clip(summary, 200)
 		}
 		return Turn{Seq: e.Seq, Role: "tool", Tool: firstNonEmpty(p.Tool, "tool"), Text: text}, true
+	case "output":
+		// Terminal-captured agents (gemini, ollama, aider…) only produce raw
+		// output; without it their digest is empty.
+		t := strings.TrimSpace(p.Text)
+		if t == "" {
+			return Turn{}, false
+		}
+		return Turn{Seq: e.Seq, Role: "tool", Tool: "terminal", Text: "terminal output:\n" + tailClip(t, 1500)}, true
 	default:
-		// output / stream_end / viewer_comment / input_requested / viewer_decision
+		// stream_end / viewer_comment / input_requested / viewer_decision
 		// are not part of the agent conversation reconstruction.
 		return Turn{}, false
 	}
@@ -282,4 +294,19 @@ func valOr0(p *int) int {
 		return 0
 	}
 	return *p
+}
+
+// tailClip keeps the last n bytes of s (the end of terminal output is what
+// matters for continuing), on a rune boundary.
+func tailClip(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	s = s[len(s)-n:]
+	for i := 0; i < len(s) && i < 4; i++ {
+		if utf8.RuneStart(s[i]) {
+			return "…" + s[i:]
+		}
+	}
+	return "…" + s
 }

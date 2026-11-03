@@ -5,7 +5,7 @@ import { getFeed } from "@/lib/api";
 export const metadata: Metadata = {
   title: "Feed",
   description:
-    "Published Claude Code, Codex and Gemini sessions — watch live or replay.",
+    "Published Claude Code, Codex, Gemini and Antigravity sessions — watch live or replay.",
 };
 
 /** /feed — full browse/search feed. Reached by anonymous guests directly and

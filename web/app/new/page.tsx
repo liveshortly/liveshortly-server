@@ -12,7 +12,7 @@ import Chip from "@/components/ui/Chip";
 import Icon from "@/components/ui/Icon";
 import { CLAUDE_MODELS, createSessionOnHost, listHosts, type Host } from "@/lib/api";
 import { INSTALL_CMD } from "@/lib/install";
-import { timeAgo } from "@/lib/utils";
+import { spawnAgentCaps, timeAgo } from "@/lib/utils";
 import s from "./new.module.css";
 
 /** `/new?agent=x` from the sidebar's New-session menu; only honoured when the
@@ -37,6 +37,7 @@ const AGENT_NAMES: Record<string, string> = {
   gemini: "Gemini CLI",
   ollama: "Ollama",
   antigravity: "Antigravity",
+  agy: "Antigravity",
 };
 
 /** Models the user may pick for an agent on this host — mirrors
@@ -349,7 +350,9 @@ export default function NewSessionPage() {
                     </p>
                   ) : (
                     <span className={s.meta}>
-                      Off: you approve each tool call from the session page.
+                      {spawnAgentCaps(agent).approvals
+                        ? "Off: you approve each tool call from the session page."
+                        : "This agent can't ask for approval from the web — it uses its own terminal prompts, which nobody can answer for a web-started session. Turn this on, or start it from your terminal."}
                     </span>
                   )}
                 </Card>

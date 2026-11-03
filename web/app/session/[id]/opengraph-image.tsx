@@ -61,7 +61,7 @@ export default async function Image({
     return new ImageResponse(
       ogCard({
         title: "A live coding session",
-        subtitle: "Stream your Claude Code sessions",
+        subtitle: "Stream your coding agent sessions",
       }),
       { ...OG_SIZE, fonts, headers: { "Cache-Control": "public, max-age=600" } },
     );

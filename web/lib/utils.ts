@@ -36,6 +36,9 @@ export function frameworkLabel(fw: string | null | undefined): string {
       return "Gemini";
     case "ollama":
       return "Ollama";
+    case "agy":
+    case "antigravity":
+      return "Antigravity";
     case "terminal":
       return "Terminal";
     case null:
@@ -58,6 +61,9 @@ export function agentTitle(fw: string | null | undefined): string {
       return "Gemini";
     case "ollama":
       return "Ollama";
+    case "agy":
+    case "antigravity":
+      return "Antigravity";
     default:
       return frameworkLabel(fw);
   }
@@ -103,4 +109,42 @@ export function truncate(s: string, max = 80): string {
   const flat = s.replace(/\s+/g, " ").trim();
   if (flat.length <= max) return flat;
   return flat.slice(0, max - 1).trimEnd() + "…";
+}
+
+/** What a session's agent can do, by how it is captured (LSH-01). The one
+ *  place the web decides this — never compare framework strings elsewhere.
+ *  - streamEnd: the agent says when a turn ends (else silence ends "working").
+ *  - approvals: tool calls can be approved from the web.
+ *  - alwaysAllow: the capture honours a session-wide "always allow".
+ *  - modelSwitch: the model can be changed while live.
+ *  - comments: "inject" reaches the agent; "overlay" is only shown to the operator.
+ *  ponytail: derived from framework; move to CLI-declared capabilities if
+ *  run modes (tmux vs app-server) start to differ per session. */
+export type AgentCaps = {
+  streamEnd: boolean;
+  approvals: boolean;
+  alwaysAllow: boolean;
+  modelSwitch: boolean;
+  comments: "inject" | "overlay";
+};
+
+export function agentCaps(fw: string | null | undefined): AgentCaps {
+  switch (fw) {
+    case "claude-code":
+      return { streamEnd: true, approvals: true, alwaysAllow: true, modelSwitch: true, comments: "inject" };
+    case "codex":
+    case "agy":
+    case "antigravity":
+      return { streamEnd: true, approvals: true, alwaysAllow: true, modelSwitch: false, comments: "inject" };
+    case "ollama":
+      return { streamEnd: false, approvals: false, alwaysAllow: false, modelSwitch: false, comments: "inject" };
+    default: // gemini-cli, terminal: raw terminal capture
+      return { streamEnd: false, approvals: false, alwaysAllow: false, modelSwitch: false, comments: "overlay" };
+  }
+}
+
+/** agentCaps for a daemon agent name as the new-session picker sees it. */
+export function spawnAgentCaps(agent: string): AgentCaps {
+  const fw = { claude: "claude-code", gemini: "gemini-cli" }[agent] ?? agent;
+  return agentCaps(fw);
 }

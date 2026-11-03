@@ -13,7 +13,7 @@ import {
   type ClaudeModel,
   type SessionDetail,
 } from "@/lib/api";
-import { fmtInt, timeAgo } from "@/lib/utils";
+import { agentCaps, fmtInt, timeAgo } from "@/lib/utils";
 import ShareSheet from "@/components/ShareSheet";
 import { SIDEBAR_ID, useWorkspaceDrawer } from "@/components/WorkspaceDrawerContext";
 import Button, { IconButton } from "@/components/ui/Button";
@@ -183,7 +183,7 @@ export default function StatusStrip({
 
         <span className={s.spacer} />
 
-        {owner && live && meta.framework === "claude-code" ? (
+        {owner && live && agentCaps(meta.framework).modelSwitch ? (
           <ModelSwitcher id={meta.id} current={meta.model ?? ""} onMeta={onMeta} />
         ) : (
           meta.model && <span className={`${s.chip} ${s.wideOnly} t-caption`}>{meta.model}</span>
