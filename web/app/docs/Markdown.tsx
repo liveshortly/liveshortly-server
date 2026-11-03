@@ -43,7 +43,7 @@ const components: Components = {
 export default function Markdown({ children }: { children: string }) {
   return (
     <div className={`md ${s.md}`}>
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components} skipHtml>
         {children}
       </ReactMarkdown>
     </div>
