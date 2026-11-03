@@ -257,3 +257,61 @@ export function diffLines(oldS: string, newS: string): { sign: "-" | "+"; text: 
     ...newS.split("\n").map((text) => ({ sign: "+" as const, text })),
   ];
 }
+
+// ── Share-image text (LSW-37) ────────────────────────────────────────────────
+// The API has already redacted homes and emails for the anonymous caller; this
+// is the belt for what a public image must never show: markup, tmp paths
+// (-Users-<name>-…), full paths and token-like strings.
+
+/** A path's last segment, or "…" when that segment itself names a home. */
+const leaf = (p: string) => {
+  const b = base(p.replace(/\\/g, "/"));
+  return /(^|-)(Users|home)-/.test(b) ? "…" : b;
+};
+
+/** Plain prose fit for a public share image, or null when the text is markup
+ *  (XML / HTML / hook or tool JSON) or nothing readable is left. Code blocks
+ *  and markdown go, URLs become their host, paths their basename, and long
+ *  token-like strings are masked. Shorter than `min` chars → null. */
+export function shareSafe(raw: string | null | undefined, min = 12): string | null {
+  if (!raw?.trim()) return null;
+  if (/<\/?[A-Za-z][\w:-]*[\s>/]/.test(raw) || /^\s*[{[]/.test(raw)) return null;
+  const s = raw
+    .replace(/```[\s\S]*?(```|$)/g, " ")
+    .replace(/`([^`]*)`/g, "$1")
+    .replace(/\bhttps?:\/\/([^\s/]+)\S*/g, "$1")
+    .replace(/(?:[A-Za-z]:)?[~.\w@%+-]*(?:[\\/][\w.@%+-]+)+[\\/]?/g, leaf)
+    .replace(/[A-Za-z0-9_+/=-]{32,}/g, "[redacted]")
+    .replace(/^\s*(#{1,6}|[-*+]|\d+\.|>)\s+/gm, "")
+    .replace(/\*\*|__|~~/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return s.length >= min ? s : null;
+}
+
+/** The newest agent response that is safe to show, for the share card. */
+export function cardExcerpt(events: SessionEvent[] | undefined): string | null {
+  for (let i = (events?.length ?? 0) - 1; i >= 0; i--) {
+    const e = events![i];
+    if (e.event_type !== "response") continue;
+    const t = shareSafe(bodyText(e));
+    if (t) return t;
+  }
+  return null;
+}
+
+/** The last file the agent wrote, as a basename and its +/- line stat. */
+export function lastEdit(
+  events: SessionEvent[] | undefined,
+): { file: string; add: number; del: number } | null {
+  for (let i = (events?.length ?? 0) - 1; i >= 0; i--) {
+    const e = events![i];
+    if (e.event_type !== "file_write") continue;
+    const p = e.payload ?? {};
+    const path = str(p, "file") ?? str(p, "file_path") ?? str(p, "path");
+    if (!path) continue;
+    const n = (k: string) => Math.max(0, Number(p[k]) || 0); // "130" or 130
+    return { file: leaf(path), add: n("added"), del: n("removed") };
+  }
+  return null;
+}

@@ -17,6 +17,10 @@ func TestText(t *testing.T) {
 		// Windows, both slash styles, spaces in the username
 		{`Edited C:\Users\Jane Doe\proj\main.rs`, `Edited ~\proj\main.rs`},
 		{"see c:/Users/bob/AppData/x", "see ~/AppData/x"},
+		// a home flattened into a dir name (agent tmp/project dirs)
+		{"/private/tmp/claude-502/-Users-rohit-rsehgal-github/889e/tasks/b.output", "/private/tmp/claude-502/~/889e/tasks/b.output"},
+		{"~/.claude/projects/-home-bob-src-app/x.jsonl", "~/.claude/projects/~/x.jsonl"},
+		{"run with --Users-flag and my-Users-list", "run with --Users-flag and my-Users-list"},
 		// tilde-user expansion
 		{"ls ~alice/notes", "ls ~/notes"},
 		{"ls ~/notes", "ls ~/notes"},
