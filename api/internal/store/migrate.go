@@ -111,6 +111,11 @@ var migrations = []string{
 		seen_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
 		PRIMARY KEY (user_id, session_id)
 	)`,
+
+	// --- No profile pictures (LSW-33) ---
+	// The one non-additive step: the Google picture URL is no longer read,
+	// stored or returned, so the column goes. No code references it.
+	`ALTER TABLE users DROP COLUMN IF EXISTS avatar_url`,
 }
 
 // Migrate applies the additive, idempotent migrations above. It runs before the

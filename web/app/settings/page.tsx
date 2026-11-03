@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import GenAvatar from "@/components/Avatar";
 import ConfirmPopover from "@/components/ConfirmPopover";
 import { useAuth } from "@/components/AuthContext";
 import { useHosts } from "@/components/HostsContext";
@@ -71,12 +70,6 @@ export default function SettingsPage() {
       <section id="account" aria-labelledby="account-h" className={styles.section}>
         <h2 id="account-h" className="t-title">Account</h2>
         <div className={styles.account}>
-          {user?.picture ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={user.picture} alt="" width={56} height={56} className={styles.avatar} />
-          ) : (
-            <GenAvatar seed={user?.id ?? user?.name} size={56} title={user?.name ?? "Account"} />
-          )}
           <dl className={styles.fields}>
             <dt className="t-caption">Name</dt>
             <dd className="t-body">{user?.name || "—"}</dd>
@@ -87,7 +80,7 @@ export default function SettingsPage() {
           </dl>
         </div>
         <p className={`t-callout ${styles.note}`}>
-          Name, email and picture come from your Google account and update when you sign in.
+          Name and email come from your Google account and update when you sign in.
         </p>
       </section>
 

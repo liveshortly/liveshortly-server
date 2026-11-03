@@ -95,6 +95,33 @@
   text-decoration: none;
   white-space: nowrap;
 }
+.handle {
+  display: block;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg);
+}
+/* Tablet and phone: five site links + the handle need the room, so the search
+   button shrinks to its icon (text kept for screen readers). */
+@media (max-width: 1100px) {
+  .handle {
+    max-width: 96px;
+  }
+  .searchBtn {
+    min-width: 0;
+  }
+  .searchBtn span,
+  .searchBtn kbd {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
 .sheetNav {
   display: grid;
 }

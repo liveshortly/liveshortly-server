@@ -1,5 +1,4 @@
 import Link from "next/link";
-import Avatar from "@/components/Avatar";
 import StatusBadge from "@/components/ui/StatusBadge";
 import { sessionTitle, type Session } from "@/lib/api";
 import { fmtInt, frameworkLabel, timeAgo } from "@/lib/utils";
@@ -33,10 +32,7 @@ export default function FeedCard({ session }: { session: Session }) {
       </h3>
       {summary && <p className={s.summary}>{summary}</p>}
       <div className={s.foot}>
-        <span className={s.author}>
-          <Avatar seed={session.owner_handle} size={20} />
-          <span>@{session.owner_handle}</span>
-        </span>
+        <span className={s.author}>@{session.owner_handle}</span>
         <span className={`${s.stats} tnum`}>
           {[
             dur,

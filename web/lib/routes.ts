@@ -20,10 +20,11 @@ export const ROUTES = {
   session: (id: string) => `/session/${encodeURIComponent(id)}`,
 } as const;
 
-/** Public site links: the header, its mobile sheet and the footer. */
+/** Public site links: the header, and its menu sheet under 768px (LSW-34). */
 export const SITE_LINKS = [
   { href: "/feed", label: "Feed" },
   { href: "/docs", label: "Docs" },
   { href: "/install", label: "Install" },
   { href: "/changelog", label: "Changelog" },
+  { href: "https://github.com/liveshortly", label: "GitHub" },
 ] as const;

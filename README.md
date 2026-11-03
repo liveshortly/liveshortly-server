@@ -371,7 +371,6 @@ erDiagram
     text email UK "Google"
     text google_sub UK
     text name
-    text avatar_url
     timestamptz last_login_at "admin"
   }
   sessions {

@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import ActivityHeatmap from "@/components/ActivityHeatmap";
-import GenAvatar from "@/components/Avatar";
 import SessionCard from "@/components/SessionCard";
 import { PanelBox, PlaceholderNote, Stat } from "@/components/preview";
 import {
@@ -66,7 +65,6 @@ export default function ProfilePage() {
       {/* whoami card */}
       <PanelBox title="⌂ WHOAMI" pad>
         <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
-          <Avatar user={user} handle={handle} />
           <div style={{ minWidth: 0, flex: "1 1 220px" }}>
             <div style={{ fontSize: 20, fontWeight: 700, color: "var(--ink)" }}>
               {user?.name ?? handle ?? "—"}
@@ -223,32 +221,5 @@ function Meter({
         <div style={{ width: `${clamped}%`, height: "100%", background: tone }} />
       </div>
     </div>
-  );
-}
-
-function Avatar({ user, handle }: { user: Me | null; handle: string | null }) {
-  if (user?.picture) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={user.picture}
-        alt=""
-        width={64}
-        height={64}
-        style={{
-          width: 64,
-          height: 64,
-          border: "1px solid var(--hairline)",
-          objectFit: "cover",
-        }}
-      />
-    );
-  }
-  return (
-    <GenAvatar
-      seed={user?.id ?? handle ?? user?.name}
-      size={64}
-      title={user?.name ?? handle ?? "Account"}
-    />
   );
 }

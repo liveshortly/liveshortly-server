@@ -21,11 +21,11 @@ import (
 func TestViewCountAndSeen(t *testing.T) {
 	d := testutil.Setup(t)
 	ctx := context.Background()
-	ou, err := d.Store.UpsertGoogleUser(ctx, "sub-seen-owner", "seen-owner@test.local", "Seen Owner", "")
+	ou, err := d.Store.UpsertGoogleUser(ctx, "sub-seen-owner", "seen-owner@test.local", "Seen Owner")
 	if err != nil {
 		t.Fatalf("owner: %v", err)
 	}
-	xu, err := d.Store.UpsertGoogleUser(ctx, "sub-seen-other", "seen-other@test.local", "Seen Other", "")
+	xu, err := d.Store.UpsertGoogleUser(ctx, "sub-seen-other", "seen-other@test.local", "Seen Other")
 	if err != nil {
 		t.Fatalf("other: %v", err)
 	}

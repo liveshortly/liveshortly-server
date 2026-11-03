@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { AuthContext } from "@/components/AuthContext";
 import AppShell from "@/components/AppShell";
-import AppFooter from "@/components/AppFooter";
 import Landing from "@/components/Landing";
 import Topbar from "@/components/Topbar";
 import type { DocLink } from "@/components/CommandPalette";
@@ -102,7 +101,6 @@ export default function AuthGate({
           <main id="main" className="app-main">
             {children}
           </main>
-          <AppFooter />
         </>
       )}
     </AuthContext.Provider>
