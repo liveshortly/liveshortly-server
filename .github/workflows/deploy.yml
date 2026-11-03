@@ -10,9 +10,9 @@ name: Deploy to production
 # Uses a dedicated SSH deploy key (secret DEPLOY_SSH_KEY) + pinned host key
 # (secret DEPLOY_KNOWN_HOSTS).
 
+# Manual only (owner, 2026-11-03): GitHub free plan minutes. Push freely;
+# run this from the Actions tab or `gh workflow run` when ready.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 # Never let two deploys race; let an in-flight one finish.

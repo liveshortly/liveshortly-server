@@ -10,10 +10,10 @@ name: CI
 # against throwaway Postgres and Redis service containers. Ephemeral, free, and
 # it fails for exactly the reasons a prod deploy would.
 
+# Manual only (owner, 2026-11-03): GitHub free plan minutes. Push freely;
+# run this from the Actions tab or `gh workflow run` when ready.
 on:
-  pull_request:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 # One run per ref. A new push to a PR cancels the stale run; main never cancels.
 concurrency:
