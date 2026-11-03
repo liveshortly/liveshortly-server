@@ -6,6 +6,7 @@ import { AuthContext } from "@/components/AuthContext";
 import AppShell from "@/components/AppShell";
 import Landing from "@/components/Landing";
 import Topbar from "@/components/Topbar";
+import SiteFooter from "@/components/SiteFooter";
 import type { DocLink } from "@/components/CommandPalette";
 import { me as fetchMe, type Me } from "@/lib/api";
 import { isPrivate } from "@/lib/routes";
@@ -101,6 +102,7 @@ export default function AuthGate({
           <main id="main" className="app-main">
             {children}
           </main>
+          <SiteFooter />
         </>
       )}
     </AuthContext.Provider>

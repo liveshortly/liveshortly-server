@@ -193,6 +193,11 @@
   color: var(--accent);
 }
 
+.version {
+  margin-left: var(--space-16);
+  color: var(--muted);
+}
+
 .pager {
   display: flex;
   justify-content: space-between;
