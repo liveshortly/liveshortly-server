@@ -13,6 +13,7 @@ import Icon from "@/components/ui/Icon";
 import { CLAUDE_MODELS, createSessionOnHost, listHosts, type Host } from "@/lib/api";
 import { INSTALL_CMD } from "@/lib/install";
 import { spawnAgentCaps, timeAgo } from "@/lib/utils";
+import harness from "@/content/harness-matrix.json";
 import s from "./new.module.css";
 
 /** `/new?agent=x` from the sidebar's New-session menu; only honoured when the
@@ -39,6 +40,16 @@ const AGENT_NAMES: Record<string, string> = {
   antigravity: "Antigravity",
   agy: "Antigravity",
 };
+
+/** What `live <agent>` supports, from the CLI's generated harness matrix
+ *  (content/harness-matrix.json, synced at prebuild). Rows with a `mode` are a
+ *  non-default way of running the agent and only appear in the docs; the last
+ *  row covers every other command. */
+function harnessRow(agent: string) {
+  const name = agent === "claude-code" ? "claude" : agent;
+  const rows = harness.rows as { agents: string[]; mode?: string; summary: string; gaps: string }[];
+  return rows.find((r) => !r.mode && r.agents.includes(name)) ?? rows[rows.length - 1];
+}
 
 /** Models the user may pick for an agent on this host — mirrors
  *  LSHost.models(forAgent:): Claude has a fixed alias set, ollama runs what the
@@ -278,6 +289,7 @@ export default function NewSessionPage() {
                   <div className={s.grid} role="radiogroup" aria-label="Agent">
                     {host.agents.map((a) => {
                       const n = modelsFor(host, a).length;
+                      const row = harnessRow(a);
                       return (
                         <label key={a} className={`${s.option} ${a === agent ? s.selected : ""}`}>
                           <input
@@ -301,6 +313,12 @@ export default function NewSessionPage() {
                                   {n} model{n === 1 ? "" : "s"}
                                 </Chip>
                               )}
+                            </span>
+                            <span
+                              className={s.meta}
+                              title={row.gaps !== "—" ? `Known gaps: ${row.gaps}` : undefined}
+                            >
+                              {row.summary}
                             </span>
                           </span>
                         </label>
