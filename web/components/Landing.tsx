@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import FeedCard from "@/components/FeedCard";
 import Topbar from "@/components/Topbar";
+import SiteFooter from "@/components/SiteFooter";
 import InstallCommand from "@/components/InstallCommand";
 import Button from "@/components/ui/Button";
 import ReplayCard from "@/components/landing/ReplayCard";
@@ -224,6 +225,7 @@ function LandingInner({ initial }: { initial?: LandingData }) {
           <HowItWorks />
         </div>
       </main>
+      <SiteFooter />
     </>
   );
 }

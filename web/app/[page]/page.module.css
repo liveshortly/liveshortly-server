@@ -1,0 +1,17 @@
+/* Site pages (privacy, terms, …): the docs column, centred, no sidebar. */
+.page {
+  margin: 0 auto;
+  padding: var(--space-24) 0 var(--space-56);
+  color: var(--fg);
+  font-family: var(--font-sans);
+}
+
+/* "Owner to confirm" notes are blockquotes; make them impossible to miss. */
+.page :global(.md) blockquote {
+  margin: var(--space-16) 0;
+  padding: var(--space-12) var(--space-16);
+  border: 1px solid var(--warn);
+  border-left-width: 4px;
+  border-radius: var(--radius-hud);
+  color: var(--fg);
+}

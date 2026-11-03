@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { loadDoc, SLUGS, type Heading } from "../docs";
 import Markdown from "../Markdown";
+import { loadChangelog } from "@/lib/changelog";
 import s from "../docs.module.css";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:8080";
@@ -42,6 +43,8 @@ export default async function DocPage({ params }: Props) {
   const i = SLUGS.indexOf(doc.slug);
   const prev = i > 0 ? loadDoc(SLUGS[i - 1]) : null;
   const next = i < SLUGS.length - 1 ? loadDoc(SLUGS[i + 1]) : null;
+  // The CLI release these docs describe (synced from the live repo at build).
+  const version = loadChangelog().latest.version;
   const edit =
     doc.slug === "cli-reference"
       ? "https://github.com/liveshortly/live/edit/main/cmd/live/main.go"
@@ -62,6 +65,7 @@ export default async function DocPage({ params }: Props) {
           <a href={edit} target="_blank" rel="noopener noreferrer">
             Edit this page on GitHub
           </a>
+          {version && <span className={s.version}>Written for live {version}</span>}
           <nav aria-label="Previous and next page" className={s.pager}>
             {prev && <Link href={`/docs/${prev.slug}`}>← {prev.title}</Link>}
             {next && <Link href={`/docs/${next.slug}`}>{next.title} →</Link>}
