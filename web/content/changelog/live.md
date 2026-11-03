@@ -4,6 +4,99 @@ All notable changes to `live` are documented here. Versions follow
 [SemVer](https://semver.org); each release is a git tag (`vX.Y.Z`) that the
 Homebrew formula and `live version` report.
 
+## v2.3.2 — 2026-11-03
+
+### Added
+- **Gemini CLI runs on its hooks, not a raw terminal (LSH-04).** `live gemini`
+  (Gemini CLI 0.26+) now streams prompts, replies, tool steps, file edits with
+  diffs, permission pings, the model and turn ends as structured events, like
+  `live claude`. Viewer comments reach gemini at tool and turn boundaries (a
+  comment that arrives after the last tool re-opens the turn once). With
+  permission control on, gemini runs with `--approval-mode=yolo` and live's
+  BeforeTool hook is the gate: the owner approves from the web or the tmux
+  popup, "always allow" is remembered, and the gate fails closed like LSH-07.
+  Read-only tools (read, grep, glob, search…) aren't gated; MCP and unknown
+  tools are. A web-started gemini is gated and drivable the same way.
+  - Hooks ship as a `liveshortly` extension in `~/.gemini/extensions` (Gemini
+    has no per-run settings flag, and it ignores a system-settings override
+    outside a root-owned directory). It is inert outside live: each hook runs
+    `true` unless `live` set `LIVE_BIN`. `live uninstall` removes it.
+  - Live only takes over approvals when its hook is certain to fire. If hooks
+    or extensions are disabled in any gemini settings scope, an admin
+    extension allowlist is set, the extension is disabled, a settings file
+    can't be parsed, or the run is under GitHub Actions (hook env stripped),
+    gemini's own prompt stays in charge and live says why. Passing
+    `--yolo`/`--approval-mode` yourself also leaves approvals to gemini.
+  - Known gaps: in an untrusted folder gemini refuses yolo, so each gated
+    tool is approved twice (web, then gemini's own prompt). With
+    gemini's env redaction on, `LIVE_TOKEN` is stripped from hooks, so capture
+    is off and gated tools are denied. Comments wait for the next boundary
+    while gemini is idle (no channel like Claude's). No model switch. Gemini
+    older than 0.26 keeps raw terminal capture.
+  - `testdata/gemini/0.65.0/hooks.jsonl` is a golden replay built from
+    gemini's documented hook payloads (synthetic, see `testdata/README.md`);
+    the old PTY fixture moved to `testdata/gemini-pty/0.65.0/`.
+- **One support matrix (LSH-08).** What live supports per agent (capture,
+  approvals, comments, model switch, handoff, min version, golden replays,
+  pocket.ai approvals, known gaps) now lives in one table,
+  `internal/harness`, which the CLI also reads for its own decisions (display
+  names, `/model` switch, typed comments, pocket.ai approval status).
+  `go run ./scripts/harnessmatrix` writes it into the README,
+  `docs/HARNESS-MATRIX.md` and `docs/harness-matrix.json` (for the web docs and
+  new-session picker); `-check` and `go test ./...` fail when a copy drifts or
+  a fixture folder is added without regenerating. Stale README lines (codex as
+  "terminal recording", unchecked roadmap items) are gone.
+
+### Fixed
+- **codex app-server sends `initialized` (LSH-12).** `LIVE_CODEX_APPSERVER=1`
+  went straight from the `initialize` response to `thread/start` without the
+  `initialized` notification the protocol requires. Both app-server clients
+  (`live codex` and the pocket.ai codex driver) now share one handshake:
+  initialize → initialized → thread/start, covered by a test.
+- **Terminal agents stream as readable rows (LSH-11).** PTY capture (ollama,
+  aider, hermes, gemini < 0.26, any `live <cmd>`) now releases whole lines once
+  output idles for 600 ms and holds the line still being written until its
+  newline, so a slow model no longer produces one feed row per token. A line
+  that keeps streaming is released at a word boundary every 45 s; operator
+  input and agent exit flush everything at once. Cursor motion and erase
+  sequences (`CSI D/C/G/K`) are now replayed instead of stripped, so ollama's
+  grey "Send a message" placeholder no longer glues onto the typed prompt and a
+  soft-wrapped line no longer repeats the word that moved down ("be be of").
+- **agy 1.4.9 sessions read correctly (LSH-10).** The newer tool names
+  `edit_file`, `write_file` and `read_file` now produce Edit/Write/View rows
+  (with the diff for edits and writes) and approvals name the file, instead of
+  "wants to run edit_file: edit_file". The old `replace_file_content` /
+  `write_to_file` / `view_file` names keep working. Command output no longer
+  starts with agy's `Created At… / Command output:` header (only that exact
+  leading header is removed), and the prompt row appears once per user turn
+  instead of on every model step.
+- **codex ≥ 0.163 sessions show tool and file rows again (LSH-09).** Newer
+  codex runs shell commands and patches inside a code-mode `exec` call and
+  records them as `item_completed` `CommandExecution` / `FileChange` items,
+  which the rollout mapper ignored, so viewers saw no commands or edits and a
+  bogus `wait` row instead. Those items now become `Shell` tool rows and
+  `file_write` rows with diffs; the `wait` helper is hidden, and older codex
+  (0.142) no longer shows the apply_patch result as a stray output row.
+- **codex app-server (`LIVE_CODEX_APPSERVER=1`) reports the model and answers
+  codex in its own schema.** The model comes from the thread start. Command and
+  file approvals are answered `accept`/`decline` (the legacy methods keep
+  `approved`/`denied`), permission requests get a granted-permissions reply,
+  `item/tool/requestUserInput` gets an empty `answers` map, MCP elicitations
+  are declined, and unsupported requests get a JSON-RPC error instead of a
+  `{"decision":"denied"}` codex cannot parse.
+
+### Security
+- **Approvals fail closed (LSH-07).** In web-permissions mode the agent's own
+  prompt is skipped and `live hook pre-tool-use` is the only gate, yet it
+  answered `allow` whenever the sidecar was unreachable, timed out, returned a
+  non-200, or sent an unreadable reply, so a crashed sidecar let every gated
+  tool run unreviewed (Claude, codex, agy). The gated hook is now installed as
+  `live hook pre-tool-use --gated` and denies in all of those cases, telling the
+  agent approvals are offline and printing the cause to stderr. Sessions where
+  the owner opted into bypass (`--dangerously-skip-permissions`,
+  `bypass_permissions`, `LIVE_CODEX_PERMS=0`) behave as before. Sessions already
+  running keep their old hook until restarted.
+
 ## v2.3.1 — 2026-11-02
 
 ### Fixed
@@ -263,7 +356,7 @@ terminal.
 No server change was needed for any of it: the listing, streaming, comment and
 share endpoints already existed for the web client.
 
-## Unreleased
+## v2.3.2 — 2026-11-03
 
 ### Fixed
 - **A fresh `live` reaches liveshortly.com again.** v2.3.0 defaulted to
