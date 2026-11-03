@@ -17,7 +17,7 @@ func TestReapNeverTouchesPluginSessions(t *testing.T) {
 	d := testutil.Setup(t)
 	ctx := context.Background()
 
-	owner, err := d.Store.UpsertGoogleUser(ctx, "sub-reaper-owner", "reaper-owner@test.local", "Reaper Owner", "")
+	owner, err := d.Store.UpsertGoogleUser(ctx, "sub-reaper-owner", "reaper-owner@test.local", "Reaper Owner")
 	if err != nil {
 		t.Fatalf("create owner: %v", err)
 	}
@@ -76,7 +76,7 @@ func TestReapSkipsConnectedAgent(t *testing.T) {
 	d := testutil.Setup(t)
 	ctx := context.Background()
 
-	owner, err := d.Store.UpsertGoogleUser(ctx, "sub-reaper-conn", "reaper-conn@test.local", "Reaper Conn", "")
+	owner, err := d.Store.UpsertGoogleUser(ctx, "sub-reaper-conn", "reaper-conn@test.local", "Reaper Conn")
 	if err != nil {
 		t.Fatalf("create owner: %v", err)
 	}

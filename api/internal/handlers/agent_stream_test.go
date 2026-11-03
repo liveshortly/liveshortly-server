@@ -39,11 +39,11 @@ func newReq(method, id string, p *auth.Identity, body string) (*http.Request, co
 func setupOwnedLiveSession(t *testing.T, d testutil.Deps) (owner, other auth.Identity, id string) {
 	t.Helper()
 	ctx := context.Background()
-	ou, err := d.Store.UpsertGoogleUser(ctx, "sub-agent-owner", "agent-owner@test.local", "Agent Owner", "")
+	ou, err := d.Store.UpsertGoogleUser(ctx, "sub-agent-owner", "agent-owner@test.local", "Agent Owner")
 	if err != nil {
 		t.Fatalf("owner: %v", err)
 	}
-	xu, err := d.Store.UpsertGoogleUser(ctx, "sub-agent-other", "agent-other@test.local", "Agent Other", "")
+	xu, err := d.Store.UpsertGoogleUser(ctx, "sub-agent-other", "agent-other@test.local", "Agent Other")
 	if err != nil {
 		t.Fatalf("other: %v", err)
 	}

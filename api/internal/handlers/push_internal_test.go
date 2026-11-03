@@ -62,7 +62,7 @@ func TestApprovalPush(t *testing.T) {
 	h.push = fake
 
 	uniq := time.Now().UnixNano()
-	u, err := d.Store.UpsertGoogleUser(ctx, fmt.Sprintf("push-%d", uniq), fmt.Sprintf("push+%d@example.test", uniq), "Pusher", "")
+	u, err := d.Store.UpsertGoogleUser(ctx, fmt.Sprintf("push-%d", uniq), fmt.Sprintf("push+%d@example.test", uniq), "Pusher")
 	if err != nil {
 		t.Fatal(err)
 	}

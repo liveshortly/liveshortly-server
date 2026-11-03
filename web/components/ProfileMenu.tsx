@@ -5,10 +5,10 @@ import Link from "next/link";
 import { logout as apiLogout, type Me } from "@/lib/api";
 
 /**
- * Avatar trigger + dropdown menu. Items: Admin (admins only), Profile, Settings, Log out.
+ * Account trigger (the handle) + dropdown menu. Items: Admin (admins only), Profile, Settings, Log out.
  * `direction` controls whether the menu grows down (topbar) or up (sidebar
  * footer). The trigger is supplied by the caller so each placement keeps its
- * own avatar/layout; this component only owns the open/close + menu.
+ * own layout; this component only owns the open/close + menu.
  * A disclosure, not role="menu": the links follow the trigger in Tab order,
  * and Escape closes it and returns focus to the trigger.
  */
@@ -68,7 +68,6 @@ export default function ProfileMenu({
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-controls={open ? id : undefined}
-        aria-label="Account menu"
       >
         {children}
       </button>

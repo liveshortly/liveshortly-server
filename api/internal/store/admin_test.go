@@ -22,7 +22,7 @@ func TestAdminIsTheColumn(t *testing.T) {
 	u, err := st.UpsertGoogleUser(ctx,
 		fmt.Sprintf("admin-test-%d", uniq),
 		fmt.Sprintf("owner+%d@example.test", uniq),
-		"Owner", "")
+		"Owner")
 	if err != nil {
 		t.Fatalf("UpsertGoogleUser: %v", err)
 	}

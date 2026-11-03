@@ -6,7 +6,6 @@ import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthContext";
 import { useHosts } from "@/components/HostsContext";
 import { useSessions, byRecent } from "@/components/SessionsContext";
-import Avatar from "@/components/Avatar";
 import ProfileMenu from "@/components/ProfileMenu";
 import ShareSheet from "@/components/ShareSheet";
 import Button from "@/components/ui/Button";
@@ -211,12 +210,6 @@ export default function WorkspaceSidebar() {
         <div className={s.sideFoot}>
           <ProfileMenu user={user} direction="up" align="start">
             <span className={s.account}>
-              <Avatar
-                seed={user.id ?? user.email ?? user.name}
-                size={24}
-                rounded={false}
-                title={user.name ?? user.email ?? "Account"}
-              />
               <span className={`${s.ellipsis} t-callout`}>
                 {user.handle ? `@${user.handle}` : (user.name ?? user.email ?? "Account")}
               </span>

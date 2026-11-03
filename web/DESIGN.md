@@ -32,6 +32,10 @@ of `tokens.css` lists them.
 - Three breakpoints only — phone <768, tablet 768–1100, desktop >1100 (the
   literal queries are listed in `tokens.css`). Page chrome uses `@media`;
   components in panes of varying width use `@container` on their own width.
+- Identity is text (LSW-33): people are their `@handle`, never a profile image,
+  initials circle or identicon. Lists of people are plain handle lists.
+- Site links (Feed · Docs · Install · Changelog · GitHub) live in the header on
+  every page, in its menu sheet under 768px (LSW-34). There is no footer nav.
 - PWA: `app/manifest.ts`, icons in `public/icons/` + `app/apple-icon.png`,
   `public/sw.js` (Web Push + offline page; caches only `/offline` and
   immutable `/_next/static` files — never API responses or page HTML).
