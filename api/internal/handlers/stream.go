@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -13,6 +15,7 @@ import (
 	"liveshortly/internal/auth"
 	"liveshortly/internal/httpx"
 	"liveshortly/internal/redact"
+	"liveshortly/internal/store"
 )
 
 // heartbeatInterval is how often a `: ping` comment is sent to keep the
@@ -35,9 +38,27 @@ func newWatcherToken() string {
 }
 
 // peek pulls the discriminator fields out of a frame without fully decoding it.
+// Seq is set only on session events; control frames (watchers, typing,
+// session_ended…) have none.
 type peek struct {
 	Type string `json:"type"`
-	ID   string `json:"id"`
+	Seq  int    `json:"seq"`
+}
+
+// resumeSeq is the highest event seq the client already holds: the standard
+// `Last-Event-ID` header (sent by EventSource on its own reconnects and by the
+// native clients), else a `last_event_id` query param for a first connect that
+// can't set headers. 0/absent/garbage means "replay everything".
+func resumeSeq(r *http.Request) int {
+	v := r.Header.Get("Last-Event-ID")
+	if v == "" {
+		v = r.URL.Query().Get("last_event_id")
+	}
+	n, err := strconv.Atoi(strings.TrimSpace(v))
+	if err != nil || n < 0 {
+		return 0
+	}
+	return n
 }
 
 // Stream serves the Server-Sent Events feed for a session.
@@ -86,16 +107,22 @@ func (h *Handler) Stream(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 
 	ctx := r.Context()
-	seen := map[string]bool{}
+	since := resumeSeq(r)
 
 	// Non-owners get every frame redacted (LSW-23); a clean frame passes
 	// through redact.JSON untouched, so the live path stays one regex scan.
 	scrub := s.OwnerID != p.ID
-	writeData := func(payload string) bool {
+	// seq > 0 adds an `id:` line so EventSource (and the native clients) can
+	// resume with Last-Event-ID; control frames pass 0 and get none.
+	writeData := func(payload string, seq int) bool {
 		if scrub {
 			payload = string(redact.JSON([]byte(payload)))
 		}
-		if _, err := fmt.Fprintf(w, "data: %s\n\n", payload); err != nil {
+		idLine := ""
+		if seq > 0 {
+			idLine = "id: " + strconv.Itoa(seq) + "\n"
+		}
+		if _, err := fmt.Fprintf(w, "%sdata: %s\n\n", idLine, payload); err != nil {
 			return false
 		}
 		flusher.Flush()
@@ -106,29 +133,34 @@ func (h *Handler) Stream(w http.ResponseWriter, r *http.Request) {
 	connected, _ := json.Marshal(map[string]string{
 		"type": "connected", "session_id": id, "status": s.Status,
 	})
-	if !writeData(string(connected)) {
+	if !writeData(string(connected), 0) {
 		return
 	}
 
 	// Ended session: replay the persisted log, signal end, and close.
 	if s.Status == "ended" {
-		events, err := h.store.GetEvents(ctx, id)
+		var events []store.Event
+		if since > 0 {
+			events, err = h.store.GetEventsSince(ctx, id, since)
+		} else {
+			events, err = h.store.GetEvents(ctx, id)
+		}
 		if err == nil {
 			for _, ev := range events {
 				if blob, err := json.Marshal(ev); err == nil {
-					if !writeData(string(blob)) {
+					if !writeData(string(blob), ev.Seq) {
 						return
 					}
 				}
 			}
 		}
 		ended, _ := json.Marshal(map[string]string{"type": "session_ended", "session_id": id})
-		writeData(string(ended))
+		writeData(string(ended), 0)
 		return
 	}
 
 	// Live session: subscribe first so nothing emitted during buffer replay is
-	// lost (the channel queues it; dedupe by id covers any overlap).
+	// lost (the channel queues it; dedupe by seq covers any overlap).
 	sub := h.bus.Subscribe(ctx, id)
 	defer sub.Close()
 	ch := sub.Channel()
@@ -145,22 +177,33 @@ func (h *Handler) Stream(w http.ResponseWriter, r *http.Request) {
 	// until the first heartbeat would otherwise correct it.
 	if n, err := h.bus.WatcherCount(ctx, id); err == nil {
 		if b, mErr := json.Marshal(map[string]any{"type": "watchers", "count": n}); mErr == nil {
-			if !writeData(string(b)) {
+			if !writeData(string(b), 0) {
 				return
 			}
 		}
 	}
 
-	// 2) replay the buffer in seq order.
+	// 2) replay the buffer, skipping what the client already holds (seq <=
+	// since). Push order can differ slightly from seq order under concurrent
+	// emits, so filter every entry rather than stopping at the first match.
+	// seen holds only the replayed seqs: an event emitted while we were
+	// subscribed but before LRANGE lands in both the buffer and the channel,
+	// and the live loop drops that second copy.
+	// ponytail: LRANGE reads the whole buffer server-side and filters here;
+	// the saving is on the wire to the client, not the Redis read.
+	seen := map[int]bool{}
 	buffered, err := h.bus.BufferAll(ctx, id)
 	if err == nil {
 		for _, b := range buffered {
 			var p peek
 			_ = json.Unmarshal([]byte(b), &p)
-			if p.ID != "" {
-				seen[p.ID] = true
+			if p.Seq > 0 {
+				if p.Seq <= since {
+					continue
+				}
+				seen[p.Seq] = true
 			}
-			if !writeData(b) {
+			if !writeData(b, p.Seq) {
 				return
 			}
 		}
@@ -183,16 +226,19 @@ func (h *Handler) Stream(w http.ResponseWriter, r *http.Request) {
 			_ = json.Unmarshal([]byte(msg.Payload), &p)
 
 			if p.Type == "session_ended" {
-				writeData(msg.Payload)
+				writeData(msg.Payload, 0)
 				return
 			}
-			if p.ID != "" {
-				if seen[p.ID] {
+			if p.Seq > 0 {
+				if p.Seq <= since {
 					continue
 				}
-				seen[p.ID] = true
+				if seen[p.Seq] {
+					delete(seen, p.Seq) // at most one live copy per replayed event
+					continue
+				}
 			}
-			if !writeData(msg.Payload) {
+			if !writeData(msg.Payload, p.Seq) {
 				return
 			}
 
@@ -210,7 +256,7 @@ func (h *Handler) Stream(w http.ResponseWriter, r *http.Request) {
 				if b, err := json.Marshal(map[string]any{
 					"type":  "watchers",
 					"count": n,
-				}); err == nil && !writeData(string(b)) {
+				}); err == nil && !writeData(string(b), 0) {
 					return
 				}
 			}
