@@ -4,6 +4,7 @@ import AuthGate from "@/components/AuthGate";
 import ThemeProvider, { themeInitScript } from "@/components/ThemeProvider";
 import { loadAll } from "./docs/docs";
 import "./globals.css";
+import { SITE_URL } from "@/lib/install";
 
 /* v4 type system: Inter carries all reading & UI; JetBrains Mono is semantic —
    code, paths, commands, timestamps (anything that is machine truth). */
@@ -20,8 +21,6 @@ const jbMono = JetBrains_Mono({
   display: "swap",
 });
 
-/** Absolute base for OG/canonical URLs (override per-deploy via env). */
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:8080";
 const DESCRIPTION =
   "Stream your coding agent sessions (Claude Code, Codex, Gemini, Antigravity and more) — live, replayable, shareable.";
 

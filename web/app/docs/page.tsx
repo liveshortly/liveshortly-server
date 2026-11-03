@@ -2,8 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { loadAll } from "./docs";
 import s from "./docs.module.css";
-
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:8080";
+import { SITE_URL } from "@/lib/install";
 
 export const metadata: Metadata = {
   title: "Docs",
