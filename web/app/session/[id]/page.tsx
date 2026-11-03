@@ -25,10 +25,10 @@ export async function generateMetadata({
       .filter(Boolean)
       .join(" · ") + ` — watch @${s.owner_handle} on LiveShortly`;
   const url = `/session/${id}`;
-  // og/route.tsx renders the card; ?v= changes as the session grows or ends so
+  // og.png/route.tsx renders the card; ?v= changes as the session grows or ends so
   // crawlers refetch it (LSW-37).
   const image = {
-    url: `${url}/og?v=${s.event_count}${live ? "l" : "e"}`,
+    url: `${url}/og.png?v=${s.event_count}${live ? "l" : "e"}`,
     width: 1200,
     height: 630,
     alt: title,
