@@ -5,8 +5,8 @@ import { loadDoc, SLUGS, type Heading } from "../docs";
 import Markdown from "../Markdown";
 import { loadChangelog } from "@/lib/changelog";
 import s from "../docs.module.css";
+import { SITE_URL } from "@/lib/install";
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:8080";
 const EDIT_BASE = "https://github.com/liveshortly/liveshortly-server/edit/main/web/content/docs";
 
 // Every page is pre-rendered; any other slug is a 404.

@@ -33,4 +33,25 @@ assert.equal(t.pendingProbe([...withProbe, ev("output", {})]), null, "later acti
 assert.equal(t.toolSummary(t.toolCallBefore(withProbe, probe)), "Bash · git push origin main");
 assert.equal(t.typingLine(["@b", "@a"]), "@a and @b are typing…");
 assert.equal(t.diffLines("a\nb", "c").length, 3);
+
+// Share-card text (LSW-37): no markup, no paths beyond a basename, no tokens.
+const leak = '<task-notification><task-id>b1</task-id><output-file>/private/tmp/claude-502/-Users-rohit-x/tasks/b1.output</output-file></task-notification>';
+assert.equal(t.shareSafe(leak), null, "XML payloads are skipped");
+assert.equal(t.shareSafe('{"tool":"Bash"}'), null, "JSON payloads are skipped");
+assert.equal(
+  t.shareSafe("Fixed **the bug** in `/Users/rohit/app/web/lib/api.ts` — see https://github.com/a/b/pull/3"),
+  "Fixed the bug in api.ts — see github.com",
+);
+assert.equal(t.shareSafe("Wrote /private/tmp/claude-502/-Users-rohit-proj to disk"), "Wrote … to disk");
+assert.equal(t.shareSafe("key is sk-ant-api03-abcdefghijklmnopqrstuvwxyz0123456789"), "key is [redacted]");
+assert.equal(t.shareSafe("ok"), null, "too short to be worth showing");
+assert.equal(
+  t.cardExcerpt([ev("response", { content: "All tests pass now and the card renders." }), ev("response", { content: leak })]),
+  "All tests pass now and the card renders.",
+  "newest SAFE response wins",
+);
+assert.deepEqual(
+  t.lastEdit([ev("file_write", { tool: "Write", file: "~/src/web/page.tsx", added: "42", removed: "7" }), ev("response", { content: "x" })]),
+  { file: "page.tsx", add: 42, del: 7 },
+);
 console.log("transcript ok");

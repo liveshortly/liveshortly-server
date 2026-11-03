@@ -18,6 +18,10 @@ var (
 	winHome = regexp.MustCompile(`(?i)(^|[^\w])[a-z]:[\\/]+Users[\\/]+[^\\/\r\n"'<>|` + "`" + `]+`)
 	// /Users/alice (macOS), /home/alice (Linux), /root.
 	unixHome = regexp.MustCompile(`(^|[^\w./~-])(?:/Users/[^/\s"'<>` + "`" + `]+|/home/[^/\s"'<>` + "`" + `]+|/root\b)`)
+	// A home flattened into one path segment, as agents name their per-project
+	// dirs: /private/tmp/claude-502/-Users-alice-src-app/… (LSW-37). The whole
+	// segment goes — where the username ends inside it can't be known.
+	flatHome = regexp.MustCompile(`(^|[/\\\s"'])-(?:Users|home)-[^/\\\s"'<>` + "`" + `]*`)
 	// ~alice/… (another user's home via tilde expansion) → ~/…
 	tildeUser = regexp.MustCompile(`(^|[^\w])~[A-Za-z_][\w.-]*(/|$|\s)`)
 	email     = regexp.MustCompile(`[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+`)
@@ -30,6 +34,7 @@ var (
 func Text(s string) string {
 	s = winHome.ReplaceAllString(s, "${1}~")
 	s = unixHome.ReplaceAllString(s, "${1}~")
+	s = flatHome.ReplaceAllString(s, "${1}~")
 	s = tildeUser.ReplaceAllString(s, "${1}~${2}")
 	s = emails(s)
 	return localHost.ReplaceAllString(s, "[host]")
