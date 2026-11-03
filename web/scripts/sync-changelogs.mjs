@@ -7,7 +7,7 @@
 // The CLI changelog is read from the `live` repo's origin/main, not its working
 // tree: a checkout sitting on an old feature branch would otherwise silently
 // drop released versions from the page.
-import { copyFileSync, existsSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
@@ -43,4 +43,33 @@ for (const [name, src] of Object.entries(sources)) {
   } else {
     console.log(`changelog: ${src} not found, keeping committed content/changelog/${name}`);
   }
+}
+
+// Harness support matrix (LSH-08), generated in the live repo from internal/harness.
+// docs/harness-matrix.json feeds the /new agent picker; the README's table (between
+// the harness-matrix markers) replaces the same block in content/docs/agents.md.
+// Same rule as above: no live repo (Docker build) keeps the committed copies.
+const fromLive = (path) => {
+  try {
+    return execFileSync("git", ["-C", here("../../../live"), "show", `origin/main:${path}`], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+  } catch {
+    return null;
+  }
+};
+const matrix = fromLive("docs/harness-matrix.json");
+if (matrix) {
+  writeFileSync(here("../content/harness-matrix.json"), matrix);
+  console.log("harness: live origin/main:docs/harness-matrix.json -> content/harness-matrix.json");
+}
+const block = /<!-- harness-matrix:start -->[\s\S]*?<!-- harness-matrix:end -->/;
+const table = fromLive("README.md")?.match(block)?.[0];
+if (table) {
+  const doc = here("../content/docs/agents.md");
+  writeFileSync(doc, readFileSync(doc, "utf8").replace(block, () => table));
+  console.log("harness: live README matrix -> content/docs/agents.md");
+} else {
+  console.log("harness: live repo not available, keeping committed matrix copies");
 }
