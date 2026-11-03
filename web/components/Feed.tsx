@@ -167,7 +167,11 @@ function FeedInner({ initial }: { initial: FeedPage | null }) {
     <div className={st.feed}>
       <header className={st.head}>
         <h1>Feed</h1>
-        <p>Public sessions from people building with coding agents.</p>
+        <p>
+          Public sessions from people building with coding agents. Watch the live ones
+          as they run, or replay any of them: every prompt, command and diff, in order.
+          Owners choose what to publish; see <Link href="/docs/publishing">how publishing works</Link>.
+        </p>
       </header>
 
       <SearchBox query={query} onQuery={setQuery} />
@@ -205,7 +209,7 @@ function FeedInner({ initial }: { initial: FeedPage | null }) {
       ) : items.length === 0 && !err ? (
         <Empty>
           Nothing is published yet. Run a session with LiveShortly, then publish it
-          here for anyone to watch or replay.
+          here for anyone to watch or replay. <Link href="/docs/publishing">How to publish a session</Link>
         </Empty>
       ) : (
         <>

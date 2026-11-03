@@ -454,10 +454,13 @@ const htmlHead = `<!doctype html><html lang="en"><head><meta charset="utf-8">
   .ok{color:var(--green);font-size:16px;font-weight:600}
   .err{color:var(--red);font-size:15px;font-weight:600}
   code{background:var(--panel2);border:1px solid var(--hairline);border-radius:4px;padding:1px 5px}
+  .legal{margin:22px 0 0;font-size:11px;color:var(--muted)} .legal a{color:inherit}
 </style></head><body><main class="panel">
 <div class="brand"><svg width="24" height="24" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="6" fill="var(--green)"/><rect x="7" y="8.5" width="6.5" height="15" rx="1.5" fill="#faf9f4"/><rect x="16.5" y="8.5" width="8.5" height="15" rx="1.5" fill="var(--green)" stroke="#faf9f4" stroke-width="2"/></svg>LiveShortly</div>`
 
-const htmlFoot = `</main></body></html>`
+// htmlFoot carries the Privacy/Terms links Google's OAuth consent screen also
+// points at (LSW-36): /device is a sign-in screen.
+const htmlFoot = `<p class="legal"><a href="/privacy">Privacy</a> · <a href="/terms">Terms</a> · <a href="/security">Security</a></p></main></body></html>`
 
 // withCode renders `live login` style backticks in trusted copy as <code>.
 func withCode(s string) string {

@@ -232,6 +232,39 @@ gunzip -k "$a.gz" && shasum -a 256 "$a" && cat "$a.sha256"`;
               <code>live logout</code> and <code>live login</code>.
             </p>
           </details>
+          <details>
+            <summary>
+              <code>not signed in — run `live login`</code>
+            </summary>
+            <p className={s.p}>
+              The CLI has no credentials for this server. Run <code>live login</code>.
+              If it keeps asking, delete <code>~/.liveshortly/credentials.json</code>{" "}
+              and sign in again.
+            </p>
+          </details>
+          <details>
+            <summary>The session page stays empty</summary>
+            <p className={s.p}>
+              Check <code>~/.liveshortly/live.log</code>: every failed upload is
+              logged there with the reason. Make sure <code>live whoami</code>{" "}
+              shows the server you are looking at.
+            </p>
+          </details>
+          <details>
+            <summary>The agent is waiting and nothing happens</summary>
+            <p className={s.p}>
+              It is waiting for you to approve a tool run. Answer in the tmux
+              popup or on the session page; unanswered requests are denied after
+              8 minutes. See <Link href="/docs/approvals">Approvals</Link>.
+            </p>
+          </details>
+          <details>
+            <summary>More problems</summary>
+            <p className={s.p}>
+              Every error message the CLI prints, with its cause and fix, is in{" "}
+              <Link href="/docs/troubleshooting">Troubleshooting</Link>.
+            </p>
+          </details>
         </div>
       </section>
 
