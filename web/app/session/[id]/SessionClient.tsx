@@ -122,7 +122,7 @@ export default function SessionClient({
   const live = meta?.status === "live";
   useEffect(() => {
     if (!live) return;
-    const es = new EventSource(streamUrl(id), { withCredentials: true });
+    const es = new EventSource(streamUrl(id, lastSeq.current), { withCredentials: true });
     let dropped = false;
     es.onopen = () => {
       setStreamErr(null);
