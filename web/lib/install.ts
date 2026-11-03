@@ -6,7 +6,7 @@ export const INSTALL_CMD =
 export const BREW_CMD = "brew install liveshortly/tap/live";
 
 /** Agents `live <agent>` is documented for; any other CLI on PATH also wraps. */
-export const AGENTS = ["Claude Code", "Codex", "Gemini CLI"] as const;
+export const AGENTS = ["Claude Code", "Codex", "Gemini CLI", "Antigravity", "Ollama"] as const;
 
 /** The hosted service (D131). Self-host instances override via NEXT_PUBLIC_SITE_URL. */
 export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://liveshortly.com";

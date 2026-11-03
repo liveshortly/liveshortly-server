@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { postDecision, type SessionEvent } from "@/lib/api";
 import { toolSummary } from "@/lib/transcript";
-import { agentTitle } from "@/lib/utils";
+import { agentCaps, agentTitle } from "@/lib/utils";
 import { Diff } from "@/components/EventStream";
 import Button from "@/components/ui/Button";
 import Dialog from "@/components/ui/Dialog";
@@ -47,8 +47,7 @@ export default function PermissionBar({
   const message = str(probe.payload, "message");
   const risky =
     str(probe.payload, "risk") === "high" || str(toolCall?.payload, "risk") === "high";
-  // Only claude's hook honours a session-wide "always".
-  const canAlways = framework === "claude-code";
+  const canAlways = agentCaps(framework).alwaysAllow;
 
   const decide = async (d: Decision) => {
     if (busy) return;
