@@ -405,3 +405,16 @@ func (b *Bus) TokenRevoked(ctx context.Context, id string) (bool, error) {
 	n, err := b.rdb.Exists(ctx, revokedKey(id)).Result()
 	return n > 0, err
 }
+
+// Allow is a fixed-window rate limit: it counts this call against key and
+// reports whether it is within limit per window. A Redis error allows the call.
+func (b *Bus) Allow(ctx context.Context, key string, limit int64, window time.Duration) bool {
+	n, err := b.rdb.Incr(ctx, "ratelimit:"+key).Result()
+	if err != nil {
+		return true
+	}
+	if n == 1 {
+		b.rdb.Expire(ctx, "ratelimit:"+key, window)
+	}
+	return n <= limit
+}

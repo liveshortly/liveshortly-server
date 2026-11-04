@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import ActivityHeatmap from "@/components/ActivityHeatmap";
 import SessionCard from "@/components/SessionCard";
@@ -161,6 +162,17 @@ function UsageMeter({ user }: { user: Me }) {
   const exempt = !!user.quota_exempt;
   const plan = user.plan === "ls_pro" ? "LiveShortly Pro" : user.plan === "custom" ? "Custom" : "Free";
 
+  const worst = Math.max(
+    sessionLimit > 0 ? (sessions / sessionLimit) * 100 : 0,
+    limit > 0 ? (used / limit) * 100 : 0,
+  );
+  const hint =
+    user.plan === "ls_pro" || worst < 80
+      ? ""
+      : worst >= 100
+        ? "you are at your limit. Delete old sessions, or add a LiveShortly Pro licence."
+        : "nearly full. Delete old sessions, or add a LiveShortly Pro licence for more room.";
+
   return (
     <PanelBox title="▤ USAGE & QUOTA" pad>
       {exempt ? (
@@ -194,8 +206,11 @@ function UsageMeter({ user }: { user: Me }) {
       {!exempt && (
         <div className="label" style={{ marginTop: 12, color: "var(--muted)" }}>
           Plan: <span style={{ color: "var(--ink)" }}>{plan}</span>
-          {sessionLimit > 0 && sessions >= sessionLimit * 0.8 &&
-            " — delete old sessions, or upgrade for more room."}
+          {hint && ` — ${hint}`}
+          {" "}
+          <Link href="/settings/licences" style={{ color: "var(--ink)" }}>
+            Licences
+          </Link>
         </div>
       )}
     </PanelBox>

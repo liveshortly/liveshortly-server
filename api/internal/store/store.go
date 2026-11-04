@@ -50,11 +50,21 @@ type SessionLimitError struct{ Limit int }
 
 func (e SessionLimitError) Error() string { return fmt.Sprintf("session limit reached (%d)", e.Limit) }
 
+// isProSQL is true when the user is on LiveShortly Pro: an admin set the plan,
+// or they hold an active, unexpired, unrevoked ls-pro licence. Evaluated at
+// read time so an expiry takes effect without any background job.
+const isProSQL = `(u.plan = 'ls_pro' OR (u.plan = 'free' AND EXISTS (
+	SELECT 1 FROM licenses l WHERE l.user_id = u.id AND l.product = 'ls-pro'
+	AND l.status = 'active' AND (l.expiry IS NULL OR l.expiry > now()))))`
+
+// planNameSQL is the effective plan name ('custom' and admin overrides pass through).
+const planNameSQL = `(CASE WHEN ` + isProSQL + ` THEN 'ls_pro' ELSE u.plan END)`
+
 // planSQL picks a user's effective storage and session limits: the per-user
 // override, else the plan default. $2 = default storage, $3/$4 = Pro
 // storage/sessions, $5 = Free sessions.
-const planStorageSQL = `COALESCE(u.storage_limit_bytes, CASE WHEN u.plan = 'ls_pro' AND $3::bigint > 0 THEN $3::bigint ELSE $2::bigint END)`
-const planSessionsSQL = `COALESCE(u.session_limit, CASE WHEN u.plan = 'ls_pro' THEN $4::int ELSE $5::int END)`
+const planStorageSQL = `COALESCE(u.storage_limit_bytes, CASE WHEN ` + isProSQL + ` AND $3::bigint > 0 THEN $3::bigint ELSE $2::bigint END)`
+const planSessionsSQL = `COALESCE(u.session_limit, CASE WHEN ` + isProSQL + ` THEN $4::int ELSE $5::int END)`
 
 // QuotaUsage is a user's current resource usage against their effective limits,
 // surfaced by GET /api/me and the admin user list. Byte/session counts only —
@@ -81,7 +91,7 @@ func (st *Store) GetQuotaUsage(ctx context.Context, userID string, defStorageLim
 		       COALESCE(u.max_live_sessions, $6::int),
 		       u.quota_exempt,
 		       (SELECT count(*) FROM sessions s WHERE s.owner_id = u.id AND s.status = 'live'),
-		       u.plan, ` + planSessionsSQL + `,
+		       ` + planNameSQL + `, ` + planSessionsSQL + `,
 		       (SELECT count(*) FROM sessions s WHERE s.owner_id = u.id)
 		FROM users u WHERE u.id = $1`
 	var qu QuotaUsage

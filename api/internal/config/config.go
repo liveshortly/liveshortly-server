@@ -53,6 +53,13 @@ type Config struct {
 	ProSessionLimit      int
 	ProStorageLimitBytes int64
 
+	// Licences (LSW-44). LicensePublicKeys are the trusted Ed25519 public keys
+	// (comma-separated, base64 or hex); the defaults are the pocket-licenses TEST
+	// key, so production must set its own. LicenseRevokedURL "" disables polling.
+	LicensePublicKeys string
+	LicenseAccountID  string
+	LicenseRevokedURL string
+
 	// --- Web Push (LSW-21) ---
 	// VAPIDPrivateKey is the base64url raw 32-byte P-256 key that signs push
 	// requests (the public key is derived from it). Empty disables Web Push;
@@ -95,9 +102,24 @@ func Load() Config {
 		ProSessionLimit:          int(envInt64("PRO_SESSION_LIMIT", 100)),
 		ProStorageLimitBytes:     envInt64("PRO_STORAGE_LIMIT_BYTES", 1024*1024*1024),
 
+		LicensePublicKeys: env("LICENSE_PUBLIC_KEYS", testLicensePublicKey),
+		LicenseAccountID:  env("LICENSE_ACCOUNT_ID", "pocketai"),
+		LicenseRevokedURL: envAllowEmpty("LICENSE_REVOKED_URL", "https://licenses-test.getpocketai.app/revoked.json"),
+
 		VAPIDPrivateKey: env("VAPID_PRIVATE_KEY", ""),
 		VAPIDSubject:    env("VAPID_SUBJECT", "mailto:admin@liveshortly.com"),
 	}
+}
+
+// testLicensePublicKey is workers/licenses/PUBLIC_KEY_TEST.txt (base64). Not secret.
+const testLicensePublicKey = "G/Ds0X3ZsZWyGqWP4sb1w58Py01vYyPh2a8grcq2mig="
+
+// envAllowEmpty is env, except a variable that is set to "" stays empty.
+func envAllowEmpty(key, def string) string {
+	if v, ok := os.LookupEnv(key); ok {
+		return v
+	}
+	return def
 }
 
 // envInt64 reads a base-10 integer from the environment, falling back to def on

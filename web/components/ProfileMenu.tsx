@@ -97,6 +97,13 @@ export default function ProfileMenu({
           >
             Settings
           </Link>
+          <Link
+            href="/settings/licences"
+            className="pm-item"
+            onClick={() => setOpen(false)}
+          >
+            Licences
+          </Link>
           <button
             type="button"
             className="pm-item pm-signout"

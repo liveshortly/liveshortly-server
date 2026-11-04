@@ -120,6 +120,20 @@ var migrations = []string{
 	// The one non-additive step: the Google picture URL is no longer read,
 	// stored or returned, so the column goes. No code references it.
 	`ALTER TABLE users DROP COLUMN IF EXISTS avatar_url`,
+
+	// --- Licences (LSW-44) ---
+	// A signed LiveShortly Pro key a user added. The id is the licence id from
+	// the key, so one key can belong to one account only. status: active|revoked.
+	`CREATE TABLE IF NOT EXISTS licenses (
+		id      TEXT PRIMARY KEY,
+		user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		product TEXT NOT NULL,
+		key     TEXT NOT NULL,
+		expiry  TIMESTAMPTZ,
+		added   TIMESTAMPTZ NOT NULL DEFAULT now(),
+		status  TEXT NOT NULL DEFAULT 'active'
+	)`,
+	`CREATE INDEX IF NOT EXISTS licenses_user_idx ON licenses (user_id)`,
 }
 
 // Migrate applies the additive, idempotent migrations above. It runs before the
