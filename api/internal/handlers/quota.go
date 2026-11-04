@@ -35,7 +35,7 @@ type quotaCrossResponse struct {
 // so the client always learns the session ended.
 func (h *Handler) handleQuotaCrossing(ctx context.Context, sessionID string, ev store.Event) quotaCrossResponse {
 	if _, err := h.store.AutoEndQuota(ctx, sessionID); err != nil {
-			log.Printf("quota auto-end failed for %s: %v", sessionID, err)
+		log.Printf("quota auto-end failed for %s: %v", sessionID, err)
 	}
 
 	// Announce on the feed so viewers + agent see why the stream stopped. Ignore

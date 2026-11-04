@@ -39,6 +39,7 @@ func RunAbandonedAgents(ctx context.Context, st *store.Store, b *bus.Bus, blob *
 //     legacy plugin/hook sessions — which never open one — are never touched;
 //   - no agent stream is currently connected (agent_connected key absent);
 //   - it has had no activity for `grace`.
+//
 // Each reaped session goes through the normal stop/archive path.
 func ReapAbandonedAgentsOnce(ctx context.Context, st *store.Store, b *bus.Bus, blob *storage.Store, grace time.Duration) (int, error) {
 	ids, err := st.ListIdleLiveSessions(ctx, grace)

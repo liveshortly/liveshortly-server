@@ -188,6 +188,9 @@ func (g *GoogleAuth) Me(w http.ResponseWriter, r *http.Request) {
 		body["live_sessions"] = qu.LiveSessions
 		body["max_live_sessions"] = qu.MaxLiveSessions
 		body["quota_exempt"] = qu.QuotaExempt
+		body["plan"] = qu.Plan
+		body["sessions"] = qu.Sessions
+		body["session_limit"] = qu.SessionLimit
 	}
 	// Handle comes from the account record (best-effort, like quota).
 	if u, err := g.store.GetUserByID(r.Context(), c.UserID); err == nil && u != nil {

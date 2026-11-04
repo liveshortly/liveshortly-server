@@ -20,6 +20,17 @@ import (
 // Store wraps a pgx connection pool.
 type Store struct {
 	pool *pgxpool.Pool
+	// Plans holds the plan defaults (LSW-42); the zero value is "no session
+	// cap, Pro gets the same storage as Free".
+	Plans PlanLimits
+}
+
+// PlanLimits are the per-plan defaults a user without an override gets.
+// A session limit of 0 means no cap (self-hosted servers keep it off).
+type PlanLimits struct {
+	FreeSessions    int
+	ProSessions     int
+	ProStorageBytes int64
 }
 
 // Quota enforcement sentinels. Handlers map these to HTTP status codes:
@@ -33,15 +44,30 @@ var (
 	ErrStorageLimit = errors.New("storage quota exhausted")
 )
 
+// SessionLimitError is returned by CreateSession when the owner already has
+// as many stored sessions as their plan allows (LSW-42).
+type SessionLimitError struct{ Limit int }
+
+func (e SessionLimitError) Error() string { return fmt.Sprintf("session limit reached (%d)", e.Limit) }
+
+// planSQL picks a user's effective storage and session limits: the per-user
+// override, else the plan default. $2 = default storage, $3/$4 = Pro
+// storage/sessions, $5 = Free sessions.
+const planStorageSQL = `COALESCE(u.storage_limit_bytes, CASE WHEN u.plan = 'ls_pro' AND $3::bigint > 0 THEN $3::bigint ELSE $2::bigint END)`
+const planSessionsSQL = `COALESCE(u.session_limit, CASE WHEN u.plan = 'ls_pro' THEN $4::int ELSE $5::int END)`
+
 // QuotaUsage is a user's current resource usage against their effective limits,
 // surfaced by GET /api/me and the admin user list. Byte/session counts only —
 // never any session content.
 type QuotaUsage struct {
-	StorageBytesUsed  int64 `json:"storage_bytes_used"`
-	StorageLimitBytes int64 `json:"storage_limit_bytes"`
-	LiveSessions      int   `json:"live_sessions"`
-	MaxLiveSessions   int   `json:"max_live_sessions"`
-	QuotaExempt       bool  `json:"quota_exempt"`
+	Plan              string `json:"plan"`
+	Sessions          int    `json:"sessions"`
+	SessionLimit      int    `json:"session_limit"` // 0 = no cap
+	StorageBytesUsed  int64  `json:"storage_bytes_used"`
+	StorageLimitBytes int64  `json:"storage_limit_bytes"`
+	LiveSessions      int    `json:"live_sessions"`
+	MaxLiveSessions   int    `json:"max_live_sessions"`
+	QuotaExempt       bool   `json:"quota_exempt"`
 	// IsAdmin is the admin grant itself — the column the toggle writes.
 	IsAdmin bool `json:"is_admin"`
 }
@@ -50,17 +76,19 @@ type QuotaUsage struct {
 // including the current live-session count. defStorageLimit / defMaxLive are the
 // config defaults applied when the user has no per-user override.
 func (st *Store) GetQuotaUsage(ctx context.Context, userID string, defStorageLimit int64, defMaxLive int) (QuotaUsage, error) {
-	const q = `
-		SELECT u.storage_bytes_used,
-		       COALESCE(u.storage_limit_bytes, $2),
-		       COALESCE(u.max_live_sessions, $3),
+	q := `
+		SELECT u.storage_bytes_used, ` + planStorageSQL + `,
+		       COALESCE(u.max_live_sessions, $6::int),
 		       u.quota_exempt,
-		       (SELECT count(*) FROM sessions s WHERE s.owner_id = u.id AND s.status = 'live')
+		       (SELECT count(*) FROM sessions s WHERE s.owner_id = u.id AND s.status = 'live'),
+		       u.plan, ` + planSessionsSQL + `,
+		       (SELECT count(*) FROM sessions s WHERE s.owner_id = u.id)
 		FROM users u WHERE u.id = $1`
 	var qu QuotaUsage
-	err := st.pool.QueryRow(ctx, q, userID, defStorageLimit, defMaxLive).Scan(
+	err := st.pool.QueryRow(ctx, q, userID, defStorageLimit, st.Plans.ProStorageBytes,
+		st.Plans.ProSessions, st.Plans.FreeSessions, defMaxLive).Scan(
 		&qu.StorageBytesUsed, &qu.StorageLimitBytes, &qu.MaxLiveSessions,
-		&qu.QuotaExempt, &qu.LiveSessions,
+		&qu.QuotaExempt, &qu.LiveSessions, &qu.Plan, &qu.SessionLimit, &qu.Sessions,
 	)
 	return qu, err
 }
@@ -535,14 +563,15 @@ func (st *Store) CreateSession(ctx context.Context, ownerID string, in NewSessio
 	// Lock the owner row and read effective limits. The lock is what makes the
 	// count-then-insert race-safe: a parallel create blocks here until we commit.
 	var storageUsed, storageLimit int64
-	var maxLive int
+	var maxLive, sessionLimit int
 	var exempt bool
 	if err := tx.QueryRow(ctx,
-		`SELECT storage_bytes_used, COALESCE(storage_limit_bytes, $2),
-		        COALESCE(max_live_sessions, $3), quota_exempt
-		 FROM users WHERE id = $1 FOR UPDATE`,
-		ownerID, defStorageLimit, defMaxLive,
-	).Scan(&storageUsed, &storageLimit, &maxLive, &exempt); err != nil {
+		`SELECT u.storage_bytes_used, `+planStorageSQL+`,
+		        COALESCE(u.max_live_sessions, $6::int), u.quota_exempt, `+planSessionsSQL+`
+		 FROM users u WHERE u.id = $1 FOR UPDATE`,
+		ownerID, defStorageLimit, st.Plans.ProStorageBytes, st.Plans.ProSessions,
+		st.Plans.FreeSessions, defMaxLive,
+	).Scan(&storageUsed, &storageLimit, &maxLive, &exempt, &sessionLimit); err != nil {
 		return Session{}, err
 	}
 
@@ -561,6 +590,18 @@ func (st *Store) CreateSession(ctx context.Context, ownerID string, in NewSessio
 		}
 		if live >= maxLive {
 			return Session{}, ErrConcurrencyLimit
+		}
+		// Plan cap on stored sessions (ended ones count; deleting frees one).
+		if sessionLimit > 0 {
+			var total int
+			if err := tx.QueryRow(ctx,
+				`SELECT count(*) FROM sessions WHERE owner_id = $1`, ownerID,
+			).Scan(&total); err != nil {
+				return Session{}, err
+			}
+			if total >= sessionLimit {
+				return Session{}, SessionLimitError{Limit: sessionLimit}
+			}
 		}
 	}
 
