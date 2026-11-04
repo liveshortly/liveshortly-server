@@ -564,14 +564,14 @@ func (st *Store) CreateSession(ctx context.Context, ownerID string, in NewSessio
 	// count-then-insert race-safe: a parallel create blocks here until we commit.
 	var storageUsed, storageLimit int64
 	var maxLive, sessionLimit int
-	var exempt bool
+	var exempt, isAdmin bool
 	if err := tx.QueryRow(ctx,
 		`SELECT u.storage_bytes_used, `+planStorageSQL+`,
-		        COALESCE(u.max_live_sessions, $6::int), u.quota_exempt, `+planSessionsSQL+`
+		        COALESCE(u.max_live_sessions, $6::int), u.quota_exempt, `+planSessionsSQL+`, u.is_admin
 		 FROM users u WHERE u.id = $1 FOR UPDATE`,
 		ownerID, defStorageLimit, st.Plans.ProStorageBytes, st.Plans.ProSessions,
 		st.Plans.FreeSessions, defMaxLive,
-	).Scan(&storageUsed, &storageLimit, &maxLive, &exempt, &sessionLimit); err != nil {
+	).Scan(&storageUsed, &storageLimit, &maxLive, &exempt, &sessionLimit, &isAdmin); err != nil {
 		return Session{}, err
 	}
 
@@ -592,7 +592,8 @@ func (st *Store) CreateSession(ctx context.Context, ownerID string, in NewSessio
 			return Session{}, ErrConcurrencyLimit
 		}
 		// Plan cap on stored sessions (ended ones count; deleting frees one).
-		if sessionLimit > 0 {
+		// Admins run the instance; the plan cap is for customers.
+		if sessionLimit > 0 && !isAdmin {
 			var total int
 			if err := tx.QueryRow(ctx,
 				`SELECT count(*) FROM sessions WHERE owner_id = $1`, ownerID,
