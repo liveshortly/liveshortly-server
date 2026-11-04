@@ -1,0 +1,31 @@
+# pocket-licenses: Dodo webhook -> signed licence keys in D1 (COM-05 v2, COM-06, COM-07)
+# Owner's account only. Never deploy to any other account.
+name = "pocket-licenses"
+main = "src/index.ts"
+compatibility_date = "2025-10-01"
+account_id = "f967de3e2bf49d36d3a9ff8669fed68a"
+workers_dev = false
+
+# Secrets (wrangler secret put <NAME> --env <env>): LICENSE_SIGNING_KEY, ISSUE_TOKEN,
+# DODO_WEBHOOK_SECRET, RESEND_API_KEY (optional; unset = log keys instead of emailing)
+
+[env.test]
+routes = [{ pattern = "licenses-test.getpocketai.app", custom_domain = true }]
+d1_databases = [{ binding = "DB", database_name = "pocket-licenses-test", database_id = "996d5759-1006-40d6-8a14-b8019bed864e", migrations_dir = "migrations" }]
+
+[env.test.vars]
+# Dodo TEST-mode product ids (pdt_...). Empty = no product maps, payments are logged and ignored.
+PRODUCT_POCKETAI_PRO = "pdt_0NrDfs5TKE4xj2NW0SAaq"  # confirm 0 vs O with owner
+PRODUCT_LS_PRO = "pdt_0NrDg06qtVEK8n7V0jWBJ"  # confirm 0 vs O with owner
+EMAIL_FROM = "PocketAI <licenses@getpocketai.app>"
+
+# Production: NOT deployed yet. Needs its own D1 (wrangler d1 create pocket-licenses),
+# its own signing key, and live Dodo ids.
+[env.production]
+routes = [{ pattern = "licenses.getpocketai.app", custom_domain = true }]
+d1_databases = [{ binding = "DB", database_name = "pocket-licenses", database_id = "REPLACE_AFTER_wrangler_d1_create", migrations_dir = "migrations" }]
+
+[env.production.vars]
+PRODUCT_POCKETAI_PRO = ""
+PRODUCT_LS_PRO = ""
+EMAIL_FROM = "PocketAI <licenses@getpocketai.app>"
