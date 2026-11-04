@@ -66,8 +66,8 @@ type spawnInfo struct {
 // effective comment permission (so the web viewer can render read-only).
 type sessionWithEvents struct {
 	store.Session
-	CanComment bool          `json:"can_comment"`
-	IsOwner    bool          `json:"is_owner"`
+	CanComment bool `json:"can_comment"`
+	IsOwner    bool `json:"is_owner"`
 	// AgentConnected is true while a Live-shim agent stream is attached (presence).
 	AgentConnected bool `json:"agent_connected"`
 	// WatcherCount is how many SSE connections are watching right now (live only).

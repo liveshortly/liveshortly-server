@@ -63,6 +63,11 @@ func main() {
 	}
 
 	st := store.New(pool)
+	st.Plans = store.PlanLimits{
+		FreeSessions:    cfg.FreeSessionLimit,
+		ProSessions:     cfg.ProSessionLimit,
+		ProStorageBytes: cfg.ProStorageLimitBytes,
+	}
 	// Apply additive, idempotent migrations (the entrypoint init scripts only run
 	// on first volume creation, so post-launch columns are added here).
 	if err := st.Migrate(ctx); err != nil {

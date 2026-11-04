@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -192,7 +193,15 @@ func (h *Handler) CreateSession(w http.ResponseWriter, r *http.Request) {
 	s, err := h.store.CreateSession(r.Context(), p.ID, in,
 		h.cfg.DefaultStorageLimitBytes, h.cfg.DefaultMaxLiveSessions)
 	if err != nil {
+		var sl store.SessionLimitError
 		switch {
+		case errors.As(err, &sl):
+			// 402: the fix is deleting sessions or upgrading the plan.
+			httpx.JSON(w, http.StatusPaymentRequired, map[string]any{
+				"error": fmt.Sprintf("session limit reached (%d sessions on your plan) — delete an old session or upgrade to LiveShortly Pro", sl.Limit),
+				"code":  "session_limit",
+				"limit": sl.Limit,
+			})
 		case errors.Is(err, store.ErrConcurrencyLimit):
 			// Don't cite a number — the owner may have a per-user override.
 			httpx.Error(w, http.StatusTooManyRequests,

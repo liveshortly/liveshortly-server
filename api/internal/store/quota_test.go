@@ -249,3 +249,70 @@ func TestPerFieldOverride(t *testing.T) {
 		t.Fatalf("override not applied: got storage=%d max=%d", qu.StorageLimitBytes, qu.MaxLiveSessions)
 	}
 }
+
+// TestPlanSessionLimit (LSW-42): a Free user is capped at the configured
+// number of stored sessions (ended ones count, deleting frees one), Pro gets
+// the Pro cap, and a zero Free cap means no limit.
+func TestPlanSessionLimit(t *testing.T) {
+	d := testutil.Setup(t)
+	ctx := context.Background()
+	d.Store.Plans = store.PlanLimits{FreeSessions: 2, ProSessions: 3}
+	u, err := d.Store.GetOrCreateUser(ctx, uniqueHandle("plan"))
+	if err != nil {
+		t.Fatalf("user: %v", err)
+	}
+	var made []string
+	t.Cleanup(func() {
+		for _, id := range made {
+			_ = d.Store.DeleteSession(ctx, id)
+		}
+	})
+	create := func() error {
+		s, err := d.Store.CreateSession(ctx, u.ID, store.NewSessionInput{}, bigStorage, bigLive)
+		if err == nil {
+			made = append(made, s.ID)
+			_, _ = d.Store.StopSession(ctx, s.ID, "") // ended sessions still count
+		}
+		return err
+	}
+	for i := 0; i < 2; i++ {
+		if err := create(); err != nil {
+			t.Fatalf("free create %d: %v", i, err)
+		}
+	}
+	var sl store.SessionLimitError
+	if err := create(); !errors.As(err, &sl) || sl.Limit != 2 {
+		t.Fatalf("want SessionLimitError{2}, got %v", err)
+	}
+	qu, err := d.Store.GetQuotaUsage(ctx, u.ID, bigStorage, bigLive)
+	if err != nil || qu.Plan != "free" || qu.Sessions != 2 || qu.SessionLimit != 2 {
+		t.Fatalf("usage: %+v %v", qu, err)
+	}
+
+	// Deleting one frees a slot.
+	_ = d.Store.DeleteSession(ctx, made[0])
+	made = made[1:]
+	if err := create(); err != nil {
+		t.Fatalf("create after delete: %v", err)
+	}
+
+	// Pro: cap 3.
+	if _, err := d.Pool.Exec(ctx, `UPDATE users SET plan = 'ls_pro' WHERE id = $1`, u.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := create(); err != nil {
+		t.Fatalf("pro create: %v", err)
+	}
+	if err := create(); !errors.As(err, &sl) || sl.Limit != 3 {
+		t.Fatalf("want pro SessionLimitError{3}, got %v", err)
+	}
+
+	// No Free cap configured (self-hosted default): no limit.
+	d.Store.Plans = store.PlanLimits{}
+	if _, err := d.Pool.Exec(ctx, `UPDATE users SET plan = 'free' WHERE id = $1`, u.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := create(); err != nil {
+		t.Fatalf("uncapped create: %v", err)
+	}
+}
