@@ -141,4 +141,5 @@ Archived replays live in the `api_data` volume; back it up with your usual volum
 - [Getting started](/docs/getting-started)
 - [Starting sessions from the web](/docs/web-sessions)
 - [Build from source](/docs/build-from-source)
+- [The full self-hosting guide](https://github.com/liveshortly/liveshortly-server/blob/main/SELF-HOSTING.md), with HTTPS options, running the daemon as a service, backups and a security checklist
 - [Security](/security)
