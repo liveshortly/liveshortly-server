@@ -1,546 +1,396 @@
-<div align="center">
+# liveshortly-server
 
-# ◧ LiveShortly `_`
+liveshortly-server is the LiveShortly platform: a Go API and a Next.js web app,
+backed by Postgres and Redis. Coding-agent sessions stream into it live; people
+watch them in the browser, comment back into the running agent, approve tool
+runs, and replay or fork sessions after they end. The sessions come from
+[`live`](https://github.com/liveshortly/live), a CLI that wraps an agent (`live
+claude`, `live codex`, ...) and streams it to a server. `live daemon` also
+registers a machine so the web app can start sessions on it. The PocketAI apps
+for Mac and iPhone ([PocketAI.Mac](https://github.com/liveshortly/PocketAI.Mac), [PocketAI.Iphone](https://github.com/liveshortly/PocketAI.Iphone) and their shared [PocketAI.Core](https://github.com/liveshortly/PocketAI.Core)) sign in to this server to list, watch and start
+sessions; they can also talk to `live daemon --server` on a machine directly,
+with no server. All of these projects live under
+[github.com/liveshortly](https://github.com/liveshortly).
 
-### Share your coding session **live** — watch it stream, replay every past run, and talk back to the agent from the browser.
-
-A lean monorepo that turns any **Claude Code** session into a live, shareable, replayable stream — wrapped in a nerdy financial-terminal HUD. Deploy it on your own infrastructure with the [self-hosting guide](deploy/DEPLOY.md).
-
-<br/>
-
-![Go](https://img.shields.io/badge/api-Go%201.22-00ADD8?style=for-the-badge&logo=go&logoColor=white)
-![Next.js](https://img.shields.io/badge/web-Next.js%2015-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)
-![Postgres](https://img.shields.io/badge/db-Postgres%2016-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
-![Redis](https://img.shields.io/badge/bus-Redis%207-DC382D?style=for-the-badge&logo=redis&logoColor=white)
-![Docker](https://img.shields.io/badge/run-Docker%20Compose-2496ED?style=for-the-badge&logo=docker&logoColor=white)
-![Deployment](https://img.shields.io/badge/deployment-self--hosted-1f7a4d?style=for-the-badge)
-![Version](https://img.shields.io/badge/release-v4.0.0-1a1916?style=for-the-badge)
-
-<br/>
-
-> **One concept: the `Session`.** It's `live` while you work and `ended` once you stop —
-> with an ordered event log that streams in real time and replays forever.
-
-</div>
-
-<div align="center">
+You can use the hosted service at [liveshortly.com](https://liveshortly.com), or
+run your own copy with the instructions below. Nothing in this repo depends on
+the hosted service.
 
 ![LiveShortly architecture](docs/architecture.png)
 
-<sub>Capture on your machine → fan out through the docker-compose stack → watch & talk back from the browser.</sub>
+## Contents
 
-</div>
+- [Quick start](#quick-start)
+- [Run locally (development)](#run-locally-development)
+- [Self-host](#self-host)
+- [Build from source](#build-from-source)
+- [Tests](#tests)
+- [Repository layout](#repository-layout)
+- [Reference](#reference)
+- [Contributing](#contributing)
+- [License](#license)
 
----
+## Quick start
 
-## ✦ Table of Contents
+To try LiveShortly without running anything, install `live` and use the hosted
+service:
 
-- [Platform Overview & Comprehensive Guide (docs/PLATFORM_OVERVIEW.md)](docs/PLATFORM_OVERVIEW.md)
-- [10 Real-World Use Cases (docs/USE_CASES.md)](docs/USE_CASES.md)
-- [Why](#-why)
-- [Features](#-features)
-- [Architecture](#-architecture)
-- [The live loop (viewer ⇄ agent)](#-the-live-loop-viewer--agent)
-- [Handoff & fork](#-handoff--fork)
-- [Quickstart](#-quickstart)
-- [Configuration](#-configuration)
-- [API reference](#-api-reference)
-- [Data model](#-data-model)
-- [Capture: wiring Claude Code](#-capture-wiring-claude-code)
-- [Design system](#-design-system)
-- [Project layout](#-project-layout)
-- [Auth & access control](#-auth--access-control)
-- [Roadmap](#-roadmap)
-
----
-
-## ✦ Why
-
-Recordings of agent sessions are everywhere — but they're **dead**. You can't watch them
-happen, you can't nudge the agent mid-run, and they rot in a gist.
-
-**LiveShortly** makes a session a *living object*:
-
-- 🔴 **Live** — viewers watch prompts, responses, tool calls and file writes appear in real time.
-- 💬 **Two-way** — a viewer can type a message in the browser that gets **injected into the running Claude session**.
-- ⏯ **Replayable** — every ended session is archived and plays back event-by-event.
-- 🔎 **Discoverable** — a public feed, live counts, and search.
-- 🔗 **Shareable** — sign in with Google, share a private link, or make a session public/open and **tweet it** — one click flips it public and drops a rich card in the timeline.
-
-Self-host the platform using [Docker Compose](deploy/DEPLOY.md). No managed LiveShortly service is required.
-
----
-
-## ✦ Features
-
-| | |
-|---|---|
-| 🎥 **Live streaming** | Server-Sent Events over a Redis pub/sub fan-out; late joiners replay the buffer and catch up instantly. |
-| 💬 **Viewer → agent injection** | Browser messages queue in Redis and are injected into Claude via hook `additionalContext` — delivered **exactly once**. |
-| 🖥️ **Terminal HUD** | A monospace, financial-terminal dashboard (light **and** dark): live UTC clock, big counters, hairline panels, pulsing `● LIVE`. |
-| 🔁 **Replay** | Ended sessions persist their full event log and play back in order. |
-| ⑃ **Handoff & fork** | Continue **any** session you can read — live or archived, even someone else's — as a **new session you own**, with any agent. A 7-day signed handoff code or a fork-by-id; the server hands back a deterministic digest that seeds the continuing agent. The original is untouched. |
-| 🧬 **Prior-context view** | A forked session shows its source's **entire** prior history inline — a virtual, copy-on-write view (nothing is copied), rendered as a distinct **PRIOR CONTEXT** block above the fork's own feed. Access is re-checked on both fork and source. |
-| 🤖 **Multi-agent capture** | First-class capture for **Claude Code** and **Codex** (plus Gemini / raw terminal), each labelled in the viewer. |
-| 🏠 **Public landing feed** | A public home feed of published sessions — activity ticker, featured hero, `LIVE NOW` / `TRENDING` / `RECENTLY PUBLISHED` grids, browse-by-tag. No sign-in to watch. |
-| 🔎 **Search + index** | Search the feed by title/snippet/tag; a signed-in HUD of your own + shared sessions with `TOTAL / LIVE NOW` stats. |
-| 🔐 **Google sign-in** | Real auth is live: Google OAuth for the web (`ls_session` cookie) + a CLI **device flow** minting bearer/refresh tokens. |
-| 🔗 **Sharing & visibility** | Per-session `private → link → public → open`: share to specific emails (viewer/commenter), a signed-in link, or an **open** link anyone can watch without an account. Publish to the discoverable feed. |
-| 🐦 **Share to X + OG cards** | One click makes a session public and opens a pre-filled tweet; dynamic **Open Graph / Twitter cards** render the session (title, author, a real prompt line, stats) in the app's own theme. |
-| 🛡️ **Admin portal** | A super-admin-only surface (email allowlist, gated at nav + route + API): app-wide stats, a user directory with last-login, and a filterable session browser. Aggregate metadata only. |
-| 🪝 **Zero-touch capture** | Claude Code hooks (stdlib Python) auto-open a session and stream every prompt/tool/file event. |
-| 🐳 **One command** | Postgres + Redis + Go API + Next.js web, all in `docker-compose.yml`. |
-
----
-
-## ✦ Architecture
-
-```mermaid
-flowchart LR
-  subgraph capture["🎥  CAPTURE — your machine"]
-    CC["Claude Code<br/>session"]
-    HK["LiveShortly hooks<br/>(Python, stdlib)"]
-    CC -- "SessionStart · Prompt<br/>PreTool · PostTool · End" --> HK
-  end
-
-  subgraph viewers["🖥️  VIEWERS"]
-    UI["Terminal HUD<br/>(browser)"]
-  end
-
-  subgraph stack["🐳  docker-compose  ·  liveshortly_net"]
-    WEB["web<br/>Next.js · :3000"]
-    API["api<br/>Go · chi · :8000"]
-    PG[("Postgres :5432<br/>sessions · events")]
-    RS[("Redis :6379<br/>seq · buffer · pub/sub · pending")]
-  end
-
-  HK -- "POST /sessions · /events · /stop" --> API
-  HK -. "GET /comments/pending  (poll + inject)" .-> API
-  UI --> WEB
-  WEB -- "REST + SSE stream" --> API
-  UI -. "POST /comments  (talk back)" .-> API
-  API <--> PG
-  API <-- "fan-out + replay" --> RS
-
-  classDef box fill:#faf9f4,stroke:#1c1b17,color:#1a1916;
-  classDef store fill:#f3f1e9,stroke:#1f7a4d,color:#1a1916;
-  class CC,HK,UI,WEB,API box;
-  class PG,RS store;
+```bash
+brew install liveshortly/tap/live
+live login
+live claude
 ```
 
-**How it flows**
+`live` prints a link to the session page. See the
+[live README](https://github.com/liveshortly/live) for other install methods and
+agents.
 
-1. **Capture** — Claude Code fires hooks; `SessionStart` opens a LiveShortly session, every prompt/tool/file event is `POST`ed to the API.
-2. **Fan-out** — the API allocates an atomic `seq` (Redis `INCR`), persists to Postgres, buffers the event (Redis list), and `PUBLISH`es it.
-3. **Watch** — the web app opens an **SSE** stream: it replays the buffer for late joiners, then streams live events with a 15s heartbeat.
-4. **Talk back** — a viewer's message becomes a `viewer_comment` event (shown to all) **and** a queued item the hooks drain and inject into Claude.
+To run your own server, go to [Self-host](#self-host).
 
----
+## Run locally (development)
 
-## ✦ The live loop (viewer ⇄ agent)
+You need Docker with the Compose plugin. Go and Node are only needed to run the
+API or web app outside Docker.
 
-The headline feature: a browser viewer steering the running CLI session.
+### Full stack without sign-in
 
-```mermaid
-sequenceDiagram
-  autonumber
-  participant V as 🧑 Viewer (browser)
-  participant W as web (Next.js)
-  participant A as api (Go)
-  participant R as Redis
-  participant H as Claude Code hook
-  participant C as 🤖 Claude
-
-  V->>W: type "add input validation" → SEND
-  W->>A: POST /api/sessions/{id}/comments
-  A->>R: RPUSH session:{id}:pending  (deliver-once queue)
-  A->>R: PUBLISH session:{id}:events  (viewer_comment)
-  R-->>W: SSE → bubble appears in every viewer's log
-
-  rect rgb(243,241,233)
-  note over C,H: at Claude's next turn boundary
-  C->>H: UserPromptSubmit  /  PreToolUse
-  H->>A: GET /api/sessions/{id}/comments/pending
-  A->>R: LRANGE 0 -1 + DEL  (atomic drain)
-  A-->>H: { comments: [ { "@rsehgal", "add input validation" } ] }
-  H-->>C: hookSpecificOutput.additionalContext<br/>"@rsehgal: add input validation"
-  end
+```bash
+cp .env.example .env   # optional; every value has a default
+docker compose up -d --build
+curl http://localhost:8000/health
 ```
 
-> ⚠️ **Honest limit:** hooks only fire on Claude's own events. A viewer message lands at the
-> **next** prompt or tool call — it does **not** wake an idle Claude. It's collaborative
-> steering, not remote control.
+This starts Postgres (`:5432`), Redis (`:6379`), the API (`:8000`) and the web
+app (`:3000`). Without Google credentials the API boots with sign-in disabled.
+Live streaming does not work on `:3000`, because the Next.js rewrite that
+proxies `/api` buffers server-sent events. Use the stack below when you need
+sign-in or live updates.
 
-### Session lifecycle
+### Full stack with Google sign-in and live streaming
 
-```mermaid
-stateDiagram-v2
-  direction LR
-  [*] --> live: POST /sessions
-  live --> live: POST /events · /comments<br/>(SSE fan-out + buffer)
-  live --> ended: POST /sessions/{id}/stop
-  ended --> [*]: archived → replayable forever
+`docker-compose.local.yml` adds an nginx front so the web app and API share one
+origin, `http://localhost:8080`, which is what the session cookie, OAuth and
+SSE streaming need.
+
+1. Create a Google OAuth client of type **Web application** with
+   - Authorized JavaScript origin: `http://localhost:8080`
+   - Authorized redirect URI: `http://localhost:8080/auth/google/callback`
+2. Copy the example file and fill in the client ID, client secret and a session
+   secret (`openssl rand -hex 32`):
+
+   ```bash
+   cp .env.local.example .env.auth
+   ```
+
+   <!-- TODO(owner): .env.local.example says to copy it to .env.local and pass
+   --env-file .env.local, but docker-compose.yml loads the api's secrets from
+   .env.auth (env_file) and docker-compose.local.yml says the same. Confirm which
+   file name is intended and align the example file's header comment. -->
+
+3. Start it and open http://localhost:8080:
+
+   ```bash
+   docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
+   ```
+
+Point a local `live` at it with `live host set http://localhost:8080`, then
+`live login`.
+
+`NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_SITE_URL` are baked into the web bundle
+at build time. After changing them, rebuild the web image (`up -d --build web`);
+a restart is not enough.
+
+### Running the API or web app on the host
+
+The API reads its configuration from the environment (see
+`api/internal/config/config.go`). With Postgres and Redis from the base compose
+file running:
+
+```bash
+docker compose up -d postgres redis
+cd api
+DATABASE_URL=postgresql://liveshortly:liveshortly@localhost:5432/liveshortly \
+REDIS_URL=redis://localhost:6379 \
+STORAGE_PATH=./data/sessions \
+go run ./cmd/server
 ```
 
----
+The web app (Node 20, as in CI):
 
-## ✦ Handoff & fork
-
-*New in v4.0.0.* Pick up **any** session you can read — your own, a teammate's,
-or an archived one — and continue it as a **brand-new session you own**, with any
-agent. The original is never touched. Two ways in:
-
-- **Handoff code** — `POST /api/sessions/{id}/handoff` mints a 7-day signed code
-  (`ho_…`) pinned to a snapshot seq. Anyone who can read the session can mint one.
-- **Fork by id** — redeem at `POST /api/sessions` with `forked_from` (a code) **or**
-  `forked_from_session_id` (`+ forked_from_seq`, default latest).
-
-The server re-checks read access for the **redeeming** principal, records the
-lineage (`forked_from_session_id`, `forked_from_seq`, `forked_at`), bumps the
-source's `fork_count`, and returns a deterministic **digest** (assembled from the
-event log — **no LLM**) that seeds the continuing agent. The clone's own agent does
-the comprehension.
-
-```mermaid
-flowchart LR
-  SRC[("Source session<br/>(readable: yours,<br/>shared, or public)")]
-  SRC -- "POST /handoff · any reader" --> CODE["signed handoff code<br/>ho_… · 7-day TTL<br/>pinned @ snapshot seq"]
-  CODE -- "POST /sessions · forked_from" --> NEW
-  SRC -. "POST /sessions · forked_from_session_id (+seq)" .-> NEW["🆕 New session — YOU own it<br/>lineage set · fork_count++<br/>+ digest seeds the agent"]
-  NEW -- "GET /lineage (re-checks source access)" --> PC["PRIOR CONTEXT block<br/>source events ≤ seq<br/>(virtual — nothing copied)"]
-  NEW --> FEED["the fork's own live feed<br/>continues from here"]
-
-  classDef box fill:#faf9f4,stroke:#1c1b17,color:#1a1916;
-  classDef store fill:#f3f1e9,stroke:#1f7a4d,color:#1a1916;
-  class CODE,NEW,PC,FEED box;
-  class SRC store;
+```bash
+cd web
+npm ci
+API_INTERNAL_URL=http://localhost:8000 NEXT_PUBLIC_API_URL=http://localhost:8000 npm run dev
 ```
 
-**Prior context is a virtual, copy-on-write view.** `GET /api/sessions/{id}/lineage`
-returns the source's events up to the pinned snapshot; the web renders them as a
-distinct, collapsible **PRIOR CONTEXT** block **above** the fork's own feed —
-nothing is physically duplicated. It's a human/replay surface; the agent is seeded
-by the compact digest, not by replaying every prior turn into its context window.
+<!-- TODO(owner): confirm this host-run web setup works end to end (sign-in needs
+a single origin, see above). -->
 
-> Each session numbers its own `seq` from 1, and the live feed is sorted by `seq`,
-> so lineage is a **separate block** — never merged into the fork's timeline (that
-> would scramble the order). RBAC is re-checked on **both** the fork and the
-> source: no source access → events withheld (`restricted: true`); a deleted
-> source → reference only.
+### Development configuration
 
----
+`.env.example` lists the development variables for `docker-compose.yml`:
 
-## ✦ Quickstart
+| Variable | Default | Notes |
+|---|---|---|
+| `WEB_PORT` | `3000` | Host port for the web app |
+| `API_PORT` | `8000` | Host port for the API (the container always listens on 8000) |
+| `POSTGRES_PORT` / `REDIS_PORT` | `5432` / `6379` | Host ports for the datastores |
+| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | `liveshortly` | Local database credentials |
+| `NEXT_PUBLIC_API_URL` | `http://localhost:8000` | Built into the browser bundle |
+| `API_INTERNAL_URL` | `http://api:8000` | Server-side web calls to the API over the Docker network |
+| `CORS_ORIGINS` | `*` | Comma-separated |
+| `DEFAULT_USER_HANDLE` | `you` | Fallback handle for unattributed capture |
 
-Follow the [self-hosting guide](web/content/docs/self-hosting.md) for Google OAuth, your own domain,
-TLS, CLI setup, updates and backups. `deploy/DEPLOY.md` is the liveshortly.com runbook.
+API-only settings, read in `api/internal/config/config.go`:
+
+| Variable | Default | Notes |
+|---|---|---|
+| `PORT` / `BIND_ADDR` | `8000` / all interfaces | Listen address |
+| `DATABASE_URL`, `REDIS_URL` | local defaults | Datastores |
+| `STORAGE_PATH` | `/app/data/sessions` | Archived session replays |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | empty | Empty disables sign-in |
+| `SESSION_SECRET` | empty | Signs cookies, tokens and handoff codes |
+| `WEB_BASE_URL` | empty | Public web origin, used for OAuth and links |
+| `OAUTH_ALLOWED_HOSTS` | host of `WEB_BASE_URL` | Comma-separated hosts allowed in the OAuth flow |
+| `DEFAULT_STORAGE_LIMIT_BYTES` | 100 MB | Per-user storage quota |
+| `DEFAULT_MAX_LIVE_SESSIONS` | `10` | Per-user concurrent live sessions |
+| `LIVE_AGENT_GRACE` | `10m` | How long a silent agent's session stays live |
+| `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | empty | Optional Web Push |
+
+## Self-host
+
+The full guide is [`web/content/docs/self-hosting.md`](web/content/docs/self-hosting.md)
+(also served at `/docs/self-hosting` on any running instance). It covers
+OAuth setup, HTTPS, Web Push, quotas, backups, restores and troubleshooting. The
+steps below are the short path.
+
+`deploy/DEPLOY.md`, `deploy/systemd/` and the provisioning scripts describe how
+the hosted liveshortly.com service is deployed. They are not needed for a
+self-hosted install.
+
+### 1. Requirements
+
+- A Linux or macOS host with Docker Engine, the Docker Compose plugin and Git.
+- A Google Cloud OAuth client (Web application). Sign-in is Google-only.
+- For a public server: a domain name and a TLS-terminating reverse proxy.
+
+### 2. Configure
 
 ```bash
 git clone https://github.com/liveshortly/liveshortly-server.git
 cd liveshortly-server
 cp .env.selfhost.example .env.selfhost
 chmod 600 .env.selfhost
-# Fill in database/session secrets, your Google OAuth client and admin email.
+openssl rand -hex 32   # POSTGRES_PASSWORD
+openssl rand -hex 32   # SESSION_SECRET (a different value)
+```
+
+Fill in `.env.selfhost`. `compose.selfhost.yml` refuses to start while a
+required value is empty.
+
+| Variable | Required | Notes |
+|---|---|---|
+| `PUBLIC_ORIGIN` | Yes | The URL people open, no trailing slash, e.g. `https://live.example.com`. Default `http://localhost:8080` |
+| `PUBLIC_SCHEME` | Yes | `http` locally, `https` behind TLS |
+| `POSTGRES_PASSWORD` | Yes | Use a hex value so it is safe inside the database URL |
+| `SESSION_SECRET` | Yes | Changing it signs everyone out and invalidates handoff codes |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Yes | Your OAuth client |
+| `BIND_ADDRESS` | No | Interface nginx binds to. Default `127.0.0.1` |
+| `HTTP_PORT` | No | Port nginx binds to. Default `8080` |
+| `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | No | Browser push for approval requests; empty disables it |
+
+In the OAuth client, set the authorized JavaScript origin to `PUBLIC_ORIGIN` and
+the redirect URI to `PUBLIC_ORIGIN/auth/google/callback`. While the consent
+screen is in testing mode, only listed test users can sign in.
+
+### 3. Start
+
+```bash
 docker compose --env-file .env.selfhost -f compose.selfhost.yml config --quiet
 docker compose --env-file .env.selfhost -f compose.selfhost.yml up -d --build
 curl --fail http://localhost:8080/health
 ```
 
-Open **http://localhost:8080** for local use, or your configured HTTPS origin for
-a remote deployment. Sign in before creating sessions. Do not expose the split
-`:3000` / `:8000` development ports as the installation's public entry point;
-the included nginx entry point handles same-origin login and live SSE streaming.
+The stack is Postgres, Redis, the API, the web app and an nginx container
+(`deploy/nginx/selfhost.conf.template`). nginx is the only published port; it
+routes `/api/`, `/auth/`, `/device` and `/health` to the API with buffering off
+so live updates stream, and everything else to the web app. Database migrations
+run when the API starts.
 
-For **pocket.ai without a web platform or Google login**, install
-[`live`](https://github.com/liveshortly/live#choose-your-server) and run
-`live daemon --server` with an access key instead. The two setups use different APIs.
+Open `PUBLIC_ORIGIN` and sign in. To make yourself an admin, run once after your
+first sign-in:
 
----
-
-## ✦ Configuration
-
-Self-hosting uses [`.env.selfhost.example`](.env.selfhost.example) and the
-[deployment guide](deploy/DEPLOY.md). The table below also covers development
-configuration in `.env`; required OAuth credentials are operator-provided.
-
-| Var | Default | Notes |
-|---|---|---|
-| `WEB_PORT` | `3000` | host port for the web UI |
-| `API_PORT` | `8000` | host port for the API (**container always listens on 8000**) |
-| `POSTGRES_PORT` / `REDIS_PORT` | `5432` / `6379` | datastore host ports |
-| `NEXT_PUBLIC_API_URL` | `http://localhost:8000` | **baked into the browser bundle at build time** ⚠️ |
-| `API_INTERNAL_URL` | `http://api:8000` | SSR → API over the docker network |
-| `CORS_ORIGINS` | `*` | comma-separated; `*` allows all |
-| `DEFAULT_USER_HANDLE` | `you` | fallback principal handle for unattributed capture |
-| `LIVESHORTLY_API_URL` | `http://localhost:8000` | where the capture hooks POST |
-
-**Auth & admin** (optional — omitting the Google vars just disables login wiring):
-
-| Var | Default | Notes |
-|---|---|---|
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | — | Google OAuth credentials; empty disables web/CLI login |
-| `SESSION_SECRET` | — | signs the `ls_session` cookie + bearer/refresh JWTs |
-| `WEB_BASE_URL` | — | canonical web origin (used for OAuth callback + share links) |
-| `OAUTH_ALLOWED_HOSTS` | host of `WEB_BASE_URL` | comma-separated hostnames allowed to start/receive the OAuth callback |
-| _(none)_ | — | admin is `users.is_admin`, not configuration — see below |
-| `NEXT_PUBLIC_SITE_URL` | `https://liveshortly.com` | absolute base for OG/canonical URLs (web) |
-
-> ⚠️ **`NEXT_PUBLIC_*` is compile-time.** Change `NEXT_PUBLIC_API_URL` and you must
-> **rebuild** the web image — a restart reuses the old baked URL:
-> ```bash
-> docker compose up -d --build web
-> ```
-
----
-
-## ✦ API reference
-
-Base path `/api`. A single principal middleware resolves a **bearer JWT** or the **`ls_session`
-cookie**; `/api/me`, `GET /feed`, `GET /sessions/{id}` and its stream accept an **anonymous**
-caller (needed for `visibility="open"` sessions + the public feed), everything else requires a
-principal. Admin endpoints additionally enforce the super-admin allowlist (`403` otherwise).
-
-| Method | Endpoint | Body | Returns |
-|---|---|---|---|
-| `GET` | `/health` | — | `{ ok, version, ts }` |
-| `GET` | `/api/me` | — | `{ authenticated, id?, email?, name?, is_admin? }` |
-| `GET` | `/api/stats` | — | `{ total_sessions, live_now, ended, total_events }` |
-| `GET` | `/api/feed?q=&cursor=&limit=` | — | published sessions (public) |
-| `POST` | `/api/sessions` | `{ title?, model?, framework?, tags?, forked_from?, forked_from_session_id?, forked_from_seq? }` | `201` `Session` + `url` (+ `handoff` digest on a fork) |
-| `GET` | `/api/sessions?scope=&status=&q=&limit=&offset=` | — | `{ results: Session[], total }` |
-| `GET` | `/api/sessions/{id}` | — | `Session` + `events[]` + `forked_from` + `forker_count` (bumps `view_count`) |
-| `POST` | `/api/sessions/{id}/handoff` | `{ seq? }` | `{ code, session_id, snapshot_seq, expires_at, command }` *(any reader)* |
-| `GET` | `/api/sessions/{id}/lineage` | — | `{ source, snapshot_seq, events[], restricted }` — a fork's prior context *(any reader)* |
-| `PATCH` | `/api/sessions/{id}` | `{ title?, visibility?, link_role? }` | `Session` *(owner)* |
-| `POST` | `/api/sessions/{id}/events` | `{ event_type, payload, actor? }` | `201` `Event` |
-| `GET` | `/api/sessions/{id}/stream` | — | **SSE** event stream |
-| `POST` | `/api/sessions/{id}/stop` | — | `Session` (`ended`) |
-| `POST` | `/api/sessions/{id}/{publish\|unpublish}` | — | `Session` *(owner — feed on/off)* |
-| `POST` | `/api/sessions/{id}/comments` | `{ message }` | `201` `Event` *(live only)* |
-| `GET` | `/api/sessions/{id}/comments/pending` | — | `{ comments[] }` *(drains once)* |
-| `POST` / `GET` | `/api/sessions/{id}/decision` | `{ decision }` | live allow/deny of a CLI permission prompt |
-| `POST` | `/api/sessions/{id}/typing` | — | viewer "is typing" presence ping |
-| `POST` `GET` `DELETE` | `/api/sessions/{id}/shares[/{shareId}]` | `{ email, role }` | share grants *(owner)* |
-| `GET` | `/api/admin/stats` | — | app-wide aggregate metrics *(super-admin)* |
-| `GET` | `/api/admin/users` | — | user directory + last-login *(super-admin)* |
-| `GET` | `/api/admin/sessions?filter=all\|live\|ended\|public` | — | all sessions, metadata only *(super-admin)* |
-
-Web-only auth routes live at the root (proxied by nginx): `/auth/google/{login,callback}`,
-`/auth/logout`, `/auth/token`, and the CLI device flow `/auth/device/{start,approve,poll}` + `/device`.
-
-<details>
-<summary><b>SSE frame protocol</b></summary>
-
-```text
-data: {"type":"connected","session_id":"…","status":"live"}     ← handshake
-data: { …Event… }                                               ← replayed buffer, in seq order
-data: { …Event… }                                               ← then live events
-: ping                                                          ← every 15s heartbeat
-data: {"type":"session_ended","session_id":"…"}                 ← on stop, then close
-```
-Events are de-duplicated by `id`, so a buffered event is never delivered twice.
-</details>
-
-<details>
-<summary><b>Redis keys</b></summary>
-
-| Key | Type | Purpose |
-|---|---|---|
-| `session:{id}:seq` | counter | atomic `INCR` → next event `seq` |
-| `session:{id}:buffer` | list | event JSON for late-joiner replay |
-| `session:{id}:events` | pub/sub | live fan-out to SSE subscribers |
-| `session:{id}:pending` | list | viewer messages awaiting hook drain (TTL 2h) |
-</details>
-
----
-
-## ✦ Data model
-
-```mermaid
-erDiagram
-  users ||--o{ sessions : owns
-  users ||--o{ refresh_tokens : "has (CLI)"
-  sessions ||--o{ session_events : "has log"
-  sessions ||--o{ session_shares : "granted to"
-  sessions ||--o{ sessions : "forked into"
-
-  users {
-    uuid id PK
-    text handle UK
-    text display_name
-    text email UK "Google"
-    text google_sub UK
-    text name
-    timestamptz last_login_at "admin"
-  }
-  sessions {
-    uuid id PK
-    uuid owner_id FK
-    text title
-    text model
-    text framework
-    text_array tags
-    text status "live | ended"
-    text visibility "private | link | public | open"
-    text link_role "viewer | commenter"
-    int event_count
-    int view_count
-    int input_tokens
-    int output_tokens
-    text client_handle "user@host capture principal"
-    text git_remote
-    text git_branch
-    int fork_count "times forked"
-    uuid forked_from_session_id FK "fork source"
-    int forked_from_seq "pinned snapshot"
-    timestamptz forked_at
-    timestamptz created_at
-    timestamptz ended_at
-    timestamptz published_at "in the feed"
-  }
-  session_events {
-    uuid id PK
-    uuid session_id FK
-    int seq "unique per session"
-    text actor "agent | tool | viewer"
-    text event_type
-    jsonb payload
-    timestamptz ts
-  }
-  session_shares {
-    uuid id PK
-    uuid session_id FK
-    text grantee_email
-    text role "viewer | commenter"
-  }
-  refresh_tokens {
-    uuid id PK
-    uuid user_id FK
-    text token_hash
-  }
+```bash
+docker compose --env-file .env.selfhost -f compose.selfhost.yml exec -T postgres \
+  psql -U liveshortly -d liveshortly -c "UPDATE users SET is_admin = true WHERE email = 'you@example.com';"
 ```
 
-**Event types:** `prompt` · `response` · `tool_call` · `file_write` · `output` · `viewer_comment` · `input_requested` · `viewer_decision`
+### 4. TLS and a public domain
 
-**Additive migrations** run at boot (`store.Migrate`) — the SQL entrypoint scripts only run on a fresh volume, so post-launch columns (visibility, tokens, git, `published_at`, `last_login_at`, …) are added there idempotently.
+The bundled nginx listens on `127.0.0.1:8080` over plain HTTP. Put your own
+TLS-terminating proxy in front of it, set `PUBLIC_ORIGIN=https://your.domain`
+and `PUBLIC_SCHEME=https`, and rebuild (`up -d --build`), since the origin is
+built into the web app. The proxy must not buffer responses:
 
----
-
-## ✦ Capture: wiring Claude Code
-
-Make any real Claude Code session stream into LiveShortly. Merge
-[`cli/settings.example.json`](cli/settings.example.json) into your `~/.claude/settings.json`
-(or a project `.claude/settings.json`), pointing the commands at `cli/hooks/`.
-
-| Hook | Script | Does |
-|---|---|---|
-| `SessionStart` | `session_start.py` | opens a LiveShortly session, prints the share URL |
-| `UserPromptSubmit` | `user_prompt_submit.py` | emits your `prompt` **+ injects** pending viewer messages |
-| `PreToolUse` | `pre_tool_use.py` + `comments_inject.py` | emits `tool_call` **+ mid-turn** viewer injection |
-| `PostToolUse` | `post_tool_use.py` | emits `file_write` / `output` |
-| `SessionEnd` | `session_end.py` | stops + archives the session |
-
-> Hooks are stdlib-only Python, fire-and-forget, and **never block or crash your session**
-> even if the API is down. Then **start a fresh Claude session** (hooks load at start, and
-> Claude Code will ask you to trust them). See [`cli/README.md`](cli/README.md).
-
----
-
-## ✦ Design system
-
-Calm, native-feeling UI matching the PocketAI Mac app: SF/Inter for reading,
-JetBrains Mono only for machine output, one green reserved for live, light and
-dark themes. The Mac palette is the source of truth, mirrored in
-[`web/app/tokens.css`](web/app/tokens.css); see [`web/DESIGN.md`](web/DESIGN.md)
-for the tokens, rules and the component library (`web/components/ui`).
-
----|---|---|---|---|---|---|
-| bg | `#e7e8ea` | `#1e2123` | | ink | `#1b1c1e` | `#e9ebed` |
-| panel | `#f3f4f5` | `#282c2f` | | 🟢 live | `#1f7a4d` | `#54b885` |
-| hairline | `#d0d2d5` | `#3d4247` | | 🔴 ended | `#c0392b` | `#e7705f` |
-| strong | `#1b1c1e` | `#edeff1` | | ★ admin | `#7c3aed` | `#b794f6` |
-
-Font: `'JetBrains Mono', 'IBM Plex Mono', ui-monospace, Menlo, monospace` (also base64-embedded
-for the server-rendered OG cards). Nav tabs: **FEED · MY HUD · PROFILE** (+ **ADMIN** in its own
-violet accent for super-admins). The admin surface reuses the HUD but carries the admin accent
-so it's always obvious you're in admin mode.
-
----
-
-## ✦ Project layout
-
-```
-LiveShortly/
-├── api/                    # Go · chi · pgx · go-redis
-│   ├── cmd/server/         #   entrypoint + router
-│   ├── internal/
-│   │   ├── config/         #   env config (incl. super-admin allowlist)
-│   │   ├── auth/           #   principal middleware (bearer / cookie / anon)
-│   │   ├── websession/     #   JWT issue/verify for cookie + bearer/refresh
-│   │   ├── handlers/       #   sessions · events · stream · comments · feed
-│   │   │                   #   · shares · authweb (Google) · device · stats · admin
-│   │   ├── store/          #   pgx data access + boot migrations
-│   │   ├── bus/            #   redis: seq · buffer · pub/sub · pending
-│   │   └── storage/        #   filesystem archive
-│   └── infra/postgres/     #   init.sql + 002-auth.sql
-├── web/                    # Next.js · App Router · Tailwind v4
-│   ├── app/                #   / (feed) · hud · profile · admin{,/users,/sessions}
-│   │   ├── session/[id]/   #   viewer (client) + server metadata + opengraph-image
-│   │   ├── replay|story/[id]/   #   alternate session views (preview)
-│   │   └── opengraph-image · twitter-image
-│   ├── components/         #   AppShell · EventStream · Feed · SessionList
-│   │                       #   · ui/* (component library) · landing/ …
-│   └── lib/                #   api.ts · ogCard/ogFonts · useAdminGuard
-├── cli/                    # Claude Code capture hooks (Python, stdlib)
-│   ├── hooks/
-│   └── settings.example.json
-├── design/                 # historical offline HTML mockups (spec: web/DESIGN.md)
-├── deploy/                 # systemd units, nginx conf, box provisioning
-├── docker-compose.yml · docker-compose.local.yml   # local dev only — prod runs systemd
-├── CONTRACT.md             # the binding API + design spec
-└── AUTH.md                 # auth endpoints, tokens, sharing model
+```nginx
+location / {
+    proxy_pass http://127.0.0.1:8080;
+    proxy_http_version 1.1;
+    proxy_set_header Host $http_host;
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_buffering off;
+    proxy_cache off;
+    proxy_read_timeout 3600s;
+}
 ```
 
----
+Do not expose the API (`:8000`) or web (`:3000`) ports directly; sign-in and
+streaming depend on the single origin nginx provides.
 
-## ✦ Auth & access control
+### 5. Point `live` at your server
 
-Auth is **live** (see [`AUTH.md`](AUTH.md) for the binding spec). Every `/api` route except
-`/api/me`, the public feed, and open-session reads resolves a principal through one middleware:
+On each machine that runs agents, install `live` and run:
 
-- 🔑 **Web** — Google OAuth (`/auth/google/login` → callback) sets an `ls_session` HttpOnly cookie.
-- 🖥️ **CLI** — a device flow (`/auth/device/start` → poll) mints access + refresh JWTs written to `~/.liveshortly/credentials.json`; hooks auto-refresh on expiry.
-- 👁️ **Anonymous** — `visibility="open"` sessions and the published feed are readable with no account, so a shared link (or a Twitter card crawler) just works.
+```bash
+live host set https://live.example.com
+live login
+live claude
+```
 
-**Authorization** (`handlers/authz.go`): owner → full access; a `session_shares` grant → viewer/commenter;
-`visibility=link|public` → any signed-in user with the URL; `visibility=open` → anyone at all.
-**Super-admins** are the `users.is_admin` column, checked at the nav, the web route,
-and the API — the `/admin` endpoints return `403` to everyone else.
+`live host` shows which server is in use; `live host reset` goes back to
+liveshortly.com. To let the web app's **New session** button start agents on a
+machine, run `live daemon --dir /absolute/path/to/project` there. Accounts and
+sessions are not shared between liveshortly.com and your server.
 
----
+### 6. Phones and the PocketAI apps
 
-## ✦ Roadmap
+The session page works in a phone browser, so you can watch and approve
+sessions on your server from a phone. The PocketAI apps' direct mode connects to
+`live daemon --server` on your agent machine with a shared key, not to this
+server. See [`web/content/docs/pocketai.md`](web/content/docs/pocketai.md).
 
-- [x] Google sign-in + CLI device-flow bearer/refresh tokens
-- [x] Per-session visibility (private / link / public / open) + email sharing
-- [x] Public feed, Share-to-X, Open Graph / Twitter cards
-- [x] Super-admin portal (stats · user directory · session browser)
-- [x] Session **handoff & fork** — continue any readable session as a new owned one
-- [x] **Prior-context** full-history view for forks (virtual, copy-on-write)
-- [x] Multi-agent capture (Claude Code · **Codex** · Gemini · terminal)
-- [ ] Per-user **quotas** (storage + concurrent live sessions) — launch-blocking
-- [ ] `live lineage <id>` — CLI scrollback of a fork's prior context
-- [ ] Semantic search over session content
-- [ ] Persisted Dev Story / blog composer (the UI shells exist)
-- [ ] Replay timeline + chapters (video-style scrubber)
-- [ ] Multi-agent rooms (presence, turn-taking)
+The apps' LiveShortly screens do sign in to a LiveShortly server, and that can be
+yours: on the Mac, LiveShortly › This Mac › Server › Change › Custom… (it runs
+`live host set` too); on the iPhone, Settings › Integrations › LiveShortly, before
+connecting. iOS requires HTTPS for that address.
 
----
+### Update and back up
 
-<div align="center">
+```bash
+git pull --ff-only
+docker compose --env-file .env.selfhost -f compose.selfhost.yml up -d --build
+docker compose --env-file .env.selfhost -f compose.selfhost.yml exec -T postgres \
+  pg_dump -U liveshortly liveshortly > liveshortly-backup.sql
+```
 
-**Built fast, built lean.** · Postgres + Redis + Go + Next.js · `docker compose up`
+Back up before upgrading. Archived replays live in the `api_data` volume.
+`docker compose ... down --volumes` deletes all data.
 
-<sub>🤖 Generated with <a href="https://claude.com/claude-code">Claude Code</a></sub>
+## Build from source
 
-</div>
+API (Go version from `api/go.mod`):
+
+```bash
+cd api
+CGO_ENABLED=0 go build -trimpath -o server ./cmd/server
+```
+
+Web app:
+
+```bash
+cd web
+npm ci
+npm run build
+npm run start   # serves on :3000
+```
+
+`npm run build` first runs `scripts/sync-changelogs.mjs` and
+`scripts/gen-cli-ref.mjs`, which refresh the changelog and CLI reference pages
+from a sibling checkout of the `live` repo if one exists. Without it, the
+committed copies are used.
+
+Docker images: `docker compose build` (or `-f compose.selfhost.yml build`) uses
+`api/Dockerfile` and `web/Dockerfile`.
+
+## Tests
+
+API, with Postgres and Redis available. Integration tests skip when
+`TEST_DATABASE_URL` / `TEST_REDIS_URL` are unset; CI applies
+`api/infra/postgres/init.sql` and then `api/infra/postgres/0*.sql` to a fresh
+database first (see `.github/workflows/ci.yml`).
+
+```bash
+cd api
+go vet ./...
+TEST_DATABASE_URL=postgresql://... TEST_REDIS_URL=redis://localhost:6379 go test -p 1 ./...
+```
+
+Web checks:
+
+```bash
+cd web
+node scripts/check-contrast.mjs   # WCAG AA contrast of the design tokens
+npm ci && npm run a11y            # build, then axe-core over public pages (needs Chrome; set CHROME_PATH)
+npm run check:pages               # every sitemap route renders
+```
+
+Legacy capture hooks: `python -m compileall -q cli/hooks`.
+
+## Repository layout
+
+```
+api/                 Go API (chi, pgx, go-redis)
+  cmd/server/        entry point and router
+  internal/          config, auth, handlers, store, bus (Redis), storage, ...
+  infra/postgres/    base schema SQL
+web/                 Next.js app (App Router, Tailwind)
+  app/ components/ lib/
+  content/docs/      user docs, served at /docs
+cli/                 legacy Python capture hooks for Claude Code (use `live` instead)
+deploy/              nginx configs, plus the hosted service's systemd units and runbook
+docs/                platform overview, use cases, architecture diagram
+design/              historical HTML mockups
+docker-compose.yml           local development stack
+docker-compose.local.yml     local override: nginx, single origin, Google sign-in
+compose.selfhost.yml         self-hosted stack
+AUTH.md              auth endpoints, tokens, sharing model
+CONTRACT.md          API and design contract
+```
+
+## Reference
+
+- User docs: [`web/content/docs/`](web/content/docs/) (getting started, sharing,
+  approvals, forks and handoff, API, troubleshooting).
+- API: [`web/content/docs/api.md`](web/content/docs/api.md) and
+  [`CONTRACT.md`](CONTRACT.md).
+- Auth and access control: [`AUTH.md`](AUTH.md).
+- Platform overview: [`docs/PLATFORM_OVERVIEW.md`](docs/PLATFORM_OVERVIEW.md),
+  use cases: [`docs/USE_CASES.md`](docs/USE_CASES.md).
+- Design system: [`web/DESIGN.md`](web/DESIGN.md).
+- Changes: [`CHANGELOG.md`](CHANGELOG.md).
+
+### How it works
+
+1. `live` opens a session with `POST /api/sessions` and posts each prompt, tool
+   call, file change and reply as an event.
+2. The API assigns each event a sequence number in Redis, stores it in
+   Postgres, buffers it in Redis and publishes it.
+3. Viewers open an SSE stream: buffered events replay first, then live events
+   follow.
+4. A viewer comment becomes an event everyone sees and a queued message that
+   `live` delivers to the agent.
+5. When the session stops it is archived and can be replayed, shared or forked
+   into a new session.
+
+## Contributing
+
+Issues and pull requests are welcome on
+[github.com/liveshortly/liveshortly-server](https://github.com/liveshortly/liveshortly-server).
+Run the tests above before opening a pull request, and keep API changes in
+step with `CONTRACT.md`.
+<!-- TODO(owner): add CONTRIBUTING.md / code of conduct / security contact if wanted. -->
+
+## License
+
+The license has not been decided yet.
+<!-- TODO(owner): choose a license, add a LICENSE file, and update this section. -->

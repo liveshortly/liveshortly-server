@@ -5,7 +5,7 @@
 # service account, the directory layout, nginx, and a Node runtime. The app
 # itself is never built here — the workflow ships prebuilt artifacts.
 #
-#   ssh -i ~/.ssh/ro-mini.pem ubuntu@<app-box> 'bash -s' < deploy/provision-app-box.sh
+#   ssh -i ~/.ssh/<your-key>.pem ubuntu@<app-box> 'bash -s' < deploy/provision-app-box.sh
 set -euo pipefail
 
 export DEBIAN_FRONTEND=noninteractive

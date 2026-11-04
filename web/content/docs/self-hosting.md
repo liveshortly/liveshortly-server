@@ -140,4 +140,5 @@ Archived replays live in the `api_data` volume; back it up with your usual volum
 
 - [Getting started](/docs/getting-started)
 - [Starting sessions from the web](/docs/web-sessions)
+- [Build from source](/docs/build-from-source)
 - [Security](/security)

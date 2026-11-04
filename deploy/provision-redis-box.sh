@@ -3,7 +3,7 @@
 #
 # Redis as a plain apt/systemd service. Run once, from the app box as jump host:
 #
-#   ssh -i ~/.ssh/ro-mini.pem -J ubuntu@<app-box> ubuntu@172.31.23.65 \
+#   ssh -i ~/.ssh/<your-key>.pem -J ubuntu@<app-box> ubuntu@<REDIS_PRIVATE_IP> \
 #       'bash -s' < deploy/provision-redis-box.sh <password>
 #
 # NOTE: this box has no public IPv4 and no NAT, so apt CANNOT reach the network.
