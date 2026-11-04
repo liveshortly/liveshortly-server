@@ -6,6 +6,7 @@ export interface Env extends EmailEnv {
   LICENSE_SIGNING_KEY: string;
   DODO_WEBHOOK_SECRET?: string;
   ISSUE_TOKEN?: string;
+  FREE_TEST_LICENCES?: string;
   PRODUCT_POCKETAI_PRO?: string;
   PRODUCT_LS_PRO?: string;
 }
@@ -215,6 +216,37 @@ async function handleIssue(req: Request, env: Env): Promise<Response> {
   return json({ id: lic.id, key: lic.key, expiry: lic.expiry });
 }
 
+// Free 90-day test licences while PocketAI is in testing (owner, 2026-11-04).
+// Only when FREE_TEST_LICENCES = "1" (test env); one active free key per
+// email and product (asking again returns it), rate-limited per email and IP.
+const FREE_DAYS = 90;
+const FREE_LIMITS = { email: 3, ip: 5 };
+
+async function handleFree(req: Request, env: Env): Promise<Response> {
+  if (env.FREE_TEST_LICENCES !== "1") return json({ error: "free licences are not available" }, 404);
+  const b = (await req.json().catch(() => ({}))) as { email?: string; product?: string };
+  const email = String(b.email ?? "").trim().toLowerCase();
+  const product = (b.product ?? "pocketai-mac") as Product;
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ error: "a valid email is required" }, 400);
+  if (!["pocketai-mac", "ls-pro"].includes(product)) return json({ error: "unknown product" }, 400);
+  const ip = req.headers.get("cf-connecting-ip") ?? "unknown";
+  const now = Math.floor(Date.now() / 1000);
+  for (const [kind, subject] of [["email", `free-email:${email}`], ["ip", `free-ip:${ip}`]] as const) {
+    const row = await env.DB.prepare("SELECT COUNT(*) AS n FROM resends WHERE subject = ? AND at > ?")
+      .bind(subject, now - 86400).first<{ n: number }>();
+    if ((row?.n ?? 0) >= FREE_LIMITS[kind]) return json({ error: "too many requests today, try again tomorrow" }, 429);
+  }
+  await env.DB.prepare("INSERT INTO resends (subject, at) VALUES (?, ?), (?, ?)")
+    .bind(`free-email:${email}`, now, `free-ip:${ip}`, now).run();
+  const existing = await env.DB.prepare(
+    "SELECT key, expiry FROM licenses WHERE email = ? AND product = ? AND provider = 'free' AND status = 'active' AND (expiry IS NULL OR expiry > ?) ORDER BY created DESC LIMIT 1",
+  ).bind(email, product, new Date().toISOString()).first<{ key: string; expiry: string | null }>();
+  if (existing) return json({ key: existing.key, expiry: existing.expiry, existing: true });
+  const lic = await issue(env, { email, product, provider: "free", paymentId: null, days: FREE_DAYS });
+  await sendKeys(env, email, [{ product, key: lic.key, expiry: lic.expiry }]);
+  return json({ key: lic.key, expiry: lic.expiry });
+}
+
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
     const url = new URL(req.url);
@@ -227,6 +259,7 @@ export default {
         case "GET /revoked.json": return await handleRevoked(env);
         case "POST /resend": return await handleResend(req, env);
         case "POST /issue": return await handleIssue(req, env);
+        case "POST /free": return await handleFree(req, env);
         default: return json({ error: "not found" }, 404);
       }
     } catch (e) {
