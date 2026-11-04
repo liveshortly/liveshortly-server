@@ -67,6 +67,10 @@ var migrations = []string{
 	`ALTER TABLE users ADD COLUMN IF NOT EXISTS storage_limit_bytes BIGINT`,
 	`ALTER TABLE users ADD COLUMN IF NOT EXISTS max_live_sessions   INT`,
 	`ALTER TABLE users ADD COLUMN IF NOT EXISTS quota_exempt        BOOLEAN NOT NULL DEFAULT false`,
+	// Plans (LSW-42): free | ls_pro | custom, and a per-user cap on the
+	// number of stored sessions (NULL = the plan's default).
+	`ALTER TABLE users ADD COLUMN IF NOT EXISTS plan          TEXT NOT NULL DEFAULT 'free'`,
+	`ALTER TABLE users ADD COLUMN IF NOT EXISTS session_limit INT`,
 	`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS bytes_used   BIGINT NOT NULL DEFAULT 0`,
 	`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS ended_reason TEXT`,
 

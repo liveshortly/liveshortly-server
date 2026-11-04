@@ -21,9 +21,9 @@ type lineageBody struct {
 		Title string `json:"title"`
 		Seq   int    `json:"seq"`
 	} `json:"source"`
-	SnapshotSeq int             `json:"snapshot_seq"`
-	Events      []store.Event   `json:"events"`
-	Restricted  bool            `json:"restricted"`
+	SnapshotSeq int           `json:"snapshot_seq"`
+	Events      []store.Event `json:"events"`
+	Restricted  bool          `json:"restricted"`
 }
 
 // setupForkWithSource creates a source session owned by `owner` with `n` events,

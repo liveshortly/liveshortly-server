@@ -755,6 +755,10 @@ export interface Me {
   live_sessions?: number;
   max_live_sessions?: number;
   quota_exempt?: boolean;
+  /** Plan (LSW-42): "free" | "ls_pro" | "custom", stored sessions and the cap (0 = none). */
+  plan?: string;
+  sessions?: number;
+  session_limit?: number;
 }
 
 /** Check the current session. A 401 is normal (logged out) → not authenticated. */

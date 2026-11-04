@@ -31,8 +31,8 @@ func decisionKey(id string) string { return fmt.Sprintf("session:%s:decision", i
 func agentChanKey(id string) string { return fmt.Sprintf("session:%s:agent", id) }
 func agentConnKey(id string) string { return fmt.Sprintf("session:%s:agent_connected", id) }
 func agentSeenKey(id string) string { return fmt.Sprintf("session:%s:agent_seen", id) }
-func deviceKey(dc string) string   { return "device:" + dc }
-func userCodeKey(uc string) string { return "usercode:" + uc }
+func deviceKey(dc string) string    { return "device:" + dc }
+func userCodeKey(uc string) string  { return "usercode:" + uc }
 
 // Refresh-token revocation (LSW-28). revokedKey marks a refresh token id whose
 // access tokens must stop working now; rotatedKey links a rotated-in token to

@@ -156,7 +156,10 @@ function UsageMeter({ user }: { user: Me }) {
   const limit = user.storage_limit_bytes ?? 0;
   const live = user.live_sessions ?? 0;
   const maxLive = user.max_live_sessions ?? 0;
+  const sessions = user.sessions ?? 0;
+  const sessionLimit = user.session_limit ?? 0;
   const exempt = !!user.quota_exempt;
+  const plan = user.plan === "ls_pro" ? "LiveShortly Pro" : user.plan === "custom" ? "Custom" : "Free";
 
   return (
     <PanelBox title="▤ USAGE & QUOTA" pad>
@@ -178,6 +181,21 @@ function UsageMeter({ user }: { user: Me }) {
             limitLabel={fmtInt(maxLive)}
             pct={maxLive > 0 ? (live / maxLive) * 100 : 0}
           />
+          {sessionLimit > 0 && (
+            <Meter
+              label="Stored sessions"
+              value={fmtInt(sessions)}
+              limitLabel={fmtInt(sessionLimit)}
+              pct={(sessions / sessionLimit) * 100}
+            />
+          )}
+        </div>
+      )}
+      {!exempt && (
+        <div className="label" style={{ marginTop: 12, color: "var(--muted)" }}>
+          Plan: <span style={{ color: "var(--ink)" }}>{plan}</span>
+          {sessionLimit > 0 && sessions >= sessionLimit * 0.8 &&
+            " — delete old sessions, or upgrade for more room."}
         </div>
       )}
     </PanelBox>

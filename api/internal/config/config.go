@@ -45,6 +45,13 @@ type Config struct {
 	// 100 MB. DefaultMaxLiveSessions caps simultaneous live sessions per user.
 	DefaultStorageLimitBytes int64
 	DefaultMaxLiveSessions   int
+	// Plans (LSW-42). FreeSessionLimit caps how many sessions a Free user may
+	// store; 0 (the default) means no cap, which is what a self-hosted server
+	// wants. LiveShortly Pro gets ProSessionLimit sessions and
+	// ProStorageLimitBytes of storage.
+	FreeSessionLimit     int
+	ProSessionLimit      int
+	ProStorageLimitBytes int64
 
 	// --- Web Push (LSW-21) ---
 	// VAPIDPrivateKey is the base64url raw 32-byte P-256 key that signs push
@@ -84,6 +91,9 @@ func Load() Config {
 
 		DefaultStorageLimitBytes: envInt64("DEFAULT_STORAGE_LIMIT_BYTES", 100*1024*1024),
 		DefaultMaxLiveSessions:   int(envInt64("DEFAULT_MAX_LIVE_SESSIONS", 10)),
+		FreeSessionLimit:         int(envInt64("FREE_SESSION_LIMIT", 0)),
+		ProSessionLimit:          int(envInt64("PRO_SESSION_LIMIT", 100)),
+		ProStorageLimitBytes:     envInt64("PRO_STORAGE_LIMIT_BYTES", 1024*1024*1024),
 
 		VAPIDPrivateKey: env("VAPID_PRIVATE_KEY", ""),
 		VAPIDSubject:    env("VAPID_SUBJECT", "mailto:admin@liveshortly.com"),
