@@ -15,8 +15,10 @@ d1_databases = [{ binding = "DB", database_name = "pocket-licenses-test", databa
 
 [env.test.vars]
 # Dodo TEST-mode product ids (pdt_...). Empty = no product maps, payments are logged and ignored.
-PRODUCT_POCKETAI_PRO = "pdt_0NrDfs5TKE4xj2NW0SAaq"  # confirm 0 vs O with owner
-PRODUCT_LS_PRO = "pdt_0NrDg06qtVEK8n7V0jWBJ"  # confirm 0 vs O with owner
+PRODUCT_POCKETAI_PRO = "pdt_0NrDfs5TKE4xj2NW0SAaq"  # confirmed by owner 11-04
+PRODUCT_LS_PRO = "pdt_0NrDg06qtVEK8n7V0jWBJ"  # confirmed by owner 11-04
+# Free 90-day test licences via POST /free while PocketAI is in testing.
+FREE_TEST_LICENCES = "1"
 EMAIL_FROM = "PocketAI <licenses@getpocketai.app>"
 
 # Production: NOT deployed yet. Needs its own D1 (wrangler d1 create pocket-licenses),
