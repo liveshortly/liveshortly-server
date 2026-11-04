@@ -108,6 +108,31 @@ async function setStatus(env: Env, paymentId: unknown, status: "refunded" | "rev
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
+const PRODUCT_LABEL: Record<string, string> = { "pocketai-mac": "PocketAI Pro", "ls-pro": "LiveShortly Pro" };
+const PRODUCT_STEPS: Record<string, string> = {
+  "pocketai-mac": "On your Mac, open PocketAI &rsaquo; Settings &rsaquo; License and paste the key. It works offline.",
+  "ls-pro": "On liveshortly.com, open Account &rsaquo; Licences and paste the key.",
+};
+
+// The page carries LiveShortly's design tokens (web/app/tokens.css) inline, so
+// it matches the site without loading anything from it.
+const THANKS_CSS = `
+:root{--canvas:#f3f1e9;--surface:#faf9f4;--line:#e3e0d5;--fg:#1a1916;--fg-2:#55524a;--fg-3:#6a675e;--accent:#1f7a4d;--accent-fg:#fff;
+--sans:-apple-system,BlinkMacSystemFont,"SF Pro Text",Inter,system-ui,"Segoe UI",sans-serif;--mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,monospace;color-scheme:light}
+@media (prefers-color-scheme:dark){:root{--canvas:#121110;--surface:#1a1916;--line:#2c2a25;--fg:#ebe8e0;--fg-2:#a8a399;--fg-3:#8e8a81;--accent:#3db27e;--accent-fg:#0d0d0c;color-scheme:dark}}
+*{box-sizing:border-box}body{margin:0;background:var(--canvas);color:var(--fg);font:400 16px/1.5 var(--sans);-webkit-font-smoothing:antialiased}
+main{max-width:36rem;margin:0 auto;padding:56px 16px}
+.brand{font:600 14px/1 var(--sans);letter-spacing:.02em;color:var(--fg-2);text-decoration:none}.brand b{color:var(--accent)}
+h1{font:700 28px/1.2 var(--sans);margin:28px 0 8px}p{margin:0 0 12px;color:var(--fg-2)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px;margin:24px 0}
+.label{font:600 13px/1 var(--sans);text-transform:uppercase;letter-spacing:.06em;color:var(--fg-3);margin-bottom:10px}
+.key{font:13px/1.5 var(--mono);word-break:break-all;background:var(--canvas);border:1px solid var(--line);border-radius:10px;padding:12px;user-select:all;color:var(--fg)}
+.row{display:flex;gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap}
+button{font:600 14px/1 var(--sans);background:var(--accent);color:var(--accent-fg);border:0;border-radius:999px;padding:10px 16px;cursor:pointer}
+.hint{font-size:14px;color:var(--fg-2);margin:0}.foot{font-size:13px;color:var(--fg-3);margin-top:32px}
+.foot a,.pending a{color:var(--accent)}
+`;
+
 async function handleThanks(url: URL, env: Env): Promise<Response> {
   const paymentId = url.searchParams.get("payment_id") ?? "";
   const { results } = paymentId
@@ -115,16 +140,35 @@ async function handleThanks(url: URL, env: Env): Promise<Response> {
         "SELECT product, key FROM licenses WHERE provider = 'dodo' AND provider_payment_id = ? AND status = 'active'",
       ).bind(paymentId).all<{ product: string; key: string }>()
     : { results: [] };
-  const inner = results.length
-    ? results.map((r) => `<p><b>${esc(r.product)}</b></p><textarea readonly rows="4">${esc(r.key)}</textarea>`).join("") +
-      "<p>We also emailed it to you. On your Mac: Settings &rsaquo; License, paste the key.</p>"
-    : "<p>Your payment is being processed. Your key is on its way to your email; check your inbox (and spam) in a minute, or refresh this page.</p>";
-  return new Response(
-    `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Thanks</title>` +
-      `<style>body{font:16px system-ui;max-width:40rem;margin:3rem auto;padding:0 1rem}textarea{width:100%;font:13px ui-monospace,monospace}</style>` +
-      `<h1>Thank you</h1>${inner}`,
-    { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" } },
-  );
+  const cards = results.map((r, i) => `
+<section class="card">
+  <div class="label">${esc(PRODUCT_LABEL[r.product] ?? r.product)} licence key</div>
+  <div class="key" id="k${i}">${esc(r.key)}</div>
+  <div class="row"><button type="button" data-copy="k${i}">Copy key</button>
+  <p class="hint">${PRODUCT_STEPS[r.product] ?? ""}</p></div>
+</section>`).join("");
+  const body = results.length
+    ? `<h1>Thank you</h1><p>Your purchase is complete. Keep this key somewhere safe; we've also emailed it to you.</p>${cards}`
+    : `<h1>Thank you</h1><p class="pending">Your payment is being confirmed. Your key appears here in a few seconds, and it's emailed to you. <a href="">Refresh</a> if it doesn't show.</p>`;
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Thank you · PocketAI</title><style>${THANKS_CSS}</style></head><body><main>
+<a class="brand" href="https://liveshortly.com"><b>●</b> LiveShortly · PocketAI</a>
+${body}
+<p class="foot">Lost your key? We can resend it to your purchase email. Refunds within 14 days: reply to the receipt email. <a href="https://liveshortly.com">liveshortly.com</a></p>
+</main><script>
+document.querySelectorAll("[data-copy]").forEach(b=>b.addEventListener("click",async()=>{
+  const t=document.getElementById(b.dataset.copy).textContent;
+  try{await navigator.clipboard.writeText(t);b.textContent="Copied";setTimeout(()=>b.textContent="Copy key",1500)}catch{}
+}));
+${results.length ? "" : "setTimeout(()=>location.reload(),5000);"}
+</script></body></html>`;
+  return new Response(html, {
+    headers: {
+      "Content-Type": "text/html; charset=utf-8",
+      "Cache-Control": "no-store",
+      "Referrer-Policy": "no-referrer",
+    },
+  });
 }
 
 async function handleRevoked(env: Env): Promise<Response> {
