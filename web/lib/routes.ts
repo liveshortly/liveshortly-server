@@ -36,5 +36,7 @@ export const SITE_PAGES = [
   { slug: "pricing", label: "Pricing" },
   { slug: "security", label: "Security" },
   { slug: "privacy", label: "Privacy" },
+  { slug: "pocketai-privacy", label: "PocketAI privacy" },
+  { slug: "support", label: "Support" },
   { slug: "terms", label: "Terms" },
 ] as const;
