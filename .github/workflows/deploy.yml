@@ -126,6 +126,7 @@ jobs:
           WEB_BASE_URL=https://liveshortly.com
           CORS_ORIGINS=${PUBLIC_ORIGIN}
           DEFAULT_USER_HANDLE=rsehgal
+          FREE_SESSION_LIMIT=20
           EOF
           ssh ${SSH_OPTS} "${DEPLOY_USER}@${DEPLOY_HOST}" \
             "sudo tee /etc/liveshortly/web.env >/dev/null && \

@@ -307,6 +307,17 @@ func TestPlanSessionLimit(t *testing.T) {
 		t.Fatalf("want pro SessionLimitError{3}, got %v", err)
 	}
 
+	// Admins are never capped.
+	if _, err := d.Pool.Exec(ctx, `UPDATE users SET is_admin = true WHERE id = $1`, u.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := create(); err != nil {
+		t.Fatalf("admin create over cap: %v", err)
+	}
+	if _, err := d.Pool.Exec(ctx, `UPDATE users SET is_admin = false WHERE id = $1`, u.ID); err != nil {
+		t.Fatal(err)
+	}
+
 	// No Free cap configured (self-hosted default): no limit.
 	d.Store.Plans = store.PlanLimits{}
 	if _, err := d.Pool.Exec(ctx, `UPDATE users SET plan = 'free' WHERE id = $1`, u.ID); err != nil {
