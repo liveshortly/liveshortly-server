@@ -6,12 +6,58 @@ Homebrew formula and `live version` report.
 
 ## Unreleased
 
+## v2.3.9 — 2026-11-04
+
+### Changed
+- **`live daemon` no longer offers gemini** (LSH-21). It is not listed for
+  web/app-started sessions; `live gemini` still runs from a terminal.
+
+## v2.3.8 — 2026-11-04
+
+### Fixed
+- **Web-started pi, ollama and `agents.json` agents work (LSH-20).** They run
+  in their own tmux session (`tmux -L liveshortly attach -t live-<id>`), the
+  web shows what the agent prints (full-screen TUIs showed nothing before),
+  viewer messages are typed in once the agent is idle, and ending the
+  session from the web closes the pane. `LIVE_TMUX=0` keeps the old PTY mode.
+- **claude hears web messages when an org policy blocks channels.** live
+  sees claude's "blocked by org policy" warning and types messages into the
+  composer instead of the channel, which was dropping every one.
+- **codex hears web messages when its hook config changed.** live skips
+  codex's startup hooks-review screens (Esc — nothing is trusted, unreviewed
+  hooks stay off) and confirms a message reached the composer before
+  pressing Enter.
+- codex's injected AGENTS.md / `<…_instructions>` blocks no longer show on
+  the web as a user prompt.
+
+## v2.3.7 — 2026-11-03
+
 ### Added
+- **`live agents`** lists each builtin agent found (with its path) or not
+  found, and each `agents.json` entry (LSH-18).
+- **The daemon finds agents installed outside the system PATH (LSH-18).** It
+  probes and spawns with the inherited PATH plus the login shell's PATH and
+  the usual global-bin dirs (~/.local/bin, ~/.bun/bin, ~/.npm-global/bin,
+  pnpm, volta, mise/asdf shims, ~/go/bin, ~/.cargo/bin), and logs the
+  builtins it didn't find.
+- **`live daemon` sends its version when it registers** (`version`, LSH-19),
+  so the server can flag an out-of-date daemon.
 - **Support matrix: "First message wakes idle agent" and "Model choice at
   start" columns (LSH-15, LSH-16).** Also `first_message` and `model_choice` in
   `docs/harness-matrix.json`; existing fields are unchanged.
 
 ### Fixed
+- **Terminal agents get the first viewer message without anyone typing in the
+  CLI (LSH-19).** aider, cursor-agent, hermes, copilot, opencode, crush, goose,
+  amp, qwen and pi now have messages typed in once they are idle at their
+  prompt, with no dialog on screen. The message is submitted only after the
+  agent echoes it, and Enter is retried once. After 20 s the session page
+  says what is blocking. ollama and `type_comments` adapters use the same
+  path, so they are no longer typed into blind. The agents.json field
+  `ready_pattern` pins an agent's prompt.
+- **Ended sessions stop reconnecting (LSH-19).** On `session_ended` the
+  sidecar stops instead of retrying `agent/stream` forever. A web-started
+  session also ends its agent, so the process exits.
 - **codex app-server: a web-picked model no longer becomes the opening turn.**
   The daemon's `--model <id>` (and `--ask-for-approval never`) values were read
   as the initial prompt; the model now goes on `thread/start`.
