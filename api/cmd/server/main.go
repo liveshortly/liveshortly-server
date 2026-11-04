@@ -91,6 +91,9 @@ func main() {
 	// window. Never touches legacy plugin sessions (they lack the agent marker).
 	go reaper.RunAbandonedAgents(bgCtx, st, b, blob, cfg.LiveAgentGrace, agentReapInterval)
 
+	// Revoked LiveShortly Pro licences drop back to Free limits (LSW-44).
+	go h.RunLicencePoller(bgCtx)
+
 	// Auth layer: Google web login + CLI device flow, both minting app tokens.
 	webSessions := websession.NewManager(cfg.SessionSecret, cfg.WebBaseURL)
 	webSessions.Revoked = b.TokenRevoked // DELETE /auth/tokens/{id} kills access tokens now
@@ -224,6 +227,9 @@ func router(cfg config.Config, h *handlers.Handler, ga *handlers.GoogleAuth, mgr
 			r.Get("/stats", h.Stats)
 			r.Get("/me/activity", h.Activity)
 			r.Get("/me/tokens", ga.ListTokens)
+			r.Get("/me/licences", h.ListLicences)
+			r.Post("/me/licences", h.AddLicence)
+			r.Delete("/me/licences/{id}", h.DeleteLicence)
 			// Notifications (LSW-21): bell feed + Web Push subscriptions.
 			r.Get("/notifications", h.Notifications)
 			r.Get("/push/key", h.PushKey)

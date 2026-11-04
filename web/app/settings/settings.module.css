@@ -140,3 +140,29 @@
   border-color: var(--fg-3);
 }
 
+
+.keyInput {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 5.5em;
+  margin: var(--space-8) 0;
+  padding: var(--space-8) var(--space-12);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-hud);
+  background: var(--raised);
+  color: var(--fg);
+  resize: vertical;
+  overflow-wrap: anywhere;
+}
+
+.button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.back {
+  display: inline-block;
+  margin-bottom: var(--space-12);
+  color: var(--fg-2);
+}

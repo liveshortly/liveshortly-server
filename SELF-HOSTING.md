@@ -103,6 +103,7 @@ Edit `.env.selfhost`:
 | `SESSION_SECRET` | yes | The second value. It signs sign-in cookies and handoff codes. Changing it later signs everyone out. |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | yes | From step 5. |
 | `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | no | Web Push, step 11. Leave them empty to turn it off. |
+| `LICENSE_PUBLIC_KEYS`, `LICENSE_ACCOUNT_ID`, `LICENSE_REVOKED_URL` | no | LiveShortly Pro licence checking (Account › Licences). You do not need these: a self-hosted server has no session cap unless you set `FREE_SESSION_LIMIT`. |
 
 Never commit `.env.selfhost`.
 

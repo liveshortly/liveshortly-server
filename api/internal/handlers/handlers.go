@@ -3,6 +3,7 @@ package handlers
 
 import (
 	"context"
+	"liveshortly/internal/licensing"
 	"log"
 	"net/http"
 
@@ -24,11 +25,20 @@ type Handler struct {
 	// Web Push (LSW-21); nil / "" when VAPID_PRIVATE_KEY is unset.
 	push        webpush.Sender
 	vapidPublic string
+
+	// Licences (LSW-44).
+	licences licensing.Verifier
+	revoked  licensing.Revoked
 }
 
 // New constructs a Handler.
 func New(st *store.Store, b *bus.Bus, blob *storage.Store, cfg config.Config) *Handler {
 	h := &Handler{store: st, bus: b, blob: blob, cfg: cfg}
+	keys, err := licensing.ParseKeys(cfg.LicensePublicKeys)
+	if err != nil {
+		log.Printf("licences: %v (no key will verify)", err)
+	}
+	h.licences = licensing.Verifier{Keys: keys, Account: cfg.LicenseAccountID}
 	if cfg.VAPIDPrivateKey != "" {
 		v, err := webpush.New(cfg.VAPIDPrivateKey, cfg.VAPIDSubject)
 		if err != nil {

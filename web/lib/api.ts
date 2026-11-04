@@ -978,3 +978,45 @@ export async function savePushEndpoint(endpoint: string, method: "POST" | "DELET
   });
   if (!res.ok) throw new ApiError(res.status, `push subscription ${res.status}`);
 }
+
+/** A stored LiveShortly Pro licence (LSW-44). The key is never returned. */
+export interface Licence {
+  id: string;
+  last4: string;
+  product: string;
+  expiry: string | null;
+  added: string;
+  status: "active" | "revoked" | "expired";
+}
+
+/** Effective plan and limits after adding or removing a licence. */
+export interface PlanLimits {
+  plan: string;
+  storage_limit_bytes: number;
+  session_limit: number;
+}
+
+export async function listLicences(signal?: AbortSignal): Promise<Licence[]> {
+  const d = await getJSON<{ licences: Licence[] | null }>("/api/me/licences", signal);
+  return d.licences ?? [];
+}
+
+async function licenceCall(path: string, init: RequestInit): Promise<PlanLimits> {
+  const res = await fetch(`${browserBase()}${path}`, { ...init, credentials: "include" });
+  const body = (await res.json().catch(() => ({}))) as Partial<PlanLimits> & { error?: string };
+  if (!res.ok) throw new ApiError(res.status, body.error ?? `Request failed (${res.status})`);
+  return body as PlanLimits;
+}
+
+/** POST /api/me/licences. Throws ApiError with the server's plain-words message. */
+export function addLicence(key: string): Promise<PlanLimits> {
+  return licenceCall("/api/me/licences", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ key }),
+  });
+}
+
+export function removeLicence(id: string): Promise<PlanLimits> {
+  return licenceCall(`/api/me/licences/${encodeURIComponent(id)}`, { method: "DELETE" });
+}

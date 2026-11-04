@@ -45,6 +45,10 @@ services:
       # Optional Web Push for approval requests; empty disables it (deploy/DEPLOY.md).
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
       VAPID_SUBJECT: ${VAPID_SUBJECT:-}
+      # Optional. Empty keys/account = built-in test defaults; empty revoked URL = no polling.
+      LICENSE_PUBLIC_KEYS: ${LICENSE_PUBLIC_KEYS:-}
+      LICENSE_ACCOUNT_ID: ${LICENSE_ACCOUNT_ID:-}
+      LICENSE_REVOKED_URL: ${LICENSE_REVOKED_URL:-}
     volumes: [api_data:/app/data/sessions]
     healthcheck:
       test: [CMD, wget, -qO-, "http://127.0.0.1:8000/health"]
