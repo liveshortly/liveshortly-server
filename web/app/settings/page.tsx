@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import ConfirmPopover from "@/components/ConfirmPopover";
 import { useAuth } from "@/components/AuthContext";
@@ -81,6 +82,9 @@ export default function SettingsPage() {
         </div>
         <p className={`t-callout ${styles.note}`}>
           Name and email come from your Google account and update when you sign in.
+        </p>
+        <p className={`t-callout ${styles.note}`}>
+          <Link href="/settings/licences">Licences and plan</Link>
         </p>
       </section>
 
