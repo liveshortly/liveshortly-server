@@ -6,11 +6,11 @@ DNS-only (grey cloud), so nothing else is in front to do it. Postgres is Supabas
 (managed, external); Redis has its own box.
 
 ```
-Internet ──HTTPS:443──▶ liveshortly-app  (Elastic IP 203.0.113.10)
+Internet ──HTTPS:443──▶ liveshortly-app  (Elastic IP <APP_PUBLIC_IP>)
       (:80 301s here)      nginx (host) — terminates TLS, Let's Encrypt
                              ├── /             ▶ web  127.0.0.1:3000
                              └── /api, /health ▶ api  127.0.0.1:8000
-                                                  ├─ VPC ─▶ liveshortly-redis 198.51.100.7:6379
+                                                  ├─ VPC ─▶ liveshortly-redis <REDIS_PRIVATE_IP>:6379
                                                   └─ TLS ─▶ Supabase Postgres (us-west-1)
 ```
 
@@ -22,15 +22,15 @@ multiple times per page.
 
 | Name | Type | Disk | Public IPv4 | Reachable from |
 |---|---|---|---|---|
-| `liveshortly-app` | t3.micro | 20 GB gp3 | Elastic IP `203.0.113.10` | :22 world (key auth only, for CI), :80 + :443 **Cloudflare ranges only** |
+| `liveshortly-app` | t3.micro | 20 GB gp3 | Elastic IP `<APP_PUBLIC_IP>` | :22 world (key auth only, for CI), :80 + :443 **Cloudflare ranges only** |
 | `liveshortly-redis` | t3.micro | 8 GB gp3 | **none** | :22 and :6379 **from the app box's SG only** |
 
 Both in `us-west-1a` (same AZ → no cross-AZ transfer cost, lowest redis latency).
-SSH key is the existing `ci-user` pair, imported into the account.
+SSH key: an existing key pair imported into the account.
 
 ```bash
-ssh -i ~/.ssh/ci-user.pem ubuntu@203.0.113.10                          # app box
-ssh -i ~/.ssh/ci-user.pem -J ubuntu@203.0.113.10 ubuntu@198.51.100.7   # redis box, via the app box
+ssh -i ~/.ssh/<your-key>.pem ubuntu@<APP_PUBLIC_IP>                          # app box
+ssh -i ~/.ssh/<your-key>.pem -J ubuntu@<APP_PUBLIC_IP> ubuntu@<REDIS_PRIVATE_IP>   # redis box, via the app box
 ```
 
 The app box keeps an Elastic IP so the address survives stop/start — the DNS A
@@ -50,7 +50,7 @@ ever need direct access (debugging, or reverting to DNS-only):
 
 ```bash
 aws ec2 authorize-security-group-ingress --region us-west-1 \
-  --group-id sg-0123456789abcdef0 \
+  --group-id <APP_SECURITY_GROUP_ID> \
   --ip-permissions 'IpProtocol=tcp,FromPort=80,ToPort=80,IpRanges=[{CidrIp=0.0.0.0/0}]' \
   'IpProtocol=tcp,FromPort=443,ToPort=443,IpRanges=[{CidrIp=0.0.0.0/0}]'
 ```
@@ -89,11 +89,11 @@ It has no public IPv4 and there is no NAT gateway, so `apt-get` will hang. That 
 connects to from outside. Two consequences:
 
 - **Rebuilding it**: launch stock Ubuntu 24.04 with
-  `--no-associate-public-ip-address --private-ip-address 198.51.100.7` (so
+  `--no-associate-public-ip-address --private-ip-address <REDIS_PRIVATE_IP>` (so
   `REDIS_URL` stays valid), attach a temporary Elastic IP, run
   `deploy/provision-redis-box.sh <password>`, then disassociate **and release**
   the EIP. Cloud-init regenerates the SSH host key, so `ssh-keygen -R
-  198.51.100.7` locally afterwards.
+  <REDIS_PRIVATE_IP>` locally afterwards.
 - **To patch the OS**, the same temporary-EIP cycle. An allocated-but-unattached
   EIP is billed, so release it, don't just disassociate it.
 
@@ -102,7 +102,7 @@ connects to from outside. Two consequences:
 `/etc/liveshortly/api.env` and `/etc/liveshortly/web.env`, both **written by the
 deploy workflow** from GitHub secrets on every run (mode 640, `root:liveshortly`).
 `api.env` carries `DATABASE_URL` (Supabase), `REDIS_URL`
-(`redis://:<password>@198.51.100.7:6379`) and the Google OAuth values.
+(`redis://:<password>@<REDIS_PRIVATE_IP>:6379`) and the Google OAuth values.
 
 Admin is **not** configured here. It is the `users.is_admin` column, so the
 `/admin` surface is granted with a database statement and takes effect without
@@ -169,7 +169,7 @@ sudo nginx -t && sudo systemctl reload nginx
 
 ## 6. DNS / TLS
 
-`liveshortly.com` A → **203.0.113.10**, **proxied (orange cloud)**. nginx still
+`liveshortly.com` A → **<APP_PUBLIC_IP>**, **proxied (orange cloud)**. nginx still
 terminates TLS with its own Let's Encrypt cert, so Cloudflare talks to a real
 certificate on `:443`; `:80` 301s to `:443`.
 

@@ -15,6 +15,7 @@ export const SLUGS = [
   "agents",
   "pocketai",
   "self-hosting",
+  "build-from-source",
   "cli-reference",
   "api",
   "troubleshooting",
