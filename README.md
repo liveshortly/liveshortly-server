@@ -45,7 +45,7 @@ live claude
 [live README](https://github.com/liveshortly/live) for other install methods and
 agents.
 
-To run your own server, go to [Self-host](#self-host).
+To run your own server, follow [SELF-HOSTING.md](SELF-HOSTING.md).
 
 ## Run locally (development)
 
@@ -159,10 +159,12 @@ API-only settings, read in `api/internal/config/config.go`:
 
 ## Self-host
 
-The full guide is [`web/content/docs/self-hosting.md`](web/content/docs/self-hosting.md)
-(also served at `/docs/self-hosting` on any running instance). It covers
-OAuth setup, HTTPS, Web Push, quotas, backups, restores and troubleshooting. The
-steps below are the short path.
+**The full step-by-step guide is [SELF-HOSTING.md](SELF-HOSTING.md).** It goes
+from an empty machine to a working server: choosing local, Tailscale or public
+access, the Google OAuth client, HTTPS with Caddy, nginx or Tailscale, the first
+admin, connecting agent machines (`live host set`, `live daemon` as a service),
+the PocketAI apps, Web Push, updates, backups, a security checklist and
+troubleshooting. The steps below are the short path.
 
 `deploy/DEPLOY.md`, `deploy/systemd/` and the provisioning scripts describe how
 the hosted liveshortly.com service is deployed. They are not needed for a
