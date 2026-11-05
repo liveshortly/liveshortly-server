@@ -21,9 +21,9 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  # Elastic IP of the liveshortly-app EC2 box (us-west-1, same region as the
-  # Supabase project) — stable across stop/start.
-  DEPLOY_HOST: 203.0.113.10
+  # Address of the app box, from the repo variable DEPLOY_HOST (Settings →
+  # Secrets and variables → Actions → Variables) so it isn't in a public repo.
+  DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
   DEPLOY_USER: ubuntu
   SSH_OPTS: -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o ServerAliveInterval=20 -o ServerAliveCountMax=30 -o BatchMode=yes
   PUBLIC_ORIGIN: https://liveshortly.com
