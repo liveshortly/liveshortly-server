@@ -18,6 +18,7 @@ store in D1 → email it. Design: getpocketai `strategy/07-qa-release-commerce.m
 | `GET /revoked.json` | Signed list of refunded/revoked licence ids (see format below). Cached 1 h. |
 | `POST /resend {"email"}` | Re-emails that address's active keys. Max 3/h per email, 10/h per IP. Same answer whether or not keys exist. |
 | `POST /issue` | Owner only, `Authorization: Bearer $ISSUE_TOKEN`. Body `{"email", "product": "pocketai-mac"\|"ls-pro", "days"?}`. Returns `{id, key, expiry}` and emails it. |
+| `POST /activate` `/activations` `/deactivate` | COM-14 device cap. Body `{"key", "device_id", "name"?, "platform"?}` (`/activations` needs only `key`). The key must be one we issued. `/activate` registers a Mac (idempotent per `device_id`), or answers 409 `{error, limit, devices}` once `limits.devices` (5) Macs are registered; `/deactivate` frees a slot. Only `pocketai-mac` licences; paired phones are counted by the Mac itself (D138). 60 calls/h per IP. |
 
 Product mapping (env vars in `wrangler.toml`): `PRODUCT_POCKETAI_PRO` → `pocketai-mac` (no expiry),
 `PRODUCT_LS_PRO` → `ls-pro` (1 year, stacked on the buyer's latest active ls-pro expiry).

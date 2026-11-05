@@ -1,4 +1,4 @@
-import { importSigningKey, mintKey, safeEqual, signRevoked, verifyWebhook, type Product } from "./crypto.ts";
+import { b64decode, importSigningKey, mintKey, safeEqual, signRevoked, verifyWebhook, type Product } from "./crypto.ts";
 import { sendKeys, type EmailEnv } from "./email.ts";
 
 export interface Env extends EmailEnv {
@@ -247,6 +247,91 @@ async function handleFree(req: Request, env: Env): Promise<Response> {
   return json({ key: lic.key, expiry: lic.expiry });
 }
 
+// COM-14: device activations. The caller proves it holds the licence by
+// sending its key, which is looked up in D1 (only keys we issued are stored),
+// so no public key is needed here. The cap comes from the signed payload's
+// limits.devices (COM-06); Macs register, the Mac counts its paired phones
+// itself (D138). ponytail: no signature re-check, the stored key is the proof.
+const DEVICE_ID = /^[A-Za-z0-9._:-]{8,128}$/;
+const ACT_LIMIT_PER_HOUR = 60;
+
+interface ActLicense { id: string; product: string; status: string; expiry: string | null; limit: number }
+interface Device { device_id: string; name: string | null; platform: string | null; created: string; last_seen: string }
+
+async function licenseForKey(env: Env, key: unknown): Promise<ActLicense | null> {
+  if (typeof key !== "string" || key.length > 2048) return null;
+  const row = await env.DB.prepare("SELECT id, product, status, expiry FROM licenses WHERE key = ?")
+    .bind(key).first<{ id: string; product: string; status: string; expiry: string | null }>();
+  if (!row) return null;
+  let limit = 5;
+  try {
+    const payload = JSON.parse(new TextDecoder().decode(b64decode(key.slice(4, key.lastIndexOf(".")))));
+    if (Number.isInteger(payload?.limits?.devices) && payload.limits.devices > 0) limit = payload.limits.devices;
+  } catch { /* keep the default */ }
+  return { ...row, limit };
+}
+
+async function devicesOf(env: Env, id: string): Promise<Device[]> {
+  const { results } = await env.DB.prepare(
+    "SELECT device_id, name, platform, created, last_seen FROM activations WHERE license_id = ? ORDER BY created",
+  ).bind(id).all<Device>();
+  return results;
+}
+
+async function actPreflight(req: Request, env: Env) {
+  const ip = req.headers.get("cf-connecting-ip") ?? "unknown";
+  const now = Math.floor(Date.now() / 1000);
+  const row = await env.DB.prepare("SELECT COUNT(*) AS n FROM resends WHERE subject = ? AND at > ?")
+    .bind(`act-ip:${ip}`, now - 3600).first<{ n: number }>();
+  if ((row?.n ?? 0) >= ACT_LIMIT_PER_HOUR) return { res: json({ error: "too many requests, try again later" }, 429) };
+  await env.DB.prepare("INSERT INTO resends (subject, at) VALUES (?, ?)").bind(`act-ip:${ip}`, now).run();
+  const b = (await req.json().catch(() => ({}))) as { key?: string; device_id?: string; name?: string; platform?: string };
+  const lic = await licenseForKey(env, b.key);
+  if (!lic) return { res: json({ error: "unknown licence key" }, 404) };
+  if (lic.product !== "pocketai-mac") return { res: json({ error: "this licence has no device limit" }, 400) };
+  if (lic.status !== "active") return { res: json({ error: `licence is ${lic.status}` }, 403) };
+  if (lic.expiry && Date.parse(lic.expiry) <= Date.now()) return { res: json({ error: "licence expired" }, 403) };
+  return { lic, b };
+}
+
+async function handleActivate(req: Request, env: Env): Promise<Response> {
+  const pre = await actPreflight(req, env);
+  if (pre.res) return pre.res;
+  const { lic, b } = pre as { lic: ActLicense; b: { device_id?: string; name?: string; platform?: string } };
+  if (!DEVICE_ID.test(b.device_id ?? "")) return json({ error: "device_id must be 8-128 chars of A-Z a-z 0-9 . _ : -" }, 400);
+  const name = String(b.name ?? "").slice(0, 80) || null;
+  const platform = String(b.platform ?? "").slice(0, 24) || null;
+  const nowIso = new Date().toISOString();
+  const devices = await devicesOf(env, lic.id);
+  const known = devices.find((d) => d.device_id === b.device_id);
+  if (!known && devices.length >= lic.limit)
+    return json({ error: "device limit reached", limit: lic.limit, devices }, 409);
+  if (known) {
+    await env.DB.prepare("UPDATE activations SET last_seen = ?, name = COALESCE(?, name), platform = COALESCE(?, platform) WHERE license_id = ? AND device_id = ?")
+      .bind(nowIso, name, platform, lic.id, b.device_id).run();
+  } else {
+    await env.DB.prepare("INSERT INTO activations (license_id, device_id, name, platform, created, last_seen) VALUES (?, ?, ?, ?, ?, ?)")
+      .bind(lic.id, b.device_id, name, platform, nowIso, nowIso).run();
+  }
+  return json({ ok: true, limit: lic.limit, devices: await devicesOf(env, lic.id) });
+}
+
+async function handleActivations(req: Request, env: Env): Promise<Response> {
+  const pre = await actPreflight(req, env);
+  if (pre.res) return pre.res;
+  const lic = (pre as { lic: ActLicense }).lic;
+  return json({ limit: lic.limit, devices: await devicesOf(env, lic.id) });
+}
+
+async function handleDeactivate(req: Request, env: Env): Promise<Response> {
+  const pre = await actPreflight(req, env);
+  if (pre.res) return pre.res;
+  const { lic, b } = pre as { lic: ActLicense; b: { device_id?: string } };
+  const r = await env.DB.prepare("DELETE FROM activations WHERE license_id = ? AND device_id = ?")
+    .bind(lic.id, String(b.device_id ?? "")).run();
+  return json({ ok: true, removed: r.meta.changes > 0, limit: lic.limit, devices: await devicesOf(env, lic.id) });
+}
+
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
     const url = new URL(req.url);
@@ -260,6 +345,9 @@ export default {
         case "POST /resend": return await handleResend(req, env);
         case "POST /issue": return await handleIssue(req, env);
         case "POST /free": return await handleFree(req, env);
+        case "POST /activate": return await handleActivate(req, env);
+        case "POST /activations": return await handleActivations(req, env);
+        case "POST /deactivate": return await handleDeactivate(req, env);
         default: return json({ error: "not found" }, 404);
       }
     } catch (e) {
