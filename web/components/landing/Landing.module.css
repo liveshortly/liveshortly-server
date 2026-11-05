@@ -164,3 +164,24 @@
 .search {
   margin: 0 auto 24px;
 }
+
+.points {
+  list-style: none;
+  margin: 28px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--fg-2);
+}
+.points li {
+  border: 1px solid var(--green-line);
+  background: var(--green-tint);
+  padding: 12px 14px;
+}
+.points strong {
+  display: block;
+  color: var(--fg);
+}

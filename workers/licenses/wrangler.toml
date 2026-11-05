@@ -19,7 +19,8 @@ PRODUCT_POCKETAI_PRO = "pdt_0NrDfs5TKE4xj2NW0SAaq"  # confirmed by owner 11-04
 PRODUCT_LS_PRO = "pdt_0NrDg06qtVEK8n7V0jWBJ"  # confirmed by owner 11-04
 # Free 90-day test licences via POST /free while PocketAI is in testing.
 FREE_TEST_LICENCES = "1"
-EMAIL_FROM = "PocketAI <licenses@getpocketai.app>"
+ALLOW_LOCALHOST_CORS = "1"  # test only: lets http://localhost:* call /free (never set in production)
+EMAIL_FROM = "PocketAI <licenses@liveshortly.com>"
 
 # Production: NOT deployed yet. Needs its own D1 (wrangler d1 create pocket-licenses),
 # its own signing key, and live Dodo ids.
@@ -30,4 +31,4 @@ d1_databases = [{ binding = "DB", database_name = "pocket-licenses", database_id
 [env.production.vars]
 PRODUCT_POCKETAI_PRO = ""
 PRODUCT_LS_PRO = ""
-EMAIL_FROM = "PocketAI <licenses@getpocketai.app>"
+EMAIL_FROM = "PocketAI <licenses@liveshortly.com>"

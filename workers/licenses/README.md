@@ -18,6 +18,9 @@ store in D1 → email it. Design: getpocketai `strategy/07-qa-release-commerce.m
 | `GET /revoked.json` | Signed list of refunded/revoked licence ids (see format below). Cached 1 h. |
 | `POST /resend {"email"}` | Re-emails that address's active keys. Max 3/h per email, 10/h per IP. Same answer whether or not keys exist. |
 | `POST /issue` | Owner only, `Authorization: Bearer $ISSUE_TOKEN`. Body `{"email", "product": "pocketai-mac"\|"ls-pro", "days"?}`. Returns `{id, key, expiry}` and emails it. |
+| `POST /free {"email","product"?,"marketing_optin"?}` | Test env only (`FREE_TEST_LICENCES=1`). Free 90-day key; asking again returns the same key. Emails the key on **every** request. Returns `{key, expiry, existing?, emailed}`; a Resend failure never 500s (`emailed:false`). CORS allows only `https://pocket.liveshortly.com` (plus `http://localhost:*` when `ALLOW_LOCALHOST_CORS=1`); `OPTIONS /free` preflight. Limits 3/day per email, 5/day per IP. |
+| `GET /contacts.csv` | Owner only (`Bearer $ISSUE_TOKEN`). CSV `email,source,product,first_seen,marketing_optin`, never logged. |
+| `POST /forget {"email"}` | Mails a one-hour confirmation link (same answer whether or not the address is known). `GET /forget?token=` shows a confirm button; confirming deletes the `contacts` row and blanks `licenses.email` (the signed key keeps working, ids stay for revocation). |
 
 Product mapping (env vars in `wrangler.toml`): `PRODUCT_POCKETAI_PRO` → `pocketai-mac` (no expiry),
 `PRODUCT_LS_PRO` → `ls-pro` (1 year, stacked on the buyer's latest active ls-pro expiry).
@@ -47,7 +50,7 @@ Keygen constants; COM-05 v2 swaps in this key and `account=pocketai`, `product=p
 - `LICENSE_SIGNING_KEY`: Ed25519 PKCS#8 PEM. Offline backup `~/.pocketai/license-signing-key-test.pem`. Production gets its own key.
 - `ISSUE_TOKEN`: bearer for `/issue`. Copy in `~/.pocketai/issue-token-test`. Replace with Cloudflare Access later.
 - `DODO_WEBHOOK_SECRET`: `whsec_…` from Dodo. Unset = every webhook is rejected.
-- `RESEND_API_KEY` (optional): unset = keys are logged (`wrangler tail --env test`) instead of emailed. `EMAIL_FROM` is a var.
+- `RESEND_API_KEY` (optional): unset = nothing is sent (`emailed:false`; the key is never logged). `EMAIL_FROM` is a var.
 
 ## Rebuild from scratch
 
@@ -86,7 +89,7 @@ set the live Dodo product ids, put all secrets with `--env production`, then `wr
    (Dodo appends `?payment_id=…&status=…&email=…`).
 4. Buy with a Dodo test card, check `/thanks`, `wrangler tail --env test` (key is logged until Resend is set),
    then refund in the dashboard and check `/revoked.json`.
-5. Email: create a Resend account, verify `getpocketai.app` (SPF/DKIM in Cloudflare DNS),
+5. Email: create a Resend account, verify `liveshortly.com` (SPF/DKIM in its DNS; done by owner 11-05, sender licenses@liveshortly.com),
    `wrangler secret put RESEND_API_KEY --env test`.
 
 ## Known limits
@@ -95,3 +98,12 @@ set the live Dodo product ids, put all secrets with `--env production`, then `wr
 - `dispute.won` does not restore a revoked key; re-issue with `/issue`.
 - `/thanks` trusts the unguessable `payment_id`; anyone holding the redirect URL sees the key.
 - `activations` table is schema only (COM-06 device cap not built).
+
+## Email and contacts notes
+
+- All mail goes through `src/email-template.ts` `renderKeyMail(product, key, expiry, kind)`: multipart HTML + text, no images or tracking.
+  One email per key (a two-product purchase sends two).
+- `sendKeys` never throws: one retry after 5 s, then logs the status only (no key) and bumps `email_failures.count` in D1
+  (`SELECT * FROM email_failures`). The Dodo webhook still returns 200 after a failed send (key is stored, shown on `/thanks`, `/resend` works).
+- `contacts` is upserted on `/free`, Dodo `payment.succeeded` and `/issue`; `marketing_optin` defaults to 0.
+- Migration `0002_contacts.sql` is additive: `wrangler d1 migrations apply pocket-licenses-test --env test --remote`.

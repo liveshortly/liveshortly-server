@@ -31,7 +31,16 @@ const nextConfig: NextConfig = {
   },
   // /hud was a second copy of /sessions (LSW-03): one dashboard now.
   async redirects() {
-    return [{ source: "/hud/:path*", destination: "/sessions", permanent: true }];
+    return [
+      { source: "/hud/:path*", destination: "/sessions", permanent: true },
+      // www -> apex (LSW-45). Needs a proxied www DNS record to reach us.
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "www.liveshortly.com" }],
+        destination: "https://liveshortly.com/:path*",
+        permanent: true,
+      },
+    ];
   },
   async headers() {
     // The HTML documents reference content-hashed JS/CSS bundles. If a shared

@@ -21,31 +21,36 @@ const jbMono = JetBrains_Mono({
   display: "swap",
 });
 
+const TITLE = "LiveShortly: watch, steer and share your coding agent, live";
 const DESCRIPTION =
-  "Stream your coding agent sessions (Claude Code, Codex, Gemini, Antigravity and more) — live, replayable, shareable.";
+  "Stream Claude Code, Codex, Gemini and more to a link. Teammates watch and comment live, you approve prompts from your phone, and every session replays.";
+// Static, stable share image (LSW-45); /session/<id> keeps its own dynamic card.
+const OG_IMAGE = { url: `${SITE_URL}/og-v2.png`, width: 1200, height: 630, alt: "LiveShortly: watch, steer and share your coding agent, live" };
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "LiveShortly",
+    default: TITLE,
     template: "%s · LiveShortly",
   },
   description: DESCRIPTION,
+  alternates: { canonical: "/" },
   applicationName: "LiveShortly",
   // Installed on an iPhone home screen (Web Push on iOS needs that, LSW-21).
   appleWebApp: { capable: true, title: "LiveShortly", statusBarStyle: "default" },
   openGraph: {
     type: "website",
     siteName: "LiveShortly",
-    title: "LiveShortly",
+    title: TITLE,
     description: DESCRIPTION,
     url: SITE_URL,
-    // /opengraph-image (generated below) supplies the default image.
+    images: [OG_IMAGE],
   },
   twitter: {
     card: "summary_large_image",
-    title: "LiveShortly",
+    title: TITLE,
     description: DESCRIPTION,
+    images: [OG_IMAGE.url],
   },
 };
 
