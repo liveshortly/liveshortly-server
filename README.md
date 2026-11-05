@@ -394,5 +394,4 @@ step with `CONTRACT.md`.
 
 ## License
 
-The license has not been decided yet.
-<!-- TODO(owner): choose a license, add a LICENSE file, and update this section. -->
+LiveShortly server and web app are released under the [GNU Affero General Public License v3.0](LICENSE). If you run a modified version as a network service, you must offer its source to your users. The `live` CLI is a separate project under Apache-2.0.
