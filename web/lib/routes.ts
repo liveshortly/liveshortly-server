@@ -25,6 +25,7 @@ export const SITE_LINKS = [
   { href: "/feed", label: "Feed" },
   { href: "/docs", label: "Docs" },
   { href: "/install", label: "Install" },
+  { href: "/pocketai", label: "PocketAI" },
   { href: "/changelog", label: "Changelog" },
   { href: "https://github.com/liveshortly", label: "GitHub" },
 ] as const;
@@ -34,6 +35,7 @@ export const SITE_PAGES = [
   { slug: "about", label: "About" },
   { slug: "use-cases", label: "Use cases" },
   { slug: "pricing", label: "Pricing" },
+  { slug: "pocketai", label: "PocketAI" },
   { slug: "security", label: "Security" },
   { slug: "privacy", label: "Privacy" },
   { slug: "pocketai-privacy", label: "PocketAI privacy" },
