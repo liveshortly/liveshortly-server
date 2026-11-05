@@ -135,3 +135,35 @@ test("issue requires token; resend is rate limited", async () => {
   for (let i = 0; i < 3; i++) assert.equal((await resend()).status, 200);
   assert.equal((await resend()).status, 429);
 });
+
+test("device activations: register, cap at 5, same device is idempotent, deactivate frees a slot, refund blocks", async () => {
+  const { pem } = await keypair();
+  const d1 = fakeD1();
+  const env = { DB: d1, LICENSE_SIGNING_KEY: pem, ISSUE_TOKEN: "t0k" } as unknown as Env;
+  const issued = (await (await worker.fetch(new Request("https://x/issue", { method: "POST", headers: { authorization: "Bearer t0k" }, body: '{"email":"o@x.co"}' }), env)).json()) as any;
+  const call = async (path: string, body: object) => {
+    const r = await worker.fetch(new Request("https://x" + path, { method: "POST", body: JSON.stringify(body) }), env);
+    return { status: r.status, body: (await r.json()) as any };
+  };
+  const act = (n: number) => call("/activate", { key: issued.key, device_id: `mac-device-${n}`, name: `Mac ${n}`, platform: "macOS" });
+
+  for (let i = 1; i <= 5; i++) assert.equal((await act(i)).status, 200);
+  const again = await act(3);
+  assert.equal(again.status, 200);
+  assert.equal(again.body.devices.length, 5, "re-activating a known device adds nothing");
+  const sixth = await act(6);
+  assert.equal(sixth.status, 409);
+  assert.equal(sixth.body.limit, 5);
+  assert.equal(sixth.body.devices.length, 5);
+
+  const list = await call("/activations", { key: issued.key });
+  assert.equal(list.body.devices.length, 5);
+  const gone = await call("/deactivate", { key: issued.key, device_id: "mac-device-1" });
+  assert.equal(gone.body.removed, true);
+  assert.equal((await act(6)).status, 200, "a freed slot can be used");
+
+  assert.equal((await call("/activate", { key: issued.key, device_id: "bad id!" })).status, 400);
+  assert.equal((await call("/activate", { key: "key/nope.nope", device_id: "mac-device-9" })).status, 404);
+  d1.raw.prepare("UPDATE licenses SET status = 'refunded'").run();
+  assert.equal((await act(2)).status, 403, "refunded licence cannot activate");
+});
