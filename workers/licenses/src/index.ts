@@ -1,5 +1,5 @@
-import { importSigningKey, mintKey, safeEqual, signRevoked, verifyWebhook, type Product } from "./crypto.ts";
-import { sendKeys, type EmailEnv } from "./email.ts";
+import { b64url, importSigningKey, mintKey, safeEqual, signRevoked, verifyWebhook, type Product } from "./crypto.ts";
+import { sendKeys, sendMail, type EmailEnv } from "./email.ts";
 
 export interface Env extends EmailEnv {
   DB: D1Database;
@@ -9,6 +9,7 @@ export interface Env extends EmailEnv {
   FREE_TEST_LICENCES?: string;
   PRODUCT_POCKETAI_PRO?: string;
   PRODUCT_LS_PRO?: string;
+  ALLOW_LOCALHOST_CORS?: string; // "1" in test only: lets http://localhost:* call /free
 }
 
 // Minimal D1 surface we use (keeps tests runnable against node:sqlite).
@@ -55,6 +56,19 @@ async function issue(
   return { ...lic, inserted: r.meta.changes > 0 };
 }
 
+type Source = "mac-app" | "site-licence" | "dodo-purchase" | "manual";
+
+/** Idempotent per address: first source/first_seen stick, last_seen/product refresh, opt-in only ever turns on here. */
+async function upsertContact(env: Env, email: string, source: Source, product: string | null, optin = false) {
+  const now = new Date().toISOString();
+  await env.DB.prepare(
+    `INSERT INTO contacts (email, first_seen, last_seen, source, product, marketing_optin, optin_at) VALUES (?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(email) DO UPDATE SET last_seen = excluded.last_seen, product = excluded.product,
+       marketing_optin = MAX(marketing_optin, excluded.marketing_optin),
+       optin_at = COALESCE(optin_at, excluded.optin_at)`,
+  ).bind(email, now, now, source, product, optin ? 1 : 0, optin ? now : null).run();
+}
+
 export async function handleDodo(req: Request, env: Env): Promise<Response> {
   if (!env.DODO_WEBHOOK_SECRET) return json({ error: "webhook secret not configured" }, 503);
   const body = await req.text();
@@ -75,14 +89,17 @@ export async function handleDodo(req: Request, env: Env): Promise<Response> {
         const product = mapProduct(env, item.product_id);
         if (!product) console.log(`unmapped product ${item.product_id} on ${paymentId}`);
         // UNIQUE(provider, payment, product) makes a replay a no-op even if the event row was lost.
-        else await issue(env, { email, product, provider: "dodo", paymentId });
+        else {
+          await issue(env, { email, product, provider: "dodo", paymentId });
+          await upsertContact(env, email, "dodo-purchase", product);
+        }
       }
-      // Email every key of this payment; event is only recorded after this succeeds,
-      // so a failed send is retried by Dodo.
+      // Email every key of this payment. A failed send is retried once, logged and counted but does not
+      // fail the webhook: the key is already stored and shown on /thanks, and /resend can re-send it.
       const { results } = await env.DB.prepare(
         "SELECT product, key, expiry FROM licenses WHERE provider = 'dodo' AND provider_payment_id = ?",
       ).bind(paymentId).all<{ product: string; key: string; expiry: string | null }>();
-      await sendKeys(env, email, results);
+      await sendKeys(env, email, results, "purchase");
       break;
     }
     case "refund.succeeded": // ponytail: any refund (incl. partial) revokes; refunds are manual (D139)
@@ -198,7 +215,7 @@ async function handleResend(req: Request, env: Env): Promise<Response> {
   const { results } = await env.DB.prepare(
     "SELECT product, key, expiry FROM licenses WHERE email = ? AND status = 'active'",
   ).bind(email).all<{ product: string; key: string; expiry: string | null }>();
-  await sendKeys(env, email, results);
+  await sendKeys(env, email, results, "resend");
   // Same answer whether or not keys exist, so this can't be used to probe buyers.
   return json({ ok: true, message: "If that address has licences, they are on their way." });
 }
@@ -212,8 +229,9 @@ async function handleIssue(req: Request, env: Env): Promise<Response> {
   if (!email || !["pocketai-mac", "ls-pro"].includes(product)) return json({ error: "email and product (pocketai-mac|ls-pro) required" }, 400);
   if (b.days != null && !(Number.isFinite(b.days) && b.days > 0)) return json({ error: "days must be > 0" }, 400);
   const lic = await issue(env, { email, product, provider: "manual", paymentId: null, days: b.days ?? null });
-  await sendKeys(env, email, [{ product, key: lic.key, expiry: lic.expiry }]);
-  return json({ id: lic.id, key: lic.key, expiry: lic.expiry });
+  await upsertContact(env, email, "manual", product);
+  const emailed = await sendKeys(env, email, [{ product, key: lic.key, expiry: lic.expiry }], "purchase");
+  return json({ id: lic.id, key: lic.key, expiry: lic.expiry, emailed });
 }
 
 // Free 90-day test licences while PocketAI is in testing (owner, 2026-11-04).
@@ -224,7 +242,7 @@ const FREE_LIMITS = { email: 3, ip: 5 };
 
 async function handleFree(req: Request, env: Env): Promise<Response> {
   if (env.FREE_TEST_LICENCES !== "1") return json({ error: "free licences are not available" }, 404);
-  const b = (await req.json().catch(() => ({}))) as { email?: string; product?: string };
+  const b = (await req.json().catch(() => ({}))) as { email?: string; product?: string; marketing_optin?: unknown };
   const email = String(b.email ?? "").trim().toLowerCase();
   const product = (b.product ?? "pocketai-mac") as Product;
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ error: "a valid email is required" }, 400);
@@ -241,16 +259,94 @@ async function handleFree(req: Request, env: Env): Promise<Response> {
   const existing = await env.DB.prepare(
     "SELECT key, expiry FROM licenses WHERE email = ? AND product = ? AND provider = 'free' AND status = 'active' AND (expiry IS NULL OR expiry > ?) ORDER BY created DESC LIMIT 1",
   ).bind(email, product, new Date().toISOString()).first<{ key: string; expiry: string | null }>();
-  if (existing) return json({ key: existing.key, expiry: existing.expiry, existing: true });
-  const lic = await issue(env, { email, product, provider: "free", paymentId: null, days: FREE_DAYS });
-  await sendKeys(env, email, [{ product, key: lic.key, expiry: lic.expiry }]);
-  return json({ key: lic.key, expiry: lic.expiry });
+  await upsertContact(env, email, req.headers.get("origin") === SITE_ORIGIN ? "site-licence" : "mac-app", product, b.marketing_optin === true);
+  const lic = existing ?? (await issue(env, { email, product, provider: "free", paymentId: null, days: FREE_DAYS }));
+  // Mail on every successful request (also the existing-key branch); a Resend failure never hides the key.
+  const emailed = await sendKeys(env, email, [{ product, key: lic.key, expiry: lic.expiry }], "free");
+  return json({ key: lic.key, expiry: lic.expiry, ...(existing ? { existing: true } : {}), emailed });
+}
+
+const csvCell = (v: unknown) => {
+  let s = String(v ?? "");
+  if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; // spreadsheet formula injection
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+};
+
+async function isOwner(req: Request, env: Env) {
+  return !!env.ISSUE_TOKEN && (await safeEqual(req.headers.get("authorization") ?? "", `Bearer ${env.ISSUE_TOKEN}`));
+}
+
+async function handleContactsCsv(req: Request, env: Env): Promise<Response> {
+  if (!(await isOwner(req, env))) return json({ error: "unauthorized" }, 401);
+  const { results } = await env.DB.prepare(
+    "SELECT email, source, product, first_seen, marketing_optin FROM contacts ORDER BY first_seen",
+  ).all<Record<string, unknown>>();
+  const cols = ["email", "source", "product", "first_seen", "marketing_optin"];
+  const csv = [cols.join(","), ...results.map((r) => cols.map((c) => csvCell(r[c])).join(","))].join("\r\n") + "\r\n";
+  return new Response(csv, { headers: { "Content-Type": "text/csv; charset=utf-8", "Cache-Control": "no-store" } });
+}
+
+// POST /forget {email} mails a confirmation link (always the same answer); the link opens a page whose
+// button POSTs {token} to delete the contact row and blank the email on licence rows (keys stay valid, ids kept).
+async function handleForget(req: Request, env: Env): Promise<Response> {
+  const b = (await req.json().catch(() => ({}))) as { email?: string; token?: string };
+  const now = Math.floor(Date.now() / 1000);
+  if (b.token) {
+    const row = await env.DB.prepare("SELECT email FROM forget_tokens WHERE token = ? AND expires > ?")
+      .bind(String(b.token), now).first<{ email: string }>();
+    if (!row) return json({ error: "link expired or invalid" }, 400);
+    await env.DB.prepare("DELETE FROM contacts WHERE email = ?").bind(row.email).run();
+    await env.DB.prepare("UPDATE licenses SET email = '' WHERE email = ?").bind(row.email).run();
+    await env.DB.prepare("DELETE FROM forget_tokens WHERE email = ?").bind(row.email).run();
+    return json({ ok: true, forgotten: true });
+  }
+  const email = String(b.email ?? "").trim().toLowerCase();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ error: "a valid email is required" }, 400);
+  const row = await env.DB.prepare("SELECT COUNT(*) AS n FROM resends WHERE subject = ? AND at > ?")
+    .bind(`forget:${email}`, now - 3600).first<{ n: number }>();
+  if ((row?.n ?? 0) < 3) {
+    await env.DB.prepare("INSERT INTO resends (subject, at) VALUES (?, ?)").bind(`forget:${email}`, now).run();
+    const known = await env.DB.prepare("SELECT 1 FROM contacts WHERE email = ? UNION SELECT 1 FROM licenses WHERE email = ?").bind(email, email).first();
+    if (known) {
+      const token = b64url(crypto.getRandomValues(new Uint8Array(24)));
+      await env.DB.prepare("INSERT INTO forget_tokens (token, email, expires) VALUES (?, ?, ?)").bind(token, email, now + 3600).run();
+      const link = `${new URL(req.url).origin}/forget?token=${token}`;
+      await sendMail(env, email, {
+        subject: "Confirm deleting your PocketAI data",
+        text: `Open this link within an hour to delete your email from our records:\n${link}\n\nIf you did not ask for this, ignore this email.`,
+      });
+    }
+  }
+  return json({ ok: true, message: "If that address is on file, a confirmation link is on its way." });
+}
+
+function handleForgetPage(url: URL): Response {
+  const t = JSON.stringify(url.searchParams.get("token") ?? "");
+  return new Response(`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Delete my data</title>
+<body style="font:16px/1.5 system-ui;max-width:32rem;margin:56px auto;padding:0 16px"><h1>Delete my data</h1>
+<p>This removes your email from our contact list and licence records. Your licence key keeps working offline.</p>
+<button id="b" style="font:600 16px system-ui;padding:12px 20px">Delete my data</button><p id="m"></p>
+<script>b.onclick=async()=>{const r=await fetch("/forget",{method:"POST",body:JSON.stringify({token:${t.replace(/</g, "\\u003c")}})});m.textContent=r.ok?"Done. Your data was deleted.":"This link has expired."}</script></body></html>`,
+    { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" } });
+}
+
+const SITE_ORIGIN = "https://pocket.liveshortly.com";
+function allowedOrigin(env: Env, origin: string | null): string | null {
+  if (origin === SITE_ORIGIN) return origin;
+  if (origin && env.ALLOW_LOCALHOST_CORS === "1" && /^http:\/\/localhost(:\d+)?$/.test(origin)) return origin;
+  return null;
 }
 
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
     const url = new URL(req.url);
     const route = `${req.method} ${url.pathname}`;
+    const origin = allowedOrigin(env, req.headers.get("origin"));
+    if (route === "OPTIONS /free") {
+      return origin
+        ? new Response(null, { status: 204, headers: { "Access-Control-Allow-Origin": origin, "Access-Control-Allow-Methods": "POST", "Access-Control-Allow-Headers": "Content-Type", "Access-Control-Max-Age": "86400", Vary: "Origin" } })
+        : new Response(null, { status: 403 });
+    }
     try {
       switch (route) {
         case "GET /health": return json({ ok: true });
@@ -259,7 +355,14 @@ export default {
         case "GET /revoked.json": return await handleRevoked(env);
         case "POST /resend": return await handleResend(req, env);
         case "POST /issue": return await handleIssue(req, env);
-        case "POST /free": return await handleFree(req, env);
+        case "POST /free": {
+          const res = await handleFree(req, env);
+          if (origin) { res.headers.set("Access-Control-Allow-Origin", origin); res.headers.append("Vary", "Origin"); }
+          return res;
+        }
+        case "GET /contacts.csv": return await handleContactsCsv(req, env);
+        case "POST /forget": return await handleForget(req, env);
+        case "GET /forget": return handleForgetPage(url);
         default: return json({ error: "not found" }, 404);
       }
     } catch (e) {
