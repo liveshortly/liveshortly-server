@@ -19,7 +19,7 @@ import {
   type PublicStats,
   type Session,
 } from "@/lib/api";
-import { AGENTS, INSTALL_CMD } from "@/lib/install";
+import { INSTALL_CMD } from "@/lib/install";
 import { fmtInt } from "@/lib/utils";
 
 const SEARCH_DEBOUNCE_MS = 300;
@@ -144,6 +144,14 @@ function LandingInner({ initial }: { initial?: LandingData }) {
             latest={recent[0] ?? null}
           />
 
+          <ul className={s.points}>
+            {PROOF_POINTS.map(([h, d]) => (
+              <li key={h}>
+                <strong>{h}</strong> {d}
+              </li>
+            ))}
+          </ul>
+
           <Proof stats={stats} liveOwners={liveOwners} liveCount={live.length} />
 
           <div className={`lp-searchpill ${s.search}`} role="search">
@@ -234,9 +242,12 @@ function LandingInner({ initial }: { initial?: LandingData }) {
    Hero — static pitch + CTA on the left, a real public session on the right.
    ──────────────────────────────────────────────────────────────────────── */
 
-function agentList(): string {
-  return `${AGENTS.slice(0, -1).join(", ")} or ${AGENTS[AGENTS.length - 1]}`;
-}
+const PROOF_POINTS = [
+  ["Any agent, one link.", "Claude Code, Codex, Gemini CLI, Antigravity, pi, Ollama."],
+  ["Comment into the session.", "Viewer comments reach the agent, not just the page."],
+  ["Approve from your phone.", "Permission prompts show up in the PocketAI app: allow or deny from anywhere."],
+  ["Replay and hand off.", "Every session is recorded; replay it, or give another agent the full context."],
+] as const;
 
 function Hero({
   onSignIn,
@@ -269,22 +280,24 @@ function Hero({
           </div>
         )}
         <h1 className={`lp-mkt-title ${s.title}`}>
-          Watch your coding agent work, live
+          Watch, steer and share your coding agent, live
         </h1>
         <p className={s.sub}>
-          Stream {agentList()} sessions from your terminal to a link others
-          can watch, comment on and replay. Free on LiveShortly, or run your
-          own server.
+          Run Claude Code, Codex, Gemini CLI and more as usual. LiveShortly
+          streams every prompt, tool call and file edit to a link. Teammates
+          watch and comment in real time, you approve permission prompts from
+          your phone, and anyone can replay the session later.
         </p>
 
         <div className="lp-cta">
           <Button variant="prominent" onClick={onSignIn} title="Sign in with Google">
-            Get started
+            Start streaming
           </Button>
+          <Link href="/feed">See a live session</Link>
         </div>
 
         <div className={s.install}>
-          <span className={s.installLabel}>Install the CLI</span>
+          <span className={s.installLabel}>Start in 30 seconds</span>
           <InstallCommand command={INSTALL_CMD} />
         </div>
 

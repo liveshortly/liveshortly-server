@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start -H 0.0.0.0 -p 3000",
     "a11y": "npm run build && node scripts/check-a11y.mjs",
-    "check:pages": "node scripts/check-pages.mjs"
+    "check:pages": "node scripts/check-pages.mjs",
+    "check:og": "node scripts/check-og.mjs"
   },
   "dependencies": {
     "next": "^15.5.28",
