@@ -197,3 +197,11 @@ in the workflow, not on the server, so changing it means editing the workflow.
 `docker-compose.yml` and `docker-compose.local.yml` are unchanged and remain the
 way to run the stack locally with Postgres and Redis. Only *production* moved off
 Docker; don't reintroduce a prod compose file.
+
+## Launch notes
+
+- **Per-channel counts:** nginx's default access log records the full request line, so `?ref=x`, `?ref=reddit`, `?ref=hn` and `?ref=ph` links show up as-is. Count them on the box with
+  `grep -o 'ref=[a-z]*' /var/log/nginx/access.log | sort | uniq -c`.
+  Cloudflare Analytics also lists referrers.
+- **Rate limits:** `/auth/` and `/device` allow 10 requests/s per visitor IP (burst 20, then HTTP 429). `/api/` is deliberately unlimited at nginx because the CLI posts many events per second and the SSE streams are long-lived. Cloudflare absorbs floods.
+- **Capacity:** the app box is one small EC2 instance. Before a launch spike check disk (`df -h`), the database size, and `docker stats` or `systemctl status` for the api and web units, and consider resizing the instance.
