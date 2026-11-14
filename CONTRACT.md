@@ -267,8 +267,12 @@ never leaves an orphaned live session against the caller's concurrency quota.
   reaped.
 - `host:{user}:{host}` — host record JSON (`SET`, TTL 90s, refreshed each
   heartbeat of the host stream). Its presence IS the "machine is online" signal.
-- `host:{user}:{host}:cmd` — pub/sub channel carrying spawn commands to that
-  machine's `live daemon`.
+- `host:{user}:{host}:cmdq` — durable list (`RPUSH`, TTL 2h) of commands (spawn,
+  set_model, …) for that machine's `live daemon`. It is the source of truth: the
+  daemon drains it (`LPOP`) on connect and on every wakeup nudge, so a command
+  issued while the daemon is mid-reconnect is delivered, not lost.
+- `host:{user}:{host}:cmd` — pub/sub channel; a message is only a wakeup nudge
+  telling the daemon stream to drain `:cmdq`.
 - `user:{user}:hosts` — SET of host ids; `HostList` prunes ids whose record has
   lapsed, so a crashed daemon self-heals out of the picker.
 On stop: archive the buffer to storage as `sessions/{id}/raw.json`, persist events to
