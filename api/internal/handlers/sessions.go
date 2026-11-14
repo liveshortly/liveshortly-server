@@ -433,10 +433,17 @@ func (h *Handler) GetSession(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Skip-all-permissions mode (owner-set). Best-effort; false on error.
+	bypassAll := false
+	if s.Status == "live" {
+		bypassAll, _ = h.bus.BypassGet(r.Context(), id)
+	}
+
 	httpx.JSON(w, http.StatusOK, sessionWithEvents{
 		Session:        *s,
 		CanComment:     canComment,
 		IsOwner:        s.OwnerID == p.ID,
+		BypassAll:      bypassAll,
 		AgentConnected: agentConnected,
 		WatcherCount:   watchers,
 		Events:         events,

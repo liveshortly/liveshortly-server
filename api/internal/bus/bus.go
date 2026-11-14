@@ -27,6 +27,7 @@ func chanKey(id string) string     { return fmt.Sprintf("session:%s:events", id)
 func pendingKey(id string) string  { return fmt.Sprintf("session:%s:pending", id) }
 func watchersKey(id string) string { return fmt.Sprintf("session:%s:watchers", id) }
 func decisionKey(id string) string { return fmt.Sprintf("session:%s:decision", id) }
+func bypassKey(id string) string   { return fmt.Sprintf("session:%s:bypass", id) }
 
 // Live shim (agent-facing) channel + presence keys.
 func agentChanKey(id string) string { return fmt.Sprintf("session:%s:agent", id) }
@@ -352,6 +353,26 @@ func (b *Bus) DecisionPush(ctx context.Context, sessionID, decision string) erro
 		return err
 	}
 	return b.rdb.Expire(ctx, key, decisionTTL).Err()
+}
+
+// --- Skip-all-permissions (owner-set session mode) ------------------------
+
+// bypassTTL bounds the skip-all flag; sessions are short-lived and a stale flag
+// should self-heal rather than silently auto-approving a future run.
+const bypassTTL = 24 * time.Hour
+
+// BypassSet turns the owner's "skip all permissions" mode on or off for a session.
+func (b *Bus) BypassSet(ctx context.Context, sessionID string, on bool) error {
+	if !on {
+		return b.rdb.Del(ctx, bypassKey(sessionID)).Err()
+	}
+	return b.rdb.Set(ctx, bypassKey(sessionID), "1", bypassTTL).Err()
+}
+
+// BypassGet reports whether skip-all-permissions is on for a session.
+func (b *Bus) BypassGet(ctx context.Context, sessionID string) (bool, error) {
+	n, err := b.rdb.Exists(ctx, bypassKey(sessionID)).Result()
+	return n > 0, err
 }
 
 // DecisionPop returns the oldest queued decision (FIFO), or ok=false if none.

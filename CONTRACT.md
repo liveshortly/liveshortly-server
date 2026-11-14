@@ -60,7 +60,7 @@ of forks made from a session and is present on every row (feed/list included).
   "session_id": "uuid",
   "seq": 1,
   "actor": "agent | tool | viewer | null",
-  "event_type": "prompt | response | tool_call | pre_tool | file_write | output | stream_end | viewer_comment | input_requested | viewer_decision | quota_exceeded",
+  "event_type": "prompt | response | tool_call | pre_tool | file_write | output | stream_end | viewer_comment | input_requested | viewer_decision | quota_exceeded | bypass_changed",
   "payload": { "any": "json" },
   "ts": "RFC3339"
 }
@@ -91,6 +91,7 @@ of forks made from a session and is present on every row (feed/list included).
 | GET  | `/api/sessions/{id}/comments/pending` | — | `200 {"comments":[{"username","message","ts"}]}` (drains once) |
 | POST | `/api/sessions/{id}/decision` | `{"decision":"allow"\|"deny"}` | `201 Event` (viewer answers a permission prompt, live only) |
 | GET  | `/api/sessions/{id}/decision` | — | `200 {"decision":"allow"\|"deny"\|null,"watchers":int}` (owner; pops once) |
+| POST | `/api/sessions/{id}/bypass` | `{"enabled":bool}` | `200 {"bypass_all":bool}` (owner, live only) — skip-all-permissions: while on, every permission request is auto-answered `allow` |
 | GET  | `/api/stats` | — | `200 {"total_sessions":int,"live_now":int,"ended":int,"total_events":int}` |
 | GET  | `/api/me/activity` | — | `200 {"results":[ActivityItem]}` (caller's own recent activity, newest first, capped at 6) |
 | PATCH | `/api/admin/users/{id}/quota` | `{"storage_limit_bytes"?:int\|null,"max_live_sessions"?:int\|null,"quota_exempt"?:bool}` | `200 QuotaUsage` (super-admin; a null field clears that override to the default) |
@@ -255,6 +256,7 @@ never leaves an orphaned live session against the caller's concurrency quota.
   score=expiry ns); refreshed every heartbeat, pruned on read. `ZCARD` after
   prune = live watcher count. TTL ~40s so a dead tab clears quickly.
 - `session:{id}:decision` — viewer allow/deny queue (`RPUSH`/`LPOP`, TTL ~2m).
+- `session:{id}:bypass` — skip-all-permissions flag (`SET`/`DEL`, TTL 24h). While set, `EmitEvent` auto-pushes an `allow` decision for each permission `input_requested`.
 - `session:{id}:agent` — pub/sub channel for the Live shim's agent stream;
   `PUBLISH` viewer_comment/viewer_decision/session_ended frames. Separate from
   `:events`; never touches the replay buffer or the `:pending` queue.
