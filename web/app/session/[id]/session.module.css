@@ -490,3 +490,64 @@
 .chanBlockClose:hover {
   color: var(--fg);
 }
+
+/* AskUserQuestion wizard mirror (question_requested) */
+.qbar {
+  margin-bottom: var(--space-12);
+  padding: var(--space-12) var(--space-16);
+  background: var(--accent-soft);
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  border-radius: var(--radius-hud);
+}
+.qbarHead {
+  margin-bottom: var(--space-8);
+  color: var(--accent);
+  font-weight: 600;
+}
+.qblock {
+  margin-bottom: var(--space-12);
+}
+.qheader {
+  display: block;
+  color: var(--fg-2, var(--fg));
+}
+.qtext {
+  margin: 2px 0 var(--space-8);
+  color: var(--fg);
+}
+.qopts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+.qopt {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+  padding: var(--space-8) var(--space-12);
+  background: var(--raised);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-hud);
+  color: var(--fg);
+  cursor: pointer;
+}
+.qopt:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+.qopt:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.qoptLabel {
+  font-weight: 600;
+}
+.qoptDesc {
+  color: var(--fg-3);
+  font-size: 0.9em;
+}
+.qnote {
+  margin: var(--space-8) 0 0;
+  color: var(--fg-3);
+  font-size: 0.9em;
+}

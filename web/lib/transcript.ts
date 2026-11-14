@@ -183,6 +183,17 @@ export function pendingProbe(events: SessionEvent[]): SessionEvent | null {
   return null;
 }
 
+/** The newest AskUserQuestion prompt still open: a `question_requested` with no
+ *  later agent turn (response/prompt) that would mean it has moved on. */
+export function pendingQuestion(events: SessionEvent[]): SessionEvent | null {
+  for (let i = events.length - 1; i >= 0; i--) {
+    const t = events[i].event_type;
+    if (t === "question_requested") return events[i];
+    if (t === "response" || t === "prompt" || t === "session_ended") return null;
+  }
+  return null;
+}
+
 /** The tool call a permission probe asks about: the last tool_call before it
  *  in the same turn (the capture hook emits the full tool input first). */
 export function toolCallBefore(

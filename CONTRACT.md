@@ -60,7 +60,7 @@ of forks made from a session and is present on every row (feed/list included).
   "session_id": "uuid",
   "seq": 1,
   "actor": "agent | tool | viewer | null",
-  "event_type": "prompt | response | tool_call | pre_tool | file_write | output | stream_end | viewer_comment | input_requested | viewer_decision | quota_exceeded | bypass_changed",
+  "event_type": "prompt | response | tool_call | pre_tool | file_write | output | stream_end | viewer_comment | input_requested | viewer_decision | quota_exceeded | bypass_changed | question_requested",
   "payload": { "any": "json" },
   "ts": "RFC3339"
 }
