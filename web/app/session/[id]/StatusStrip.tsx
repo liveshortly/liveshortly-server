@@ -20,6 +20,7 @@ import { SIDEBAR_ID, useWorkspaceDrawer } from "@/components/WorkspaceDrawerCont
 import Button, { IconButton } from "@/components/ui/Button";
 import Dialog from "@/components/ui/Dialog";
 import Menu, { type MenuItem } from "@/components/ui/Menu";
+import Icon from "@/components/ui/Icon";
 import SessionMark from "@/components/ui/SessionMark";
 import StatusBadge from "@/components/ui/StatusBadge";
 import s from "./session.module.css";
@@ -189,10 +190,11 @@ export default function StatusStrip({
         )}
         {live && meta.bypass_all && (
           <span
-            className={`${s.muted} t-caption`}
-            title="All tool permissions are auto-approved for this session — permission gating is off"
+            className={`${s.bypassBadge} t-caption`}
+            title="All tool permissions are auto-approved for this session — permission gating is OFF"
           >
-            ⚡ permissions skipped
+            Permissions skipped
+            <Icon name="exclamationmark.triangle" size={11} />
           </span>
         )}
         <span className={s.wideOnly}>
