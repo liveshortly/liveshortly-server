@@ -44,21 +44,28 @@ func (h *Handler) EmitEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// An agent asking permission while skip-all is on: auto-answer "allow" and
+	// never broadcast the prompt. Checked BEFORE emit so no viewer's feed ever
+	// shows a permission popup the server is about to dismiss itself (and the
+	// replay stays clean). Non-permission input prompts fall through and emit
+	// normally.
+	if req.EventType == "input_requested" && store.IsPermissionRequest(req.Payload) {
+		if on, _ := h.bus.BypassGet(r.Context(), id); on {
+			_ = h.bus.DecisionPush(r.Context(), id, "allow")
+			httpx.JSON(w, http.StatusCreated, map[string]any{"bypassed": true})
+			return
+		}
+	}
+
 	ev, crossed, err := h.emit(r.Context(), id, req.Actor, req.EventType, req.Payload)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "failed to emit event")
 		return
 	}
 
-	// An agent asking permission: if the owner turned on skip-all for this
-	// session, auto-answer "allow" so the waiting hook proceeds without a prompt.
-	// Otherwise wake the owner's browsers (LSW-21).
+	// A permission ask with skip-all off: wake the owner's browsers (LSW-21).
 	if req.EventType == "input_requested" && store.IsPermissionRequest(req.Payload) {
-		if on, _ := h.bus.BypassGet(r.Context(), id); on {
-			_ = h.bus.DecisionPush(r.Context(), id, "allow")
-		} else {
-			go h.notifyApproval(detach(r), s.OwnerID)
-		}
+		go h.notifyApproval(detach(r), s.OwnerID)
 	}
 
 	// Mid-stream storage crossing: the event that tipped the owner over their
