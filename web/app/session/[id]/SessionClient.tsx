@@ -387,6 +387,28 @@ export default function SessionClient({
               onDismiss={dismissBlock}
             />
           )}
+          {live && meta.is_owner && meta.agent_connected === false && (
+            <div className={s.chanBlock} role="status">
+              <div className={s.chanBlockBody}>
+                <strong className={s.chanBlockTitle}>Agent disconnected</strong>
+                <p className={s.chanBlockText}>
+                  This session&apos;s agent isn&apos;t connected — the daemon may have stopped
+                  or the machine reset. Continue it on a connected machine to pick up its
+                  context (keeps its name and viewers).
+                </p>
+              </div>
+              <a
+                className={s.chanBlockCmd}
+                href={`/new?fork=${encodeURIComponent(id)}${
+                  (meta.suggested_title?.trim() || meta.title?.trim())
+                    ? `&from=${encodeURIComponent(meta.suggested_title?.trim() || meta.title?.trim() || "")}`
+                    : ""
+                }`}
+              >
+                Continue…
+              </a>
+            </div>
+          )}
           <EventStream
             events={events}
             live={live}
