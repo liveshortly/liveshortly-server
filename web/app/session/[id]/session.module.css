@@ -445,3 +445,48 @@
   align-items: flex-start;
   gap: var(--space-8);
 }
+
+/* channel_blocked banner (viewer messages dropped by org policy) */
+.chanBlock {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-12);
+  margin-bottom: var(--space-12);
+  padding: var(--space-12) var(--space-16);
+  background: color-mix(in srgb, var(--warn) 10%, var(--canvas));
+  border: 1px solid color-mix(in srgb, var(--warn) 40%, transparent);
+  border-radius: var(--radius-hud);
+}
+.chanBlockTitle {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--warn);
+}
+.chanBlockText {
+  margin: 0 0 var(--space-8);
+  color: var(--fg);
+}
+.chanBlockCmd {
+  display: inline-block;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85em;
+  padding: 2px var(--space-8);
+  background: var(--raised);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-hud);
+  color: var(--fg);
+}
+.chanBlockClose {
+  flex: none;
+  background: none;
+  border: none;
+  padding: 0 4px;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--fg-3);
+  cursor: pointer;
+}
+.chanBlockClose:hover {
+  color: var(--fg);
+}

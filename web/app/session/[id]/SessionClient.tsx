@@ -27,6 +27,7 @@ import {
 } from "@/lib/transcript";
 import { agentCaps, agentTitle, truncate } from "@/lib/utils";
 import { useMarkSeen } from "@/lib/useMarkSeen";
+import ChannelBlockedBanner from "./ChannelBlockedBanner";
 import Composer, { ReadOnlyFooter } from "./Composer";
 import InfoPanel from "./InfoPanel";
 import PermissionBar from "./PermissionBar";
@@ -192,6 +193,25 @@ export default function SessionClient({
 
   useMarkSeen(id, events[events.length - 1]?.seq ?? 0);
   const probe = useMemo(() => (live ? pendingProbe(events) : null), [live, events]);
+  // Latest channel_blocked payload: the agent host reporting its Claude Code
+  // channel is blocked by org policy, so viewer messages don't reach an idle agent.
+  const channelBlock = useMemo(() => {
+    for (let i = events.length - 1; i >= 0; i--)
+      if (events[i].event_type === "channel_blocked") return events[i].payload;
+    return null;
+  }, [events]);
+  const [blockDismissed, setBlockDismissed] = useState(false);
+  useEffect(() => {
+    try {
+      setBlockDismissed(localStorage.getItem(`ls-chanblock-${id}`) === "1");
+    } catch {}
+  }, [id]);
+  const dismissBlock = useCallback(() => {
+    setBlockDismissed(true);
+    try {
+      localStorage.setItem(`ls-chanblock-${id}`, "1");
+    } catch {}
+  }, [id]);
   const toolCall = useMemo(() => (probe ? toolCallBefore(events, probe) : null), [events, probe]);
   const activity = useMemo(() => activityLabel(events), [events]);
   const agent = agentTitle(meta?.framework);
@@ -356,6 +376,13 @@ export default function SessionClient({
             <div className={s.prior}>
               <PriorContext id={id} source={meta.forked_from} />
             </div>
+          )}
+          {live && channelBlock && !blockDismissed && (
+            <ChannelBlockedBanner
+              message={String(channelBlock.message ?? "Viewer messages can't reach the agent right now.")}
+              attach={typeof channelBlock.attach === "string" ? channelBlock.attach : undefined}
+              onDismiss={dismissBlock}
+            />
           )}
           <EventStream
             events={events}
