@@ -22,6 +22,7 @@ import {
   agentBusy,
   bodyText,
   pendingProbe,
+  pendingQuestion,
   toolCallBefore,
   typingLine,
 } from "@/lib/transcript";
@@ -31,6 +32,7 @@ import ChannelBlockedBanner from "./ChannelBlockedBanner";
 import Composer, { ReadOnlyFooter } from "./Composer";
 import InfoPanel from "./InfoPanel";
 import PermissionBar from "./PermissionBar";
+import QuestionBar from "./QuestionBar";
 import StatusStrip from "./StatusStrip";
 import s from "./session.module.css";
 
@@ -193,6 +195,7 @@ export default function SessionClient({
 
   useMarkSeen(id, events[events.length - 1]?.seq ?? 0);
   const probe = useMemo(() => (live ? pendingProbe(events) : null), [live, events]);
+  const question = useMemo(() => (live ? pendingQuestion(events) : null), [live, events]);
   // Latest channel_blocked payload: the agent host reporting its Claude Code
   // channel is blocked by org policy, so viewer messages don't reach an idle agent.
   const channelBlock = useMemo(() => {
@@ -400,6 +403,14 @@ export default function SessionClient({
             }}
             empty={empty}
           />
+          {question && (
+            <QuestionBar
+              key={question.id}
+              sessionId={id}
+              probe={question}
+              canComment={meta.can_comment !== false}
+            />
+          )}
           {probe && (
             <PermissionBar
               key={probe.id}
