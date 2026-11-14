@@ -129,6 +129,11 @@
 }
 .modelSelect {
   cursor: pointer;
+  /* Match the Share button's shape/size so the two sit symmetric (not a pill
+     next to a rounded-rect). */
+  border-radius: var(--radius-hud);
+  padding: 6px 14px;
+  font: 600 var(--text-headline) / 1.4 var(--font-sans);
 }
 /* A narrow strip drops the nice-to-haves (watcher count, plain model chip)
    before the title gets squeezed. */

@@ -142,6 +142,9 @@ export interface SessionDetail extends Session {
   can_comment?: boolean;
   /** Whether the calling viewer owns this session (can rename / end it). */
   is_owner?: boolean;
+  /** Whether a capture agent is currently attached (presence). False on a live
+   *  session means the agent/daemon dropped — the session is broken. */
+  agent_connected?: boolean;
   /** Whether the owner has turned on skip-all-permissions (auto-approve tools). */
   bypass_all?: boolean;
   /** Distinct users who have forked (handed off) this session. */
