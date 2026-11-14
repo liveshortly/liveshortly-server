@@ -156,6 +156,7 @@ func (h *Handler) CreateSession(w http.ResponseWriter, r *http.Request) {
 	// Forked create: resolve + authorize the source, then seed the new session
 	// with its lineage and hand back the reconstructed briefing.
 	var bundle *handoff.Bundle
+	var forkSrc *store.Session
 	if req.ForkedFrom != nil || req.ForkedFromSessionID != nil {
 		code := ""
 		if req.ForkedFrom != nil {
@@ -165,6 +166,7 @@ func (h *Handler) CreateSession(w http.ResponseWriter, r *http.Request) {
 		if !ok {
 			return // resolveFork already wrote the error
 		}
+		forkSrc = src
 		b, err := h.buildBundle(r, src, snapshot, src.OwnerID != p.ID)
 		if err != nil {
 			httpx.Error(w, http.StatusInternalServerError, "failed to build handoff briefing")
@@ -173,12 +175,14 @@ func (h *Handler) CreateSession(w http.ResponseWriter, r *http.Request) {
 		bundle = &b
 		in.ForkedFromSessionID = &src.ID
 		in.ForkedFromSeq = &snapshot
-		// A fork gets an explicit title: the client's if it sent one, else
-		// "Fork of <source>".
+		// A fork gets an explicit title: the client's if it sent one, else the
+		// source's name with a fork index appended ("<name> fork-N"), so a
+		// continued/revived session stays recognisable. fork_count is the
+		// source's global fork index; +1 is this new fork.
 		if t := strings.TrimSpace(req.Title); t != "" {
 			in.Title = t
 		} else {
-			in.Title = "Fork of " + src.Title
+			in.Title = fmt.Sprintf("%s fork-%d", src.Title, src.ForkCount+1)
 		}
 		// Inherit the source's repo context as a hint when the client didn't send
 		// its own (the fork usually runs in the same project).
@@ -213,6 +217,20 @@ func (h *Handler) CreateSession(w http.ResponseWriter, r *http.Request) {
 			httpx.Error(w, http.StatusInternalServerError, "failed to create session")
 		}
 		return
+	}
+
+	// A fork inherits the source's share grants (owner only), so collaborators
+	// keep access to the continued session without re-inviting. Best-effort:
+	// a failed copy never fails the create.
+	if forkSrc != nil && forkSrc.OwnerID == p.ID {
+		if grants, lerr := h.store.ListShares(r.Context(), forkSrc.ID); lerr == nil {
+			for _, g := range grants {
+				if g.GranteeEmail == nil || *g.GranteeEmail == "" {
+					continue
+				}
+				_, _ = h.store.CreateShare(r.Context(), s.ID, *g.GranteeEmail, g.Role, p.ID)
+			}
+		}
 	}
 
 	// The machine is told last: the session must exist before the daemon can

@@ -90,6 +90,25 @@ export default function StatusStrip({
   };
 
   const items: MenuItem[] = [
+    // Continue/revive this session on a connected machine (live, ended, or
+    // broken after a daemon restart): forks it with its context, shares, and a
+    // "<name> fork-N" title. Opens the machine + agent picker.
+    ...(owner
+      ? [
+          {
+            label: "Continue on a machine…",
+            onSelect: () => {
+              const name =
+                meta.suggested_title?.trim() || meta.title?.trim() || "";
+              window.location.assign(
+                `/new?fork=${encodeURIComponent(meta.id)}${
+                  name ? `&from=${encodeURIComponent(name)}` : ""
+                }`,
+              );
+            },
+          },
+        ]
+      : []),
     ...(owner ? [{ label: "Rename…", onSelect: () => setRenaming(true) }] : []),
     {
       label: "Copy link",
