@@ -4,6 +4,7 @@ package bus
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -44,9 +45,14 @@ func rotatedKey(id string) string { return "authrotated:" + id }
 // Host (a machine running `live daemon`) keys. Every key is namespaced by the
 // OWNING user id, so a host id chosen by one user's daemon can never address
 // another user's host — ownership holds by construction, not by a lookup.
-func hostKey(userID, hostID string) string     { return fmt.Sprintf("host:%s:%s", userID, hostID) }
-func hostChanKey(userID, hostID string) string { return fmt.Sprintf("host:%s:%s:cmd", userID, hostID) }
-func userHostsKey(userID string) string        { return fmt.Sprintf("user:%s:hosts", userID) }
+func hostKey(userID, hostID string) string      { return fmt.Sprintf("host:%s:%s", userID, hostID) }
+func hostChanKey(userID, hostID string) string  { return fmt.Sprintf("host:%s:%s:cmd", userID, hostID) }
+func hostQueueKey(userID, hostID string) string { return fmt.Sprintf("host:%s:%s:cmdq", userID, hostID) }
+func userHostsKey(userID string) string         { return fmt.Sprintf("user:%s:hosts", userID) }
+
+// hostCmdTTL bounds how long an undrained host command lingers if the daemon
+// never reconnects to pick it up.
+const hostCmdTTL = 2 * time.Hour
 
 // pendingTTL bounds how long an undrained viewer comment lingers in the queue.
 // Kept in step with the live-session idle timeout so a comment never expires
@@ -259,10 +265,36 @@ func (b *Bus) HostDrop(ctx context.Context, userID, hostID string) error {
 	return b.rdb.SRem(ctx, userHostsKey(userID), hostID).Err()
 }
 
-// PublishHost sends a command JSON (currently only "spawn") to a host's command
-// channel, consumed by that machine's `live daemon`.
+// PublishHost durably enqueues a command JSON (spawn, set_model, …) for a host
+// and nudges any live daemon stream to drain it. The command is RPUSHed to a
+// list (not just pub/sub published) so a command issued while the daemon is
+// mid-reconnect — e.g. after Cloudflare reset its stream — is not lost: the
+// daemon drains the list on its next connect. The pub/sub message is only a
+// "something is waiting" wakeup; the list is the source of truth.
 func (b *Bus) PublishHost(ctx context.Context, userID, hostID string, payload []byte) error {
-	return b.rdb.Publish(ctx, hostChanKey(userID, hostID), payload).Err()
+	pipe := b.rdb.TxPipeline()
+	pipe.RPush(ctx, hostQueueKey(userID, hostID), payload)
+	pipe.Expire(ctx, hostQueueKey(userID, hostID), hostCmdTTL)
+	pipe.Publish(ctx, hostChanKey(userID, hostID), "1")
+	_, err := pipe.Exec(ctx)
+	return err
+}
+
+// DrainHost atomically pops and returns every queued command for a host, oldest
+// first. A daemon calls it on connect and on every wakeup nudge.
+func (b *Bus) DrainHost(ctx context.Context, userID, hostID string) ([][]byte, error) {
+	key := hostQueueKey(userID, hostID)
+	var out [][]byte
+	for {
+		payload, err := b.rdb.LPop(ctx, key).Bytes()
+		if errors.Is(err, redis.Nil) {
+			return out, nil
+		}
+		if err != nil {
+			return out, err
+		}
+		out = append(out, payload)
+	}
 }
 
 // SubscribeHost returns a PubSub on a host's command channel. The caller owns

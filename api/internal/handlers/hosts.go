@@ -293,11 +293,29 @@ func (h *Handler) HostStream(w http.ResponseWriter, r *http.Request) {
 		return true
 	}
 
-	// Subscribe before announcing, so a spawn published during setup is queued
-	// by Redis rather than lost.
+	// Subscribe before draining, so a command published between the drain and
+	// the subscribe still wakes us (it is already on the durable list too).
 	sub := h.bus.SubscribeHost(ctx, p.ID, hostID)
 	defer sub.Close()
 	ch := sub.Channel()
+
+	// drainQueue delivers every command queued for this host. Commands are held
+	// on a durable Redis list, so any issued while the daemon was disconnected
+	// (e.g. during a reconnect after a stream reset) are delivered now rather
+	// than lost. A transient Redis error keeps the stream up; the next nudge or
+	// heartbeat retries. Returns false only if the client write failed.
+	drainQueue := func() bool {
+		cmds, err := h.bus.DrainHost(ctx, p.ID, hostID)
+		if err != nil {
+			return true
+		}
+		for _, c := range cmds {
+			if !writeData(string(c)) {
+				return false
+			}
+		}
+		return true
+	}
 
 	connected, _ := json.Marshal(map[string]string{"type": "connected", "host_id": hostID})
 	if !writeData(string(connected)) {
@@ -309,6 +327,11 @@ func (h *Handler) HostStream(w http.ResponseWriter, r *http.Request) {
 	_ = h.bus.HostSet(ctx, p.ID, hostID, rec)
 	defer func() { _ = h.bus.HostDrop(detach(r), p.ID, hostID) }()
 
+	// Catch anything queued while this daemon was disconnected.
+	if !drainQueue() {
+		return
+	}
+
 	ticker := time.NewTicker(heartbeatInterval)
 	defer ticker.Stop()
 
@@ -317,11 +340,13 @@ func (h *Handler) HostStream(w http.ResponseWriter, r *http.Request) {
 		case <-ctx.Done():
 			return
 
-		case msg, ok := <-ch:
+		case _, ok := <-ch:
 			if !ok {
 				return
 			}
-			if !writeData(msg.Payload) {
+			// The pub/sub message is only a wakeup; the list is the source of
+			// truth. Drain it so nothing is missed.
+			if !drainQueue() {
 				return
 			}
 
