@@ -912,6 +912,7 @@ export async function createSessionOnHost(
   model?: string,
   signal?: AbortSignal,
   bypassPermissions?: boolean,
+  forkedFromSessionId?: string,
 ): Promise<CreatedSession> {
   const res = await fetch(`${browserBase()}/api/sessions`, {
     method: "POST",
@@ -928,6 +929,11 @@ export async function createSessionOnHost(
       cwd,
       ...(model ? { model } : {}),
       ...(bypassPermissions ? { bypass_permissions: true } : {}),
+      // Continue/revive: fork the source onto this machine, seeded with its
+      // context and inheriting its share grants + "<name> fork-N" title.
+      ...(forkedFromSessionId
+        ? { forked_from_session_id: forkedFromSessionId }
+        : {}),
     }),
   });
   if (!res.ok) {

@@ -27,6 +27,16 @@ import s from "./new.module.css";
 const requestedAgent = () =>
   typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("agent");
 
+/** `/new?fork=<id>&from=<name>` — "Continue session": the created session forks
+ *  the source (seeded context + inherited shares + "<name> fork-N" title). */
+const forkSource = () =>
+  typeof window === "undefined"
+    ? { id: null as string | null, name: null as string | null }
+    : {
+        id: new URLSearchParams(window.location.search).get("fork"),
+        name: new URLSearchParams(window.location.search).get("from"),
+      };
+
 /** The server expires a registration after a few minutes; past this the
  *  machine is probably gone (same threshold as LSHost.isOnline on the Mac). */
 const ONLINE_MS = 180_000;
@@ -180,6 +190,7 @@ export default function NewSessionPage() {
         model || undefined,
         undefined,
         bypass,
+        forkSource().id || undefined,
       );
       if (created.spawn?.status === "failed") {
         // Stay on the form so the reason is readable, rather than dropping the
@@ -203,11 +214,29 @@ export default function NewSessionPage() {
     <div className={s.page}>
       <header className={s.header}>
         <Icon name="terminal" />
-        <h1 className="t-headline">New agent session</h1>
+        <h1 className="t-headline">
+          {forkSource().name
+            ? `Continue “${forkSource().name}”`
+            : forkSource().id
+              ? "Continue session"
+              : "New agent session"}
+        </h1>
         <Button variant="prominent" onClick={start} disabled={!canStart} busy={starting}>
-          {starting ? "Starting…" : "Start session"}
+          {starting
+            ? forkSource().id
+              ? "Continuing…"
+              : "Starting…"
+            : forkSource().id
+              ? "Continue session"
+              : "Start session"}
         </Button>
       </header>
+      {forkSource().id && (
+        <p className={s.muted} style={{ padding: "0 var(--space-16)" }} role="status">
+          Pick a connected machine and agent — this continues the session with its
+          context, keeps its viewers, and names itself “fork-N”.
+        </p>
+      )}
 
       <div className={s.body}>
         {hosts === null ? (
