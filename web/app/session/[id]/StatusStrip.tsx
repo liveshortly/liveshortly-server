@@ -6,6 +6,7 @@ import {
   CLAUDE_MODELS,
   deleteSession,
   isPublished,
+  postBypass,
   renameSession,
   sessionViewUrl,
   setSessionModel,
@@ -105,6 +106,24 @@ export default function StatusStrip({
         ]
       : []),
     ...(owner && live
+      ? [
+          {
+            label: meta.bypass_all
+              ? "Stop skipping permissions"
+              : "Skip all permissions",
+            onSelect: async () => {
+              const next = !meta.bypass_all;
+              onMeta({ bypass_all: next }); // optimistic
+              try {
+                await postBypass(meta.id, next);
+              } catch {
+                onMeta({ bypass_all: !next }); // revert on failure
+              }
+            },
+          },
+        ]
+      : []),
+    ...(owner && live
       ? [{ label: "End session", onSelect: () => setConfirm("end"), destructive: true }]
       : []),
     ...(owner
@@ -166,6 +185,14 @@ export default function StatusStrip({
         {live && (meta.watcher_count ?? 0) > 0 && (
           <span className={`${s.muted} t-caption ${s.wideOnly}`}>
             {fmtInt(meta.watcher_count)} watching
+          </span>
+        )}
+        {live && meta.bypass_all && (
+          <span
+            className={`${s.muted} t-caption`}
+            title="All tool permissions are auto-approved for this session — permission gating is off"
+          >
+            ⚡ permissions skipped
           </span>
         )}
         <span className={s.wideOnly}>

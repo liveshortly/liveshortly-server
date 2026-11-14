@@ -78,6 +78,8 @@ type sessionWithEvents struct {
 	store.Session
 	CanComment bool `json:"can_comment"`
 	IsOwner    bool `json:"is_owner"`
+	// BypassAll is true while the owner has turned on skip-all-permissions.
+	BypassAll bool `json:"bypass_all"`
 	// AgentConnected is true while a Live-shim agent stream is attached (presence).
 	AgentConnected bool `json:"agent_connected"`
 	// WatcherCount is how many SSE connections are watching right now (live only).

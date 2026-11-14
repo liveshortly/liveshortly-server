@@ -142,6 +142,8 @@ export interface SessionDetail extends Session {
   can_comment?: boolean;
   /** Whether the calling viewer owns this session (can rename / end it). */
   is_owner?: boolean;
+  /** Whether the owner has turned on skip-all-permissions (auto-approve tools). */
+  bypass_all?: boolean;
   /** Distinct users who have forked (handed off) this session. */
   forker_count?: number;
   /** Source reference when this session is itself a fork. */
@@ -450,6 +452,29 @@ export async function postComment(
 
 /** Answer a live permission request (allow/deny). Drives the CLI's PreToolUse
  *  decision while the capture hook is waiting on it. */
+export async function postBypass(
+  id: string,
+  enabled: boolean,
+  signal?: AbortSignal,
+): Promise<void> {
+  const res = await fetch(
+    `${browserBase()}/api/sessions/${encodeURIComponent(id)}/bypass`,
+    {
+      method: "POST",
+      signal,
+      credentials: "include",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ enabled }),
+    },
+  );
+  if (!res.ok) {
+    throw new ApiError(
+      res.status,
+      `POST bypass failed: ${res.status} ${res.statusText}`,
+    );
+  }
+}
+
 export async function postDecision(
   id: string,
   decision: "allow" | "deny" | "always",

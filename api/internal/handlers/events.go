@@ -50,9 +50,15 @@ func (h *Handler) EmitEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// An agent asking permission: wake the owner's browsers (LSW-21).
+	// An agent asking permission: if the owner turned on skip-all for this
+	// session, auto-answer "allow" so the waiting hook proceeds without a prompt.
+	// Otherwise wake the owner's browsers (LSW-21).
 	if req.EventType == "input_requested" && store.IsPermissionRequest(req.Payload) {
-		go h.notifyApproval(detach(r), s.OwnerID)
+		if on, _ := h.bus.BypassGet(r.Context(), id); on {
+			_ = h.bus.DecisionPush(r.Context(), id, "allow")
+		} else {
+			go h.notifyApproval(detach(r), s.OwnerID)
+		}
 	}
 
 	// Mid-stream storage crossing: the event that tipped the owner over their
