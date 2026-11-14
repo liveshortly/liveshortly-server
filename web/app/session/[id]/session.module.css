@@ -551,3 +551,27 @@
   color: var(--fg-3);
   font-size: 0.9em;
 }
+
+/* Skip-all-permissions badge: prominent green pill (like the live badge) + an
+   alert icon, so it's obvious that permission gating is OFF. */
+.bypassBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  padding: 2px 9px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent);
+  font-weight: 600;
+  white-space: nowrap;
+  animation: bypassPulse 2s ease-in-out infinite;
+}
+@keyframes bypassPulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 35%, transparent); }
+  50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 0%, transparent); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bypassBadge { animation: none; }
+}
