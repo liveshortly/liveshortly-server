@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"liveshortly/internal/redact"
@@ -722,8 +723,18 @@ func (st *Store) ForkStats(ctx context.Context, s *Session) (forkerCount int, fr
 	return forkerCount, from, nil
 }
 
+// validUUID reports whether id parses as a uuid (sessions.id is a UUID column,
+// so a malformed id would otherwise fail in Postgres and surface as a 500).
+func validUUID(id string) bool {
+	var u pgtype.UUID
+	return u.Scan(id) == nil
+}
+
 // GetSession returns the session with id, or (nil, nil) if it does not exist.
 func (st *Store) GetSession(ctx context.Context, id string) (*Session, error) {
+	if !validUUID(id) {
+		return nil, nil // not a uuid (e.g. a short handle): no such session, not a DB error
+	}
 	q := `SELECT ` + sessionSelectExpr + sessionFrom + ` WHERE s.id = $1`
 	s, err := scanSession(st.pool.QueryRow(ctx, q, id))
 	if errors.Is(err, pgx.ErrNoRows) {
