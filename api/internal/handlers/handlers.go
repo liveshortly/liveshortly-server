@@ -84,8 +84,15 @@ type sessionWithEvents struct {
 	AgentConnected bool `json:"agent_connected"`
 	// WatcherCount is how many SSE connections are watching right now (live only).
 	// An aggregate — presence tokens are anonymous, so this never identifies a viewer.
-	WatcherCount int           `json:"watcher_count"`
-	Events       []store.Event `json:"events"`
+	WatcherCount int `json:"watcher_count"`
+	// Models / DefaultModel / ModelSwitchable are the model-picker catalog for THIS
+	// session's agent, computed at read time from the owner's online hosts (owner
+	// only; empty for non-owners). The web dropdown shows these instead of hard-
+	// coded claude aliases. See sessionModelCatalog.
+	Models          []modelOption `json:"models"`
+	DefaultModel    string        `json:"default_model,omitempty"`
+	ModelSwitchable bool          `json:"model_switchable"`
+	Events          []store.Event `json:"events"`
 }
 
 // detach returns a copy of the request's context that is no longer tied to the

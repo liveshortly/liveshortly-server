@@ -50,7 +50,18 @@ Live-shim agent stream is currently attached (presence) — `watcher_count: int`
 (viewers watching right now, live only; an aggregate over anonymous presence
 tokens) — plus fork lineage enrichments: `forker_count: int` (distinct users who
 forked this session) and `forked_from: {id,title,owner_handle,seq} | null` (the
-source when this session is itself a fork). `fork_count` is the denormalised total
+source when this session is itself a fork). It also returns the **model-picker
+catalog for this session's agent** (owner only — empty for non-owners):
+`models: [{id,label}]`, `default_model: string` (optional), `model_switchable:
+bool`. This is computed at READ time (no DB column — the spawn host is not
+persisted): the server unions the `agent_models` entries for this session's
+agent across the owner's currently-online hosts (the same source `GET /api/hosts`
+uses), deduping by `id` and OR-ing `model_switchable`. With no online host
+offering that agent, `models` is `[]` and `model_switchable` falls back to the
+harness default for the agent (claude/pi → true) so the web can still show the
+current model with no switch options. The dropdown feeds the chosen `id` back to
+`POST …/model`; for pi that `id` is the `<provider>/<modelId>` form that
+endpoint's validation accepts. `fork_count` is the denormalised total
 of forks made from a session and is present on every row (feed/list included).
 
 ### Event
@@ -88,7 +99,9 @@ of forks made from a session and is present on every row (feed/list included).
 | GET  | `/api/sessions/{id}/stream` | — | `200` SSE stream (see below) |
 | GET  | `/api/sessions/{id}/agent/stream` | — | `200` agent SSE stream (owner only, Bearer; see below) |
 | POST | `/api/sessions/{id}/stop` | — | `200 {...Session}` (status=ended) |
-| POST | `/api/sessions/{id}/comments` | `{"message":string}` | `201 Event` (viewer→session, live only) |
+| POST | `/api/sessions/{id}/model` | `{"model":string}` | `200 {"ok":true,"model"}` (owner, live) — claude: alias → tmux; pi: catalog id → agent stream. See Hosts §. `400`/`409`/`502` |
+| POST | `/api/sessions/{id}/abort` | — | `200 {"ok":true}` (owner, live) — "Stop current action"; emits `abort` on the session's agent stream. `409` ended, `502` undeliverable |
+| POST | `/api/sessions/{id}/comments` | `{"message":string,"images"?:["<base64 data URL>"]}` | `201 Event` (viewer→session, live only). `images` optional (≤3, each an image data URL ≤2 MB decoded) are delivered out-of-band as `attach_image` frames and never stored/broadcast; `400` on a bad image |
 | GET  | `/api/sessions/{id}/comments/pending` | — | `200 {"comments":[{"username","message","ts"}]}` (drains once) |
 | POST | `/api/sessions/{id}/decision` | `{"decision":"allow"\|"deny"}` | `201 Event` (viewer answers a permission prompt, live only) |
 | GET  | `/api/sessions/{id}/decision` | — | `200 {"decision":"allow"\|"deny"\|null,"watchers":int}` (owner; pops once) |
@@ -141,8 +154,28 @@ access token `typ=access` or cookie — NOT anonymous). Content-Type
 3. Then forward every message published to `session:{id}:agent`:
    - `data: {"type":"viewer_comment","comment":{username,message,ts}}`
    - `data: {"type":"viewer_decision","decision":"allow|deny","username":"..."}`
+   - **Mid-session commands** (owner → headless session; see `POST …/model` and
+     `POST …/abort`):
+     - `data: {"type":"set_model","session_id","model":"<provider>/<modelId>"}`
+     - `data: {"type":"abort","session_id"}`
+     - `data: {"type":"attach_image","session_id","index":<N>,"mime":"image/png","data":"<base64>"}`
+       — a viewer image pasted with a comment (see `POST …/comments`). The base64
+       rides only this frame, never the stored/broadcast `viewer_comment` event.
+       One frame per image, published **before** the comment that references them,
+       so the sidecar buffers them and attaches to that comment on delivery (pi:
+       as prompt image parts; text agents: temp-file paths appended to the text).
 4. Heartbeat comment `: hb\n\n` every 15s.
 5. On stop, `data: {"type":"session_ended","session_id":"..."}` then close.
+
+**Command dispatch is extensible.** Every frame is a flat `{"type",...}` object;
+the sidecar switches on `type` (`viewer_comment`/`viewer_decision` → drain,
+`set_model`/`abort` → the matching callback, `session_ended` → close) and ignores
+types it does not know. A new command type (e.g. a future `attach_image` carrying
+a base64 payload the sidecar hands to the agent as an image input) is one more
+`type` plus its payload fields and one dispatch case on the sidecar — **no new
+endpoint plumbing or transport change**. Command delivery is best-effort (unlike
+viewer comments, commands are not queued in `:pending`, so a command issued while
+the sidecar is mid-reconnect is dropped — the caller retries).
 
 **Ack via drain.** Pushes do NOT remove anything from `session:{id}:pending`; the
 shim acks by calling `GET /api/sessions/{id}/comments/pending` (the existing
@@ -216,12 +249,32 @@ below: never an argv) and the daemon maps it to known flags
 `requested` means the command was published, NOT that the agent is up; the
 session page tracks that separately via `agent_connected`.
 
-`POST /api/sessions/{id}/model` `{"model":"sonnet"|"opus"|"haiku"}` (owner,
-session live) relays a model switch: the server publishes
-`{"type":"set_model","session_id","model"}` to EVERY online machine of the
-owner (the spawn host is not persisted); the daemon hosting the session's
-tmux pane types `/model <alias>` into it, the rest no-op. Alias allowlist on
-both ends; never an argv. `400` unknown alias / no machine online, `409` ended.
+`POST /api/sessions/{id}/model` `{"model":...}` (owner, session live) relays a
+model switch. Delivery depends on the session's agent:
+- **claude** (tmux): `{"model":"sonnet"|"opus"|"haiku"}`. The server publishes
+  `{"type":"set_model","session_id","model"}` to EVERY online machine of the
+  owner (the spawn host is not persisted); the daemon hosting the session's tmux
+  pane types `/model <alias>` into it, the rest no-op. Alias allowlist on both
+  ends. `400` unknown alias / no machine online.
+- **pi** (headless, no tmux pane): `{"model":"<provider>/<modelId>"}` — a catalog
+  id, charset `[A-Za-z0-9._:/-]{1,128}`, not leading `-`. The server publishes
+  `{"type":"set_model","session_id","model"}` on the **session's agent stream**
+  (`session:{id}:agent`), which the sidecar receives and hands to pi's `set_model`
+  RPC. `400` malformed id, `502` could not deliver.
+
+Never an argv on either path. `409` if the agent can't switch models mid-session,
+or the session has ended. `200 {"ok":true,"model"}` on success.
+
+`POST /api/sessions/{id}/abort` (owner, session live) — the "Stop current action"
+button. Agent-aware, mirroring `…/model`:
+- **claude** (tmux): the server publishes `{"type":"abort","session_id"}` to EVERY
+  online machine of the owner over the HostStream; the daemon hosting the pane
+  sends **Escape** (claude's interrupt — cancels the running turn without killing
+  the session), the rest no-op. `400` if no machine is online.
+- **pi** (headless): `{"type":"abort","session_id"}` on the session's agent stream
+  (`session:{id}:agent`), which the sidecar maps to pi's abort RPC.
+
+No body. `409` ended, `400`/`502` undeliverable, `200 {"ok":true}` on success.
 
 ### SSE: `GET /api/hosts/{id}/stream` (daemon)
 Frames: `{"type":"connected","host_id"}`, then per web-created session
@@ -229,7 +282,8 @@ Frames: `{"type":"connected","host_id"}`, then per web-created session
 (`model` from that host's `agent_models` for the agent; `bypass_permissions` a
 boolean the daemon maps to known flags, never an argv), and
 `{"type":"set_model","session_id","model"}` for live model switches,
-plus `: hb` comments every 15s. Each heartbeat refreshes the host record, so the
+`{"type":"abort","session_id"}` for a claude Stop (the daemon sends Escape into
+the pane), plus `: hb` comments every 15s. Each heartbeat refreshes the host record, so the
 machine leaves the picker ~90s after the daemon dies (immediately on a clean
 disconnect).
 
@@ -259,8 +313,10 @@ never leaves an orphaned live session against the caller's concurrency quota.
 - `session:{id}:decision` — viewer allow/deny queue (`RPUSH`/`LPOP`, TTL ~2m).
 - `session:{id}:bypass` — skip-all-permissions flag (`SET`/`DEL`, TTL 24h). While set, `EmitEvent` auto-pushes an `allow` decision for each permission `input_requested` and returns `201 {"bypassed":true}` **without** emitting the event, so the prompt never reaches the replay buffer or any viewer.
 - `session:{id}:agent` — pub/sub channel for the Live shim's agent stream;
-  `PUBLISH` viewer_comment/viewer_decision/session_ended frames. Separate from
-  `:events`; never touches the replay buffer or the `:pending` queue.
+  `PUBLISH` viewer_comment/viewer_decision/session_ended frames, plus owner
+  mid-session commands (set_model/abort, extensible). Separate from `:events`;
+  never touches the replay buffer or the `:pending` queue (so commands are
+  best-effort, not replayed on reconnect).
 - `session:{id}:agent_connected` — presence flag (`SET "1"` TTL ~45s, refreshed
   each heartbeat, `DEL` on disconnect); exposed as `agent_connected` on the
   session JSON.
@@ -289,6 +345,16 @@ A viewer watching a LIVE session can send a message back into the running CLI se
   usual emit path (seq + persist + buffer + publish) so all SSE viewers and late
   joiners see it; ALSO `RPUSH session:{id}:pending` `{username,message,ts}` (EXPIRE 25200 = 7h,
   kept in step with the live-session idle timeout).
+- **Images (optional).** `images` is an array (≤3) of base64 image data URLs
+  (`data:image/png;base64,…`); the server validates mime (png/jpeg/gif/webp) and a
+  2 MB decoded cap per image, rejecting a bad one with `400`. The image bytes are
+  delivered to the agent **out-of-band**: one `attach_image` frame per image on the
+  session's agent stream, published **before** the `viewer_comment`, so the sidecar
+  has them buffered when it delivers the comment (whose text already carries the
+  client's `[Image #N]` placeholders). The base64 is **never** written to the event
+  payload or the `:pending` queue — it is not stored, not broadcast, and never shown
+  to viewers. Image delivery therefore requires the agent SSE stream (headless path);
+  there is no polling fallback for images.
 - `GET /api/sessions/{id}/comments/pending`: atomically drains `session:{id}:pending`
   (LRANGE 0 -1 + DEL) → `{comments:[...]}`. Called by the capture hook every prompt.
 - Hook injection: the Claude Code `UserPromptSubmit` (and `PreToolUse`) hook calls the

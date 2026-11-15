@@ -457,14 +457,27 @@ func (h *Handler) GetSession(w http.ResponseWriter, r *http.Request) {
 		bypassAll, _ = h.bus.BypassGet(r.Context(), id)
 	}
 
+	// Model-picker catalog for this session's agent — owner only (non-owners
+	// don't need it and shouldn't learn the owner's installed models). Read-time
+	// computation from the owner's online hosts; no DB change.
+	models := []modelOption{}
+	defaultModel := ""
+	modelSwitchable := false
+	if s.OwnerID == p.ID {
+		models, defaultModel, modelSwitchable = h.sessionModelCatalog(r.Context(), s)
+	}
+
 	httpx.JSON(w, http.StatusOK, sessionWithEvents{
-		Session:        *s,
-		CanComment:     canComment,
-		IsOwner:        s.OwnerID == p.ID,
-		BypassAll:      bypassAll,
-		AgentConnected: agentConnected,
-		WatcherCount:   watchers,
-		Events:         events,
+		Session:         *s,
+		CanComment:      canComment,
+		IsOwner:         s.OwnerID == p.ID,
+		BypassAll:       bypassAll,
+		AgentConnected:  agentConnected,
+		WatcherCount:    watchers,
+		Models:          models,
+		DefaultModel:    defaultModel,
+		ModelSwitchable: modelSwitchable,
+		Events:          events,
 	})
 }
 
