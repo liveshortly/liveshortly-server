@@ -55,6 +55,8 @@ export interface Session {
   ended_reason?: string | null;
   /** This session's own contribution to the owner's storage total (bytes). */
   bytes_used?: number;
+  /** False only for an unpublished session while relay-only mode is on (transcript not stored). Missing = true. */
+  persisted?: boolean;
   /** Set (RFC3339) when the session is published to the public feed. */
   published_at?: string | null;
   /** Precomputed preview snippet shown on the feed tile. */
