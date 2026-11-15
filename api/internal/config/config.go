@@ -29,6 +29,11 @@ type Config struct {
 	// applies to sessions that have opened an agent stream at least once.
 	LiveAgentGrace time.Duration
 
+	// RelayOnly (LS_RELAY_ONLY): persist a session's transcript only once it is
+	// published; unpublished sessions live in the Redis buffer alone. See
+	// CONTRACT.md "Relay-only mode". Default false = pre-flag behavior.
+	RelayOnly bool
+
 	// Google sign-in (web authN). All optional; empty disables login wiring.
 	GoogleClientID     string
 	GoogleClientSecret string
@@ -95,6 +100,7 @@ func Load() Config {
 		SessionSecret:      env("SESSION_SECRET", ""),
 		WebBaseURL:         webBaseURL,
 		LiveAgentGrace:     envDuration("LIVE_AGENT_GRACE", 10*time.Minute),
+		RelayOnly:          os.Getenv("LS_RELAY_ONLY") == "true" || os.Getenv("LS_RELAY_ONLY") == "1",
 
 		DefaultStorageLimitBytes: envInt64("DEFAULT_STORAGE_LIMIT_BYTES", 100*1024*1024),
 		DefaultMaxLiveSessions:   int(envInt64("DEFAULT_MAX_LIVE_SESSIONS", 10)),

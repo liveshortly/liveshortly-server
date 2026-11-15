@@ -50,7 +50,7 @@ func (h *Handler) SetBypass(w http.ResponseWriter, r *http.Request) {
 	// Record the mode change in the feed so every watcher sees gating go on/off.
 	actor := "owner"
 	if payload, err := json.Marshal(map[string]any{"bypass_all": req.Enabled}); err == nil {
-		_, _, _ = h.emit(r.Context(), id, &actor, "bypass_changed", payload)
+		_, _, _ = h.emit(r.Context(), id, &actor, "bypass_changed", payload, h.persists(s))
 	}
 
 	httpx.JSON(w, http.StatusOK, map[string]any{"bypass_all": req.Enabled})

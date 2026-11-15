@@ -469,6 +469,7 @@ func (h *Handler) GetSession(w http.ResponseWriter, r *http.Request) {
 
 	httpx.JSON(w, http.StatusOK, sessionWithEvents{
 		Session:         *s,
+		Persisted:       h.persists(s),
 		CanComment:      canComment,
 		IsOwner:         s.OwnerID == p.ID,
 		BypassAll:       bypassAll,

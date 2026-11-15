@@ -4,6 +4,7 @@ package store
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -1551,4 +1552,69 @@ func (st *Store) CountAdmins(ctx context.Context) (int, error) {
 	err := st.pool.QueryRow(ctx,
 		`SELECT count(*) FROM users WHERE is_admin`).Scan(&n)
 	return n, err
+}
+
+// NewEvent builds an unpersisted Event (relay-only, unpublished session) with a
+// server-generated v4 id and ts=now.
+func NewEvent(sessionID string, seq int, actor *string, eventType string, payload json.RawMessage) Event {
+	if len(payload) == 0 {
+		payload = json.RawMessage("{}")
+	}
+	var b [16]byte
+	_, _ = rand.Read(b[:])
+	b[6] = b[6]&0x0f | 0x40
+	b[8] = b[8]&0x3f | 0x80
+	id := fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:])
+	return Event{ID: id, SessionID: sessionID, Seq: seq, Actor: actor, EventType: eventType,
+		Payload: payload, TS: time.Now().UTC()}
+}
+
+// BackfillEvents persists already-numbered events (relay-only publish),
+// keeping each id/seq/ts, and meters the newly inserted bytes onto the session
+// and its owner. Idempotent: a seq already in session_events is skipped.
+// ponytail: no unique index on (session_id, seq) and no schema change allowed,
+// so dedupe is NOT EXISTS; a concurrent writer of the same seq could race it.
+func (st *Store) BackfillEvents(ctx context.Context, sessionID string, evs []Event) error {
+	if len(evs) == 0 {
+		return nil
+	}
+	tx, err := st.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	var n, bytes int64
+	for _, e := range evs {
+		payload := e.Payload
+		if len(payload) == 0 {
+			payload = json.RawMessage("{}")
+		}
+		tag, err := tx.Exec(ctx,
+			`INSERT INTO session_events (id, session_id, seq, actor, event_type, payload, ts)
+			 SELECT $1, $2, $3, $4, $5, $6, $7
+			 WHERE NOT EXISTS (SELECT 1 FROM session_events WHERE session_id = $2 AND seq = $3)`,
+			e.ID, sessionID, e.Seq, e.Actor, e.EventType, []byte(payload), e.TS)
+		if err != nil {
+			return err
+		}
+		if tag.RowsAffected() > 0 {
+			n++
+			bytes += int64(len(payload))
+		}
+	}
+	if n == 0 {
+		return nil
+	}
+	var ownerID string
+	if err := tx.QueryRow(ctx,
+		`UPDATE sessions SET event_count = event_count + $2, bytes_used = bytes_used + $3
+		 WHERE id = $1 RETURNING owner_id`, sessionID, n, bytes).Scan(&ownerID); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx,
+		`UPDATE users SET storage_bytes_used = storage_bytes_used + $2 WHERE id = $1`,
+		ownerID, bytes); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }

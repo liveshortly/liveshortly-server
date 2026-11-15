@@ -63,6 +63,12 @@ current model with no switch options. The dropdown feeds the chosen `id` back to
 `POST …/model`; for pi that `id` is the `<provider>/<modelId>` form that
 endpoint's validation accepts. `fork_count` is the denormalised total
 of forks made from a session and is present on every row (feed/list included).
+`GET /api/sessions/{id}` also returns `persisted: bool` — whether the server is
+keeping this session's transcript. It is always `true` unless relay-only mode is
+on (see **Relay-only mode**); under relay-only it is `true` only once the session
+has been published. A viewer loading an `ended` session with `persisted:false`
+gets `events:[]` and should render a "not kept — this session was never
+published" state rather than an empty transcript.
 
 ### Event
 ```json
@@ -477,6 +483,48 @@ Per-user overrides (super-admin, via `PATCH /api/admin/users/{id}/quota`):
 `quota_exempt` (true → both checks bypassed). `GET /api/me` and
 `GET /api/admin/users` return each user's usage + effective limits.
 
+## Relay-only mode (`LS_RELAY_ONLY`)
+
+A deployment-wide switch that turns the server into a **live relay that stores
+nothing by default** — the owner's `live` daemon holds the authoritative local
+copy; the server persists a session's transcript only when the owner **publishes**
+it. Rationale and background: `docs/LOCAL-FIRST-RELAY.md`.
+
+**Binding invariant: with `LS_RELAY_ONLY=false` (the default) behavior is
+byte-identical to today.** All relay-only logic is behind this flag, so flipping
+it off is a complete rollback. No schema change: "is this session persisted" is
+derived from the existing `published_at` column.
+
+When `LS_RELAY_ONLY=true`:
+- **`POST …/events` (`emit`)** — always allocates seq, pushes to the Redis replay
+  buffer, and publishes to subscribers (so live viewers and late joiners work
+  exactly as now). It writes to `session_events` (and meters the owner's storage
+  quota) **only if the session is published** (`published_at IS NOT NULL`). For an
+  unpublished session it builds the `Event` in memory (server-generated `id`, the
+  Redis `seq`, `ts=now()`) — same JSON shape and `201` response as today — and
+  skips Postgres entirely. The storage-quota crossing branch cannot fire for an
+  unpublished session (nothing is metered).
+- **`POST …/publish`** — in addition to its current work (sets `published_at`,
+  `visibility='public'`, `hero`, `search_vector`), **backfills the live Redis
+  buffer into `session_events`**, preserving each event's existing `id` and `seq`,
+  and meters those bytes onto the owner's storage quota. After publish, `emit`
+  persists normally. Publishing is therefore only fully lossless **while the
+  session is live** (buffer present) or already persisted; publishing an
+  already-ended, never-persisted session has no server-side events to recover
+  (the daemon's local store is the only copy — daemon replay is a later phase).
+- **`POST …/stop`** — archives `sessions/{id}/raw.json` and persists the buffer to
+  `session_events` **only if the session is published**; for an unpublished
+  session it just deletes the buffer/seq (nothing is kept server-side). Everything
+  else (status=ended, ended_at, `session_ended` control frame) is unchanged.
+- **Storage quota** accrues only for published sessions; unpublished sessions cost
+  zero. Concurrency quota is unchanged.
+- **`persisted`** on the session JSON reflects this (see Session shape above).
+
+The `live` daemon keeps an append-only local SQLite archive of every event it
+emits (`~/.liveshortly/archive.db` or equivalent), independent of the flag — the
+owner's private durable copy. Reading it back / replaying to the server to publish
+an already-ended session is a later phase, not v1.
+
 ## Env vars (api)
 `PORT` (8000), `DATABASE_URL`, `REDIS_URL`, `STORAGE_PATH` (/app/data/sessions),
 `CORS_ORIGINS` (*), `DEFAULT_USER_HANDLE` (you),
@@ -484,6 +532,8 @@ Per-user overrides (super-admin, via `PATCH /api/admin/users/{id}/quota`):
 (`10`) — per-user quota defaults (per-user overrides live in the DB),
 `LIVE_AGENT_GRACE` (`10m`) — how long a Live-shim session whose agent stream has
 gone away may stay idle before the abandoned-agent reaper ends it (Go duration).
+`LS_RELAY_ONLY` (`false`) — relay-only mode (see **Relay-only mode**); default
+`false` is byte-identical to pre-flag behavior.
 
 ## Web design
 Tokens, type and rules: `web/DESIGN.md` (source of truth: the PocketAI Mac

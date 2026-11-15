@@ -40,7 +40,7 @@ func (h *Handler) handleQuotaCrossing(ctx context.Context, sessionID string, ev 
 
 	// Announce on the feed so viewers + agent see why the stream stopped. Ignore
 	// the crossing flag here — the session is already ended, this is just a note.
-	_, _, _ = h.emit(ctx, sessionID, nil, "quota_exceeded", jsonMsg(map[string]any{"message": "Storage quota reached — session archived."}))
+	_, _, _ = h.emit(ctx, sessionID, nil, "quota_exceeded", jsonMsg(map[string]any{"message": "Storage quota reached — session archived."}), true)
 
 	// Mint a handoff pinned at the full session so the user can continue it.
 	snapshot, err := h.store.MaxSeq(ctx, sessionID)

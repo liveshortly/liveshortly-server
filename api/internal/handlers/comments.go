@@ -163,7 +163,7 @@ func (h *Handler) PostComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	actor := "viewer"
-	ev, _, err := h.emit(r.Context(), id, &actor, "viewer_comment", payload)
+	ev, _, err := h.emit(r.Context(), id, &actor, "viewer_comment", payload, h.persists(s))
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "failed to emit comment")
 		return

@@ -76,6 +76,9 @@ type spawnInfo struct {
 // effective comment permission (so the web viewer can render read-only).
 type sessionWithEvents struct {
 	store.Session
+	// Persisted: the server keeps this session's transcript (always, unless
+	// LS_RELAY_ONLY, where only published sessions are kept).
+	Persisted  bool `json:"persisted"`
 	CanComment bool `json:"can_comment"`
 	IsOwner    bool `json:"is_owner"`
 	// BypassAll is true while the owner has turned on skip-all-permissions.
