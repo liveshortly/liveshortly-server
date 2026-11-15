@@ -281,7 +281,7 @@ export default function SessionClient({
     }
   }, [probe, agent, id, meta?.title]);
 
-  const send = async (text: string) => {
+  const send = async (text: string, images?: string[]) => {
     const local = `local-${crypto.randomUUID()}`;
     echoes.current.set(local, text);
     setEvents((prev) => [
@@ -297,7 +297,7 @@ export default function SessionClient({
       },
     ]);
     try {
-      await postComment(id, text);
+      await postComment(id, text, images);
       return true;
     } catch {
       echoes.current.delete(local);
@@ -445,7 +445,7 @@ export default function SessionClient({
             />
           )}
           {live && meta.can_comment !== false ? (
-            <Composer sessionId={id} typing={typing} focusSignal={probe?.payload?.kind === "permission" ? null : probe?.id} onSend={send} />
+            <Composer sessionId={id} typing={typing} focusSignal={probe?.payload?.kind === "permission" ? null : probe?.id} onSend={send} busy={busy} canStop={live && meta.is_owner === true} />
           ) : (
             <ReadOnlyFooter ended={!live} signedOut={!me} />
           )}

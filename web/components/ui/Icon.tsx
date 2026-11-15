@@ -48,6 +48,7 @@ const PATHS = {
     </>
   ),
   "play.fill": <path d="M7 4.5v15l12-7.5-12-7.5Z" fill="currentColor" />,
+  "stop.fill": <rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor" />,
   "exclamationmark.triangle": (
     <>
       <path d="M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
