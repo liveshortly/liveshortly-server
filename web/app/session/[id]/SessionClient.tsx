@@ -36,6 +36,11 @@ import QuestionBar from "./QuestionBar";
 import StatusStrip from "./StatusStrip";
 import s from "./session.module.css";
 
+/** No event for this long ⇒ the session is "stale": only then is an unconnected
+ *  agent genuinely disconnected (vs a pty/generic capture that never sets
+ *  presence but is clearly alive and producing events). */
+const STALE_MS = 60_000;
+
 /** Session view (LSW-04/05/06) — Mac LSChatView: status strip, transcript,
  *  permission bar, composer. This file owns loading, the SSE stream, typing
  *  presence and optimistic echoes; the pieces render in sibling modules. */
@@ -231,6 +236,22 @@ export default function SessionClient({
   }, [events.length, hooked]);
   const busy = !!live && !probe && !quiet && agentBusy(events);
 
+  // "Agent disconnected" is only real when the session is ALSO stale (no event
+  // for STALE_MS). pty/generic captures never set presence (agent_connected),
+  // so a live session that's actively producing events must never be called
+  // disconnected. A fresh, never-started session uses created_at, so it reads
+  // as "starting", not "disconnected".
+  const [stale, setStale] = useState(false);
+  const activityTs = events.length ? events[events.length - 1].ts : meta?.created_at;
+  useEffect(() => {
+    if (!live || !activityTs) return setStale(false);
+    const age = Date.now() - (Date.parse(activityTs) || 0);
+    if (age >= STALE_MS) return setStale(true);
+    setStale(false);
+    const t = setTimeout(() => setStale(true), STALE_MS - age);
+    return () => clearTimeout(t);
+  }, [live, activityTs]);
+
   // Screen-reader announcements: new agent replies, the session ending, a
   // permission request (Mac LSChatView.swift:83-93). Never the backlog.
   const lastReply = useMemo(() => {
@@ -344,12 +365,23 @@ export default function SessionClient({
     );
   }
 
+  // A freshly-forked/continued session reads as "starting" until the agent is
+  // actually up: its first event lands, or presence (agent_connected) flips on.
+  const started = events.length > 0 || meta.agent_connected === true;
   const empty = live ? (
-    <div className={s.empty}>
-      <SessionMark live size={40} />
-      <p className="t-title">Session is live</p>
-      <p className={`${s.muted} t-callout`}>Waiting for the agent&apos;s first move.</p>
-    </div>
+    started ? (
+      <div className={s.empty}>
+        <SessionMark live size={40} />
+        <p className="t-title">Session is live</p>
+        <p className={`${s.muted} t-callout`}>Waiting for the agent&apos;s first move.</p>
+      </div>
+    ) : (
+      <div className={s.empty}>
+        <SessionMark live size={40} />
+        <p className="t-title">Session starting…</p>
+        <p className={`${s.muted} t-callout`}>The agent hasn&apos;t started yet.</p>
+      </div>
+    )
   ) : (
     <div className={s.empty}>
       <SessionMark live={false} size={40} />
@@ -374,12 +406,13 @@ export default function SessionClient({
         onToggleInfo={() => setInfoOpen((v) => !v)}
       />
       <div className={s.body}>
-        <div className={s.main}>
+        <div className={`${s.main}${meta.forked_from ? ` ${s.split}` : ""}`}>
           {meta.forked_from && (
-            <div className={s.prior}>
+            <div className={s.priorPane}>
               <PriorContext id={id} source={meta.forked_from} />
             </div>
           )}
+          <div className={s.live}>
           {live && channelBlock && !blockDismissed && (
             <ChannelBlockedBanner
               message={String(channelBlock.message ?? "Viewer messages can't reach the agent right now.")}
@@ -387,7 +420,7 @@ export default function SessionClient({
               onDismiss={dismissBlock}
             />
           )}
-          {live && meta.is_owner && meta.agent_connected === false && (
+          {live && meta.is_owner && meta.agent_connected === false && stale && (
             <div className={s.chanBlock} role="status">
               <div className={s.chanBlockBody}>
                 <strong className={s.chanBlockTitle}>Agent disconnected</strong>
@@ -449,6 +482,7 @@ export default function SessionClient({
           ) : (
             <ReadOnlyFooter ended={!live} signedOut={!me} />
           )}
+          </div>
         </div>
         {infoOpen && (
           <InfoPanel meta={meta} events={events} onMeta={onMeta} onClose={() => setInfoOpen(false)} />
