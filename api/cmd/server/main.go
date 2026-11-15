@@ -259,6 +259,7 @@ func router(cfg config.Config, h *handlers.Handler, ga *handlers.GoogleAuth, mgr
 			r.Post("/sessions/{id}/events", h.EmitEvent)
 			r.Post("/sessions/{id}/stop", h.Stop)
 			r.Post("/sessions/{id}/model", h.SetSessionModel)
+			r.Post("/sessions/{id}/abort", h.AbortSession)
 			r.Post("/sessions/{id}/usage", h.ReportUsage)
 			r.Post("/sessions/{id}/comments", h.PostComment)
 			r.Get("/sessions/{id}/comments/pending", h.PendingComments)

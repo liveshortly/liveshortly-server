@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -14,6 +16,66 @@ import (
 
 type postCommentReq struct {
 	Message string `json:"message"`
+	// Images are optional base64 data URLs ("data:image/png;base64,..."). They
+	// are delivered to the agent out-of-band (attach_image frames on the agent
+	// stream) and NEVER stored or broadcast in the viewer_comment event — the
+	// message text already carries "[Image #N]" placeholders the client wrote.
+	Images []string `json:"images,omitempty"`
+}
+
+const (
+	maxCommentImages = 3
+	maxImageBytes    = 2 << 20 // 2 MB decoded, per image
+)
+
+var imageMimes = map[string]bool{
+	"image/png":  true,
+	"image/jpeg": true,
+	"image/gif":  true,
+	"image/webp": true,
+}
+
+// commentImage is one validated image ready to push on the agent stream.
+type commentImage struct {
+	mime string
+	data string // raw base64, data-URL prefix stripped
+}
+
+// parseCommentImages validates and decodes the optional images on a comment.
+// Server-side limits (never trust the client): at most maxCommentImages, each a
+// base64 data URL with an allowed image mime and ≤ maxImageBytes decoded.
+func parseCommentImages(raw []string) ([]commentImage, error) {
+	if len(raw) == 0 {
+		return nil, nil
+	}
+	if len(raw) > maxCommentImages {
+		return nil, fmt.Errorf("at most %d images per comment", maxCommentImages)
+	}
+	out := make([]commentImage, 0, len(raw))
+	for _, s := range raw {
+		if !strings.HasPrefix(s, "data:") {
+			return nil, fmt.Errorf("image must be a base64 data URL")
+		}
+		meta, b64, ok := strings.Cut(s[len("data:"):], ",")
+		if !ok {
+			return nil, fmt.Errorf("malformed data URL")
+		}
+		mime, enc, _ := strings.Cut(meta, ";")
+		mime = strings.ToLower(strings.TrimSpace(mime))
+		if strings.TrimSpace(enc) != "base64" || !imageMimes[mime] {
+			return nil, fmt.Errorf("unsupported image type")
+		}
+		b64 = strings.TrimSpace(b64)
+		decoded, err := base64.StdEncoding.DecodeString(b64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid base64 image")
+		}
+		if len(decoded) == 0 || len(decoded) > maxImageBytes {
+			return nil, fmt.Errorf("image must be 1..%d bytes", maxImageBytes)
+		}
+		out = append(out, commentImage{mime: mime, data: b64})
+	}
+	return out, nil
 }
 
 // pendingComment is the shape queued for the capture hook to inject into the
@@ -52,6 +114,11 @@ func (h *Handler) PostComment(w http.ResponseWriter, r *http.Request) {
 	req.Message = strings.TrimSpace(req.Message)
 	if req.Message == "" {
 		httpx.Error(w, http.StatusBadRequest, "message is required")
+		return
+	}
+	images, err := parseCommentImages(req.Images)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -112,6 +179,22 @@ func (h *Handler) PostComment(w http.ResponseWriter, r *http.Request) {
 		// Best-effort: the comment is already in the event stream; failing to
 		// queue it for injection should not fail the request.
 		_ = h.bus.PendingPush(r.Context(), id, string(queued))
+
+		// Images ride the agent stream out-of-band and MUST arrive before the
+		// comment that references them, so the sidecar has them buffered when it
+		// delivers the "[Image #N]" text to the agent. The base64 goes only here —
+		// never into the viewer_comment event above (not stored, not broadcast).
+		for i, im := range images {
+			if frame, ferr := json.Marshal(map[string]any{
+				"type":       "attach_image",
+				"session_id": id,
+				"index":      i + 1,
+				"mime":       im.mime,
+				"data":       im.data,
+			}); ferr == nil {
+				_ = h.bus.PublishAgent(r.Context(), id, frame)
+			}
+		}
 
 		// Push the same comment to the Live shim's agent channel for instant
 		// delivery. This does NOT remove anything from the pending queue — the

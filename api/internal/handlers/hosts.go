@@ -513,6 +513,81 @@ func entryFor(catalog []agentModels, agent string) agentModels {
 	return agentModels{Name: agent}
 }
 
+// catalogMatches reports whether a host's agent entry (named as the daemon
+// registered it, e.g. "claude") belongs to a session whose agent/framework label
+// is `want` (e.g. "claude-code"). Direct name match, or the framework label the
+// host agent maps to — so a "claude-code" session finds the host's "claude"
+// catalog without a second inverse map.
+func catalogMatches(hostAgent, want string) bool {
+	if hostAgent == want {
+		return true
+	}
+	if l, ok := frameworkForAgent[hostAgent]; ok && l.framework == want {
+		return true
+	}
+	return false
+}
+
+// defaultModelSwitchable is the fallback switchability when no online host
+// offers the session's agent (daemon off, CLI-captured session). It mirrors the
+// agents SetSessionModel actually accepts, so the flag never promises a switch
+// the endpoint would reject.
+func defaultModelSwitchable(agent string) bool {
+	switch agent {
+	case "claude", "claude-code", "pi":
+		return true
+	}
+	return false
+}
+
+// sessionModelCatalog computes the model-picker catalog for a session's agent at
+// READ time — no DB column, because the spawn host is not persisted. It unions
+// the per-agent catalogs of the owner's currently-online hosts (the same source
+// GET /api/hosts uses); since set_model is broadcast to all of them, the union
+// for this agent is the correct, consistent switchable set. With no online host
+// for the agent it returns empty models and the harness-default switchability.
+func (h *Handler) sessionModelCatalog(ctx context.Context, s *store.Session) ([]modelOption, string, bool) {
+	want := sessionAgent(s)
+	models := []modelOption{}
+	seen := map[string]bool{}
+	defaultModel := ""
+	switchable := false
+	found := false
+
+	raws, err := h.bus.HostList(ctx, s.OwnerID)
+	if err == nil {
+		for _, raw := range raws {
+			var rec hostRecord
+			if json.Unmarshal([]byte(raw), &rec) != nil {
+				continue
+			}
+			for _, e := range rec.catalog() {
+				if !catalogMatches(e.Name, want) {
+					continue
+				}
+				found = true
+				if e.ModelSwitchable {
+					switchable = true
+				}
+				if defaultModel == "" && e.DefaultModel != "" {
+					defaultModel = e.DefaultModel
+				}
+				for _, m := range e.Models {
+					if m.ID == "" || seen[m.ID] {
+						continue
+					}
+					seen[m.ID] = true
+					models = append(models, m)
+				}
+			}
+		}
+	}
+	if !found {
+		switchable = defaultModelSwitchable(want)
+	}
+	return models, defaultModel, switchable
+}
+
 // cleanAgentModels validates a daemon's per-agent catalog: only agents it also
 // registered, each model id in the closed alphabet and never flag-shaped,
 // bounded and deduplicated; a default only if it is on the list. Malformed
@@ -674,14 +749,17 @@ func clip(s string, n int) string {
 	return s
 }
 
-// SetSessionModel relays an owner's live model switch to their machines.
-// POST /api/sessions/{id}/model {"model":"sonnet"|"opus"|"haiku"}.
+// SetSessionModel relays an owner's live model switch to the running session.
+// POST /api/sessions/{id}/model {"model":...}.
 //
-// The spawn host is not persisted, so the command is published to EVERY online
-// machine of the owner; the one actually hosting the session's tmux pane acts,
-// the rest find no matching pane and do nothing. Same trust boundary as spawn:
-// a fixed alias from the allowlist, never an argv, only within the owner's own
-// key space.
+// Two delivery paths by agent, because the two agents run differently:
+//   - claude (tmux): the command is published to EVERY online machine of the
+//     owner; the one hosting the session's tmux pane types `/model <alias>`, the
+//     rest find no matching pane and do nothing. Fixed alias from the allowlist.
+//   - pi (headless): no tmux pane exists, so the command rides the session's
+//     agent stream (session:{id}:agent) straight to the sidecar, which hands it
+//     to pi's RPC. The model is a `provider/modelId` catalog id; the daemon
+//     re-validates the shape. Never an argv on either end.
 func (h *Handler) SetSessionModel(w http.ResponseWriter, r *http.Request) {
 	p, ok := auth.Principal(r.Context())
 	if !ok {
@@ -697,12 +775,6 @@ func (h *Handler) SetSessionModel(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusConflict, "session has ended")
 		return
 	}
-	// Only Claude Code takes `/model <alias>` mid-session; typed into any other
-	// agent's pane it is just garbage input (LSH-01).
-	if !modelSwitchable(s) {
-		httpx.Error(w, http.StatusConflict, "this agent can't switch models mid-session")
-		return
-	}
 
 	var req struct {
 		Model string `json:"model"`
@@ -712,54 +784,139 @@ func (h *Handler) SetSessionModel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	model := strings.TrimSpace(req.Model)
-	if !claudeSpawnModels[model] {
-		httpx.Error(w, http.StatusBadRequest, "unknown model alias")
-		return
-	}
 
-	raws, err := h.bus.HostList(r.Context(), p.ID)
-	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "failed to list hosts")
-		return
-	}
-	if len(raws) == 0 {
-		httpx.Error(w, http.StatusBadRequest, "no machine is online — start `live daemon`")
-		return
-	}
-	cmd, err := json.Marshal(map[string]string{
-		"type":       "set_model",
-		"session_id": id,
-		"model":      model,
-	})
-	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "failed to encode command")
-		return
-	}
-	sent := 0
-	for _, raw := range raws {
-		var rec hostRecord
-		if json.Unmarshal([]byte(raw), &rec) != nil || rec.ID == "" {
-			continue
+	switch sessionAgent(s) {
+	case "claude", "claude-code":
+		if !claudeSpawnModels[model] {
+			httpx.Error(w, http.StatusBadRequest, "unknown model alias")
+			return
 		}
-		if h.bus.PublishHost(r.Context(), p.ID, rec.ID, cmd) == nil {
-			sent++
+		if status, msg := h.publishHostCommand(r.Context(), p.ID, map[string]string{
+			"type":       "set_model",
+			"session_id": id,
+			"model":      model,
+		}); status != 0 {
+			httpx.Error(w, status, msg)
+			return
 		}
-	}
-	if sent == 0 {
-		httpx.Error(w, http.StatusBadGateway, "could not reach any machine")
+	case "pi":
+		if !validModelName(model) || strings.HasPrefix(model, "-") {
+			httpx.Error(w, http.StatusBadRequest, "invalid model id")
+			return
+		}
+		if err := h.publishSessionCommand(r.Context(), id, map[string]string{
+			"type":       "set_model",
+			"session_id": id,
+			"model":      model,
+		}); err != nil {
+			httpx.Error(w, http.StatusBadGateway, "could not deliver to the session")
+			return
+		}
+	default:
+		httpx.Error(w, http.StatusConflict, "this agent can't switch models mid-session")
 		return
 	}
 	httpx.JSON(w, http.StatusOK, map[string]any{"ok": true, "model": model})
 }
 
-// modelSwitchable reports whether a live session's agent takes a model switch.
-func modelSwitchable(s *store.Session) bool {
-	name := ""
-	if s.Agent != nil {
-		name = *s.Agent
+// AbortSession asks a running session to stop its current action ("Stop" button).
+// POST /api/sessions/{id}/abort. Owner only, live only.
+//
+// Delivery mirrors SetSessionModel, because the two agents run differently:
+//   - claude (tmux): published to EVERY online machine of the owner over the
+//     HostStream; the daemon hosting the pane sends Escape (claude's interrupt)
+//     into it, the rest no-op.
+//   - pi (headless): an `abort` command on the session's agent stream
+//     (session:{id}:agent), which the sidecar maps to pi's abort RPC.
+func (h *Handler) AbortSession(w http.ResponseWriter, r *http.Request) {
+	p, ok := auth.Principal(r.Context())
+	if !ok {
+		httpx.Error(w, http.StatusUnauthorized, "no principal")
+		return
 	}
-	if name == "" && s.Framework != nil {
-		name = *s.Framework
+	id := chi.URLParam(r, "id")
+	s, _, okOwned := h.ownedSession(w, r, id)
+	if !okOwned {
+		return
 	}
-	return name == "claude-code" || name == "claude"
+	if s.Status != "live" {
+		httpx.Error(w, http.StatusConflict, "session has ended")
+		return
+	}
+
+	switch sessionAgent(s) {
+	case "claude", "claude-code":
+		if status, msg := h.publishHostCommand(r.Context(), p.ID, map[string]string{
+			"type":       "abort",
+			"session_id": id,
+		}); status != 0 {
+			httpx.Error(w, status, msg)
+			return
+		}
+	default:
+		// pi and any other headless agent: deliver over the agent stream.
+		if err := h.publishSessionCommand(r.Context(), id, map[string]string{
+			"type":       "abort",
+			"session_id": id,
+		}); err != nil {
+			httpx.Error(w, http.StatusBadGateway, "could not deliver to the session")
+			return
+		}
+	}
+	httpx.JSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
+// publishHostCommand broadcasts a control command to every online machine of the
+// owner (the HostStream / daemon path, used by the claude tmux delivery of
+// set_model and abort). Returns (0, "") on success, else an (http status,
+// message) to surface. The daemon acts only on the machine that hosts the pane.
+func (h *Handler) publishHostCommand(ctx context.Context, userID string, cmd map[string]string) (int, string) {
+	raw, err := json.Marshal(cmd)
+	if err != nil {
+		return http.StatusInternalServerError, "failed to encode command"
+	}
+	raws, err := h.bus.HostList(ctx, userID)
+	if err != nil {
+		return http.StatusInternalServerError, "failed to list hosts"
+	}
+	if len(raws) == 0 {
+		return http.StatusBadRequest, "no machine is online — start `live daemon`"
+	}
+	sent := 0
+	for _, rawRec := range raws {
+		var rec hostRecord
+		if json.Unmarshal([]byte(rawRec), &rec) != nil || rec.ID == "" {
+			continue
+		}
+		if h.bus.PublishHost(ctx, userID, rec.ID, raw) == nil {
+			sent++
+		}
+	}
+	if sent == 0 {
+		return http.StatusBadGateway, "could not reach any machine"
+	}
+	return 0, ""
+}
+
+// publishSessionCommand encodes a control command and publishes it to the
+// session's agent stream. The frame is a plain {"type",...} object; the sidecar
+// dispatches on "type" (set_model, abort, …), so new command types need no new
+// endpoint plumbing here.
+func (h *Handler) publishSessionCommand(ctx context.Context, id string, cmd map[string]string) error {
+	raw, err := json.Marshal(cmd)
+	if err != nil {
+		return err
+	}
+	return h.bus.PublishAgent(ctx, id, raw)
+}
+
+// sessionAgent returns a session's agent name (Agent, else Framework).
+func sessionAgent(s *store.Session) string {
+	if s.Agent != nil && *s.Agent != "" {
+		return *s.Agent
+	}
+	if s.Framework != nil {
+		return *s.Framework
+	}
+	return ""
 }
