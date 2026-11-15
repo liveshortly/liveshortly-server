@@ -129,11 +129,10 @@
 }
 .modelSelect {
   cursor: pointer;
-  /* Match the Share button's shape/size so the two sit symmetric (not a pill
-     next to a rounded-rect). */
-  border-radius: var(--radius-hud);
-  padding: 6px 14px;
-  font: 600 var(--text-headline) / 1.4 var(--font-sans);
+}
+/* Model switcher sits inline with its "Model:" label under the title. */
+.modelLine {
+  align-items: center;
 }
 /* A narrow strip drops the nice-to-haves (watcher count, plain model chip)
    before the title gets squeezed. */
@@ -330,6 +329,41 @@
   align-items: flex-end;
   gap: var(--space-8);
 }
+/* Pasted-image chips (Claude-CLI style): a compact removable pill per image. */
+.imgChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+}
+.imgChip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: 2px 4px 2px 2px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-hud);
+  background: var(--canvas);
+  color: var(--fg);
+}
+.imgThumb {
+  width: 22px;
+  height: 22px;
+  object-fit: cover;
+  border-radius: calc(var(--radius-hud) - 2px);
+}
+.imgRemove {
+  display: grid;
+  place-items: center;
+  border: 0;
+  padding: 2px;
+  border-radius: 50%;
+  background: none;
+  color: var(--fg-3);
+  cursor: pointer;
+}
+.imgRemove:hover {
+  color: var(--fg);
+}
 .field {
   flex: 1;
   min-height: 22px;
@@ -365,6 +399,10 @@
 .send:disabled {
   opacity: 0.4;
   cursor: default;
+}
+.stop {
+  background: var(--bad);
+  color: #fff;
 }
 @media (max-width: 767px) {
   .hint {

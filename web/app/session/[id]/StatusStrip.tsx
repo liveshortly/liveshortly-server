@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
-  CLAUDE_MODELS,
   deleteSession,
   isPublished,
   postBypass,
@@ -11,10 +10,10 @@ import {
   sessionViewUrl,
   setSessionModel,
   stopSession,
-  type ClaudeModel,
+  type ModelOption,
   type SessionDetail,
 } from "@/lib/api";
-import { agentCaps, fmtInt, timeAgo } from "@/lib/utils";
+import { fmtInt, frameworkLabel, timeAgo } from "@/lib/utils";
 import ShareSheet from "@/components/ShareSheet";
 import { SIDEBAR_ID, useWorkspaceDrawer } from "@/components/WorkspaceDrawerContext";
 import Button, { IconButton } from "@/components/ui/Button";
@@ -231,11 +230,6 @@ export default function StatusStrip({
 
         <span className={s.spacer} />
 
-        {owner && live && agentCaps(meta.framework).modelSwitch ? (
-          <ModelSwitcher id={meta.id} current={meta.model ?? ""} onMeta={onMeta} />
-        ) : (
-          meta.model && <span className={`${s.chip} ${s.wideOnly} t-caption`}>{meta.model}</span>
-        )}
         <span className={s.wideOnly}>
           <Button onClick={() => setShareOpen(true)} aria-haspopup="dialog">
             Share
@@ -249,6 +243,29 @@ export default function StatusStrip({
         />
         <Menu label="Session actions" icon="ellipsis" items={items} />
       </div>
+
+      {/* Agent info, directly under the name. The Model is a live switcher when
+          the owner of a live session has a switchable catalog (from the host
+          registration, via meta.models) — otherwise plain text. Non-owners,
+          ended sessions, and CLI sessions with no catalog see plain text. */}
+      <div className={`${s.metaLine} t-callout`}>
+        <span className={s.muted}>Harness:</span> {frameworkLabel(meta.framework)}
+      </div>
+      {owner && live && meta.model_switchable && (meta.models?.length ?? 0) > 0 ? (
+        <div className={`${s.metaLine} ${s.modelLine} t-callout`}>
+          <span className={s.muted}>Model:</span>
+          <ModelSwitcher
+            id={meta.id}
+            current={meta.model ?? meta.default_model ?? ""}
+            models={meta.models ?? []}
+            onMeta={onMeta}
+          />
+        </div>
+      ) : meta.model ?? meta.default_model ? (
+        <div className={`${s.metaLine} t-callout`}>
+          <span className={s.muted}>Model:</span> {meta.model ?? meta.default_model}
+        </div>
+      ) : null}
 
       <div className={`${s.metaLine} t-callout`}>
         <span>@{meta.owner_handle}</span>
@@ -338,23 +355,29 @@ function RenameField({
   );
 }
 
-/** Live model switch (owner, claude): the daemon types `/model <alias>`. */
+/** Live model switch (owner): POSTs the chosen model id; the server routes it to
+ *  the hosting machine (the daemon types `/model`, pi goes via the agent stream).
+ *  Options come from the session's own catalog (meta.models); the server
+ *  validates the id. */
 function ModelSwitcher({
   id,
   current,
+  models,
   onMeta,
 }: {
   id: string;
   current: string;
+  models: ModelOption[];
   onMeta: (u: Partial<SessionDetail>) => void;
 }) {
   const [state, setState] = useState<"idle" | "busy" | "error">("idle");
-  const value = CLAUDE_MODELS.find((m) => current.toLowerCase().includes(m)) ?? "";
+  // Select the catalog entry matching the current model; unknown → placeholder.
+  const value = models.some((m) => m.id === current) ? current : "";
   const change = async (next: string) => {
     if (!next) return;
     setState("busy");
     try {
-      await setSessionModel(id, next as ClaudeModel);
+      await setSessionModel(id, next);
       onMeta({ model: next });
       setState("idle");
     } catch {
@@ -372,9 +395,9 @@ function ModelSwitcher({
       title={state === "error" ? "Couldn't switch the model" : "Switch the agent's model"}
     >
       {!value && <option value="">{current || "model"}</option>}
-      {CLAUDE_MODELS.map((m) => (
-        <option key={m} value={m}>
-          {m}
+      {models.map((m) => (
+        <option key={m.id} value={m.id}>
+          {m.label ?? m.id}
         </option>
       ))}
     </select>

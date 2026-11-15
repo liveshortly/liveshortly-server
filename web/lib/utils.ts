@@ -36,6 +36,8 @@ export function frameworkLabel(fw: string | null | undefined): string {
       return "Gemini";
     case "ollama":
       return "Ollama";
+    case "pi":
+      return "Pi";
     case "agy":
     case "antigravity":
       return "Antigravity";

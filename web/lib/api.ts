@@ -151,6 +151,14 @@ export interface SessionDetail extends Session {
   forker_count?: number;
   /** Source reference when this session is itself a fork. */
   forked_from?: ForkRef | null;
+  /** Owner-scoped model catalog for this session's agent, from the hosting
+   *  machine's registration. Empty for non-owners, or a session with no online
+   *  host (e.g. a CLI-captured session). */
+  models?: ModelOption[];
+  /** The agent's default model id, when the host advertised one. */
+  default_model?: string;
+  /** Whether the agent supports a live model switch. */
+  model_switchable?: boolean;
   events: SessionEvent[];
 }
 
@@ -433,6 +441,7 @@ export function streamUrl(id: string, sinceSeq?: number): string {
 export async function postComment(
   id: string,
   message: string,
+  images?: string[],
   signal?: AbortSignal,
 ): Promise<void> {
   const res = await fetch(
@@ -442,7 +451,9 @@ export async function postComment(
       signal,
       credentials: "include",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ message }),
+      // `images`: up to 3 data URLs the server strips from the stored event
+      // (only the [Image #N] placeholders stay) and forwards to the agent.
+      body: JSON.stringify(images?.length ? { message, images } : { message }),
     },
   );
   if (!res.ok) {
@@ -963,13 +974,33 @@ export type ClaudeModel = (typeof CLAUDE_MODELS)[number];
  *  daemon types `/model <alias>` into the session's pane. */
 export async function setSessionModel(
   id: string,
-  model: ClaudeModel,
+  model: string,
 ): Promise<void> {
   const res = await fetch(`${browserBase()}/api/sessions/${id}/model`, {
     method: "POST",
     credentials: "include",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ model }),
+  });
+  if (!res.ok) {
+    let detail = `${res.status} ${res.statusText}`;
+    try {
+      const body = (await res.json()) as { error?: string };
+      if (body?.error) detail = body.error;
+    } catch {
+      /* keep the status line */
+    }
+    throw new ApiError(res.status, detail);
+  }
+}
+
+/** Stop the agent's current action on a LIVE session (owner only). The server
+ *  delivers an interrupt to the hosting machine. 409 if the session has ended,
+ *  502 if the agent is unreachable. */
+export async function abortSession(id: string): Promise<void> {
+  const res = await fetch(`${browserBase()}/api/sessions/${id}/abort`, {
+    method: "POST",
+    credentials: "include",
   });
   if (!res.ok) {
     let detail = `${res.status} ${res.statusText}`;
