@@ -57,7 +57,7 @@ func (h *Handler) EmitEvent(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	ev, crossed, err := h.emit(r.Context(), id, req.Actor, req.EventType, req.Payload)
+	ev, crossed, err := h.emit(r.Context(), id, req.Actor, req.EventType, req.Payload, h.persists(s))
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "failed to emit event")
 		return
@@ -81,12 +81,18 @@ func (h *Handler) EmitEvent(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusCreated, ev)
 }
 
+// persists reports whether a session's events go to Postgres: always, except
+// under relay-only where only published sessions are kept.
+func (h *Handler) persists(s *store.Session) bool {
+	return !h.cfg.RelayOnly || s.PublishedAt != nil
+}
+
 // emit runs the shared emit pipeline for a live session: allocate seq via Redis
 // INCR, belt-cap + persist the event (metering its bytes onto the owner's quota),
 // then fan out to the replay buffer and the pub/sub channel. It reports whether
 // this event crossed the owner's storage limit. The caller confirms the session
 // is live first (see requireLive).
-func (h *Handler) emit(ctx context.Context, sessionID string, actor *string, eventType string, payload json.RawMessage) (store.Event, bool, error) {
+func (h *Handler) emit(ctx context.Context, sessionID string, actor *string, eventType string, payload json.RawMessage, persist bool) (store.Event, bool, error) {
 	seq, err := h.bus.NextSeq(ctx, sessionID)
 	if err != nil {
 		return store.Event{}, false, err
@@ -96,10 +102,17 @@ func (h *Handler) emit(ctx context.Context, sessionID string, actor *string, eve
 	// runaway output can't dominate the quota or spike memory in a single insert.
 	payload = beltCapPayload(payload)
 
-	res, err := h.store.AppendEvent(ctx, sessionID, seq, actor, eventType, payload,
-		h.cfg.DefaultStorageLimitBytes)
-	if err != nil {
-		return store.Event{}, false, err
+	var res store.AppendResult
+	if persist {
+		res, err = h.store.AppendEvent(ctx, sessionID, seq, actor, eventType, payload,
+			h.cfg.DefaultStorageLimitBytes)
+		if err != nil {
+			return store.Event{}, false, err
+		}
+	} else {
+		// Relay-only, unpublished: in-memory event only; nothing metered, so
+		// Exempt=true keeps the quota-crossing branch from firing.
+		res = store.AppendResult{Event: store.NewEvent(sessionID, seq, actor, eventType, payload), Exempt: true}
 	}
 
 	// Serialize once and fan out to the replay buffer and the live channel.

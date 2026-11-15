@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"context"
 	"encoding/base64"
+	"encoding/json"
 	"net/http"
 	"strconv"
 	"strings"
@@ -25,6 +27,14 @@ func (h *Handler) Publish(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "failed to publish session")
 		return
+	}
+	// Relay-only: the live buffer is the only copy, so persist it now.
+	if h.cfg.RelayOnly && s != nil {
+		if err := h.backfillBuffer(r.Context(), id); err != nil {
+			httpx.Error(w, http.StatusInternalServerError, "failed to persist session events")
+			return
+		}
+		s, _ = h.store.GetSession(r.Context(), id) // refresh event_count
 	}
 	httpx.JSON(w, http.StatusOK, s)
 }
@@ -186,4 +196,23 @@ func publicSession(s *store.Session) {
 	if i := strings.IndexByte(s.OwnerHandle, '@'); i > 0 {
 		s.OwnerHandle = s.OwnerHandle[:i]
 	}
+}
+
+// backfillBuffer copies the live Redis buffer into session_events (relay-only
+// publish). Idempotent: seqs already stored are skipped.
+func (h *Handler) backfillBuffer(ctx context.Context, id string) error {
+	raw, err := h.bus.BufferAll(ctx, id)
+	if err != nil {
+		return err
+	}
+	evs := make([]store.Event, 0, len(raw))
+	for _, b := range raw {
+		var e store.Event
+		if json.Unmarshal([]byte(b), &e) != nil || e.Seq == 0 {
+			continue // not an event frame
+		}
+		e.SessionID = id
+		evs = append(evs, e)
+	}
+	return h.store.BackfillEvents(ctx, id, evs)
 }

@@ -26,24 +26,28 @@ func (h *Handler) Stop(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Archive the buffered event stream as a JSON array under sessions/{id}/raw.json.
-	buffered, err := h.bus.BufferAll(r.Context(), id)
-	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "failed to read buffer")
-		return
-	}
-	raw := make([]json.RawMessage, 0, len(buffered))
-	for _, b := range buffered {
-		raw = append(raw, json.RawMessage(b))
-	}
-	archive, err := json.Marshal(raw)
-	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "failed to encode archive")
-		return
-	}
-	storageKey, err := h.blob.Put(id, "raw.json", archive)
-	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "failed to archive session")
-		return
+	// Relay-only + unpublished: keep nothing server-side (buffer is dropped below).
+	storageKey := ""
+	if h.persists(s) {
+		buffered, err := h.bus.BufferAll(r.Context(), id)
+		if err != nil {
+			httpx.Error(w, http.StatusInternalServerError, "failed to read buffer")
+			return
+		}
+		raw := make([]json.RawMessage, 0, len(buffered))
+		for _, b := range buffered {
+			raw = append(raw, json.RawMessage(b))
+		}
+		archive, err := json.Marshal(raw)
+		if err != nil {
+			httpx.Error(w, http.StatusInternalServerError, "failed to encode archive")
+			return
+		}
+		storageKey, err = h.blob.Put(id, "raw.json", archive)
+		if err != nil {
+			httpx.Error(w, http.StatusInternalServerError, "failed to archive session")
+			return
+		}
 	}
 
 	updated, err := h.store.StopSession(r.Context(), id, storageKey)

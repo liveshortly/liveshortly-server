@@ -382,6 +382,15 @@ export default function SessionClient({
         <p className={`${s.muted} t-callout`}>The agent hasn&apos;t started yet.</p>
       </div>
     )
+  ) : meta.persisted === false ? (
+    <div className={s.empty}>
+      <SessionMark live={false} size={40} />
+      <p className="t-title">Session not kept</p>
+      <p className={`${s.muted} t-callout`}>
+        This session wasn&apos;t saved — it was never published. Only published sessions are stored.
+      </p>
+      {meta.is_owner && <DeleteSessionButton id={id} onDeleted={() => router.push("/sessions")} />}
+    </div>
   ) : (
     <div className={s.empty}>
       <SessionMark live={false} size={40} />
@@ -419,6 +428,13 @@ export default function SessionClient({
               attach={typeof channelBlock.attach === "string" ? channelBlock.attach : undefined}
               onDismiss={dismissBlock}
             />
+          )}
+          {live && meta.is_owner && meta.persisted === false && (
+            <div className={s.chanBlock} role="status">
+              <p className={s.chanBlockText}>
+                Not published — this session won&apos;t be saved after it ends. Publish (Share menu) to keep it.
+              </p>
+            </div>
           )}
           {live && meta.is_owner && meta.agent_connected === false && stale && (
             <div className={s.chanBlock} role="status">

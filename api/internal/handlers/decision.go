@@ -78,7 +78,7 @@ func (h *Handler) PostDecision(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	actor := "viewer"
-	ev, _, err := h.emit(r.Context(), id, &actor, "viewer_decision", payload)
+	ev, _, err := h.emit(r.Context(), id, &actor, "viewer_decision", payload, h.persists(s))
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "failed to emit decision")
 		return
